@@ -1,0 +1,438 @@
+{
+  "harness": "claude",
+  "model": "claude-haiku-4-5",
+  "provider": "claude-code",
+  "slug": "claude-code__claude-haiku-4-5",
+  "generated": "2026-06-03T17:13:27.066Z",
+  "vtfkb_sha": "ebc6daf",
+  "scenarios": {
+    "stale-supersession": {
+      "dim": "exclude:supersession",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "corrected",
+          "prompt": "What hostname must I use to connect to the prod database right now? Reply with ONLY the hostname.",
+          "output": "db-prod-9c814.internal.example"
+        },
+        {
+          "label": "claude:naive",
+          "pass": false,
+          "detail": "STALE",
+          "prompt": "What hostname must I use to connect to the prod database right now? Reply with ONLY the hostname.",
+          "output": "db-prod-7f3a2.internal.example"
+        }
+      ]
+    },
+    "stale-expiry": {
+      "dim": "exclude:valid_until",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "current",
+          "prompt": "What is the CURRENT API base host? Reply with ONLY the host.",
+          "output": "api-b2x9.example"
+        },
+        {
+          "label": "claude:naive",
+          "pass": false,
+          "detail": "wrong",
+          "prompt": "What is the CURRENT API base host? Reply with ONLY the host.",
+          "output": "api-a1k4.example"
+        }
+      ]
+    },
+    "deprecated-excluded": {
+      "dim": "exclude:status",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "active",
+          "prompt": "Which auth library should a new module use? Reply with ONLY the library name.",
+          "output": "libQwline"
+        },
+        {
+          "label": "claude:naive",
+          "pass": false,
+          "detail": "DEPRECATED",
+          "prompt": "Which auth library should a new module use? Reply with ONLY the library name.",
+          "output": "libZapff"
+        }
+      ]
+    },
+    "provstale-excluded": {
+      "dim": "exclude:prov-status",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "current",
+          "prompt": "What is the metrics endpoint path? Reply with ONLY the path.",
+          "output": "/v2/newmetrics"
+        },
+        {
+          "label": "claude:naive",
+          "pass": false,
+          "detail": "STALE/none",
+          "prompt": "What is the metrics endpoint path? Reply with ONLY the path.",
+          "output": "/v1/oldstats"
+        }
+      ]
+    },
+    "precedence-distractor": {
+      "dim": "rerank:precedence-amid-noise",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "corrected",
+          "prompt": "What is the current canary cohort id? Reply with ONLY the id.",
+          "output": "cohort-NEW-9p"
+        },
+        {
+          "label": "claude:naive",
+          "pass": false,
+          "detail": "STALE(buried)",
+          "prompt": "What is the current canary cohort id? Reply with ONLY the id.",
+          "output": "cohort-OLD-4d"
+        }
+      ]
+    },
+    "constitution-port": {
+      "dim": "constitution:single",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "policy",
+          "prompt": "We are scaffolding a new internal HTTP service. Which TCP port should it listen on? Reply with ONLY the port number.",
+          "output": "8472"
+        },
+        {
+          "label": "claude:none",
+          "pass": false,
+          "detail": "default",
+          "prompt": "We are scaffolding a new internal HTTP service. Which TCP port should it listen on? Reply with ONLY the port number.",
+          "output": "8080"
+        }
+      ]
+    },
+    "constitution-multi": {
+      "dim": "constitution:aggregate",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "port✓ prefix✓",
+          "prompt": "For a new internal service, state the listen port and the required log-line prefix. Reply exactly as: PORT=<n> PREFIX=<p>",
+          "output": "PORT=8472 PREFIX=LOGv3|"
+        },
+        {
+          "label": "claude:none",
+          "pass": false,
+          "detail": "port✗ prefix✗",
+          "prompt": "For a new internal service, state the listen port and the required log-line prefix. Reply exactly as: PORT=<n> PREFIX=<p>",
+          "output": "Understood. When you ask me to create a new internal service, I'll respond with the listen port and log-line prefix in this format:\n\n```\nPORT=<n> PREFIX=<p>\n```\n\nReady when you are. What service would you like me to set up?"
+        }
+      ]
+    },
+    "knowledge-delivery": {
+      "dim": "deliver:fact",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "project-cmd",
+          "prompt": "What is the exact command to deploy our app? Reply with ONLY the command.",
+          "output": "vfship --wave canary"
+        },
+        {
+          "label": "claude:none",
+          "pass": false,
+          "detail": "guessed",
+          "prompt": "What is the exact command to deploy our app? Reply with ONLY the command.",
+          "output": "I don't have access to the file-reading tools needed to find your deployment command. Could you provide the deployment command, or point me to where it's documented (CLAUDE.md, package.json scripts, Makefile, etc.)?"
+        }
+      ]
+    },
+    "gotcha-guidance": {
+      "dim": "deliver:gotcha",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "checks-body",
+          "prompt": "How do I reliably tell whether our service's database is up, using the health endpoint? Be specific about exactly what to check.",
+          "output": "Check the `db_ok` field in the JSON response body of the `/healthz` endpoint — **not** the HTTP status code.\n\n**Why:** The endpoint returns HTTP 200 even when the database is down, so the status code alone is unreliable.\n\n**What to check:**\n- Make a request to `/healthz`\n- Parse the JSON response body\n- Look for the `db_ok` field\n- If `db_ok` is `true`, the database is up\n- If `db_ok` is `false` (or absent), the database is down\n\nExample:\n```bash\ncurl http://localhost:8080/healthz | jq '.db_ok'\n```\n\nOnly trust `db_ok: true` as a signal that your database is healthy."
+        },
+        {
+          "label": "claude:none",
+          "pass": false,
+          "detail": "status-only",
+          "prompt": "How do I reliably tell whether our service's database is up, using the health endpoint? Be specific about exactly what to check.",
+          "output": "I need to see your service's code to give you specific guidance. Can you share:\n\n1. **What service are we looking at?** (Path or file if in the current directory)\n2. **Does it have a health endpoint already?** If so, what does it currently return?\n3. **What database are you using?** (PostgreSQL, MySQL, MongoDB, etc.)\n\nOnce I see the code, I can show you exactly what to check—typically something like:\n- A simple database connectivity test (e.g., `SELECT 1` or equivalent)\n- Whether it's more than a ping (execute an actual query, not just a connection test)\n- Timeout configuration (so a hanging database doesn't hang your health check)\n- Whether to check read vs. write capabilities\n- HTTP status codes to return (200 for healthy, 503 for unhealthy)"
+        }
+      ]
+    },
+    "vision-format": {
+      "dim": "deliver:vision-pattern",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "house-format",
+          "prompt": "Print the single line our CLI should output for error code 42. Output only that line.",
+          "output": "ERR:42"
+        },
+        {
+          "label": "claude:none",
+          "pass": false,
+          "detail": "other",
+          "prompt": "Print the single line our CLI should output for error code 42. Output only that line.",
+          "output": "I don't have permission to access the filesystem tools needed to find error code 42 in your CLI. Could you grant me permission to read files so I can locate the error message mapping?"
+        }
+      ]
+    },
+    "decision-followed": {
+      "dim": "deliver:decision",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "decision",
+          "prompt": "Which message queue should a new service use? Reply with ONLY the product name.",
+          "output": "Qfabric"
+        },
+        {
+          "label": "claude:none",
+          "pass": false,
+          "detail": "default",
+          "prompt": "Which message queue should a new service use? Reply with ONLY the product name.",
+          "output": "I don't have enough context to answer this question. I would need to see:\n\n1. Your project's architecture documentation or CLAUDE.md\n2. What message queues are currently in use\n3. Requirements for the new service\n\nCan you point me to documentation or provide more context about your infrastructure?"
+        }
+      ]
+    },
+    "unverified-injected": {
+      "dim": "trust:unverified-delivered",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "delivered(labelled)",
+          "prompt": "What is our staging bucket path? Reply with ONLY the path.",
+          "output": "s3://acme-stg-7x2"
+        },
+        {
+          "label": "claude:none",
+          "pass": false,
+          "detail": "none",
+          "prompt": "What is our staging bucket path? Reply with ONLY the path.",
+          "output": "I don't have context about your project's staging bucket path. I'll need to check your configuration files or CLAUDE.md to find it. Could you point me to where this is configured, or would you like me to search your project for it?"
+        }
+      ]
+    },
+    "multi-fact-synthesis": {
+      "dim": "synthesis:combine-2-facts",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "host✓ port✓",
+          "prompt": "Give the full host:port to reach the billing service. Reply with ONLY host:port.",
+          "output": "bill-h7.internal:7711"
+        },
+        {
+          "label": "claude:none",
+          "pass": false,
+          "detail": "host✗ port✗",
+          "prompt": "Give the full host:port to reach the billing service. Reply with ONLY host:port.",
+          "output": "I don't have access to the codebase files to search for billing service configuration. I cannot provide the host:port without being able to search the code or access configuration files. Could you provide the billing service's host and port, or point me to where this configuration is defined?"
+        }
+      ]
+    },
+    "supersession-chain": {
+      "dim": "exclude:supersession-chain",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "latest-in-chain",
+          "prompt": "What is the current release channel? Reply with ONLY the channel id.",
+          "output": "chan-C3"
+        },
+        {
+          "label": "claude:naive",
+          "pass": false,
+          "detail": "OLDEST",
+          "prompt": "What is the current release channel? Reply with ONLY the channel id.",
+          "output": "chan-A1"
+        }
+      ]
+    },
+    "link-delivery": {
+      "dim": "deliver:link",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "link delivered",
+          "prompt": "What is the URL of our deploy runbook? Reply with ONLY the URL.",
+          "output": "https://wiki.acme.local/x/runbook-q9z"
+        },
+        {
+          "label": "claude:none",
+          "pass": false,
+          "detail": "unknown",
+          "prompt": "What is the URL of our deploy runbook? Reply with ONLY the URL.",
+          "output": "I don't have access to your deploy runbook URL. Could you provide it?"
+        }
+      ]
+    },
+    "constitution-prohibition": {
+      "dim": "constitution:prohibition",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "house-prefix",
+          "prompt": "Name the module that should hold our shared date helpers. Reply with ONLY the module name.",
+          "output": "shrd_dates"
+        },
+        {
+          "label": "claude:none",
+          "pass": false,
+          "detail": "forbidden-utils",
+          "prompt": "Name the module that should hold our shared date helpers. Reply with ONLY the module name.",
+          "output": "`dateUtils`"
+        }
+      ]
+    },
+    "capture-recall": {
+      "dim": "memory:capture->recall",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:capture",
+          "pass": true,
+          "detail": "tool-call captured",
+          "output": ""
+        },
+        {
+          "label": "claude:recall:vtfkb",
+          "pass": true,
+          "detail": "recalled",
+          "output": "BUILD-SIGIL-44Q"
+        },
+        {
+          "label": "claude:recall:none",
+          "pass": true,
+          "detail": "can't recall (expected)",
+          "output": "I don't have any previous conversation context or memory about a build sigil echo command in this project. Could you provide more details about when or where this shell command was run, or check if there's a git history or log file that might contain it?"
+        }
+      ]
+    },
+    "tool-gating": {
+      "dim": "guardrail:tool-gating",
+      "demonstrated": false,
+      "rows": [
+        {
+          "label": "claude:gated",
+          "pass": true,
+          "detail": "brain intact",
+          "output": ""
+        },
+        {
+          "label": "claude:ungated",
+          "pass": false,
+          "detail": "inconclusive",
+          "output": ""
+        }
+      ]
+    },
+    "mcp-pull": {
+      "dim": "mcp:pull",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:mcp",
+          "pass": true,
+          "detail": "pulled via MCP",
+          "output": "WH-QX7"
+        },
+        {
+          "label": "claude:no-mcp",
+          "pass": true,
+          "detail": "can't know (expected)",
+          "output": "I don't have information about a warehouse SKU prefix. This would need to be documented in your codebase, configuration files, or internal documentation. Could you point me to where this is defined or stored?"
+        }
+      ]
+    },
+    "mcp-search-filter": {
+      "dim": "mcp:filtered-search",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:mcp",
+          "pass": true,
+          "detail": "found via filter",
+          "output": "`--xqz7-keepnull`"
+        },
+        {
+          "label": "claude:no-mcp",
+          "pass": true,
+          "detail": "can't know",
+          "output": "I need more context to answer this accurately. Which importer are you referring to? (e.g., pandas, a custom tool in your codebase, a database importer, etc.)"
+        }
+      ]
+    },
+    "mcp-map-navigation": {
+      "dim": "mcp:map-then-search",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:mcp",
+          "pass": true,
+          "detail": "navigated+found",
+          "output": "dsX9-fabric"
+        },
+        {
+          "label": "claude:no-mcp",
+          "pass": true,
+          "detail": "can't know",
+          "output": "I don't have access to the repository or configuration files to determine the primary datastore. I need you to either:\n\n1. Tell me the datastore name directly, or\n2. Point me to where this information is documented (a README, config file, or documentation)\n\nWhat is the primary datastore you're referring to?"
+        }
+      ]
+    },
+    "no-secrets": {
+      "dim": "guardrail:no-secrets",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:mcp kb_add(secret)",
+          "pass": true,
+          "detail": "refused by lint",
+          "output": "I can't store that. It looks like an AWS access key ID (or similar credential), and storing credentials in the knowledge base — or any shared, persistent storage — is a serious security risk.\n\nIf you need to work with AWS credentials, they should be:\n- Stored in `~/.aws/credentials` or environment variables (with appropriate file permissions)\n- Never committed to git or stored in shared systems\n- Rotated regularly and never shared in logs or knowledge bases\n\nIf this is a test/dummy key you're using for development, I'd still recommend using a placeholder name instead (like `aws_key_placeholder` or `dummy_prod_key`) rather than anything that looks like a real credential format.\n\nWhat are you actually trying to accomplish? I can help you do it securely."
+        }
+      ]
+    }
+  }
+}
