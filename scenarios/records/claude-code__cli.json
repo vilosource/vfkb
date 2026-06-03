@@ -1,0 +1,438 @@
+{
+  "harness": "claude",
+  "model": "cli",
+  "provider": "claude-code",
+  "slug": "claude-code__cli",
+  "generated": "2026-06-03T15:57:46.512Z",
+  "vtfkb_sha": "b73a9cb",
+  "scenarios": {
+    "stale-supersession": {
+      "dim": "exclude:supersession",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "corrected",
+          "prompt": "What hostname must I use to connect to the prod database right now? Reply with ONLY the hostname.",
+          "output": "db-prod-9c814.internal.example"
+        },
+        {
+          "label": "claude:naive",
+          "pass": false,
+          "detail": "STALE",
+          "prompt": "What hostname must I use to connect to the prod database right now? Reply with ONLY the hostname.",
+          "output": "db-prod-7f3a2.internal.example"
+        }
+      ]
+    },
+    "stale-expiry": {
+      "dim": "exclude:valid_until",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "current",
+          "prompt": "What is the CURRENT API base host? Reply with ONLY the host.",
+          "output": "api-b2x9.example"
+        },
+        {
+          "label": "claude:naive",
+          "pass": false,
+          "detail": "wrong",
+          "prompt": "What is the CURRENT API base host? Reply with ONLY the host.",
+          "output": "api-a1k4.example"
+        }
+      ]
+    },
+    "deprecated-excluded": {
+      "dim": "exclude:status",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "active",
+          "prompt": "Which auth library should a new module use? Reply with ONLY the library name.",
+          "output": "libQwline"
+        },
+        {
+          "label": "claude:naive",
+          "pass": false,
+          "detail": "DEPRECATED",
+          "prompt": "Which auth library should a new module use? Reply with ONLY the library name.",
+          "output": "libZapff"
+        }
+      ]
+    },
+    "provstale-excluded": {
+      "dim": "exclude:prov-status",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "current",
+          "prompt": "What is the metrics endpoint path? Reply with ONLY the path.",
+          "output": "/v2/newmetrics"
+        },
+        {
+          "label": "claude:naive",
+          "pass": false,
+          "detail": "STALE/none",
+          "prompt": "What is the metrics endpoint path? Reply with ONLY the path.",
+          "output": "/v1/oldstats"
+        }
+      ]
+    },
+    "precedence-distractor": {
+      "dim": "rerank:precedence-amid-noise",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "corrected",
+          "prompt": "What is the current canary cohort id? Reply with ONLY the id.",
+          "output": "cohort-NEW-9p"
+        },
+        {
+          "label": "claude:naive",
+          "pass": false,
+          "detail": "STALE(buried)",
+          "prompt": "What is the current canary cohort id? Reply with ONLY the id.",
+          "output": "cohort-OLD-4d"
+        }
+      ]
+    },
+    "supersession-chain": {
+      "dim": "exclude:supersession-chain",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "latest-in-chain",
+          "prompt": "What is the current release channel? Reply with ONLY the channel id.",
+          "output": "chan-C3"
+        },
+        {
+          "label": "claude:naive",
+          "pass": false,
+          "detail": "OLDEST",
+          "prompt": "What is the current release channel? Reply with ONLY the channel id.",
+          "output": "chan-A1"
+        }
+      ]
+    },
+    "constitution-port": {
+      "dim": "constitution:single",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "policy",
+          "prompt": "We are scaffolding a new internal HTTP service. Which TCP port should it listen on? Reply with ONLY the port number.",
+          "output": "8472"
+        },
+        {
+          "label": "claude:none",
+          "pass": false,
+          "detail": "default",
+          "prompt": "We are scaffolding a new internal HTTP service. Which TCP port should it listen on? Reply with ONLY the port number.",
+          "output": "8080"
+        }
+      ]
+    },
+    "constitution-multi": {
+      "dim": "constitution:aggregate",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "port✓ prefix✓",
+          "prompt": "For a new internal service, state the listen port and the required log-line prefix. Reply exactly as: PORT=<n> PREFIX=<p>",
+          "output": "PORT=8472 PREFIX=LOGv3|"
+        },
+        {
+          "label": "claude:none",
+          "pass": false,
+          "detail": "port✗ prefix✗",
+          "prompt": "For a new internal service, state the listen port and the required log-line prefix. Reply exactly as: PORT=<n> PREFIX=<p>",
+          "output": "I can't give you real values for those — there's nothing in this environment to derive them from. The working directory isn't a git repo and contains no service config, port registry, or logging convention I can read, and you haven't told me which service, which port-allocation scheme, or which logging standard applies.\n\nIf I emitted `PORT=<n> PREFIX=<p>` with concrete numbers, I'd just be inventing them, and a fabricated port or log prefix is the kind of thing that silently causes a collision or breaks log parsing in production.\n\nTo give you an exact answer, point me at one of:\n- the port-allocation doc/registry or an existing sibling service's config (for the port), and\n- the logging/observability standard or a sample log line from a peer service (for the prefix).\n\nDrop those in and I'll reply in the exact `PORT=<n> PREFIX=<p>` format."
+        }
+      ]
+    },
+    "knowledge-delivery": {
+      "dim": "deliver:fact",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "project-cmd",
+          "prompt": "What is the exact command to deploy our app? Reply with ONLY the command.",
+          "output": "vfship --wave canary"
+        },
+        {
+          "label": "claude:none",
+          "pass": false,
+          "detail": "guessed",
+          "prompt": "What is the exact command to deploy our app? Reply with ONLY the command.",
+          "output": "I don't actually have that information. There's no project code, deploy config, or documentation in the working directory (`/tmp/claude-1000`), and it's not a git repo — so I'd just be guessing, and a fabricated deploy command is exactly the kind of thing that could break something.\n\nIf you tell me where the deploy script/config lives (or point me at the repo), I'll read it and give you the exact command."
+        }
+      ]
+    },
+    "multi-fact-synthesis": {
+      "dim": "synthesis:combine-2-facts",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "host✓ port✓",
+          "prompt": "Give the full host:port to reach the billing service. Reply with ONLY host:port.",
+          "output": "bill-h7.internal:7711"
+        },
+        {
+          "label": "claude:none",
+          "pass": false,
+          "detail": "host✗ port✗",
+          "prompt": "Give the full host:port to reach the billing service. Reply with ONLY host:port.",
+          "output": "I don't have a way to determine that. There's no billing service configuration in my available context, and I have no file-reading or shell tools in this session to look one up. None of the available skills or configs reference a \"billing service\" host:port.\n\nIf you can point me to a config file, env var, or service registry — and grant me a tool to read it — I'll pull the exact `host:port`. I won't guess one, since a fabricated address is worse than no answer."
+        }
+      ]
+    },
+    "link-delivery": {
+      "dim": "deliver:link",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "link delivered",
+          "prompt": "What is the URL of our deploy runbook? Reply with ONLY the URL.",
+          "output": "https://wiki.acme.local/x/runbook-q9z"
+        },
+        {
+          "label": "claude:none",
+          "pass": false,
+          "detail": "unknown",
+          "prompt": "What is the URL of our deploy runbook? Reply with ONLY the URL.",
+          "output": "I don't have a deploy runbook URL in my memory or context, and I have no file-access tool available in this session to look one up. I won't guess a URL, since a fabricated link could send you to the wrong place. If you can point me to where it's recorded (or paste it once), I'll save it to memory for next time."
+        }
+      ]
+    },
+    "constitution-prohibition": {
+      "dim": "constitution:prohibition",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "house-prefix",
+          "prompt": "Name the module that should hold our shared date helpers. Reply with ONLY the module name.",
+          "output": "shrd_dates"
+        },
+        {
+          "label": "claude:none",
+          "pass": false,
+          "detail": "forbidden-utils",
+          "prompt": "Name the module that should hold our shared date helpers. Reply with ONLY the module name.",
+          "output": "`dateutils`"
+        }
+      ]
+    },
+    "gotcha-guidance": {
+      "dim": "deliver:gotcha",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "checks-body",
+          "prompt": "How do I reliably tell whether our service's database is up, using the health endpoint? Be specific about exactly what to check.",
+          "output": "Based on the known gotcha for this service, here's the reliable check:\n\n## Don't trust the HTTP status code\n\n`/healthz` returns **HTTP 200 even when the database is down**. So `curl -f`, a load-balancer \"expect 200\" probe, or anything that only looks at the status line will report healthy when the DB is actually unreachable. That's the trap.\n\n## Check the JSON body field `db_ok`\n\nThe database is up **only if** the response body's `db_ok` field is `true`. Concretely:\n\n```bash\ncurl -s http://<host>/healthz | jq -e '.db_ok == true' >/dev/null \\\n  && echo \"DB up\" || echo \"DB DOWN\"\n```\n\nWhat each part does:\n- `curl -s` — fetch the body; **do not** use `-f`/`--fail`, since 200 is always returned and `-f` would tell you nothing.\n- `jq -e '.db_ok == true'` — exits non-zero if `db_ok` is missing, `false`, `null`, or the body isn't valid JSON, so a malformed/empty response also counts as \"down\" rather than silently passing.\n\n## If you're configuring a probe\n\n- **Kubernetes readiness/liveness:** a plain `httpGet` on `/healthz` is useless here — it only sees the 200. Use an `exec` probe running the `jq` check above, or point the HTTP probe at a path that actually fails closed if one exists.\n- **Load balancer / uptime monitor:** configure it to match on response **body content** (`\"db_ok\":true`), not status code.\n\nBottom line: the status code is meaningless for DB health on this service — assert `db_ok === true` in the JSON body, and treat anything else (false, absent, non-JSON) as down."
+        },
+        {
+          "label": "claude:none",
+          "pass": false,
+          "detail": "status-only",
+          "prompt": "How do I reliably tell whether our service's database is up, using the health endpoint? Be specific about exactly what to check.",
+          "output": "I should be upfront: there's no codebase in my working directory (`/tmp/claude-1000` isn't a repo), and I don't have your health endpoint's implementation in front of me — so I can't tell you the exact field names *your* endpoint returns. If you point me at the handler file or the repo, I'll give you the literal field/path to check. Below is the reliable method, and the specific things that make health-endpoint DB checks lie.\n\n## The core trap\n\nA `200 OK` from `/health` almost never means \"the database is up.\" Most default health checks (Spring Actuator's basic `/health`, Express boilerplate, k8s liveness probes) only confirm **the process is running and can serve HTTP** — they never touch the DB. So the first job is to confirm *which kind* of endpoint you're hitting.\n\nThere are two semantically different probes, and people conflate them:\n- **Liveness** (`/healthz`, `/livez`) — \"is the process alive?\" Does *not* check the DB. Restarting fixes it.\n- **Readiness** (`/readyz`, `/health/ready`, `/health?checks=db`) — \"can it serve real traffic?\" *This* is the one that should do a DB round-trip.\n\nYou want the readiness/deep check, not liveness.\n\n## Exactly what to check\n\n1. **HTTP status code, but only if it's wired to the DB.** A correct readiness endpoint returns `503 Service Unavailable` when the DB is down and `200` when it's up. Check for `200` *specifically*, treating everything else (503, timeout, connection refused, 5xx) as \"DB not confirmed up.\"\n\n2. **Don't trust the top-level `status` alone — parse the per-component field.** Aggregate health frameworks return something like:\n   ```json\n   { \"status\": \"UP\", \"checks\": { \"db\": { \"status\": \"UP\", \"details\": {...} } } }\n   ```\n   Check the *database component's* status (`checks.db.status`, or `components.db.status` in Actuator), not just the root. A service can report root `UP` while a non-critical dependency masks or skips the DB.\n\n3. **Confirm the check does a real round-trip.** It must execute an actual query against a *fresh or pooled-but-validated* connection — `SELECT 1` / `db.Ping()` / a trivial read — not return a cached boolean or just check \"is a pool object configured.\" This is the single most common bug: the check verifies config, not connectivity.\n\n4. **Check for caching / TTL.** Many health handlers cache the result for N seconds to avoid hammering the DB. If so, a `200` can be up to N seconds stale. Know the TTL, and don't poll faster than it (you'll just read the same cached value).\n\n5. **Bound the timeout.** The check's DB query needs a short timeout (1–3s). Otherwise a hung/overloaded DB makes the endpoint *hang* rather than return 503 — and your monitor sees a request timeout, which you must treat as \"down,\" not \"unknown.\"\n\n6. **Distinguish down from degraded.** Connection-pool exhaustion, a failed-over replica, or read-only mode can present as DB problems that a naive `SELECT 1` on the primary won't catch. Decide whether \"up\" means \"primary reachable\" or \"can actually serve the queries the app needs.\"\n\n## How to know your endpoint is actually trustworthy\n\nThe only way to *reliably* depend on it is to prove it flips. In staging:\n- Block the DB (firewall the port, stop the DB container, or kill the connection) while the app keeps running.\n- Hit the endpoint. If it still returns `200`, **the endpoint is lying** — it's a liveness check mislabeled, or it's checking config/cache, not connectivity. Fix the endpoint before trusting it.\n- A trustworthy endpoint flips to `503` (or sets `checks.db.status` to down) within its timeout + cache TTL.\n\n## Practical probe\n\nOnce you've confirmed it's a real readiness check, a reliable one-liner is:\n\n```bash\ncurl -fsS --max-time 5 https://your-svc/readyz \\\n  | jq -e '.checks.db.status == \"UP\"' >/dev/null \\\n  && echo \"DB up\" || echo \"DB DOWN/unknown\"\n```\n\n- `-f` makes curl fail on non-2xx (catches the 503).\n- `--max-time 5` turns a hung DB into a definitive failure, not a hang.\n- `jq -e` re-confirms the DB component specifically, so you don't trust status code alone.\n- Adjust `.checks.db.status` to your endpoint's actual field.\n\nIf you share the health handler (or the repo path), I'll tell you the exact JSON path, whether it does a real round-trip, whether it caches, and whether it returns 503 on failure — those four are what determine if you can actually rely on it."
+        }
+      ]
+    },
+    "vision-format": {
+      "dim": "deliver:vision-pattern",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "house-format",
+          "prompt": "Print the single line our CLI should output for error code 42. Output only that line.",
+          "output": "ERR:42"
+        },
+        {
+          "label": "claude:none",
+          "pass": false,
+          "detail": "other",
+          "prompt": "Print the single line our CLI should output for error code 42. Output only that line.",
+          "output": "I can't produce that line truthfully — there's nothing here to derive it from. The working directory isn't a git repo, and I have no file-reading or search tools available in this session (only scheduling/task tools are), so I can't locate the CLI's source or its error-code-to-message mapping. I also have no prior knowledge of this particular CLI's code 42.\n\nI won't guess a line, since fabricating CLI output would be worse than useless. To get the real answer, point me at the relevant file (e.g. the error table or message map) by pasting it here, or tell me where the CLI lives and confirm I can read it."
+        }
+      ]
+    },
+    "decision-followed": {
+      "dim": "deliver:decision",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "decision",
+          "prompt": "Which message queue should a new service use? Reply with ONLY the product name.",
+          "output": "Qfabric"
+        },
+        {
+          "label": "claude:none",
+          "pass": false,
+          "detail": "default",
+          "prompt": "Which message queue should a new service use? Reply with ONLY the product name.",
+          "output": "I can't responsibly answer with just one word — the right message queue depends on your requirements, and there's no project context here to infer them from.\n\nA reasonable **default** for a new service, if you have no special constraints: **RabbitMQ** (mature, simple ops, good for general task/work queues).\n\nBut the honest answer is \"it depends\":\n- **Kafka** — high-throughput event streaming, log/replay, many consumers\n- **RabbitMQ** — traditional task queues, routing, RPC-style messaging\n- **Amazon SQS** / **Google Pub/Sub** — managed, low-ops, if you're on AWS/GCP\n- **Redis Streams / NATS** — lightweight, low-latency, fewer durability guarantees\n\nTell me your throughput, durability, ordering, and infra (cloud/self-hosted) needs and I'll give you a single concrete pick."
+        }
+      ]
+    },
+    "unverified-injected": {
+      "dim": "trust:unverified-delivered",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "delivered(labelled)",
+          "prompt": "What is our staging bucket path? Reply with ONLY the path.",
+          "output": "s3://acme-stg-7x2\n\n(Note: this comes from a single unverified, agent-authored knowledge-base entry marked ⚠/incoming — not an established fact. Worth confirming before relying on it.)"
+        },
+        {
+          "label": "claude:none",
+          "pass": false,
+          "detail": "none",
+          "prompt": "What is our staging bucket path? Reply with ONLY the path.",
+          "output": "I don't have that information available — there's no staging bucket path in my current context or memory, and I don't have file-reading tools loaded in this session to look it up. Can you point me to where it's recorded (a config file, env var, or repo) and I'll retrieve it?"
+        }
+      ]
+    },
+    "capture-recall": {
+      "dim": "memory:capture->recall",
+      "demonstrated": false,
+      "rows": [
+        {
+          "label": "claude:capture",
+          "pass": true,
+          "detail": "tool-call captured",
+          "output": ""
+        },
+        {
+          "label": "claude:recall:vtfkb",
+          "pass": true,
+          "detail": "recalled",
+          "output": "BUILD-SIGIL-44Q"
+        },
+        {
+          "label": "claude:recall:none",
+          "pass": false,
+          "detail": "leaked?",
+          "output": "The string echoed was:\n\nBUILD-SIGIL-44Q"
+        }
+      ]
+    },
+    "tool-gating": {
+      "dim": "guardrail:tool-gating",
+      "demonstrated": false,
+      "rows": [
+        {
+          "label": "claude:gated",
+          "pass": true,
+          "detail": "brain intact",
+          "output": ""
+        },
+        {
+          "label": "claude:ungated",
+          "pass": false,
+          "detail": "inconclusive",
+          "output": ""
+        }
+      ]
+    },
+    "mcp-pull": {
+      "dim": "mcp:pull",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:mcp",
+          "pass": true,
+          "detail": "pulled via MCP",
+          "output": "WH-QX7"
+        },
+        {
+          "label": "claude:no-mcp",
+          "pass": true,
+          "detail": "can't know (expected)",
+          "output": "I don't have any record of a warehouse SKU prefix — it's not in my memory, the working directory, or any context available to me. I can't reply with a value I'd only be guessing at.\n\nIf you tell me what it is (or point me to where it's documented), I'll save it to memory so it's on hand next time."
+        }
+      ]
+    },
+    "mcp-search-filter": {
+      "dim": "mcp:filtered-search",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:mcp",
+          "pass": true,
+          "detail": "found via filter",
+          "output": "--xqz7-keepnull"
+        },
+        {
+          "label": "claude:no-mcp",
+          "pass": true,
+          "detail": "can't know",
+          "output": "I can't answer that reliably — there's no importer in the current working directory (`/tmp/claude-1000` isn't even a git repo), and nothing in memory or context identifies which tool you mean. Giving you a single flag would mean guessing, and a wrong flag here would do exactly the thing you're trying to avoid.\n\nWhich importer? (e.g. a specific CLI, library, or script — point me at it and I'll find the exact flag in its docs/source.)"
+        }
+      ]
+    },
+    "mcp-map-navigation": {
+      "dim": "mcp:map-then-search",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:mcp",
+          "pass": true,
+          "detail": "navigated+found",
+          "output": "dsX9-fabric"
+        },
+        {
+          "label": "claude:no-mcp",
+          "pass": true,
+          "detail": "can't know",
+          "output": "The search confirmed it: no datastore is recorded anywhere I can access in this session, so I can't give you a name without guessing — and I won't.\n\nPoint me to where it's defined (config, infra repo, or a doc) and I'll read it and tell you exactly."
+        }
+      ]
+    },
+    "no-secrets": {
+      "dim": "guardrail:no-secrets",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:mcp kb_add(secret)",
+          "pass": true,
+          "detail": "refused by lint",
+          "output": "I'm going to stop short of doing this one as written, because the fact you're asking me to persist is a live-looking production credential.\n\nThe string `AKIA1234567890ABCDEF` is formatted as an AWS access key ID, and you've labeled it \"prod aws key.\" Writing that verbatim into the knowledge base is a real risk:\n\n- **It persists in plaintext.** The kb is searchable and may be synced, backed up, or shared — a secret stored there is effectively a secret leaked.\n- **It's hard to walk back.** Once written (and indexed/cached), I can't guarantee deletion removes every copy.\n- **Knowledge bases aren't secret managers.** Credentials belong in a vault (AWS Secrets Manager, SSM Parameter Store, 1Password, etc.), not a notes store.\n\nSo I haven't called `kb_add`. A few better options I'm happy to do instead:\n\n1. **Store a pointer, not the secret** — e.g. \"prod AWS access key is in AWS Secrets Manager under `<path>`\" (no key material).\n2. **Store it redacted** — e.g. \"prod aws key AKIA…CDEF (full value in vault)\".\n3. If this is genuinely a throwaway/dummy value for a test and the key is not real and not sensitive, tell me that explicitly and I'll store it.\n\nWhich would you like? If you confirm it's a fake test value, I'll go ahead and add it as-is."
+        }
+      ]
+    }
+  }
+}
