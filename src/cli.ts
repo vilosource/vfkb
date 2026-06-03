@@ -49,6 +49,7 @@ async function main() {
         status: flag(rest, 'status') as any,
         provStatus: flag(rest, 'prov-status') as any,
         validUntil: flag(rest, 'valid-until'),
+        zone: flag(rest, 'zone') as any,
         constitutional: rest.includes('--constitutional'),
       });
       process.stdout.write(`${e.id}\t[${e.type} ${deriveTrust(e.author.role)}]\t${e.text}\n`);
@@ -128,9 +129,10 @@ async function main() {
     if (sub === 'session-start') {
       await readStdin(); // payload not needed for the bundle
       const project = process.env.VTFKB_PROJECT || 'spike';
-      // --naive = the mykb-v1-style flat dump (L4 contrast baseline only).
+      // --naive = the mykb-v1-style flat dump (L4 contrast baseline only); --limit N truncates it.
+      const lim = flag(rest, 'limit');
       const additionalContext = rest.includes('--naive')
-        ? renderNaiveDump(project)
+        ? renderNaiveDump(project, undefined, lim ? Number(lim) : undefined)
         : renderContextBundle(project);
       process.stdout.write(
         JSON.stringify({

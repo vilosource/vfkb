@@ -46,37 +46,54 @@ npm run build      # tsc -> dist/ (no native modules)
 npm test           # vitest: 49 unit/integration/protocol tests
 ```
 
-## Proving the purpose (L4 scenario harness)
+## Proving the purpose (comprehensive L4 scenario harness)
 
 Unit tests prove the modules are correct; the L4 harness proves vtfkb fulfils its
-**purpose** — that a real agent behaves *better because of it*. It drives a real
-agent (**DeepSeek-V4 via `pi` by default**) through tasks whose correct outcome
-depends on vtfkb's knowledge, asserts on **observable effects** (what the agent
-outputs), and **contrasts against a baseline** so the improvement is shown to be
-*caused* by vtfkb:
+**purpose** — that a real agent behaves *better because of it*. Every scenario drives
+a real agent (**DeepSeek-V4 via `pi` by default**; `claude` for the MCP/parity ones),
+asserts on **observable effects** (the agent's output or the brain's state — never
+self-report), and **contrasts against a baseline** so the win is shown to be *caused*
+by vtfkb:
 - `naive` = a mykb-v1-style flat, load-order, unfiltered memory (surfaces stale);
-- `none` = no memory at all (the agent simply lacks the knowledge).
+- `none` = no memory at all;
+- `ungated` / `no-mcp` = the same harness without vtfkb's guardrail / tools.
 
 Live + costs tokens + nondeterministic → NOT part of `npm test`. Override the agent
 with `VTFKB_L4_MODEL` / `VTFKB_L4_PROVIDER`.
 
 ```
-node scenarios/l4-purpose.mjs                       # all scenarios
-node scenarios/l4-purpose.mjs stale-supersession    # subset by id
+node scenarios/l4-purpose.mjs            # all (run in batches if your runner has a wall-clock cap)
+node scenarios/l4-purpose.mjs --list     # list scenario ids
+node scenarios/l4-purpose.mjs capture-recall mcp-pull   # subset
 ```
 
-**7/7 scenarios demonstrate the purpose** (DeepSeek-V4, 2026-06-03) — each shows
-vtfkb PASS and the baseline fail:
+**18/18 scenarios demonstrate the purpose** (DeepSeek-V4 + Claude Code, 2026-06-03) —
+each shows vtfkb PASS and the baseline fail, across every dimension:
 
-| Scenario | vtfkb | baseline | purpose dimension |
+| Dimension | Scenario | vtfkb → | baseline → |
 |---|---|---|---|
-| stale-supersession | corrected host | naive → stale host | supersession exclusion |
-| stale-expiry | current host | naive → expired host | `valid_until` exclusion |
-| deprecated-excluded | active library | naive → deprecated library | status exclusion |
-| constitution-port | port 8472 | none → 8080 (default) | constitutional binding |
-| knowledge-delivery | `vfship --wave` | none → guessed | project knowledge |
-| gotcha-guidance | checks `db_ok` body | none → status-only | operational gotcha |
-| vision-format | `ERR:42` | none → prose/number | vision/taste style |
+| Exclude · supersession | stale-supersession | corrected host | naive → stale |
+| Exclude · `valid_until` | stale-expiry | current host | naive → expired |
+| Exclude · status | deprecated-excluded | active lib | naive → deprecated |
+| Exclude · prov-status | provstale-excluded | current path | naive → stale |
+| Rerank · precedence | precedence-distractor | corrected (amid 8 distractors) | naive → buried stale |
+| Constitution · single | constitution-port | 8472 | none → 8080 |
+| Constitution · aggregate | constitution-multi | port + log-prefix both | none → neither |
+| Deliver · fact | knowledge-delivery | `vfship --wave` | none → guessed |
+| Deliver · gotcha | gotcha-guidance | checks `db_ok` body | none → status-only |
+| Deliver · vision pattern | vision-format | `ERR:42` | none → prose |
+| Deliver · decision | decision-followed | Qfabric | none → RabbitMQ |
+| Trust · unverified | unverified-injected | delivered (labelled) | none → unknown |
+| Memory · capture→recall | capture-recall | recalls captured sigil next session | none → can't |
+| Guardrail · tool-gating | tool-gating | brain intact (write blocked) | ungated → clobbered |
+| Guardrail · no-secrets | no-secrets | `kb_add` refused the secret | — |
+| MCP · pull | mcp-pull | pulled via `kb_search` (claude) | no-mcp → can't |
+| Parity · exclusion | parity-claude-stale | corrected (Claude Code) | naive → stale |
+| Parity · constitution | parity-claude-constitution | 8472 (Claude Code) | none → 8080 |
+
+> Archive-zone exclusion is **table-stakes** (any reasonable memory drops the archive
+> zone), so it is verified by unit tests but deliberately omitted as an L4 scenario —
+> an L4 contrast only proves causation when the baseline reliably *fails*.
 
 ## Try the auto-layer (against a throwaway brain)
 
