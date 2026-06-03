@@ -1,0 +1,23 @@
+{
+  "name": "@vilosource/vtfkb",
+  "version": "0.0.0-spike0",
+  "description": "vtfkb — VFSF per-project knowledge substrate. Phase 0 spike (greenfield TS, ADR-0001..0015).",
+  "type": "module",
+  "bin": {
+    "vtfkb": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "clean": "rm -rf dist"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@tsconfig/node20": "^20.1.9",
+    "@types/node": "^25.9.1",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}

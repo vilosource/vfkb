@@ -1,0 +1,25 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "VTFKB_DIR=/tmp/vtfkb-spike-brain VTFKB_PROJECT=phase0-spike node /home/jasonvi/GitHub/vtfkb/dist/cli.js hook session-start"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "VTFKB_DIR=/tmp/vtfkb-spike-brain node /home/jasonvi/GitHub/vtfkb/dist/cli.js hook post-tool-use"
+          }
+        ]
+      }
+    ]
+  }
+}
