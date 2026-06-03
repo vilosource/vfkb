@@ -1,7 +1,7 @@
 # vtfkb L4 behavior record — deepseek/deepseek-v4-pro
 
-- generated: 2026-06-03T12:26:17.393Z
-- vtfkb: 8252b4e
+- generated: 2026-06-03T14:10:45.294Z
+- vtfkb: b3c7eee
 - scenarios recorded: 24 (24 demonstrated)
 
 | scenario | dimension | demonstrated | rows (label=verdict) |
@@ -15,11 +15,11 @@
 | gotcha-guidance | deliver:gotcha | YES | pi:vtfkb=PASS, pi:none=fail |
 | knowledge-delivery | deliver:fact | YES | pi:vtfkb=PASS, pi:none=fail |
 | link-delivery | deliver:link | YES | pi:vtfkb=PASS, pi:none=fail |
-| mcp-map-navigation | mcp:map-then-search (claude) | YES | claude:mcp=PASS, claude:no-mcp=PASS |
-| mcp-pull | mcp:pull (claude) | YES | claude:mcp=PASS, claude:no-mcp=PASS |
-| mcp-search-filter | mcp:filtered-search (claude) | YES | claude:mcp=PASS, claude:no-mcp=PASS |
+| mcp-map-navigation | mcp:map-then-search (pi bridge) | YES | pi:mcp=PASS, pi:no-mcp=PASS |
+| mcp-pull | mcp:pull (pi bridge) | YES | pi:mcp=PASS, pi:no-mcp=PASS |
+| mcp-search-filter | mcp:filtered-search (pi bridge) | YES | pi:mcp=PASS, pi:no-mcp=PASS |
 | multi-fact-synthesis | synthesis:combine-2-facts | YES | pi:vtfkb=PASS, pi:none=fail |
-| no-secrets | guardrail:no-secrets | YES | claude:mcp kb_add(secret)=PASS |
+| no-secrets | guardrail:no-secrets | YES | pi:mcp kb_add(secret)=PASS |
 | parity-claude-constitution | parity:claude constitution | YES | claude:vtfkb=PASS, claude:none=fail |
 | parity-claude-stale | parity:claude exclusion | YES | claude:vtfkb=PASS, claude:naive=fail |
 | precedence-distractor | rerank:precedence-amid-noise | YES | pi:vtfkb=PASS, pi:naive=fail |

@@ -2,8 +2,8 @@
   "model": "deepseek-v4-pro",
   "provider": "deepseek",
   "slug": "deepseek__deepseek-v4-pro",
-  "generated": "2026-06-03T12:26:17.393Z",
-  "vtfkb_sha": "8252b4e",
+  "generated": "2026-06-03T14:10:45.294Z",
+  "vtfkb_sha": "b3c7eee",
   "scenarios": {
     "stale-supersession": {
       "dim": "exclude:supersession",
@@ -363,54 +363,54 @@
       ]
     },
     "mcp-pull": {
-      "dim": "mcp:pull (claude)",
+      "dim": "mcp:pull (pi bridge)",
       "demonstrated": true,
       "rows": [
         {
-          "label": "claude:mcp",
+          "label": "pi:mcp",
           "pass": true,
           "detail": "pulled via MCP"
         },
         {
-          "label": "claude:no-mcp",
+          "label": "pi:no-mcp",
           "pass": true,
           "detail": "can't know (expected)"
         }
       ]
     },
     "mcp-search-filter": {
-      "dim": "mcp:filtered-search (claude)",
+      "dim": "mcp:filtered-search (pi bridge)",
       "demonstrated": true,
       "rows": [
         {
-          "label": "claude:mcp",
+          "label": "pi:mcp",
           "pass": true,
           "detail": "found via filter",
-          "output": "--xqz7-keepnull"
+          "output": "`--xqz7-keepnull`"
         },
         {
-          "label": "claude:no-mcp",
+          "label": "pi:no-mcp",
           "pass": true,
           "detail": "can't know",
-          "output": "I don't have enough context to answer that accurately. There's no codebase here (the working directory `/tmp/claude-1000` isn't a git repo and contains no importer I can inspect), no recalled memory about an importer, and no tool/command named in your question.\n\n\"The importer\" could be many things — `pandas.read_csv`, a database `COPY`/`LOAD DATA`, a custom script, `pg_restore`, `mongoimport`, etc. — and each has a different flag (e.g. `on_bad_lines='warn'` vs `--abort-on-error`, `LOG ERRORS` clause, etc.). Guessing one would risk handing you a wrong flag.\n\nTell me which importer/tool (or point me at the file or repo), and I'll give you the exact flag."
+          "output": "--abort-on-skip"
         }
       ]
     },
     "mcp-map-navigation": {
-      "dim": "mcp:map-then-search (claude)",
+      "dim": "mcp:map-then-search (pi bridge)",
       "demonstrated": true,
       "rows": [
         {
-          "label": "claude:mcp",
+          "label": "pi:mcp",
           "pass": true,
           "detail": "navigated+found",
           "output": "dsX9-fabric"
         },
         {
-          "label": "claude:no-mcp",
+          "label": "pi:no-mcp",
           "pass": true,
           "detail": "can't know",
-          "output": "I don't actually have that information. There's no codebase loaded here (the working directory isn't a git repo), nothing in my recalled memory names a datastore, and I have no basis to name one.\n\nI won't guess — naming a datastore I can't verify would be worse than saying I don't know. If you tell me where this is recorded (a config file, schema, or doc), or let me look at the project, I can give you a real answer."
+          "output": "I don't have any context about your project or system. Could you provide more information or point me to relevant configuration files in your workspace?"
         }
       ]
     },
@@ -419,7 +419,7 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "claude:mcp kb_add(secret)",
+          "label": "pi:mcp kb_add(secret)",
           "pass": true,
           "detail": "refused by lint"
         }

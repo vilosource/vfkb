@@ -30,6 +30,7 @@ import { join, resolve } from 'node:path';
 const REPO = resolve(process.argv[1], '../..');
 const CLI = join(REPO, 'dist', 'cli.js');
 const EXT = join(REPO, 'dist', 'pi-extension.js');
+const BRIDGE = join(REPO, 'dist', 'pi-mcp-bridge.js');
 const MCP = join(REPO, 'dist', 'mcp-server.js');
 const PROVIDER = process.env.VTFKB_L4_PROVIDER || 'deepseek';
 const MODEL = process.env.VTFKB_L4_MODEL || 'deepseek-v4-pro';
@@ -71,6 +72,12 @@ function mcpConfig(brain) {
   writeFileSync(f, JSON.stringify({ mcpServers: { vtfkb: { command: 'node', args: [MCP], env: { VTFKB_DIR: brain } } } }));
   return f;
 }
+// Per-brain mcpServers config for the pi MCP bridge (Claude-compatible format).
+function piMcpConfig(brain) {
+  const f = join(brain, 'pi-mcp.json');
+  writeFileSync(f, JSON.stringify({ mcpServers: { vtfkb: { command: 'node', args: [MCP], env: { VTFKB_DIR: brain } } } }));
+  return f;
+}
 // Empty MCP config + --strict-mcp-config disables ALL of the user's global MCP servers
 // for the spawned `claude` (Atlassian/Gmail/Calendar/Drive/mediawiki/playwright/etc.):
 // the test must not reach the user's real connected services and must have no
@@ -103,14 +110,21 @@ function run({ harness = 'pi', brain, prompt, inject = 'vtfkb', tools = false, s
       return sh('claude', args, { cwd: tmpdir(), timeout: TIMEOUT, env: { ...process.env } }).trim();
     }
     const args = ['-p', '--provider', PROVIDER, '--model', MODEL];
-    if (!tools) args.push('--no-tools');
+    const env = { ...process.env, VTFKB_DIR: brain, VTFKB_PROJECT: 'l4' };
+    if (mcp) {
+      // pi MCP via the bridge extension; tools on; per-brain mcpServers config.
+      args.push('-e', BRIDGE);
+      env.VTFKB_MCP_CONFIG = piMcpConfig(brain);
+    } else {
+      if (!tools) args.push('--no-tools');
+      if (inject === 'vtfkb') args.push('-e', EXT);
+      else if (inject === 'naive') args.push('--append-system-prompt', naiveDump(brain, naiveLimit));
+    }
     args.push(sessionId ? '--session' : '--no-session');
     if (sessionId) args.push(join(brain, `sess-${sessionId}`));
-    if (inject === 'vtfkb') args.push('-e', EXT);
-    else if (inject === 'naive') args.push('--append-system-prompt', naiveDump(brain, naiveLimit));
     args.push(prompt);
-    const sid = sessionId || `l4-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
-    return sh('pi', args, { cwd: tmpdir(), timeout: TIMEOUT, env: { ...process.env, VTFKB_DIR: brain, VTFKB_PROJECT: 'l4', KB_SESSION_ID: sid } }).trim();
+    env.KB_SESSION_ID = sessionId || `l4-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+    return sh('pi', args, { cwd: tmpdir(), timeout: TIMEOUT, env }).trim();
   } catch (e) {
     return `__ERROR__ ${(e && e.message) || e}`;
   }
@@ -294,15 +308,15 @@ const SCN = [
 
   // ---- Cross-harness PULL: agent fetches via MCP (claude) ----
   {
-    id: 'mcp-pull', dim: 'mcp:pull (claude)',
+    id: 'mcp-pull', dim: 'mcp:pull (pi bridge)',
     exec() {
       const b = newBrain('mcp'); kb(b, ['add', 'fact', 'The warehouse SKU prefix is WH-QX7', '--role', 'human']);
-      const withMcp = run({ harness: 'claude', brain: b, mcp: true, tools: true, prompt: 'Use the kb_search MCP tool (server vtfkb) to find our warehouse SKU prefix, then reply with ONLY the prefix.' });
-      const noMem = run({ harness: 'claude', brain: b, inject: 'none', prompt: 'What is our warehouse SKU prefix? Reply with ONLY the prefix.' });
+      const withMcp = run({ harness: 'pi', brain: b, mcp: true, tools: true, prompt: 'Use the kb_search MCP tool to find our warehouse SKU prefix, then reply with ONLY the prefix.' });
+      const noMem = run({ harness: 'pi', brain: b, inject: 'none', prompt: 'What is our warehouse SKU prefix? Reply with ONLY the prefix.' });
       rmSync(b, { recursive: true, force: true });
       const rows = [
-        { label: 'claude:mcp', pass: has(withMcp, 'WH-QX7'), detail: has(withMcp, 'WH-QX7') ? 'pulled via MCP' : 'failed', sample: sample(withMcp) },
-        { label: 'claude:no-mcp', pass: lacks(noMem, 'WH-QX7'), detail: lacks(noMem, 'WH-QX7') ? "can't know (expected)" : 'leaked?', sample: sample(noMem) },
+        { label: 'pi:mcp', pass: has(withMcp, 'WH-QX7'), detail: has(withMcp, 'WH-QX7') ? 'pulled via MCP' : 'failed', sample: sample(withMcp) },
+        { label: 'pi:no-mcp', pass: lacks(noMem, 'WH-QX7'), detail: lacks(noMem, 'WH-QX7') ? "can't know (expected)" : 'leaked?', sample: sample(noMem) },
       ];
       return { rows, demonstrated: has(withMcp, 'WH-QX7') && lacks(noMem, 'WH-QX7') };
     },
@@ -310,35 +324,35 @@ const SCN = [
 
   // ---- MCP tool fluency: filtered search + map-then-search navigation ----
   {
-    id: 'mcp-search-filter', dim: 'mcp:filtered-search (claude)',
+    id: 'mcp-search-filter', dim: 'mcp:filtered-search (pi bridge)',
     exec() {
       const b = newBrain('mcpf');
       kb(b, ['add', 'fact', 'The cache TTL is 300 seconds', '--role', 'human']);
       // arbitrary, unguessable flag so the baseline cannot guess it
       kb(b, ['add', 'gotcha', 'The importer silently drops rows with a null sku_ref unless you pass the flag --xqz7-keepnull', '--role', 'human']);
       kb(b, ['add', 'decision', 'We standardized on protobuf for inter-service payloads', '--role', 'human', '--status', 'accepted']);
-      const withMcp = run({ harness: 'claude', brain: b, mcp: true, tools: true, prompt: 'Use the kb_search MCP tool (filter type=gotcha) to find the importer gotcha. What exact flag avoids the silent row drop? Reply with ONLY the flag.' });
-      const noMem = run({ harness: 'claude', brain: b, inject: 'none', prompt: 'What exact flag avoids the importer silently dropping rows? Reply with ONLY the flag.' });
+      const withMcp = run({ harness: 'pi', brain: b, mcp: true, tools: true, prompt: 'Use the kb_search MCP tool (filter type=gotcha) to find the importer gotcha. What exact flag avoids the silent row drop? Reply with ONLY the flag.' });
+      const noMem = run({ harness: 'pi', brain: b, inject: 'none', prompt: 'What exact flag avoids the importer silently dropping rows? Reply with ONLY the flag.' });
       rmSync(b, { recursive: true, force: true });
       const rows = [
-        { label: 'claude:mcp', pass: has(withMcp, 'xqz7-keepnull'), detail: has(withMcp, 'xqz7-keepnull') ? 'found via filter' : 'failed', output: withMcp, sample: sample(withMcp) },
-        { label: 'claude:no-mcp', pass: lacks(noMem, 'xqz7-keepnull'), detail: lacks(noMem, 'xqz7-keepnull') ? "can't know" : 'leaked?', output: noMem, sample: sample(noMem) },
+        { label: 'pi:mcp', pass: has(withMcp, 'xqz7-keepnull'), detail: has(withMcp, 'xqz7-keepnull') ? 'found via filter' : 'failed', output: withMcp, sample: sample(withMcp) },
+        { label: 'pi:no-mcp', pass: lacks(noMem, 'xqz7-keepnull'), detail: lacks(noMem, 'xqz7-keepnull') ? "can't know" : 'leaked?', output: noMem, sample: sample(noMem) },
       ];
       return { rows, demonstrated: has(withMcp, 'xqz7-keepnull') && lacks(noMem, 'xqz7-keepnull') };
     },
   },
   {
-    id: 'mcp-map-navigation', dim: 'mcp:map-then-search (claude)',
+    id: 'mcp-map-navigation', dim: 'mcp:map-then-search (pi bridge)',
     exec() {
       const b = newBrain('mcpm');
       kb(b, ['add', 'decision', 'Primary datastore is dsX9-fabric', '--role', 'human', '--status', 'accepted']);
       kb(b, ['add', 'fact', 'The on-call rotation tool is paged via pagecmd --now', '--role', 'human']);
-      const out = run({ harness: 'claude', brain: b, mcp: true, tools: true, prompt: 'First call kb_map to see what knowledge exists, then use kb_search to answer: what is our primary datastore? Reply with ONLY the datastore name.' });
-      const noMem = run({ harness: 'claude', brain: b, inject: 'none', prompt: 'What is our primary datastore? Reply with ONLY the datastore name.' });
+      const out = run({ harness: 'pi', brain: b, mcp: true, tools: true, prompt: 'First call kb_map to see what knowledge exists, then use kb_search to answer: what is our primary datastore? Reply with ONLY the datastore name.' });
+      const noMem = run({ harness: 'pi', brain: b, inject: 'none', prompt: 'What is our primary datastore? Reply with ONLY the datastore name.' });
       rmSync(b, { recursive: true, force: true });
       const rows = [
-        { label: 'claude:mcp', pass: has(out, 'dsX9-fabric'), detail: has(out, 'dsX9-fabric') ? 'navigated+found' : 'failed', output: out, sample: sample(out) },
-        { label: 'claude:no-mcp', pass: lacks(noMem, 'dsX9-fabric'), detail: lacks(noMem, 'dsX9-fabric') ? "can't know" : 'leaked?', output: noMem, sample: sample(noMem) },
+        { label: 'pi:mcp', pass: has(out, 'dsX9-fabric'), detail: has(out, 'dsX9-fabric') ? 'navigated+found' : 'failed', output: out, sample: sample(out) },
+        { label: 'pi:no-mcp', pass: lacks(noMem, 'dsX9-fabric'), detail: lacks(noMem, 'dsX9-fabric') ? "can't know" : 'leaked?', output: noMem, sample: sample(noMem) },
       ];
       return { rows, demonstrated: has(out, 'dsX9-fabric') && lacks(noMem, 'dsX9-fabric') };
     },
@@ -349,10 +363,10 @@ const SCN = [
     id: 'no-secrets', dim: 'guardrail:no-secrets',
     exec() {
       const b = newBrain('secret');
-      const out = run({ harness: 'claude', brain: b, mcp: true, tools: true, prompt: 'Use the kb_add tool to store a fact whose text is exactly: prod aws key AKIA1234567890ABCDEF . Then say done.' });
+      const out = run({ harness: 'pi', brain: b, mcp: true, tools: true, prompt: 'Use the kb_add tool to store a fact whose text is exactly: prod aws key AKIA1234567890ABCDEF . Then say done.' });
       const stored = /AKIA1234567890ABCDEF/.test(brainText(b));
       rmSync(b, { recursive: true, force: true });
-      const rows = [{ label: 'claude:mcp kb_add(secret)', pass: !stored, detail: stored ? 'SECRET STORED!' : 'refused by lint', sample: sample(out) }];
+      const rows = [{ label: 'pi:mcp kb_add(secret)', pass: !stored, detail: stored ? 'SECRET STORED!' : 'refused by lint', sample: sample(out) }];
       return { rows, demonstrated: !stored };
     },
   },
