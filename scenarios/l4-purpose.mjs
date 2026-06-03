@@ -14,10 +14,13 @@
 //        no-gating / no-mcp = the same harness without vtfkb's guardrail / tools
 //
 // LIVE + token-cost + nondeterministic -> NOT part of `npm test`.
-// Override agent: VTFKB_L4_MODEL / VTFKB_L4_PROVIDER. Requires DEEPSEEK_TOKEN (+ an
-// authed claude CLI for the mcp/parity scenarios) and a built dist/.
+// DEFAULT agent = claude harness + Claude Haiku 4.5 (VTFKB_L4_HARNESS=claude,
+// VTFKB_L4_PROVIDER=claude-code, VTFKB_L4_MODEL=claude-haiku-4-5). Needs an authed
+// claude CLI + a built dist/. Override the three VTFKB_L4_* envs for other points,
+// e.g. pi/deepseek: VTFKB_L4_HARNESS=pi VTFKB_L4_PROVIDER=deepseek VTFKB_L4_MODEL=deepseek-v4-pro
+// (that path needs DEEPSEEK_TOKEN). On the claude harness, MODEL='cli' = CLI default model.
 //
-// Run:  node scenarios/l4-purpose.mjs                 (all)
+// Run:  node scenarios/l4-purpose.mjs                 (all, default = haiku/claude)
 //       node scenarios/l4-purpose.mjs stale-supersession capture-recall   (subset)
 //       node scenarios/l4-purpose.mjs --list          (list ids)
 // ============================================================================
@@ -32,9 +35,11 @@ const CLI = join(REPO, 'dist', 'cli.js');
 const EXT = join(REPO, 'dist', 'pi-extension.js');
 const BRIDGE = join(REPO, 'dist', 'pi-mcp-bridge.js');
 const MCP = join(REPO, 'dist', 'mcp-server.js');
-const PROVIDER = process.env.VTFKB_L4_PROVIDER || 'deepseek';
-const MODEL = process.env.VTFKB_L4_MODEL || 'deepseek-v4-pro';
-const HARNESS = process.env.VTFKB_L4_HARNESS || 'pi'; // pi | claude — applies to ALL scenarios
+// DEFAULT test model = Claude Haiku 4.5 on the claude harness (price/perf default,
+// decision vtfkb-2026-06-03). Override via the three VTFKB_L4_* envs for other points.
+const PROVIDER = process.env.VTFKB_L4_PROVIDER || 'claude-code';
+const MODEL = process.env.VTFKB_L4_MODEL || 'claude-haiku-4-5';
+const HARNESS = process.env.VTFKB_L4_HARNESS || 'claude'; // pi | claude — applies to ALL scenarios
 const TIMEOUT = 175_000;
 // claude filesystem/exec deny list (prevents reading the brain file off /tmp).
 const FS_DENY = 'Read,Edit,Write,Bash,BashOutput,Glob,Grep,WebFetch,WebSearch,NotebookEdit,Task,KillShell';
@@ -110,6 +115,9 @@ function run({ harness = HARNESS, brain, prompt, inject = 'vtfkb', mcp = false, 
       // Atlassian/Gmail/etc., no out-of-band knowledge). Tool policy controls the
       // PROVEN leak vector (reading the brain file off /tmp).
       const args = ['-p', prompt, '--strict-mcp-config'];
+      // Pin the model when MODEL names a Claude model (e.g. claude-haiku-4-5); the
+      // 'cli' sentinel (or any non-claude MODEL) falls through to the CLI default.
+      if (/^(claude|haiku|sonnet|opus)/.test(MODEL)) args.push('--model', MODEL);
       if (mcp) {
         args.push('--mcp-config', mcpConfig(brain), '--dangerously-skip-permissions', '--disallowedTools', FS_DENY);
       } else {
@@ -399,7 +407,9 @@ if (argv.includes('--list')) { for (const s of SCN) console.log(`${s.id.padEnd(2
 const only = argv.filter((a) => !a.startsWith('--'));
 const toRun = only.length ? SCN.filter((s) => only.includes(s.id)) : SCN;
 
-const AGENT = HARNESS === 'claude' ? 'claude-code (CLI default model)' : `pi/${PROVIDER}/${MODEL}`;
+const AGENT = HARNESS === 'claude'
+  ? `claude-code (${/^(claude|haiku|sonnet|opus)/.test(MODEL) ? MODEL : 'CLI default model'})`
+  : `pi/${PROVIDER}/${MODEL}`;
 console.log(`=== vtfkb COMPREHENSIVE L4 — harness: ${HARNESS} — agent: ${AGENT} ===\n`);
 const results = [];
 for (const s of toRun) {
