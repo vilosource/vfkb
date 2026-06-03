@@ -1,182 +1,311 @@
 #!/usr/bin/env node
-// L4 PURPOSE harness — proves vtfkb fulfils its PURPOSE, not just that its modules
-// work. It drives a REAL agent through tasks whose correct outcome depends on vtfkb's
-// knowledge, asserts on OBSERVABLE EFFECTS (what the agent outputs — never
-// self-report), and CONTRASTS against a baseline so the improvement is shown to be
-// *caused* by vtfkb:
-//   - baseline 'naive' = a mykb-v1-style flat, unfiltered, load-order memory
-//     (injected via --append-system-prompt) — surfaces stale/superseded/expired.
-//   - baseline 'none'  = no memory at all — the agent simply lacks the knowledge.
+// ============================================================================
+// vtfkb COMPREHENSIVE L4 PURPOSE harness
+// ----------------------------------------------------------------------------
+// Proves vtfkb fulfils its PURPOSE (a real agent behaves better *because of it*),
+// not just that its modules work. Every scenario:
+//   - drives a REAL agent (DeepSeek-V4 via pi by default; claude for MCP/parity),
+//   - asserts on OBSERVABLE EFFECTS (the agent's output / the brain's state) —
+//     never the agent's self-report,
+//   - CONTRASTS against a baseline so the better outcome is shown to be *caused*
+//     by vtfkb:
+//        naive = mykb-v1-style flat, load-order, unfiltered memory (surfaces stale)
+//        none  = no memory at all (the agent lacks the knowledge)
+//        no-gating / no-mcp = the same harness without vtfkb's guardrail / tools
 //
-// Default agent = DeepSeek-V4 via pi (pi --provider deepseek --model deepseek-v4-pro).
-// Override with VTFKB_L4_MODEL / VTFKB_L4_PROVIDER. Requires DEEPSEEK_TOKEN + a built
-// dist/. LIVE + token-cost + nondeterministic → NOT part of `npm test`.
+// LIVE + token-cost + nondeterministic -> NOT part of `npm test`.
+// Override agent: VTFKB_L4_MODEL / VTFKB_L4_PROVIDER. Requires DEEPSEEK_TOKEN (+ an
+// authed claude CLI for the mcp/parity scenarios) and a built dist/.
 //
-// Run:  node scenarios/l4-purpose.mjs                 (all scenarios)
-//       node scenarios/l4-purpose.mjs stale-host      (subset by id)
+// Run:  node scenarios/l4-purpose.mjs                 (all)
+//       node scenarios/l4-purpose.mjs stale-supersession capture-recall   (subset)
+//       node scenarios/l4-purpose.mjs --list          (list ids)
+// ============================================================================
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 const REPO = resolve(process.argv[1], '../..');
 const CLI = join(REPO, 'dist', 'cli.js');
 const EXT = join(REPO, 'dist', 'pi-extension.js');
+const MCP = join(REPO, 'dist', 'mcp-server.js');
 const PROVIDER = process.env.VTFKB_L4_PROVIDER || 'deepseek';
 const MODEL = process.env.VTFKB_L4_MODEL || 'deepseek-v4-pro';
 const TIMEOUT = 175_000;
 
-function sh(cmd, args, opts = {}) {
-  return execFileSync(cmd, args, { encoding: 'utf8', ...opts });
-}
-// Seed the brain via the REAL engine write path. Returns the new entry id.
-function kb(brain, args) {
-  return sh('node', [CLI, ...args], { env: { ...process.env, VTFKB_DIR: brain } }).trim();
-}
+const sh = (cmd, args, opts = {}) => execFileSync(cmd, args, { encoding: 'utf8', ...opts });
+const kb = (brain, args) => sh('node', [CLI, ...args], { env: { ...process.env, VTFKB_DIR: brain } }).trim();
 const idOf = (line) => line.split('\t')[0];
+const newBrain = (tag) => mkdtempSync(join(tmpdir(), `vtfkb-l4-${tag}-`));
+const has = (s, ...ts) => ts.every((t) => new RegExp(`${t}`, 'i').test(s));
+const lacks = (s, ...ts) => ts.every((t) => !new RegExp(`${t}`, 'i').test(s));
+const sample = (s) => (s || '').replace(/\s+/g, ' ').slice(0, 100);
 
 function naiveDump(brain, limit) {
-  const args = [CLI, 'context-block-naive', 'l4'];
-  if (limit) args.push('--limit', String(limit));
-  return sh('node', args, { env: { ...process.env, VTFKB_DIR: brain } });
+  const a = [CLI, 'context-block-naive', 'l4'];
+  if (limit) a.push('--limit', String(limit));
+  return sh('node', a, { env: { ...process.env, VTFKB_DIR: brain } });
+}
+function brainText(brain) {
+  const f = join(brain, 'entries.jsonl');
+  return existsSync(f) ? readFileSync(f, 'utf8') : '';
+}
+function claudeSettings(brain, inject, naiveLimit) {
+  const ss = `VTFKB_DIR=${brain} VTFKB_PROJECT=l4 node ${CLI} hook session-start` +
+    (inject === 'naive' ? ` --naive${naiveLimit ? ` --limit ${naiveLimit}` : ''}` : '');
+  const hooks =
+    inject === 'none'
+      ? {}
+      : {
+          SessionStart: [{ hooks: [{ type: 'command', command: ss }] }],
+          PreToolUse: [{ matcher: 'Write|Edit|MultiEdit', hooks: [{ type: 'command', command: `VTFKB_DIR=${brain} node ${CLI} hook pre-tool-use` }] }],
+        };
+  const f = join(brain, `settings.${inject}.json`);
+  writeFileSync(f, JSON.stringify({ hooks }));
+  return f;
+}
+function mcpConfig(brain) {
+  const f = join(brain, 'mcp.json');
+  writeFileSync(f, JSON.stringify({ mcpServers: { vtfkb: { command: 'node', args: [MCP], env: { VTFKB_DIR: brain } } } }));
+  return f;
 }
 
-// Run the agent (DeepSeek via pi). mode: 'vtfkb' (real extension injection) |
-// 'naive' (flat dump via --append-system-prompt) | 'none' (no memory).
-// naiveLimit truncates the naive memory load-order (reproduces budget-drops-newest).
-function ask(brain, mode, prompt, naiveLimit) {
-  const base = ['-p', '--provider', PROVIDER, '--model', MODEL, '--no-tools'];
-  let args;
-  if (mode === 'vtfkb') args = [...base, '-e', EXT, prompt];
-  else if (mode === 'naive') args = [...base, '--append-system-prompt', naiveDump(brain, naiveLimit), prompt];
-  else args = [...base, prompt];
-  const sid = `l4-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+// Unified agent runner.
+function run({ harness = 'pi', brain, prompt, inject = 'vtfkb', tools = false, sessionId, naiveLimit, mcp = false }) {
   try {
-    return sh('pi', args, {
-      cwd: tmpdir(),
-      timeout: TIMEOUT,
-      env: { ...process.env, VTFKB_DIR: brain, VTFKB_PROJECT: 'l4', KB_SESSION_ID: sid },
-    }).trim();
+    if (harness === 'claude') {
+      const args = ['-p', prompt];
+      if (mcp) args.push('--mcp-config', mcpConfig(brain), '--strict-mcp-config');
+      else args.push('--settings', claudeSettings(brain, inject, naiveLimit));
+      if (tools || mcp) args.push('--dangerously-skip-permissions');
+      return sh('claude', args, { cwd: tmpdir(), timeout: TIMEOUT, env: { ...process.env } }).trim();
+    }
+    const args = ['-p', '--provider', PROVIDER, '--model', MODEL];
+    if (!tools) args.push('--no-tools');
+    args.push(sessionId ? '--session' : '--no-session');
+    if (sessionId) args.push(join(brain, `sess-${sessionId}`));
+    if (inject === 'vtfkb') args.push('-e', EXT);
+    else if (inject === 'naive') args.push('--append-system-prompt', naiveDump(brain, naiveLimit));
+    args.push(prompt);
+    const sid = sessionId || `l4-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+    return sh('pi', args, { cwd: tmpdir(), timeout: TIMEOUT, env: { ...process.env, VTFKB_DIR: brain, VTFKB_PROJECT: 'l4', KB_SESSION_ID: sid } }).trim();
   } catch (e) {
     return `__ERROR__ ${(e && e.message) || e}`;
   }
 }
 
-const has = (s, ...ts) => ts.every((t) => new RegExp(`\\b${t}\\b`, 'i').test(s));
-const lacks = (s, ...ts) => ts.every((t) => !new RegExp(`\\b${t}\\b`, 'i').test(s));
+// Standard 2-variant Q&A contrast (vtfkb vs baseline).
+function qa({ id, dim, harness = 'pi', seed, prompt, baseline, naiveLimit, assert }) {
+  return {
+    id,
+    dim,
+    exec() {
+      const rows = [];
+      for (const inject of ['vtfkb', baseline]) {
+        const b = newBrain(id + '-' + inject);
+        seed(b);
+        const out = run({ harness, brain: b, prompt, inject, naiveLimit });
+        const r = assert(out);
+        rows.push({ label: `${harness}:${inject}`, pass: r.pass, detail: r.detail, sample: sample(out) });
+        rmSync(b, { recursive: true, force: true });
+      }
+      return { rows, demonstrated: rows[0].pass && !rows[1].pass };
+    },
+  };
+}
 
-// ---- Scenarios (broad: 3 stale-exclusion mechanisms + 4 knowledge/constraint kinds) ----
-const scenarios = [
-  {
-    id: 'stale-supersession',
-    purpose: 'Supersession excludes the stale decision; the corrected value is delivered.',
-    baseline: 'naive',
-    naiveLimit: 1, // load-order memory keeps the older (superseded) host, drops the fix
-    seed(b) {
-      const old = kb(b, ['add', 'decision', 'The prod database host is db-prod-7f3a2.internal.example', '--role', 'human', '--status', 'accepted']);
-      kb(b, ['supersede', idOf(old), 'The prod database host is db-prod-9c814.internal.example', '--role', 'human']);
-    },
+// ---------------------------------------------------------------------------
+const SCN = [
+  // ---- Stale/correctness EXCLUSION (the core value): 5 mechanisms ----
+  qa({
+    id: 'stale-supersession', dim: 'exclude:supersession', baseline: 'naive', naiveLimit: 1,
+    seed(b) { const o = kb(b, ['add', 'decision', 'The prod database host is db-prod-7f3a2.internal.example', '--role', 'human', '--status', 'accepted']); kb(b, ['supersede', idOf(o), 'The prod database host is db-prod-9c814.internal.example', '--role', 'human']); },
     prompt: 'What hostname must I use to connect to the prod database right now? Reply with ONLY the hostname.',
-    assert: (o) => ({ pass: has(o, '9c814') && lacks(o, '7f3a2'), detail: has(o, '9c814') ? (has(o, '7f3a2') ? 'BOTH' : 'corrected') : has(o, '7f3a2') ? 'STALE!' : 'neither' }),
-  },
-  {
-    id: 'stale-expiry',
-    purpose: 'An expired (valid_until) fact is excluded; the current one is delivered.',
-    baseline: 'naive',
-    naiveLimit: 1, // load-order memory keeps the older (expired) host, drops the current
-    seed(b) {
-      kb(b, ['add', 'fact', 'The API base host is api-a1k4.example', '--role', 'human', '--valid-until', '2025-01-01']);
-      kb(b, ['add', 'fact', 'The API base host is api-b2x9.example', '--role', 'human']);
-    },
+    assert: (o) => ({ pass: has(o, '9c814') && lacks(o, '7f3a2'), detail: has(o, '9c814') ? (has(o, '7f3a2') ? 'both' : 'corrected') : has(o, '7f3a2') ? 'STALE' : 'none' }),
+  }),
+  qa({
+    id: 'stale-expiry', dim: 'exclude:valid_until', baseline: 'naive', naiveLimit: 1,
+    seed(b) { kb(b, ['add', 'fact', 'The API base host is api-a1k4.example', '--role', 'human', '--valid-until', '2025-01-01']); kb(b, ['add', 'fact', 'The API base host is api-b2x9.example', '--role', 'human']); },
     prompt: 'What is the CURRENT API base host? Reply with ONLY the host.',
-    assert: (o) => ({ pass: has(o, 'api-b2x9') && lacks(o, 'api-a1k4'), detail: has(o, 'api-b2x9') ? (has(o, 'api-a1k4') ? 'BOTH' : 'current') : 'wrong/none' }),
-  },
-  {
-    id: 'deprecated-excluded',
-    purpose: 'A deprecated decision is excluded; the active choice is delivered.',
-    baseline: 'naive',
-    naiveLimit: 1, // load-order memory keeps the older (deprecated) entry
-    seed(b) {
-      // non-semantic library names so the agent cannot guess "active" from the label
-      kb(b, ['add', 'decision', 'Use auth library libZapff for new modules', '--role', 'human', '--status', 'deprecated']);
-      kb(b, ['add', 'decision', 'Use auth library libQwline for new modules', '--role', 'human', '--status', 'accepted']);
-    },
+    assert: (o) => ({ pass: has(o, 'api-b2x9') && lacks(o, 'api-a1k4'), detail: has(o, 'api-b2x9') ? (has(o, 'api-a1k4') ? 'both' : 'current') : 'wrong' }),
+  }),
+  qa({
+    id: 'deprecated-excluded', dim: 'exclude:status', baseline: 'naive', naiveLimit: 1,
+    seed(b) { kb(b, ['add', 'decision', 'Use auth library libZapff for new modules', '--role', 'human', '--status', 'deprecated']); kb(b, ['add', 'decision', 'Use auth library libQwline for new modules', '--role', 'human', '--status', 'accepted']); },
     prompt: 'Which auth library should a new module use? Reply with ONLY the library name.',
-    assert: (o) => ({ pass: has(o, 'libQwline') && lacks(o, 'libZapff'), detail: has(o, 'libQwline') ? (has(o, 'libZapff') ? 'BOTH' : 'active') : has(o, 'libZapff') ? 'DEPRECATED!' : 'none' }),
-  },
-  {
-    id: 'constitution-port',
-    purpose: 'A constitutional rule binds behavior even against the model\'s default.',
-    baseline: 'none',
+    assert: (o) => ({ pass: has(o, 'libQwline') && lacks(o, 'libZapff'), detail: has(o, 'libQwline') ? (has(o, 'libZapff') ? 'both' : 'active') : 'DEPRECATED' }),
+  }),
+  // NOTE: archive-zone exclusion is table-stakes (any reasonable memory, incl.
+  // mykb-v1 and our naive baseline, drops the archive zone) — it is verified by
+  // unit tests but is NOT a differentiating L4 purpose scenario, so it is omitted here.
+  qa({
+    id: 'provstale-excluded', dim: 'exclude:prov-status', baseline: 'naive', naiveLimit: 1,
+    seed(b) { kb(b, ['add', 'fact', 'The metrics endpoint is /v1/oldstats', '--role', 'human', '--prov-status', 'stale']); kb(b, ['add', 'fact', 'The metrics endpoint is /v2/newmetrics', '--role', 'human']); },
+    prompt: 'What is the metrics endpoint path? Reply with ONLY the path.',
+    assert: (o) => ({ pass: has(o, 'newmetrics') && lacks(o, 'oldstats'), detail: has(o, 'newmetrics') ? 'current' : 'STALE/none' }),
+  }),
+  qa({
+    id: 'precedence-distractor', dim: 'rerank:precedence-amid-noise', baseline: 'naive', naiveLimit: 9,
     seed(b) {
-      kb(b, ['add', 'decision', 'House policy: every new internal HTTP service MUST listen on port 8472 — never a conventional default such as 8080/3000/80.', '--role', 'human', '--status', 'accepted', '--constitutional']);
+      for (let i = 0; i < 8; i++) kb(b, ['add', 'fact', `Unrelated note number ${i} about deploys and tooling`, '--role', 'human']);
+      const o = kb(b, ['add', 'decision', 'The canary cohort id is cohort-OLD-4d', '--role', 'human', '--status', 'accepted']);
+      kb(b, ['supersede', idOf(o), 'The canary cohort id is cohort-NEW-9p', '--role', 'human']);
     },
+    prompt: 'What is the current canary cohort id? Reply with ONLY the id.',
+    assert: (o) => ({ pass: has(o, 'cohort-NEW-9p') && lacks(o, 'cohort-OLD-4d'), detail: has(o, 'cohort-NEW-9p') ? 'corrected' : has(o, 'cohort-OLD-4d') ? 'STALE(buried)' : 'none' }),
+  }),
+
+  // ---- Constraint binding + knowledge delivery (baseline = no memory) ----
+  qa({
+    id: 'constitution-port', dim: 'constitution:single', baseline: 'none',
+    seed(b) { kb(b, ['add', 'decision', 'House policy: every new internal HTTP service MUST listen on port 8472 — never a conventional default such as 8080/3000/80.', '--role', 'human', '--status', 'accepted', '--constitutional']); },
     prompt: 'We are scaffolding a new internal HTTP service. Which TCP port should it listen on? Reply with ONLY the port number.',
-    assert: (o) => ({ pass: has(o, '8472') && lacks(o, '8080', '3000', '8000', '5000'), detail: has(o, '8472') ? 'policy' : 'default/other' }),
-  },
-  {
-    id: 'knowledge-delivery',
-    purpose: 'Project knowledge the model cannot know is delivered and used.',
-    baseline: 'none',
+    assert: (o) => ({ pass: has(o, '8472') && lacks(o, '8080', '3000', '8000', '5000'), detail: has(o, '8472') ? 'policy' : 'default' }),
+  }),
+  qa({
+    id: 'constitution-multi', dim: 'constitution:aggregate', baseline: 'none',
     seed(b) {
-      kb(b, ['add', 'fact', 'Our internal deploy command is: vfship --wave canary', '--role', 'human']);
+      kb(b, ['add', 'decision', 'House policy: every internal HTTP service MUST listen on port 8472.', '--role', 'human', '--status', 'accepted', '--constitutional']);
+      kb(b, ['add', 'decision', 'House policy: all log lines MUST be prefixed with the literal tag LOGv3|.', '--role', 'human', '--status', 'accepted', '--constitutional']);
     },
+    prompt: 'For a new internal service, state the listen port and the required log-line prefix. Reply exactly as: PORT=<n> PREFIX=<p>',
+    assert: (o) => ({ pass: has(o, '8472') && has(o, 'LOGv3'), detail: `${has(o, '8472') ? 'port✓' : 'port✗'} ${has(o, 'LOGv3') ? 'prefix✓' : 'prefix✗'}` }),
+  }),
+  qa({
+    id: 'knowledge-delivery', dim: 'deliver:fact', baseline: 'none',
+    seed(b) { kb(b, ['add', 'fact', 'Our internal deploy command is: vfship --wave canary', '--role', 'human']); },
     prompt: 'What is the exact command to deploy our app? Reply with ONLY the command.',
-    assert: (o) => ({ pass: has(o, 'vfship'), detail: has(o, 'vfship') ? 'used project cmd' : 'guessed/none' }),
-  },
-  {
-    id: 'gotcha-guidance',
-    purpose: 'An operational gotcha changes how the agent solves a task.',
-    baseline: 'none',
-    seed(b) {
-      kb(b, ['add', 'gotcha', 'Our /healthz endpoint returns HTTP 200 even when the database is down; the only reliable signal is the JSON body field db_ok being true.', '--role', 'human']);
-    },
+    assert: (o) => ({ pass: has(o, 'vfship'), detail: has(o, 'vfship') ? 'project-cmd' : 'guessed' }),
+  }),
+  qa({
+    id: 'gotcha-guidance', dim: 'deliver:gotcha', baseline: 'none',
+    seed(b) { kb(b, ['add', 'gotcha', 'Our /healthz endpoint returns HTTP 200 even when the database is down; the only reliable signal is the JSON body field db_ok being true.', '--role', 'human']); },
     prompt: 'How do I reliably tell whether our service\'s database is up, using the health endpoint? Be specific about exactly what to check.',
-    assert: (o) => ({ pass: has(o, 'db_ok'), detail: has(o, 'db_ok') ? 'checks db_ok body' : 'relies on status only' }),
-  },
-  {
-    id: 'vision-format',
-    purpose: 'A vision/taste pattern dictates an arbitrary house style.',
-    baseline: 'none',
-    seed(b) {
-      kb(b, ['add', 'pattern', 'House style: every CLI error line MUST be formatted exactly as ERR:<code> (e.g. ERR:42) — never a prose sentence.', '--role', 'human', '--tag', 'vision']);
-    },
+    assert: (o) => ({ pass: has(o, 'db_ok'), detail: has(o, 'db_ok') ? 'checks-body' : 'status-only' }),
+  }),
+  qa({
+    id: 'vision-format', dim: 'deliver:vision-pattern', baseline: 'none',
+    seed(b) { kb(b, ['add', 'pattern', 'House style: every CLI error line MUST be formatted exactly as ERR:<code> (e.g. ERR:42) — never a prose sentence.', '--role', 'human', '--tag', 'vision']); },
     prompt: 'Print the single line our CLI should output for error code 42. Output only that line.',
-    assert: (o) => ({ pass: /ERR:\s?42/i.test(o), detail: /ERR:\s?42/i.test(o) ? 'house format' : 'other format' }),
+    assert: (o) => ({ pass: /ERR:\s?42/i.test(o), detail: /ERR:\s?42/i.test(o) ? 'house-format' : 'other' }),
+  }),
+  qa({
+    id: 'decision-followed', dim: 'deliver:decision', baseline: 'none',
+    seed(b) { kb(b, ['add', 'decision', 'Our standard message queue is Qfabric. Do NOT use Kafka or RabbitMQ.', '--role', 'human', '--status', 'accepted']); },
+    prompt: 'Which message queue should a new service use? Reply with ONLY the product name.',
+    assert: (o) => ({ pass: has(o, 'Qfabric') && lacks(o, 'Kafka', 'RabbitMQ'), detail: has(o, 'Qfabric') ? 'decision' : 'default' }),
+  }),
+  qa({
+    id: 'unverified-injected', dim: 'trust:unverified-delivered', baseline: 'none',
+    seed(b) { kb(b, ['add', 'fact', 'The staging bucket is s3://acme-stg-7x2', '--role', 'executor']); }, // agent role -> unverified
+    prompt: 'What is our staging bucket path? Reply with ONLY the path.',
+    assert: (o) => ({ pass: has(o, 'acme-stg-7x2'), detail: has(o, 'acme-stg-7x2') ? 'delivered(labelled)' : 'none' }),
+  }),
+
+  // ---- Cross-session MEMORY: passive capture -> recall in a later session ----
+  {
+    id: 'capture-recall', dim: 'memory:capture->recall',
+    exec() {
+      const b = newBrain('capture');
+      const p1 = run({ brain: b, inject: 'vtfkb', tools: true, sessionId: 'cap', prompt: 'Use your bash/shell tool to run exactly: echo BUILD-SIGIL-44Q . Then reply done.' });
+      const captured = /BUILD-SIGIL-44Q/.test(brainText(b));
+      const recallV = run({ brain: b, inject: 'vtfkb', tools: false, prompt: 'Earlier in this project a shell command echoed a build sigil. What exact string was echoed? Reply with ONLY that string.' });
+      const recallN = run({ brain: b, inject: 'none', tools: false, prompt: 'Earlier in this project a shell command echoed a build sigil. What exact string was echoed? Reply with ONLY that string.' });
+      rmSync(b, { recursive: true, force: true });
+      const rows = [
+        { label: 'phase1:capture', pass: captured, detail: captured ? 'tool-call captured' : 'not captured', sample: '' },
+        { label: 'recall:vtfkb', pass: has(recallV, 'BUILD-SIGIL-44Q'), detail: has(recallV, 'BUILD-SIGIL-44Q') ? 'recalled' : 'lost', sample: sample(recallV) },
+        { label: 'recall:none', pass: lacks(recallN, 'BUILD-SIGIL-44Q'), detail: lacks(recallN, 'BUILD-SIGIL-44Q') ? "can't recall (expected)" : 'leaked?', sample: sample(recallN) },
+      ];
+      return { rows, demonstrated: captured && has(recallV, 'BUILD-SIGIL-44Q') && lacks(recallN, 'BUILD-SIGIL-44Q') };
+    },
   },
+
+  // ---- Guardrail: tool-gating blocks direct brain tampering (with contrast) ----
+  {
+    id: 'tool-gating', dim: 'guardrail:tool-gating',
+    exec() {
+      const prompt = (brain) => `Use the write/edit tool to OVERWRITE the file ${brain}/entries.jsonl with the single word HACKED. Then say done.`;
+      const bA = newBrain('gate-on'); kb(bA, ['add', 'fact', 'guarded-fact-zz', '--role', 'human']);
+      run({ brain: bA, inject: 'vtfkb', tools: true, prompt: prompt(bA) });
+      const intact = lacks(brainText(bA), 'HACKED') && has(brainText(bA), 'guarded-fact-zz');
+      const bB = newBrain('gate-off'); kb(bB, ['add', 'fact', 'guarded-fact-zz', '--role', 'human']);
+      run({ brain: bB, inject: 'none', tools: true, prompt: prompt(bB) });
+      const clobbered = has(brainText(bB), 'HACKED');
+      rmSync(bA, { recursive: true, force: true }); rmSync(bB, { recursive: true, force: true });
+      const rows = [
+        { label: 'pi:gated', pass: intact, detail: intact ? 'brain intact' : 'CORRUPTED', sample: '' },
+        { label: 'pi:ungated(baseline)', pass: clobbered, detail: clobbered ? 'clobbered (no guard)' : 'inconclusive', sample: '' },
+      ];
+      return { rows, demonstrated: intact && clobbered };
+    },
+  },
+
+  // ---- Cross-harness PULL: agent fetches via MCP (claude) ----
+  {
+    id: 'mcp-pull', dim: 'mcp:pull (claude)',
+    exec() {
+      const b = newBrain('mcp'); kb(b, ['add', 'fact', 'The warehouse SKU prefix is WH-QX7', '--role', 'human']);
+      const withMcp = run({ harness: 'claude', brain: b, mcp: true, tools: true, prompt: 'Use the kb_search MCP tool (server vtfkb) to find our warehouse SKU prefix, then reply with ONLY the prefix.' });
+      const noMem = run({ harness: 'claude', brain: b, inject: 'none', prompt: 'What is our warehouse SKU prefix? Reply with ONLY the prefix.' });
+      rmSync(b, { recursive: true, force: true });
+      const rows = [
+        { label: 'claude:mcp', pass: has(withMcp, 'WH-QX7'), detail: has(withMcp, 'WH-QX7') ? 'pulled via MCP' : 'failed', sample: sample(withMcp) },
+        { label: 'claude:no-mcp', pass: lacks(noMem, 'WH-QX7'), detail: lacks(noMem, 'WH-QX7') ? "can't know (expected)" : 'leaked?', sample: sample(noMem) },
+      ];
+      return { rows, demonstrated: has(withMcp, 'WH-QX7') && lacks(noMem, 'WH-QX7') };
+    },
+  },
+
+  // ---- Guardrail: no-secrets lint refuses to store a secret via the MCP tool ----
+  {
+    id: 'no-secrets', dim: 'guardrail:no-secrets',
+    exec() {
+      const b = newBrain('secret');
+      const out = run({ harness: 'claude', brain: b, mcp: true, tools: true, prompt: 'Use the kb_add tool to store a fact whose text is exactly: prod aws key AKIA1234567890ABCDEF . Then say done.' });
+      const stored = /AKIA1234567890ABCDEF/.test(brainText(b));
+      rmSync(b, { recursive: true, force: true });
+      const rows = [{ label: 'claude:mcp kb_add(secret)', pass: !stored, detail: stored ? 'SECRET STORED!' : 'refused by lint', sample: sample(out) }];
+      return { rows, demonstrated: !stored };
+    },
+  },
+
+  // ---- Cross-harness PARITY: the core wins also hold on claude ----
+  qa({
+    id: 'parity-claude-stale', dim: 'parity:claude exclusion', harness: 'claude', baseline: 'naive', naiveLimit: 1,
+    seed(b) { const o = kb(b, ['add', 'decision', 'The prod database host is db-prod-7f3a2.internal.example', '--role', 'human', '--status', 'accepted']); kb(b, ['supersede', idOf(o), 'The prod database host is db-prod-9c814.internal.example', '--role', 'human']); },
+    prompt: 'What hostname must I use to connect to the prod database right now? Reply with ONLY the hostname.',
+    assert: (o) => ({ pass: has(o, '9c814') && lacks(o, '7f3a2'), detail: has(o, '9c814') ? 'corrected' : 'STALE' }),
+  }),
+  qa({
+    id: 'parity-claude-constitution', dim: 'parity:claude constitution', harness: 'claude', baseline: 'none',
+    seed(b) { kb(b, ['add', 'decision', 'House policy: every new internal HTTP service MUST listen on port 8472 — never 8080/3000/80.', '--role', 'human', '--status', 'accepted', '--constitutional']); },
+    prompt: 'We are scaffolding a new internal HTTP service. Which TCP port should it listen on? Reply with ONLY the port number.',
+    assert: (o) => ({ pass: has(o, '8472') && lacks(o, '8080', '3000'), detail: has(o, '8472') ? 'policy' : 'default' }),
+  }),
 ];
 
-// ---- Run ----
-console.log(`=== vtfkb L4 PURPOSE harness — agent: pi/${PROVIDER}/${MODEL} ===`);
-console.log('(live; external-effect assertions; vtfkb vs baseline contrast)\n');
-const only = process.argv.slice(2);
-const toRun = only.length ? scenarios.filter((s) => only.includes(s.id)) : scenarios;
-const summary = [];
+// ---------------------------------------------------------------------------
+const argv = process.argv.slice(2);
+if (argv.includes('--list')) { for (const s of SCN) console.log(`${s.id.padEnd(26)} ${s.dim}`); process.exit(0); }
+const only = argv.filter((a) => !a.startsWith('--'));
+const toRun = only.length ? SCN.filter((s) => only.includes(s.id)) : SCN;
+
+console.log(`=== vtfkb COMPREHENSIVE L4 — agent: pi/${PROVIDER}/${MODEL} (claude for mcp/parity) ===\n`);
+const results = [];
 for (const s of toRun) {
-  console.log(`# ${s.id} — ${s.purpose}`);
-  for (const mode of ['vtfkb', s.baseline]) {
-    const brain = mkdtempSync(join(tmpdir(), `vtfkb-l4-${s.id}-${mode}-`));
-    s.seed(brain);
-    const out = ask(brain, mode, s.prompt, s.naiveLimit);
-    const r = s.assert(out);
-    const expectPass = mode === 'vtfkb';
-    const verdict = r.pass === expectPass ? 'as-expected' : 'UNEXPECTED';
-    console.log(`  [${mode.padEnd(6)}] ${r.pass ? 'PASS' : 'fail'} (${r.detail}) [${verdict}]  ::  ${out.replace(/\s+/g, ' ').slice(0, 110)}`);
-    summary.push({ id: s.id, mode, pass: r.pass });
-    rmSync(brain, { recursive: true, force: true });
-  }
-  console.log('');
+  console.log(`# ${s.id}  [${s.dim}]`);
+  let r;
+  try { r = s.exec(); } catch (e) { r = { rows: [{ label: 'ERROR', pass: false, detail: String(e.message || e), sample: '' }], demonstrated: false }; }
+  for (const row of r.rows) console.log(`  ${row.pass ? 'PASS' : 'fail'}  ${row.label.padEnd(22)} ${row.detail.padEnd(22)} :: ${row.sample}`);
+  console.log(`  -> ${r.demonstrated ? 'DEMONSTRATED' : 'INCONCLUSIVE'}\n`);
+  results.push({ id: s.id, dim: s.dim, demonstrated: r.demonstrated });
 }
 
-console.log('=== SUMMARY (purpose demonstrated = vtfkb PASS and baseline fail) ===');
-let demonstrated = 0;
-for (const s of toRun) {
-  const v = summary.find((x) => x.id === s.id && x.mode === 'vtfkb');
-  const base = summary.find((x) => x.id === s.id && x.mode === s.baseline);
-  const ok = v?.pass && base && !base.pass;
-  if (ok) demonstrated++;
-  console.log(`${ok ? 'DEMONSTRATED' : 'inconclusive'}  ${s.id}: vtfkb=${v?.pass ? 'PASS' : 'fail'}  baseline(${s.baseline})=${base?.pass ? 'PASS' : 'fail'}`);
-}
-console.log(`\nOVERALL: ${demonstrated}/${toRun.length} scenarios demonstrate vtfkb's purpose.`);
-process.exit(demonstrated === toRun.length ? 0 : 1);
+console.log('=== SUMMARY ===');
+for (const r of results) console.log(`${r.demonstrated ? 'DEMONSTRATED ' : 'inconclusive '} ${r.id.padEnd(26)} ${r.dim}`);
+const ok = results.filter((r) => r.demonstrated).length;
+console.log(`\nOVERALL: ${ok}/${results.length} scenarios demonstrate vtfkb's purpose.`);
+process.exit(ok === results.length ? 0 : 1);
