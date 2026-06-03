@@ -71,6 +71,10 @@ export interface KnowledgeEntry {
   provenance: Provenance;
   validity: Validity;
   status?: DecisionStatus; // decision family only
+  // Engine-managed decision-family fields (NOT user content; exempt from the
+  // content-immutability rule — they carry lifecycle/identity, not the decision):
+  constitutional?: boolean; // ADR-0008: a constitutional rule (always-injected)
+  adr_no?: number; // ADR-0009: human ordinal, stamped by the engine at merge-to-main
   created: string;
   updated: string;
 }
