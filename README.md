@@ -43,8 +43,30 @@ test/               vitest (engine · storage · decision-family) — 27 tests
 ```
 npm install
 npm run build      # tsc -> dist/ (no native modules)
-npm test           # vitest: 27 tests
+npm test           # vitest: 49 unit/integration/protocol tests
 ```
+
+## Proving the purpose (L4 scenario harness)
+
+Unit tests prove the modules are correct; the L4 harness proves vtfkb fulfils its
+**purpose** — that a real agent behaves *better because of it*. It drives `claude -p`
+through tasks whose correct outcome depends on vtfkb's knowledge, asserts on
+**observable effects** (what the agent outputs), and **contrasts against a baseline**
+(a naive flat memory, or no memory) so the improvement is shown to be *caused* by
+vtfkb. Live + costs tokens + nondeterministic → NOT part of `npm test`.
+
+```
+node scenarios/l4-purpose.mjs                 # all scenarios
+node scenarios/l4-purpose.mjs stale-host      # one scenario
+```
+
+Demonstrated (2026-06-03):
+- **stale-host** — vtfkb → the corrected host (`db-prod-9c814`); naive flat memory →
+  *fails* (surfaces both conflicting hosts, agent can't choose). The Stark-FQDN class,
+  fixed.
+- **constitution-port** — an arbitrary house policy (bind port 8472). vtfkb → `8472`;
+  no-memory baseline → `8080` (default). A constitutional rule binds behavior even
+  against the model's prior.
 
 ## Try the auto-layer (against a throwaway brain)
 

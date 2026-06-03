@@ -385,6 +385,25 @@ export function renderContextBundle(project = 'spike', budget = SESSION_BUDGET_C
   return header + body + footer;
 }
 
+// --- Naive flat dump (NOT used in production). Represents a mykb-v1-style memory:
+//     all live entries in load/creation order, flat, NO supersession/stale filter,
+//     NO rerank, budget-cut from the end (so the newest can be dropped). Used only
+//     by the L4 scenario harness as the contrast baseline. ---
+export function renderNaiveDump(project = 'spike', budget = SESSION_BUDGET_CHARS): string {
+  const entries = readAll()
+    .filter((e) => e.zone !== 'archive')
+    .sort((a, b) => a.created.localeCompare(b.created)); // oldest first (load order)
+  const header = `<context project="${project}">\n`;
+  const footer = `\n</context>`;
+  let body = '';
+  for (const e of entries) {
+    const line = `- ${e.text}\n`;
+    if (header.length + body.length + line.length + footer.length > budget) break; // drops newest
+    body += line;
+  }
+  return header + body + footer;
+}
+
 // --- Tier-B passive capture (ADR-0015 / ADR-0011 tool_call origin). ---
 export interface ToolEvent {
   tool_name?: string;

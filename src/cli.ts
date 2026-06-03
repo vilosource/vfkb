@@ -8,6 +8,8 @@ import {
   readAll,
   renderContextBundle,
   renderContextMap,
+  renderNaiveDump,
+  supersede,
   deriveTrust,
 } from './engine.js';
 import { query } from './read.js';
@@ -76,6 +78,24 @@ async function main() {
     return;
   }
 
+  // context-block-naive: mykb-v1-style flat unfiltered dump (L4 contrast baseline).
+  if (cmd === 'context-block-naive') {
+    process.stdout.write(renderNaiveDump(sub || 'spike'));
+    return;
+  }
+
+  // supersede <oldId> <text...> [--role r]
+  if (cmd === 'supersede') {
+    try {
+      const e = supersede(sub, cleanText(rest), { role: (flag(rest, 'role') as AuthorRole) || 'human' });
+      process.stdout.write(`${e.id}\tsupersedes ${sub}\t${e.text}\n`);
+    } catch (err) {
+      process.stderr.write(`error: ${(err as Error).message}\n`);
+      process.exit(1);
+    }
+    return;
+  }
+
   // search/query: vtfkb search <text> [--type t] [--tag a,b] [--zone z] [--status s]
   //               [--role r] [--limit N] [--stale] [--superseded]
   if (cmd === 'search' || cmd === 'query') {
@@ -104,7 +124,11 @@ async function main() {
   if (cmd === 'hook') {
     if (sub === 'session-start') {
       await readStdin(); // payload not needed for the bundle
-      const additionalContext = renderContextBundle(process.env.VTFKB_PROJECT || 'spike');
+      const project = process.env.VTFKB_PROJECT || 'spike';
+      // --naive = the mykb-v1-style flat dump (L4 contrast baseline only).
+      const additionalContext = rest.includes('--naive')
+        ? renderNaiveDump(project)
+        : renderContextBundle(project);
       process.stdout.write(
         JSON.stringify({
           hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext },
