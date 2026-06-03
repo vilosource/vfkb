@@ -100,13 +100,17 @@ divergences** on shared scenarios.
 ### Why the baselines are trustworthy (isolation discipline)
 
 A contrast only proves causation if the baseline **reliably fails** and is genuinely
-knowledge-free. Two real leaks were found and fixed: (1) the `claude` baseline pulled
-unguessable tokens from its **global MemPalace memory**, and (2) it **read the brain
-file off `/tmp`** with default tools. So every `claude` run uses `--strict-mcp-config`
-+ an empty MCP config (no global memory) **and** denies all filesystem/exec tools
-(`--disallowedTools …`); the MCP variant keeps only the `mcp__vtfkb__*` tools, so it
-is *forced* to answer via `kb_search`. Archive-zone exclusion is **table-stakes** (any
-memory drops it) and is omitted from L4 (unit-tested instead).
+knowledge-free. The harness spawns the real `claude` CLI as the agent, so by default
+it inherits the **user's global config** — every connected MCP server and the global
+`CLAUDE.md`. The **proven** leak was the **filesystem**: an un-restricted `claude`
+baseline used its default tools to read the brain's `entries.jsonl` in `/tmp` (it cited
+the brain dir name in its answer). So every `claude` run now **denies all filesystem/
+exec tools** (`--disallowedTools …`) — that is the fix that stops the leak — and also
+uses `--strict-mcp-config` + an empty MCP config to disable the user's global MCP
+servers (Atlassian/Gmail/Calendar/etc.) so the test can't touch real services and has
+no out-of-band knowledge. The MCP variant keeps only `mcp__vtfkb__*`, so it is *forced*
+to answer via `kb_search`. Archive-zone exclusion is **table-stakes** (any memory drops
+it) and is omitted from L4 (unit-tested instead).
 
 ## Try the auto-layer (against a throwaway brain)
 

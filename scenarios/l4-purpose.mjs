@@ -71,9 +71,11 @@ function mcpConfig(brain) {
   writeFileSync(f, JSON.stringify({ mcpServers: { vtfkb: { command: 'node', args: [MCP], env: { VTFKB_DIR: brain } } } }));
   return f;
 }
-// Empty MCP config + --strict-mcp-config disables ALL global MCP servers (incl. the
-// MemPalace persistent-memory server) so a baseline run is genuinely memory-free —
-// otherwise unguessable tokens from a prior run leak back via the agent's global memory.
+// Empty MCP config + --strict-mcp-config disables ALL of the user's global MCP servers
+// for the spawned `claude` (Atlassian/Gmail/Calendar/Drive/mediawiki/playwright/etc.):
+// the test must not reach the user's real connected services and must have no
+// out-of-band knowledge source. (The PROVEN token-leak vector was filesystem reads —
+// see the runner's --disallowedTools; this is defense-in-depth + privacy hygiene.)
 function emptyMcp(brain) {
   const f = join(brain, 'mcp-empty.json');
   writeFileSync(f, JSON.stringify({ mcpServers: {} }));
@@ -84,8 +86,10 @@ function emptyMcp(brain) {
 function run({ harness = 'pi', brain, prompt, inject = 'vtfkb', tools = false, sessionId, naiveLimit, mcp = false }) {
   try {
     if (harness === 'claude') {
-      // ALWAYS strict-mcp-config so global MCP/memory (MemPalace) can't leak across runs,
-      // AND deny all filesystem/exec tools so a run can't read the brain file off /tmp.
+      // ALWAYS strict-mcp-config to disable the user's global MCP servers (the test must
+      // not touch real Atlassian/Gmail/etc. and must have no out-of-band knowledge),
+      // AND deny all filesystem/exec tools — the PROVEN leak vector: an un-denied run read
+      // the brain's entries.jsonl off /tmp (it cited the brain dir name in its answer).
       // The vtfkb MCP tools (mcp__vtfkb__*) are NOT in the deny list, so the mcp variant
       // is forced to answer via kb_search/kb_map (not a file read); the baseline has
       // neither MCP nor file tools -> genuinely knowledge-free. Injection is via the
