@@ -49,24 +49,34 @@ npm test           # vitest: 49 unit/integration/protocol tests
 ## Proving the purpose (L4 scenario harness)
 
 Unit tests prove the modules are correct; the L4 harness proves vtfkb fulfils its
-**purpose** — that a real agent behaves *better because of it*. It drives `claude -p`
-through tasks whose correct outcome depends on vtfkb's knowledge, asserts on
-**observable effects** (what the agent outputs), and **contrasts against a baseline**
-(a naive flat memory, or no memory) so the improvement is shown to be *caused* by
-vtfkb. Live + costs tokens + nondeterministic → NOT part of `npm test`.
+**purpose** — that a real agent behaves *better because of it*. It drives a real
+agent (**DeepSeek-V4 via `pi` by default**) through tasks whose correct outcome
+depends on vtfkb's knowledge, asserts on **observable effects** (what the agent
+outputs), and **contrasts against a baseline** so the improvement is shown to be
+*caused* by vtfkb:
+- `naive` = a mykb-v1-style flat, load-order, unfiltered memory (surfaces stale);
+- `none` = no memory at all (the agent simply lacks the knowledge).
+
+Live + costs tokens + nondeterministic → NOT part of `npm test`. Override the agent
+with `VTFKB_L4_MODEL` / `VTFKB_L4_PROVIDER`.
 
 ```
-node scenarios/l4-purpose.mjs                 # all scenarios
-node scenarios/l4-purpose.mjs stale-host      # one scenario
+node scenarios/l4-purpose.mjs                       # all scenarios
+node scenarios/l4-purpose.mjs stale-supersession    # subset by id
 ```
 
-Demonstrated (2026-06-03):
-- **stale-host** — vtfkb → the corrected host (`db-prod-9c814`); naive flat memory →
-  *fails* (surfaces both conflicting hosts, agent can't choose). The Stark-FQDN class,
-  fixed.
-- **constitution-port** — an arbitrary house policy (bind port 8472). vtfkb → `8472`;
-  no-memory baseline → `8080` (default). A constitutional rule binds behavior even
-  against the model's prior.
+**7/7 scenarios demonstrate the purpose** (DeepSeek-V4, 2026-06-03) — each shows
+vtfkb PASS and the baseline fail:
+
+| Scenario | vtfkb | baseline | purpose dimension |
+|---|---|---|---|
+| stale-supersession | corrected host | naive → stale host | supersession exclusion |
+| stale-expiry | current host | naive → expired host | `valid_until` exclusion |
+| deprecated-excluded | active library | naive → deprecated library | status exclusion |
+| constitution-port | port 8472 | none → 8080 (default) | constitutional binding |
+| knowledge-delivery | `vfship --wave` | none → guessed | project knowledge |
+| gotcha-guidance | checks `db_ok` body | none → status-only | operational gotcha |
+| vision-format | `ERR:42` | none → prose/number | vision/taste style |
 
 ## Try the auto-layer (against a throwaway brain)
 
