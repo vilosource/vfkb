@@ -1,0 +1,366 @@
+{
+  "model": "claude-sonnet-4.6",
+  "provider": "github-copilot",
+  "slug": "github-copilot__claude-sonnet-4.6",
+  "generated": "2026-06-03T13:25:04.222Z",
+  "vtfkb_sha": "678af37",
+  "scenarios": {
+    "stale-supersession": {
+      "dim": "exclude:supersession",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "corrected",
+          "prompt": "What hostname must I use to connect to the prod database right now? Reply with ONLY the hostname.",
+          "output": "db-prod-9c814.internal.example"
+        },
+        {
+          "label": "pi:naive",
+          "pass": false,
+          "detail": "STALE",
+          "prompt": "What hostname must I use to connect to the prod database right now? Reply with ONLY the hostname.",
+          "output": "db-prod-7f3a2.internal.example"
+        }
+      ]
+    },
+    "stale-expiry": {
+      "dim": "exclude:valid_until",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "current",
+          "prompt": "What is the CURRENT API base host? Reply with ONLY the host.",
+          "output": "api-b2x9.example"
+        },
+        {
+          "label": "pi:naive",
+          "pass": false,
+          "detail": "wrong",
+          "prompt": "What is the CURRENT API base host? Reply with ONLY the host.",
+          "output": "api-a1k4.example"
+        }
+      ]
+    },
+    "deprecated-excluded": {
+      "dim": "exclude:status",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "active",
+          "prompt": "Which auth library should a new module use? Reply with ONLY the library name.",
+          "output": "libQwline"
+        },
+        {
+          "label": "pi:naive",
+          "pass": false,
+          "detail": "DEPRECATED",
+          "prompt": "Which auth library should a new module use? Reply with ONLY the library name.",
+          "output": "libZapff"
+        }
+      ]
+    },
+    "provstale-excluded": {
+      "dim": "exclude:prov-status",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "current",
+          "prompt": "What is the metrics endpoint path? Reply with ONLY the path.",
+          "output": "/v2/newmetrics"
+        },
+        {
+          "label": "pi:naive",
+          "pass": false,
+          "detail": "STALE/none",
+          "prompt": "What is the metrics endpoint path? Reply with ONLY the path.",
+          "output": "/v1/oldstats"
+        }
+      ]
+    },
+    "precedence-distractor": {
+      "dim": "rerank:precedence-amid-noise",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "corrected",
+          "prompt": "What is the current canary cohort id? Reply with ONLY the id.",
+          "output": "cohort-NEW-9p"
+        },
+        {
+          "label": "pi:naive",
+          "pass": false,
+          "detail": "STALE(buried)",
+          "prompt": "What is the current canary cohort id? Reply with ONLY the id.",
+          "output": "cohort-OLD-4d"
+        }
+      ]
+    },
+    "multi-fact-synthesis": {
+      "dim": "synthesis:combine-2-facts",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "host✓ port✓",
+          "prompt": "Give the full host:port to reach the billing service. Reply with ONLY host:port.",
+          "output": "bill-h7.internal:7711"
+        },
+        {
+          "label": "pi:none",
+          "pass": false,
+          "detail": "host✗ port✗",
+          "prompt": "Give the full host:port to reach the billing service. Reply with ONLY host:port.",
+          "output": "I don't have access to any tools to read files or execute commands in this environment. I cannot determine the host:port for the billing service without being able to inspect configuration files, environment variables, or service discovery systems.\n\nPlease check your service configuration files (e.g., `.env`, `docker-compose.yml`, Kubernetes manifests, or service registry) for the billing service address."
+        }
+      ]
+    },
+    "supersession-chain": {
+      "dim": "exclude:supersession-chain",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "latest-in-chain",
+          "prompt": "What is the current release channel? Reply with ONLY the channel id.",
+          "output": "chan-C3"
+        },
+        {
+          "label": "pi:naive",
+          "pass": false,
+          "detail": "OLDEST",
+          "prompt": "What is the current release channel? Reply with ONLY the channel id.",
+          "output": "chan-A1"
+        }
+      ]
+    },
+    "link-delivery": {
+      "dim": "deliver:link",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "link delivered",
+          "prompt": "What is the URL of our deploy runbook? Reply with ONLY the URL.",
+          "output": "https://wiki.acme.local/x/runbook-q9z"
+        },
+        {
+          "label": "pi:none",
+          "pass": false,
+          "detail": "unknown",
+          "prompt": "What is the URL of our deploy runbook? Reply with ONLY the URL.",
+          "output": "I don't have access to your organization's documentation or internal resources, so I can't provide that URL. You may want to check your team's wiki, Confluence, Notion, or similar documentation platform."
+        }
+      ]
+    },
+    "constitution-port": {
+      "dim": "constitution:single",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "policy",
+          "prompt": "We are scaffolding a new internal HTTP service. Which TCP port should it listen on? Reply with ONLY the port number.",
+          "output": "8472"
+        },
+        {
+          "label": "pi:none",
+          "pass": false,
+          "detail": "default",
+          "prompt": "We are scaffolding a new internal HTTP service. Which TCP port should it listen on? Reply with ONLY the port number.",
+          "output": "8080"
+        }
+      ]
+    },
+    "constitution-multi": {
+      "dim": "constitution:aggregate",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "port✓ prefix✓",
+          "prompt": "For a new internal service, state the listen port and the required log-line prefix. Reply exactly as: PORT=<n> PREFIX=<p>",
+          "output": "PORT=8472 PREFIX=LOGv3|"
+        },
+        {
+          "label": "pi:none",
+          "pass": false,
+          "detail": "port✗ prefix✗",
+          "prompt": "For a new internal service, state the listen port and the required log-line prefix. Reply exactly as: PORT=<n> PREFIX=<p>",
+          "output": "I don't have any information about the internal service you're referring to. No configuration files, specifications, or prior context about this service have been provided.\n\nCould you share the relevant spec, config file, or documentation so I can give you the exact values?"
+        }
+      ]
+    },
+    "knowledge-delivery": {
+      "dim": "deliver:fact",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "project-cmd",
+          "prompt": "What is the exact command to deploy our app? Reply with ONLY the command.",
+          "output": "`vfship --wave canary`"
+        },
+        {
+          "label": "pi:none",
+          "pass": false,
+          "detail": "guessed",
+          "prompt": "What is the exact command to deploy our app? Reply with ONLY the command.",
+          "output": "I don't have access to any file reading or execution tools in this session, so I can't inspect your project files to find the exact deploy command.\n\nPlease check your `package.json`, `Makefile`, `README.md`, or any CI/CD configuration files (e.g., `.github/workflows/`, `Dockerfile`, `deploy.sh`) in your project for the deployment command."
+        }
+      ]
+    },
+    "gotcha-guidance": {
+      "dim": "deliver:gotcha",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "checks-body",
+          "prompt": "How do I reliably tell whether our service's database is up, using the health endpoint? Be specific about exactly what to check.",
+          "output": "Based on the project knowledge base:\n\n**Do not rely on the HTTP status code** — `/healthz` returns **HTTP 200 even when the database is down**.\n\nInstead, parse the JSON response body and check that the field **`db_ok` is `true`**:\n\n```json\n{ \"db_ok\": true }\n```\n\n**Reliable check:**\n1. `GET /healthz`\n2. Parse the JSON body\n3. Assert `db_ok === true`\n\nOnly a `true` value for `db_ok` confirms the database is up. An HTTP 200 alone tells you nothing about database health."
+        },
+        {
+          "label": "pi:none",
+          "pass": false,
+          "detail": "status-only",
+          "prompt": "How do I reliably tell whether our service's database is up, using the health endpoint? Be specific about exactly what to check.",
+          "output": "I don't have enough context about your service yet. Let me look at what's in the current directory.\n\nNo tools are available to read files or run commands in this session, so I can't inspect your codebase directly.\n\n**To give you a specific answer, please share:**\n\n1. The health endpoint URL or route definition (e.g., `/health`, `/healthz`, `/status`)\n2. The response body format — paste an example JSON response\n3. The framework/language the service is written in\n\n---\n\n**In the meantime, here's what to look for in a typical health endpoint:**\n\n### What to check (in order of reliability)\n\n1. **HTTP status code** — A `200` means the app is running, but *not necessarily* that the DB is up. A `503` usually means a dependency is down.\n\n2. **The DB-specific field in the response body** — Most health endpoints return a structured breakdown, e.g.:\n   ```json\n   {\n     \"status\": \"ok\",\n     \"checks\": {\n       \"database\": { \"status\": \"ok\" },\n       \"cache\":    { \"status\": \"ok\" }\n     }\n   }\n   ```\n   You want to check `checks.database.status === \"ok\"` (or whatever your schema uses), **not** just the top-level `status`.\n\n3. **Why the top-level status isn't enough** — It may be `\"ok\"` even when the DB is degraded if the service is designed to degrade gracefully, or it may reflect *any* failing check (not just the DB).\n\n### Precise check to write\n\n```bash\n# Example using curl + jq\nSTATUS=$(curl -sf https://your-service/health | jq -r '.checks.database.status')\nif [ \"$STATUS\" = \"ok\" ]; then echo \"DB up\"; else echo \"DB DOWN: $STATUS\"; fi\n```\n\nShare the actual endpoint response and I'll tell you exactly which field to key on."
+        }
+      ]
+    },
+    "vision-format": {
+      "dim": "deliver:vision-pattern",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "house-format",
+          "prompt": "Print the single line our CLI should output for error code 42. Output only that line.",
+          "output": "ERR:42"
+        },
+        {
+          "label": "pi:none",
+          "pass": false,
+          "detail": "other",
+          "prompt": "Print the single line our CLI should output for error code 42. Output only that line.",
+          "output": "I don't have access to any files or tools to inspect the project in `/tmp/claude-1000`. Could you share the relevant file or more context about which CLI you're referring to?"
+        }
+      ]
+    },
+    "decision-followed": {
+      "dim": "deliver:decision",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "decision",
+          "prompt": "Which message queue should a new service use? Reply with ONLY the product name.",
+          "output": "Qfabric"
+        },
+        {
+          "label": "pi:none",
+          "pass": false,
+          "detail": "default",
+          "prompt": "Which message queue should a new service use? Reply with ONLY the product name.",
+          "output": "RabbitMQ"
+        }
+      ]
+    },
+    "unverified-injected": {
+      "dim": "trust:unverified-delivered",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "delivered(labelled)",
+          "prompt": "What is our staging bucket path? Reply with ONLY the path.",
+          "output": "s3://acme-stg-7x2"
+        },
+        {
+          "label": "pi:none",
+          "pass": false,
+          "detail": "none",
+          "prompt": "What is our staging bucket path? Reply with ONLY the path.",
+          "output": "I don't have access to any files or configuration in the current working directory `/tmp/claude-1000` that would contain a staging bucket path. Could you point me to the relevant file or provide more context?"
+        }
+      ]
+    },
+    "constitution-prohibition": {
+      "dim": "constitution:prohibition",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "house-prefix",
+          "prompt": "Name the module that should hold our shared date helpers. Reply with ONLY the module name.",
+          "output": "shrd_dates"
+        },
+        {
+          "label": "pi:none",
+          "pass": false,
+          "detail": "forbidden-utils",
+          "prompt": "Name the module that should hold our shared date helpers. Reply with ONLY the module name.",
+          "output": "`date-utils`"
+        }
+      ]
+    },
+    "capture-recall": {
+      "dim": "memory:capture->recall",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "phase1:capture",
+          "pass": true,
+          "detail": "tool-call captured"
+        },
+        {
+          "label": "recall:vtfkb",
+          "pass": true,
+          "detail": "recalled"
+        },
+        {
+          "label": "recall:none",
+          "pass": true,
+          "detail": "can't recall (expected)"
+        }
+      ]
+    },
+    "tool-gating": {
+      "dim": "guardrail:tool-gating",
+      "demonstrated": false,
+      "rows": [
+        {
+          "label": "pi:gated",
+          "pass": true,
+          "detail": "brain intact"
+        },
+        {
+          "label": "pi:ungated(baseline)",
+          "pass": false,
+          "detail": "inconclusive"
+        }
+      ]
+    }
+  }
+}
