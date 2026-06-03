@@ -23,7 +23,7 @@
 // ============================================================================
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -71,15 +71,31 @@ function mcpConfig(brain) {
   writeFileSync(f, JSON.stringify({ mcpServers: { vtfkb: { command: 'node', args: [MCP], env: { VTFKB_DIR: brain } } } }));
   return f;
 }
+// Empty MCP config + --strict-mcp-config disables ALL global MCP servers (incl. the
+// MemPalace persistent-memory server) so a baseline run is genuinely memory-free —
+// otherwise unguessable tokens from a prior run leak back via the agent's global memory.
+function emptyMcp(brain) {
+  const f = join(brain, 'mcp-empty.json');
+  writeFileSync(f, JSON.stringify({ mcpServers: {} }));
+  return f;
+}
 
 // Unified agent runner.
 function run({ harness = 'pi', brain, prompt, inject = 'vtfkb', tools = false, sessionId, naiveLimit, mcp = false }) {
   try {
     if (harness === 'claude') {
-      const args = ['-p', prompt];
-      if (mcp) args.push('--mcp-config', mcpConfig(brain), '--strict-mcp-config');
-      else args.push('--settings', claudeSettings(brain, inject, naiveLimit));
+      // ALWAYS strict-mcp-config so global MCP/memory (MemPalace) can't leak across runs,
+      // AND deny all filesystem/exec tools so a run can't read the brain file off /tmp.
+      // The vtfkb MCP tools (mcp__vtfkb__*) are NOT in the deny list, so the mcp variant
+      // is forced to answer via kb_search/kb_map (not a file read); the baseline has
+      // neither MCP nor file tools -> genuinely knowledge-free. Injection is via the
+      // SessionStart hook (not a tool), so the vtfkb-inject variant is unaffected.
+      const DENY = 'Read,Edit,Write,Bash,BashOutput,Glob,Grep,WebFetch,WebSearch,NotebookEdit,Task,KillShell';
+      const args = ['-p', prompt, '--strict-mcp-config'];
+      if (mcp) args.push('--mcp-config', mcpConfig(brain));
+      else args.push('--settings', claudeSettings(brain, inject, naiveLimit), '--mcp-config', emptyMcp(brain));
       if (tools || mcp) args.push('--dangerously-skip-permissions');
+      args.push('--disallowedTools', DENY);
       return sh('claude', args, { cwd: tmpdir(), timeout: TIMEOUT, env: { ...process.env } }).trim();
     }
     const args = ['-p', '--provider', PROVIDER, '--model', MODEL];
@@ -108,7 +124,7 @@ function qa({ id, dim, harness = 'pi', seed, prompt, baseline, naiveLimit, asser
         seed(b);
         const out = run({ harness, brain: b, prompt, inject, naiveLimit });
         const r = assert(out);
-        rows.push({ label: `${harness}:${inject}`, pass: r.pass, detail: r.detail, sample: sample(out) });
+        rows.push({ label: `${harness}:${inject}`, pass: r.pass, detail: r.detail, prompt, output: out, sample: sample(out) });
         rmSync(b, { recursive: true, force: true });
       }
       return { rows, demonstrated: rows[0].pass && !rows[1].pass };
@@ -204,6 +220,35 @@ const SCN = [
     assert: (o) => ({ pass: has(o, 'acme-stg-7x2'), detail: has(o, 'acme-stg-7x2') ? 'delivered(labelled)' : 'none' }),
   }),
 
+  qa({
+    id: 'multi-fact-synthesis', dim: 'synthesis:combine-2-facts', baseline: 'none',
+    seed(b) { kb(b, ['add', 'fact', 'The billing service listens on port 7711.', '--role', 'human']); kb(b, ['add', 'fact', 'The billing service host is bill-h7.internal.', '--role', 'human']); },
+    prompt: 'Give the full host:port to reach the billing service. Reply with ONLY host:port.',
+    assert: (o) => ({ pass: has(o, 'bill-h7') && has(o, '7711'), detail: `${has(o, 'bill-h7') ? 'host✓' : 'host✗'} ${has(o, '7711') ? 'port✓' : 'port✗'}` }),
+  }),
+  qa({
+    id: 'supersession-chain', dim: 'exclude:supersession-chain', baseline: 'naive', naiveLimit: 1,
+    seed(b) {
+      const a = kb(b, ['add', 'decision', 'The release channel is chan-A1', '--role', 'human', '--status', 'accepted']);
+      const c = kb(b, ['supersede', idOf(a), 'The release channel is chan-B2', '--role', 'human']);
+      kb(b, ['supersede', idOf(c), 'The release channel is chan-C3', '--role', 'human']);
+    },
+    prompt: 'What is the current release channel? Reply with ONLY the channel id.',
+    assert: (o) => ({ pass: has(o, 'chan-C3') && lacks(o, 'chan-A1', 'chan-B2'), detail: has(o, 'chan-C3') ? 'latest-in-chain' : has(o, 'chan-A1') ? 'OLDEST' : has(o, 'chan-B2') ? 'mid' : 'none' }),
+  }),
+  qa({
+    id: 'link-delivery', dim: 'deliver:link', baseline: 'none',
+    seed(b) { kb(b, ['add', 'link', 'Deploy runbook: https://wiki.acme.local/x/runbook-q9z', '--role', 'human']); },
+    prompt: 'What is the URL of our deploy runbook? Reply with ONLY the URL.',
+    assert: (o) => ({ pass: has(o, 'runbook-q9z'), detail: has(o, 'runbook-q9z') ? 'link delivered' : 'unknown' }),
+  }),
+  qa({
+    id: 'constitution-prohibition', dim: 'constitution:prohibition', baseline: 'none',
+    seed(b) { kb(b, ['add', 'decision', 'House policy: the word "utils" is FORBIDDEN in module names; the required prefix for shared modules is shrd_ (e.g. shrd_dates).', '--role', 'human', '--status', 'accepted', '--constitutional']); },
+    prompt: 'Name the module that should hold our shared date helpers. Reply with ONLY the module name.',
+    assert: (o) => ({ pass: has(o, 'shrd_') && lacks(o, 'utils'), detail: has(o, 'shrd_') ? 'house-prefix' : has(o, 'utils') ? 'forbidden-utils' : 'other' }),
+  }),
+
   // ---- Cross-session MEMORY: passive capture -> recall in a later session ----
   {
     id: 'capture-recall', dim: 'memory:capture->recall',
@@ -259,6 +304,42 @@ const SCN = [
     },
   },
 
+  // ---- MCP tool fluency: filtered search + map-then-search navigation ----
+  {
+    id: 'mcp-search-filter', dim: 'mcp:filtered-search (claude)',
+    exec() {
+      const b = newBrain('mcpf');
+      kb(b, ['add', 'fact', 'The cache TTL is 300 seconds', '--role', 'human']);
+      // arbitrary, unguessable flag so the baseline cannot guess it
+      kb(b, ['add', 'gotcha', 'The importer silently drops rows with a null sku_ref unless you pass the flag --xqz7-keepnull', '--role', 'human']);
+      kb(b, ['add', 'decision', 'We standardized on protobuf for inter-service payloads', '--role', 'human', '--status', 'accepted']);
+      const withMcp = run({ harness: 'claude', brain: b, mcp: true, tools: true, prompt: 'Use the kb_search MCP tool (filter type=gotcha) to find the importer gotcha. What exact flag avoids the silent row drop? Reply with ONLY the flag.' });
+      const noMem = run({ harness: 'claude', brain: b, inject: 'none', prompt: 'What exact flag avoids the importer silently dropping rows? Reply with ONLY the flag.' });
+      rmSync(b, { recursive: true, force: true });
+      const rows = [
+        { label: 'claude:mcp', pass: has(withMcp, 'xqz7-keepnull'), detail: has(withMcp, 'xqz7-keepnull') ? 'found via filter' : 'failed', output: withMcp, sample: sample(withMcp) },
+        { label: 'claude:no-mcp', pass: lacks(noMem, 'xqz7-keepnull'), detail: lacks(noMem, 'xqz7-keepnull') ? "can't know" : 'leaked?', output: noMem, sample: sample(noMem) },
+      ];
+      return { rows, demonstrated: has(withMcp, 'xqz7-keepnull') && lacks(noMem, 'xqz7-keepnull') };
+    },
+  },
+  {
+    id: 'mcp-map-navigation', dim: 'mcp:map-then-search (claude)',
+    exec() {
+      const b = newBrain('mcpm');
+      kb(b, ['add', 'decision', 'Primary datastore is dsX9-fabric', '--role', 'human', '--status', 'accepted']);
+      kb(b, ['add', 'fact', 'The on-call rotation tool is paged via pagecmd --now', '--role', 'human']);
+      const out = run({ harness: 'claude', brain: b, mcp: true, tools: true, prompt: 'First call kb_map to see what knowledge exists, then use kb_search to answer: what is our primary datastore? Reply with ONLY the datastore name.' });
+      const noMem = run({ harness: 'claude', brain: b, inject: 'none', prompt: 'What is our primary datastore? Reply with ONLY the datastore name.' });
+      rmSync(b, { recursive: true, force: true });
+      const rows = [
+        { label: 'claude:mcp', pass: has(out, 'dsX9-fabric'), detail: has(out, 'dsX9-fabric') ? 'navigated+found' : 'failed', output: out, sample: sample(out) },
+        { label: 'claude:no-mcp', pass: lacks(noMem, 'dsX9-fabric'), detail: lacks(noMem, 'dsX9-fabric') ? "can't know" : 'leaked?', output: noMem, sample: sample(noMem) },
+      ];
+      return { rows, demonstrated: has(out, 'dsX9-fabric') && lacks(noMem, 'dsX9-fabric') };
+    },
+  },
+
   // ---- Guardrail: no-secrets lint refuses to store a secret via the MCP tool ----
   {
     id: 'no-secrets', dim: 'guardrail:no-secrets',
@@ -301,7 +382,39 @@ for (const s of toRun) {
   try { r = s.exec(); } catch (e) { r = { rows: [{ label: 'ERROR', pass: false, detail: String(e.message || e), sample: '' }], demonstrated: false }; }
   for (const row of r.rows) console.log(`  ${row.pass ? 'PASS' : 'fail'}  ${row.label.padEnd(22)} ${row.detail.padEnd(22)} :: ${row.sample}`);
   console.log(`  -> ${r.demonstrated ? 'DEMONSTRATED' : 'INCONCLUSIVE'}\n`);
-  results.push({ id: s.id, dim: s.dim, demonstrated: r.demonstrated });
+  results.push({ id: s.id, dim: s.dim, demonstrated: r.demonstrated, rows: r.rows });
+}
+
+// ---- Record this model's behavior (merge per scenario, keyed by model) ----
+if (!argv.includes('--no-record')) {
+  const gitSha = (() => { try { return sh('git', ['-C', REPO, 'rev-parse', '--short', 'HEAD']).trim(); } catch { return 'unknown'; } })();
+  const slug = `${PROVIDER}__${MODEL}`.replace(/[^A-Za-z0-9._-]/g, '_');
+  const dir = join(REPO, 'scenarios', 'records');
+  mkdirSync(dir, { recursive: true });
+  const jsonPath = join(dir, `${slug}.json`);
+  let rec = { model: MODEL, provider: PROVIDER, slug, generated: new Date().toISOString(), vtfkb_sha: gitSha, scenarios: {} };
+  if (existsSync(jsonPath)) { try { rec = JSON.parse(readFileSync(jsonPath, 'utf8')); rec.scenarios ||= {}; } catch {} }
+  rec.generated = new Date().toISOString();
+  rec.vtfkb_sha = gitSha;
+  for (const r of results) {
+    rec.scenarios[r.id] = {
+      dim: r.dim,
+      demonstrated: r.demonstrated,
+      rows: r.rows.map((x) => ({ label: x.label, pass: x.pass, detail: x.detail, prompt: x.prompt, output: x.output })),
+    };
+  }
+  writeFileSync(jsonPath, JSON.stringify(rec, null, 2));
+  // human-readable companion
+  const ids = Object.keys(rec.scenarios).sort();
+  const md = [
+    `# vtfkb L4 behavior record — ${PROVIDER}/${MODEL}`,
+    ``, `- generated: ${rec.generated}`, `- vtfkb: ${rec.vtfkb_sha}`,
+    `- scenarios recorded: ${ids.length} (${ids.filter((i) => rec.scenarios[i].demonstrated).length} demonstrated)`,
+    ``, `| scenario | dimension | demonstrated | rows (label=verdict) |`, `|---|---|---|---|`,
+    ...ids.map((i) => { const s = rec.scenarios[i]; return `| ${i} | ${s.dim} | ${s.demonstrated ? 'YES' : 'no'} | ${s.rows.map((x) => `${x.label}=${x.pass ? 'PASS' : 'fail'}`).join(', ')} |`; }),
+  ].join('\n');
+  writeFileSync(join(dir, `${slug}.md`), md + '\n');
+  console.log(`\nrecorded ${results.length} scenario(s) -> scenarios/records/${slug}.{json,md} (${ids.length} total on file)`);
 }
 
 console.log('=== SUMMARY ===');
