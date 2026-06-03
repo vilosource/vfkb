@@ -5,10 +5,11 @@ ViloForge software factory. **One engine, two harness faces** (Claude Code hooks
 Pi in-process extension) over an append-only JSONL brain. **Zero runtime
 dependencies** (pure Node stdlib) — drops into any node container with no install.
 
-Design + decisions live in
-[`vilosource/viloforge-research` → `ViloForge-PRD/`](https://github.com/vilosource/viloforge-research/tree/develop/ViloForge-PRD):
-`vtfkb-DESIGN.md`, `vtfkb-IMPLEMENTATION-PLAN.md`, and the ADR log
-[`vtfkb-adr/` (ADR-0001…0015)](https://github.com/vilosource/viloforge-research/tree/develop/ViloForge-PRD/vtfkb-adr).
+Design + decisions live in [`docs/`](docs/): [`DESIGN.md`](docs/DESIGN.md),
+[`FEATURES.md`](docs/FEATURES.md), [`IMPLEMENTATION-PLAN.md`](docs/IMPLEMENTATION-PLAN.md),
+and the ADR log [`docs/adr/` (ADR-0001…0015)](docs/adr/). Ecosystem-level and
+cross-project context (e.g. the ingest↔vtfkb design) remains in
+[`vilosource/viloforge-research` → `ViloForge-PRD/`](https://github.com/vilosource/viloforge-research/tree/develop/ViloForge-PRD).
 
 ## Status
 
