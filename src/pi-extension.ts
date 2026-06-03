@@ -5,10 +5,20 @@
 // Contracts copied verbatim from the verified mykb spike (src/extension/*):
 //   before_agent_start -> { systemPrompt } : APPEND the bundle (Tier A inject)
 //   context            -> { messages:[{role:'custom',...}] } : per-turn (Tier C, Pi-only)
-//   tool_call          -> { toolName, input } : capture (Tier B)
+//   tool_call          -> { toolName, input } : gate brain writes + capture (Tier B)
+//   session_shutdown   -> git save
 
 import { mkdirSync } from 'node:fs';
-import { brainDir, captureToolCall, renderContextBundle } from './engine.js';
+import {
+  brainDir,
+  captureToolCall,
+  currentInjectableIds,
+  renderContextBundle,
+  renderContextDelta,
+} from './engine.js';
+import { SessionState } from './session.js';
+import { isBrainWrite, GATING_REASON } from './gating.js';
+import { save } from './git.js';
 import type {
   BeforeAgentStartEvent,
   BeforeAgentStartResult,
@@ -23,37 +33,55 @@ function project(): string {
 }
 
 export default function (pi: ExtensionAPI): void {
-  // Ensure the brain dir exists (engine writes lazily; capture needs it).
   mkdirSync(brainDir(), { recursive: true });
+  const session = SessionState.load(); // isolated by KB_SESSION_ID (L4)
 
-  // session_start — init only, no injection.
   pi.on('session_start', async () => {
     mkdirSync(brainDir(), { recursive: true });
   });
 
-  // Tier A — session-start injection. APPEND the bundle to the system prompt.
+  // Tier A — session-start injection. APPEND the full bundle; mark its entries
+  // injected so the per-turn delta won't repeat them.
   pi.on('before_agent_start', async (...args: unknown[]): Promise<BeforeAgentStartResult> => {
     const e = (args[0] as BeforeAgentStartEvent) || {};
     const current = e.systemPrompt || '';
-    return { systemPrompt: current + '\n\n' + renderContextBundle(project()) };
+    const bundle = renderContextBundle(project());
+    session.markInjected(currentInjectableIds());
+    session.save();
+    return { systemPrompt: current + '\n\n' + bundle };
   });
 
-  // Tier C — per-turn injection (Pi-only). Inject as a `custom`-role message
-  // (the only role Pi converts to LLM-visible text). Kept simple for the spike:
-  // re-inject the budgeted bundle each turn.
+  // Tier C — per-turn delta (Pi-only). Inject ONLY entries new since the last turn
+  // (session-deduped); skip when nothing changed.
   pi.on('context', async (...args: unknown[]): Promise<ContextEventResult | undefined> => {
     const event = args[0] as ContextEvent;
     const messages = event?.messages ?? [];
-    const block = renderContextBundle(project());
-    return { messages: [{ role: 'custom', content: block }, ...messages] };
+    const delta = renderContextDelta(session, project());
+    session.save();
+    if (!delta) return undefined; // no-op turn
+    return { messages: [{ role: 'custom', content: delta }, ...messages] };
   });
 
-  // Tier B — passive capture of tool calls.
+  // Tool-gating + Tier-B capture. Gate brain-file writes first (force writes
+  // through the engine); otherwise capture the tool call.
   pi.on('tool_call', async (...args: unknown[]): Promise<unknown> => {
     const e = (args[0] as ToolCallEvent) || {};
+    if (isBrainWrite(e.toolName, e.input)) {
+      return { block: true, reason: GATING_REASON }; // refuse direct brain edits
+    }
     if (e.toolName) {
       captureToolCall({ tool_name: e.toolName, tool_input: e.input, call_id: e.toolCallId });
     }
-    return undefined; // never block the tool
+    return undefined;
+  });
+
+  // Persist + commit the brain at session end.
+  pi.on('session_shutdown', async () => {
+    session.save();
+    try {
+      save('vtfkb: session changes', 'agent');
+    } catch {
+      /* non-git brain or git unavailable → skip */
+    }
   });
 }

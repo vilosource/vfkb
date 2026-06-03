@@ -7,6 +7,8 @@
 import { randomBytes } from 'node:crypto';
 import { appendRecord, materialize, readRecords } from './storage.js';
 import { selectIndex } from './index-store.js';
+import { assertNoSecrets } from './secrets.js';
+import type { SessionState } from './session.js';
 import type { KbIndex } from './index-store.js';
 import type {
   AuthorRole,
@@ -60,6 +62,7 @@ export interface AddOpts {
 }
 
 export function addEntry(type: EntryType, text: string, opts: AddOpts = {}): KnowledgeEntry {
+  assertNoSecrets(text); // no-secrets write-time lint (D6e) — throws on a planted secret
   const role: AuthorRole = opts.role ?? 'executor';
   const ts = nowIso();
   const entry: KnowledgeEntry = {
@@ -397,10 +400,38 @@ export function captureToolCall(ev: ToolEvent): KnowledgeEntry | null {
       ? JSON.stringify(ev.tool_input).slice(0, 200)
       : String(ev.tool_input ?? '');
   const text = `Tool ${ev.tool_name} invoked${inputSummary ? `: ${inputSummary}` : ''}`;
-  return addEntry('fact', text, {
-    role: 'executor',
-    tags: ['captured'],
-    provStatus: 'unverified',
-    origin: { kind: 'tool_call', tool: ev.tool_name, call_id: ev.call_id },
-  });
+  try {
+    return addEntry('fact', text, {
+      role: 'executor',
+      tags: ['captured'],
+      provStatus: 'unverified',
+      origin: { kind: 'tool_call', tool: ev.tool_name, call_id: ev.call_id },
+    });
+  } catch {
+    // no-secrets lint (or any write error) → skip the capture, never crash the harness.
+    return null;
+  }
+}
+
+// Ids of entries currently eligible for injection (filter + supersession applied).
+export function currentInjectableIds(): string[] {
+  const all = readAll();
+  const sup = supersededIds(all);
+  return all.filter((e) => isInjectable(e, undefined, sup)).map((e) => e.id);
+}
+
+// --- Per-turn delta injection (Tier C, Pi-only — ADR-0015). Inject only entries
+//     not already injected this session (dedup via SessionState, L4). Returns ''
+//     when there is nothing new this turn. ---
+export function renderContextDelta(session: SessionState, project = 'spike'): string {
+  const all = readAll();
+  const superseded = supersededIds(all);
+  const fresh = rerank(all.filter((e) => isInjectable(e, undefined, superseded))).filter(
+    (e) => !session.isInjected(e.id),
+  );
+  session.bumpTurn();
+  if (fresh.length === 0) return '';
+  session.markInjected(fresh.map((e) => e.id));
+  const lines = fresh.map((e) => `- [${e.type} ${trustGlyph(e)}] ${e.text}`).join('\n');
+  return `<vtfkb-context-delta project="${project}">\n${lines}\n</vtfkb-context-delta>`;
 }
