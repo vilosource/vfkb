@@ -389,10 +389,18 @@ export function renderContextBundle(project = 'spike', budget = SESSION_BUDGET_C
 //     all live entries in load/creation order, flat, NO supersession/stale filter,
 //     NO rerank, budget-cut from the end (so the newest can be dropped). Used only
 //     by the L4 scenario harness as the contrast baseline. ---
-export function renderNaiveDump(project = 'spike', budget = SESSION_BUDGET_CHARS): string {
-  const entries = readAll()
+export function renderNaiveDump(
+  project = 'spike',
+  budget = SESSION_BUDGET_CHARS,
+  limit?: number,
+): string {
+  let entries = readAll()
     .filter((e) => e.zone !== 'archive')
     .sort((a, b) => a.created.localeCompare(b.created)); // oldest first (load order)
+  // A `limit` reproduces the Stark-FQDN incident faithfully: a load-order memory
+  // truncated to a token budget keeps the OLDER entries and drops the newest
+  // correction — exactly mykb v1's failure mode.
+  if (typeof limit === 'number') entries = entries.slice(0, limit);
   const header = `<context project="${project}">\n`;
   const footer = `\n</context>`;
   let body = '';

@@ -79,8 +79,11 @@ async function main() {
   }
 
   // context-block-naive: mykb-v1-style flat unfiltered dump (L4 contrast baseline).
+  // --limit N truncates load-order (oldest-first) to N entries (reproduces the
+  // budget-drops-newest incident).
   if (cmd === 'context-block-naive') {
-    process.stdout.write(renderNaiveDump(sub || 'spike'));
+    const lim = flag([sub, ...rest], 'limit');
+    process.stdout.write(renderNaiveDump(sub && !sub.startsWith('--') ? sub : 'spike', undefined, lim ? Number(lim) : undefined));
     return;
   }
 
