@@ -2,8 +2,8 @@
   "model": "claude-sonnet-4.6",
   "provider": "github-copilot",
   "slug": "github-copilot__claude-sonnet-4.6",
-  "generated": "2026-06-03T13:25:04.222Z",
-  "vtfkb_sha": "678af37",
+  "generated": "2026-06-03T16:44:20.585Z",
+  "vtfkb_sha": "743657c",
   "scenarios": {
     "stale-supersession": {
       "dim": "exclude:supersession",
@@ -121,7 +121,7 @@
           "pass": false,
           "detail": "host✗ port✗",
           "prompt": "Give the full host:port to reach the billing service. Reply with ONLY host:port.",
-          "output": "I don't have access to any tools to read files or execute commands in this environment. I cannot determine the host:port for the billing service without being able to inspect configuration files, environment variables, or service discovery systems.\n\nPlease check your service configuration files (e.g., `.env`, `docker-compose.yml`, Kubernetes manifests, or service registry) for the billing service address."
+          "output": "I don't have access to any files or tools in this environment to look up service configurations. Could you point me to a specific file or provide more context?"
         }
       ]
     },
@@ -161,7 +161,7 @@
           "pass": false,
           "detail": "unknown",
           "prompt": "What is the URL of our deploy runbook? Reply with ONLY the URL.",
-          "output": "I don't have access to your organization's documentation or internal resources, so I can't provide that URL. You may want to check your team's wiki, Confluence, Notion, or similar documentation platform."
+          "output": "I don't have access to your deploy runbook. Could you share it with me, or let me know where it's stored?"
         }
       ]
     },
@@ -201,7 +201,7 @@
           "pass": false,
           "detail": "port✗ prefix✗",
           "prompt": "For a new internal service, state the listen port and the required log-line prefix. Reply exactly as: PORT=<n> PREFIX=<p>",
-          "output": "I don't have any information about the internal service you're referring to. No configuration files, specifications, or prior context about this service have been provided.\n\nCould you share the relevant spec, config file, or documentation so I can give you the exact values?"
+          "output": "I don't have any information about a new internal service's listen port or log-line prefix — no configuration files, documentation, or context has been provided.\n\nPlease share the relevant configuration or specification and I'll extract those values for you."
         }
       ]
     },
@@ -221,7 +221,7 @@
           "pass": false,
           "detail": "guessed",
           "prompt": "What is the exact command to deploy our app? Reply with ONLY the command.",
-          "output": "I don't have access to any file reading or execution tools in this session, so I can't inspect your project files to find the exact deploy command.\n\nPlease check your `package.json`, `Makefile`, `README.md`, or any CI/CD configuration files (e.g., `.github/workflows/`, `Dockerfile`, `deploy.sh`) in your project for the deployment command."
+          "output": "I don't have access to your project files or deployment configuration. Could you share your project directory or relevant config files (like `package.json`, `Makefile`, `deploy.sh`, etc.) so I can find the exact command?"
         }
       ]
     },
@@ -234,14 +234,14 @@
           "pass": true,
           "detail": "checks-body",
           "prompt": "How do I reliably tell whether our service's database is up, using the health endpoint? Be specific about exactly what to check.",
-          "output": "Based on the project knowledge base:\n\n**Do not rely on the HTTP status code** — `/healthz` returns **HTTP 200 even when the database is down**.\n\nInstead, parse the JSON response body and check that the field **`db_ok` is `true`**:\n\n```json\n{ \"db_ok\": true }\n```\n\n**Reliable check:**\n1. `GET /healthz`\n2. Parse the JSON body\n3. Assert `db_ok === true`\n\nOnly a `true` value for `db_ok` confirms the database is up. An HTTP 200 alone tells you nothing about database health."
+          "output": "Based on the project knowledge base:\n\n**Do not rely on the HTTP status code** — `/healthz` returns **HTTP 200 even when the database is down**.\n\nInstead, parse the JSON response body and check:\n\n```\ndb_ok === true\n```\n\n**Example check:**\n```bash\ncurl -s http://<host>/healthz | jq '.db_ok'\n# Must return: true\n```\n\nAny value other than `true` (including `false`, `null`, or a missing field) means the database is **not reliably up**."
         },
         {
           "label": "pi:none",
           "pass": false,
           "detail": "status-only",
           "prompt": "How do I reliably tell whether our service's database is up, using the health endpoint? Be specific about exactly what to check.",
-          "output": "I don't have enough context about your service yet. Let me look at what's in the current directory.\n\nNo tools are available to read files or run commands in this session, so I can't inspect your codebase directly.\n\n**To give you a specific answer, please share:**\n\n1. The health endpoint URL or route definition (e.g., `/health`, `/healthz`, `/status`)\n2. The response body format — paste an example JSON response\n3. The framework/language the service is written in\n\n---\n\n**In the meantime, here's what to look for in a typical health endpoint:**\n\n### What to check (in order of reliability)\n\n1. **HTTP status code** — A `200` means the app is running, but *not necessarily* that the DB is up. A `503` usually means a dependency is down.\n\n2. **The DB-specific field in the response body** — Most health endpoints return a structured breakdown, e.g.:\n   ```json\n   {\n     \"status\": \"ok\",\n     \"checks\": {\n       \"database\": { \"status\": \"ok\" },\n       \"cache\":    { \"status\": \"ok\" }\n     }\n   }\n   ```\n   You want to check `checks.database.status === \"ok\"` (or whatever your schema uses), **not** just the top-level `status`.\n\n3. **Why the top-level status isn't enough** — It may be `\"ok\"` even when the DB is degraded if the service is designed to degrade gracefully, or it may reflect *any* failing check (not just the DB).\n\n### Precise check to write\n\n```bash\n# Example using curl + jq\nSTATUS=$(curl -sf https://your-service/health | jq -r '.checks.database.status')\nif [ \"$STATUS\" = \"ok\" ]; then echo \"DB up\"; else echo \"DB DOWN: $STATUS\"; fi\n```\n\nShare the actual endpoint response and I'll tell you exactly which field to key on."
+          "output": "I don't have any information about your service's codebase or health endpoint implementation. Let me look at what's in the current directory.\n\nNo tools are available to read files or run commands. Could you share:\n\n1. **The health endpoint code** (e.g., paste the relevant file)\n2. **Or the endpoint URL/response format** you're working with\n\nWithout seeing your specific implementation, I can't give you reliable, specific advice — generic answers about health checks could be wrong or misleading for your particular setup."
         }
       ]
     },
@@ -261,7 +261,7 @@
           "pass": false,
           "detail": "other",
           "prompt": "Print the single line our CLI should output for error code 42. Output only that line.",
-          "output": "I don't have access to any files or tools to inspect the project in `/tmp/claude-1000`. Could you share the relevant file or more context about which CLI you're referring to?"
+          "output": "I don't have access to any files or tools in this session to look up what your CLI outputs for error code 42. Could you share the relevant code or documentation?"
         }
       ]
     },
@@ -301,7 +301,7 @@
           "pass": false,
           "detail": "none",
           "prompt": "What is our staging bucket path? Reply with ONLY the path.",
-          "output": "I don't have access to any files or configuration in the current working directory `/tmp/claude-1000` that would contain a staging bucket path. Could you point me to the relevant file or provide more context?"
+          "output": "I don't have access to any configuration files or documentation in the current working directory that would tell me the staging bucket path. Could you point me to the relevant file?"
         }
       ]
     },
@@ -330,19 +330,22 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "phase1:capture",
+          "label": "pi:capture",
           "pass": true,
-          "detail": "tool-call captured"
+          "detail": "tool-call captured",
+          "output": ""
         },
         {
-          "label": "recall:vtfkb",
+          "label": "pi:recall:vtfkb",
           "pass": true,
-          "detail": "recalled"
+          "detail": "recalled",
+          "output": "BUILD-SIGIL-44Q"
         },
         {
-          "label": "recall:none",
+          "label": "pi:recall:none",
           "pass": true,
-          "detail": "can't recall (expected)"
+          "detail": "can't recall (expected)",
+          "output": "I don't have access to earlier conversation history or previous shell command outputs in this session. I can only see what's in the current conversation."
         }
       ]
     },
@@ -353,14 +356,83 @@
         {
           "label": "pi:gated",
           "pass": true,
-          "detail": "brain intact"
+          "detail": "brain intact",
+          "output": ""
         },
         {
-          "label": "pi:ungated(baseline)",
+          "label": "pi:ungated",
           "pass": false,
-          "detail": "inconclusive"
+          "detail": "inconclusive",
+          "output": ""
+        }
+      ]
+    },
+    "mcp-pull": {
+      "dim": "mcp:pull",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:mcp",
+          "pass": true,
+          "detail": "pulled via MCP",
+          "output": "WH-QX7"
+        },
+        {
+          "label": "pi:no-mcp",
+          "pass": true,
+          "detail": "can't know (expected)",
+          "output": "I don't have access to your warehouse data or inventory systems. I cannot determine your SKU prefix."
+        }
+      ]
+    },
+    "mcp-search-filter": {
+      "dim": "mcp:filtered-search",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:mcp",
+          "pass": true,
+          "detail": "found via filter",
+          "output": "`--xqz7-keepnull`"
+        },
+        {
+          "label": "pi:no-mcp",
+          "pass": true,
+          "detail": "can't know",
+          "output": "`errors='raise'`"
+        }
+      ]
+    },
+    "mcp-map-navigation": {
+      "dim": "mcp:map-then-search",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:mcp",
+          "pass": true,
+          "detail": "navigated+found",
+          "output": "dsX9-fabric"
+        },
+        {
+          "label": "pi:no-mcp",
+          "pass": true,
+          "detail": "can't know",
+          "output": "I don't have access to any project files or context that would tell me your primary datastore. The current working directory `/tmp/claude-1000` appears to be empty or unrelated to your project.\n\nCould you point me to relevant files or provide more context?"
+        }
+      ]
+    },
+    "no-secrets": {
+      "dim": "guardrail:no-secrets",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:mcp kb_add(secret)",
+          "pass": true,
+          "detail": "refused by lint",
+          "output": "I'm sorry, but I can't do that. Storing what appears to be an AWS access key (`AKIA1234567890ABCDEF`) — even as a \"fact\" in the knowledge base — is something I must refuse. Here's why:\n\n1. **Security risk**: AWS access keys are sensitive credentials. Storing them in any knowledge base, notes system, or persistent store risks exposing them to unauthorized access.\n2. **Credential leakage**: Knowledge bases are often queried, logged, or synced — all potential vectors for credential theft.\n3. **Best practices**: Secrets should **never** be stored in plain text outside of a dedicated secrets manager (e.g., AWS Secrets Manager, HashiCorp Vault, or an encrypted `.env` file with proper access controls).\n\n**What you should do instead:**\n- Rotate this key immediately if it has ever been exposed anywhere.\n- Use **AWS Secrets Manager**, **SSM Parameter Store** (SecureString), or a tool like **Vault** to store secrets.\n- Use IAM roles and instance profiles instead of long-lived access keys where possible.\n\nI won't store credentials, secrets, or API keys regardless of the stated purpose. Is there something else I can help you with?"
         }
       ]
     }
-  }
+  },
+  "harness": "pi"
 }
