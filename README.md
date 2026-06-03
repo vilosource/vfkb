@@ -17,7 +17,9 @@ Design + decisions live in
 | **0** | Deployment + cross-harness auto-layer spike | ✅ **DONE** — inject+attention+capture proven LIVE on Claude Code **and** Pi; container proof; cache confirmed. See [`spike/PHASE0-REPORT.md`](spike/PHASE0-REPORT.md). |
 | **1** | Storage kernel — append-only JSONL + tombstones, LWW, content-hash freshness, pluggable index | ✅ **DONE** (`storage.ts`, `index-store.ts`) |
 | **2** | Decision family — immutable-supersede, status lifecycle, Constitution, ADR ordinals, vision patterns | ✅ **DONE** (`engine.ts`) |
-| 3–6 | Read layer hardening · MCP server · auto-layer polish · guardrails/git | ⏳ planned |
+| **3** | Read layer — D5c filters, BM25-lite search, Context Map (ADR-0006); Stark-FQDN E2E | ✅ **DONE** (`read.ts`); bundle live-verified |
+| **4** | MCP server — 7 scoped tools (cross-harness pull baseline, D5a); protocol e2e | ✅ **DONE** (`mcp-server.ts`); live-verified in Claude Code |
+| 5–6 | Auto-layer polish (session isolation, tool-gating) · guardrails (no-secrets lint) + git lifecycle | ⏳ planned |
 
 ## Layout
 

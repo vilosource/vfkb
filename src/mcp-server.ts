@@ -1,0 +1,171 @@
+#!/usr/bin/env node
+// vtfkb MCP server — the cross-harness PULL baseline (D5a / ADR-0015). A tight set
+// of scoped tools over the same engine the auto-layer faces use. Uses the OFFICIAL
+// @modelcontextprotocol/sdk (verified contract — not a hand-rolled JSON-RPC). The
+// engine stays zero-dep; this face opts into the SDK.
+
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { z } from 'zod';
+import {
+  addEntry,
+  deriveTrust,
+  readAll,
+  renderContextMap,
+  supersede,
+  transitionDecision,
+} from './engine.js';
+import { query } from './read.js';
+import type { KnowledgeEntry } from './types.js';
+
+const ENTRY_TYPE = z.enum(['fact', 'decision', 'gotcha', 'pattern', 'link']);
+const ZONE = z.enum(['incoming', 'established', 'archive']);
+const STATUS = z.enum(['proposed', 'accepted', 'deprecated', 'superseded']);
+const ROLE = z.enum(['architect', 'pm', 'executor', 'judge', 'human', 'init', 'import']);
+
+function line(e: KnowledgeEntry): string {
+  const adr = typeof e.adr_no === 'number' ? ` ADR-${String(e.adr_no).padStart(4, '0')}` : '';
+  const st = e.status ? `/${e.status}` : '';
+  return `${e.id} [${e.type} ${deriveTrust(e.author.role)}/${e.provenance.status}${st}${adr}] ${e.text}`;
+}
+function text(s: string) {
+  return { content: [{ type: 'text' as const, text: s }] };
+}
+function tags(csv?: string): string[] | undefined {
+  return csv ? csv.split(',').map((t) => t.trim()).filter(Boolean) : undefined;
+}
+
+const server = new McpServer({ name: 'vtfkb', version: '0.0.0-spike0' });
+
+server.registerTool(
+  'kb_search',
+  {
+    description:
+      'Search and filter project knowledge. Returns the freshest relevant entries (stale/superseded excluded by default).',
+    inputSchema: {
+      text: z.string().optional().describe('free-text query'),
+      type: ENTRY_TYPE.optional(),
+      zone: ZONE.optional(),
+      status: STATUS.optional().describe('effective decision status'),
+      tags: z.string().optional().describe('comma-separated; entry must have ALL'),
+      author_role: ROLE.optional(),
+      limit: z.number().int().positive().optional(),
+      include_stale: z.boolean().optional(),
+      include_superseded: z.boolean().optional(),
+    },
+  },
+  async (a) => {
+    const r = query({
+      text: a.text,
+      type: a.type,
+      zone: a.zone,
+      status: a.status,
+      tags: tags(a.tags),
+      authorRole: a.author_role,
+      limit: a.limit,
+      includeStale: a.include_stale,
+      includeSuperseded: a.include_superseded,
+    });
+    return text(r.length ? r.map(line).join('\n') : '(no matches)');
+  },
+);
+
+server.registerTool(
+  'kb_list',
+  {
+    description: 'List entries by structural filter (no text search).',
+    inputSchema: {
+      type: ENTRY_TYPE.optional(),
+      zone: ZONE.optional(),
+      limit: z.number().int().positive().optional(),
+    },
+  },
+  async (a) => {
+    const r = query({ type: a.type, zone: a.zone, limit: a.limit });
+    return text(r.length ? r.map(line).join('\n') : '(empty)');
+  },
+);
+
+server.registerTool(
+  'kb_get',
+  {
+    description: 'Fetch a single entry by id (full JSON).',
+    inputSchema: { id: z.string() },
+  },
+  async ({ id }) => {
+    const e = readAll().find((x) => x.id === id);
+    return text(e ? JSON.stringify(e, null, 2) : `no such entry: ${id}`);
+  },
+);
+
+server.registerTool(
+  'kb_map',
+  {
+    description: 'The derived Context Map — what knowledge exists and how to navigate it.',
+    inputSchema: {},
+  },
+  async () => text(renderContextMap()),
+);
+
+server.registerTool(
+  'kb_add',
+  {
+    description:
+      'Add an entry. Fluid types (fact/gotcha/pattern/link) are editable; decisions are immutable (supersede to change). New decisions default to status=proposed (an RFC).',
+    inputSchema: {
+      type: ENTRY_TYPE,
+      text: z.string(),
+      tags: z.string().optional().describe('comma-separated'),
+      role: ROLE.optional().describe('author role; defaults to executor (agent)'),
+      status: STATUS.optional().describe('decision family only'),
+      constitutional: z.boolean().optional().describe('decision family only (ADR-0008)'),
+    },
+  },
+  async (a) => {
+    const e = addEntry(a.type, a.text, {
+      role: a.role ?? 'executor',
+      tags: tags(a.tags),
+      status: a.status,
+      constitutional: a.constitutional,
+    });
+    return text(`added ${line(e)}`);
+  },
+);
+
+server.registerTool(
+  'kb_supersede',
+  {
+    description:
+      'Supersede a decision with a new one (additive edge; the old is never edited and stops being injected).',
+    inputSchema: { old_id: z.string(), text: z.string(), role: ROLE.optional() },
+  },
+  async (a) => {
+    const e = supersede(a.old_id, a.text, { role: a.role ?? 'architect' });
+    return text(`superseded ${a.old_id} -> ${line(e)}`);
+  },
+);
+
+server.registerTool(
+  'kb_transition',
+  {
+    description:
+      'Transition a decision through its lifecycle (proposed -> accepted -> deprecated). Content is preserved; `superseded` is set by kb_supersede, not here.',
+    inputSchema: { id: z.string(), status: z.enum(['proposed', 'accepted', 'deprecated']) },
+  },
+  async (a) => {
+    const e = transitionDecision(a.id, a.status);
+    return text(`transitioned ${line(e)}`);
+  },
+);
+
+async function main(): Promise<void> {
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+  // stdout is the protocol channel — never write to it. Log to stderr.
+  process.stderr.write(`vtfkb MCP server up (brain: ${process.env.VTFKB_DIR ?? '~/.vtfkb'})\n`);
+}
+
+main().catch((err) => {
+  process.stderr.write(`vtfkb MCP fatal: ${err}\n`);
+  process.exit(1);
+});
