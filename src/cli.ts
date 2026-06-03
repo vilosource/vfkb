@@ -11,6 +11,8 @@ import {
   deriveTrust,
 } from './engine.js';
 import { query } from './read.js';
+import { isBrainWrite, GATING_REASON } from './gating.js';
+import { save } from './git.js';
 import type { AuthorRole, EntryType, Zone, DecisionStatus } from './types.js';
 
 function readStdin(): Promise<string> {
@@ -38,15 +40,20 @@ async function main() {
     const type = sub as EntryType;
     const role = (flag(rest, 'role') as AuthorRole) || 'executor';
     const tags = flag(rest, 'tag')?.split(',').map((t) => t.trim()).filter(Boolean) ?? [];
-    const e = addEntry(type, cleanText(rest), {
-      role,
-      tags,
-      status: flag(rest, 'status') as any,
-      provStatus: flag(rest, 'prov-status') as any,
-      validUntil: flag(rest, 'valid-until'),
-      constitutional: rest.includes('--constitutional'),
-    });
-    process.stdout.write(`${e.id}\t[${e.type} ${deriveTrust(e.author.role)}]\t${e.text}\n`);
+    try {
+      const e = addEntry(type, cleanText(rest), {
+        role,
+        tags,
+        status: flag(rest, 'status') as any,
+        provStatus: flag(rest, 'prov-status') as any,
+        validUntil: flag(rest, 'valid-until'),
+        constitutional: rest.includes('--constitutional'),
+      });
+      process.stdout.write(`${e.id}\t[${e.type} ${deriveTrust(e.author.role)}]\t${e.text}\n`);
+    } catch (err) {
+      process.stderr.write(`error: ${(err as Error).message}\n`);
+      process.exit(1);
+    }
     return;
   }
 
@@ -121,10 +128,41 @@ async function main() {
       process.stdout.write('{}');
       return;
     }
+
+    // PreToolUse gating — deny direct writes to the brain (force engine writes).
+    if (sub === 'pre-tool-use') {
+      const raw = await readStdin();
+      try {
+        const payload = JSON.parse(raw || '{}');
+        if (isBrainWrite(payload.tool_name, payload.tool_input)) {
+          process.stdout.write(
+            JSON.stringify({
+              hookSpecificOutput: {
+                hookEventName: 'PreToolUse',
+                permissionDecision: 'deny',
+                permissionDecisionReason: GATING_REASON,
+              },
+            }),
+          );
+          return;
+        }
+      } catch {
+        /* malformed → allow (fail-open: never wedge the harness) */
+      }
+      process.stdout.write('{}');
+      return;
+    }
+  }
+
+  if (cmd === 'save') {
+    const r = save([sub, ...rest].filter((a) => a && !a.startsWith('--')).join(' ') || undefined);
+    process.stdout.write((r.committed ? 'committed: ' : 'no-op: ') + r.message + '\n');
+    return;
   }
 
   process.stderr.write(
-    'usage: vtfkb <add|list|search|query|map|context-block|hook session-start|hook post-tool-use>\n',
+    'usage: vtfkb <add|list|search|query|map|save|context-block|' +
+      'hook session-start|hook pre-tool-use|hook post-tool-use>\n',
   );
   process.exit(1);
 }

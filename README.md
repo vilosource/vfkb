@@ -19,7 +19,10 @@ Design + decisions live in
 | **2** | Decision family — immutable-supersede, status lifecycle, Constitution, ADR ordinals, vision patterns | ✅ **DONE** (`engine.ts`) |
 | **3** | Read layer — D5c filters, BM25-lite search, Context Map (ADR-0006); Stark-FQDN E2E | ✅ **DONE** (`read.ts`); bundle live-verified |
 | **4** | MCP server — 7 scoped tools (cross-harness pull baseline, D5a); protocol e2e | ✅ **DONE** (`mcp-server.ts`); live-verified in Claude Code |
-| 5–6 | Auto-layer polish (session isolation, tool-gating) · guardrails (no-secrets lint) + git lifecycle | ⏳ planned |
+| **5** | Auto-layer polish — session isolation (`KB_SESSION_ID`, L4), per-turn Tier-C delta, tool-gating | ✅ **DONE** (`session.ts`, `gating.ts`); gating live-verified in Claude Code |
+| **6** | Guardrails + git — no-secrets write-time lint (D6e), `save`/`saveAndPush` lifecycle | ✅ **DONE** (`secrets.ts`, `git.ts`) |
+
+**v1 per-project tier feature-complete (Phases 0–6).** Deferred to later tiers: global served tier + promotion, Context Map Glossary/Routing, ACE curator, embedding reranker, SQLite/FTS5 backend.
 
 ## Layout
 
