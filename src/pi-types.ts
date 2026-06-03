@@ -6,6 +6,21 @@
 
 export interface ExtensionAPI {
   on(event: string, handler: (...args: unknown[]) => Promise<unknown>): void;
+  registerTool(tool: ToolDefinition): void;
+}
+
+// Verified against mykb's working tool registration (src/tools/*): `parameters` is a
+// JSON Schema object; execute returns { content:[{type,text}], details }.
+export interface ToolResult {
+  content: Array<{ type: string; text: string }>;
+  details: Record<string, unknown>;
+}
+export interface ToolDefinition {
+  name: string;
+  label: string;
+  description: string;
+  parameters: unknown; // JSON Schema
+  execute: (toolCallId: string, params: Record<string, unknown>) => Promise<ToolResult>;
 }
 
 // `before_agent_start` event + result (the session-start injection channel).

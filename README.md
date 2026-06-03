@@ -46,6 +46,25 @@ npm run build      # tsc -> dist/ (no native modules)
 npm test           # vitest: 49 unit/integration/protocol tests
 ```
 
+## pi MCP capability (bridge extension)
+
+pi ships **no MCP** by design ("build an extension that adds MCP support"). `src/pi-mcp-bridge.ts`
+is that extension: it reads a **Claude-compatible `mcpServers` config** (`VTFKB_MCP_CONFIG`),
+connects to each stdio MCP server with the official SDK, lists their tools, and registers
+each as a native pi tool named **`mcp__<server>__<tool>`** (same naming Claude Code uses).
+It connects **per call** (open→call→close) so no child process lingers to block `pi -p` exit.
+
+```
+cat > mcp.json <<'JSON'
+{ "mcpServers": { "vtfkb": { "command": "node", "args": ["dist/mcp-server.js"],
+                             "env": { "VTFKB_DIR": "/path/to/brain" } } } }
+JSON
+VTFKB_MCP_CONFIG=$PWD/mcp.json pi -p -e dist/pi-mcp-bridge.js \
+  --provider deepseek --model deepseek-v4-pro "Use kb_search to find X; reply only the value"
+```
+Verified: a real pi/DeepSeek-V4 agent calls `mcp__vtfkb__kb_search` against the vtfkb MCP
+server and retrieves brain-only data. This puts pi on par with Claude Code for MCP pull.
+
 ## Proving the purpose (comprehensive L4 scenario harness)
 
 Unit tests prove the modules are correct; the L4 harness proves vtfkb fulfils its
