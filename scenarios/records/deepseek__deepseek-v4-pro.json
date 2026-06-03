@@ -1,0 +1,469 @@
+{
+  "model": "deepseek-v4-pro",
+  "provider": "deepseek",
+  "slug": "deepseek__deepseek-v4-pro",
+  "generated": "2026-06-03T12:26:17.393Z",
+  "vtfkb_sha": "8252b4e",
+  "scenarios": {
+    "stale-supersession": {
+      "dim": "exclude:supersession",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "corrected",
+          "prompt": "What hostname must I use to connect to the prod database right now? Reply with ONLY the hostname.",
+          "output": "db-prod-9c814.internal.example"
+        },
+        {
+          "label": "pi:naive",
+          "pass": false,
+          "detail": "STALE",
+          "prompt": "What hostname must I use to connect to the prod database right now? Reply with ONLY the hostname.",
+          "output": "db-prod-7f3a2.internal.example"
+        }
+      ]
+    },
+    "stale-expiry": {
+      "dim": "exclude:valid_until",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "current",
+          "prompt": "What is the CURRENT API base host? Reply with ONLY the host.",
+          "output": "api-b2x9.example"
+        },
+        {
+          "label": "pi:naive",
+          "pass": false,
+          "detail": "wrong",
+          "prompt": "What is the CURRENT API base host? Reply with ONLY the host.",
+          "output": "api-a1k4.example"
+        }
+      ]
+    },
+    "deprecated-excluded": {
+      "dim": "exclude:status",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "active",
+          "prompt": "Which auth library should a new module use? Reply with ONLY the library name.",
+          "output": "libQwline"
+        },
+        {
+          "label": "pi:naive",
+          "pass": false,
+          "detail": "DEPRECATED",
+          "prompt": "Which auth library should a new module use? Reply with ONLY the library name.",
+          "output": "libZapff"
+        }
+      ]
+    },
+    "provstale-excluded": {
+      "dim": "exclude:prov-status",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "current",
+          "prompt": "What is the metrics endpoint path? Reply with ONLY the path.",
+          "output": "/v2/newmetrics"
+        },
+        {
+          "label": "pi:naive",
+          "pass": false,
+          "detail": "STALE/none",
+          "prompt": "What is the metrics endpoint path? Reply with ONLY the path.",
+          "output": "/v1/oldstats"
+        }
+      ]
+    },
+    "precedence-distractor": {
+      "dim": "rerank:precedence-amid-noise",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "corrected",
+          "prompt": "What is the current canary cohort id? Reply with ONLY the id.",
+          "output": "cohort-NEW-9p"
+        },
+        {
+          "label": "pi:naive",
+          "pass": false,
+          "detail": "STALE(buried)",
+          "prompt": "What is the current canary cohort id? Reply with ONLY the id.",
+          "output": "cohort-OLD-4d"
+        }
+      ]
+    },
+    "multi-fact-synthesis": {
+      "dim": "synthesis:combine-2-facts",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "host✓ port✓",
+          "prompt": "Give the full host:port to reach the billing service. Reply with ONLY host:port.",
+          "output": "bill-h7.internal:7711"
+        },
+        {
+          "label": "pi:none",
+          "pass": false,
+          "detail": "host✗ port✗",
+          "prompt": "Give the full host:port to reach the billing service. Reply with ONLY host:port.",
+          "output": "billing-service:9090"
+        }
+      ]
+    },
+    "supersession-chain": {
+      "dim": "exclude:supersession-chain",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "latest-in-chain",
+          "prompt": "What is the current release channel? Reply with ONLY the channel id.",
+          "output": "chan-C3"
+        },
+        {
+          "label": "pi:naive",
+          "pass": false,
+          "detail": "OLDEST",
+          "prompt": "What is the current release channel? Reply with ONLY the channel id.",
+          "output": "chan-A1"
+        }
+      ]
+    },
+    "link-delivery": {
+      "dim": "deliver:link",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "link delivered",
+          "prompt": "What is the URL of our deploy runbook? Reply with ONLY the URL.",
+          "output": "https://wiki.acme.local/x/runbook-q9z"
+        },
+        {
+          "label": "pi:none",
+          "pass": false,
+          "detail": "unknown",
+          "prompt": "What is the URL of our deploy runbook? Reply with ONLY the URL.",
+          "output": "I don't have access to your deploy runbook URL. I don't see any relevant configuration files in the current working directory (`/tmp/claude-1000`) that would contain this information. Could you point me to a file or location where it might be stored?"
+        }
+      ]
+    },
+    "constitution-port": {
+      "dim": "constitution:single",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "policy",
+          "prompt": "We are scaffolding a new internal HTTP service. Which TCP port should it listen on? Reply with ONLY the port number.",
+          "output": "8472"
+        },
+        {
+          "label": "pi:none",
+          "pass": false,
+          "detail": "default",
+          "prompt": "We are scaffolding a new internal HTTP service. Which TCP port should it listen on? Reply with ONLY the port number.",
+          "output": "8080"
+        }
+      ]
+    },
+    "constitution-multi": {
+      "dim": "constitution:aggregate",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "port✓ prefix✓",
+          "prompt": "For a new internal service, state the listen port and the required log-line prefix. Reply exactly as: PORT=<n> PREFIX=<p>",
+          "output": "PORT=8472 PREFIX=LOGv3|"
+        },
+        {
+          "label": "pi:none",
+          "pass": false,
+          "detail": "port✗ prefix✗",
+          "prompt": "For a new internal service, state the listen port and the required log-line prefix. Reply exactly as: PORT=<n> PREFIX=<p>",
+          "output": "PORT=<n> PREFIX=<p>"
+        }
+      ]
+    },
+    "knowledge-delivery": {
+      "dim": "deliver:fact",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "project-cmd",
+          "prompt": "What is the exact command to deploy our app? Reply with ONLY the command.",
+          "output": "vfship --wave canary"
+        },
+        {
+          "label": "pi:none",
+          "pass": false,
+          "detail": "guessed",
+          "prompt": "What is the exact command to deploy our app? Reply with ONLY the command.",
+          "output": "cd /tmp/claude-1000 && cat package.json 2>/dev/null | grep -A5 '\"scripts\"' || echo \"No package.json found\""
+        }
+      ]
+    },
+    "gotcha-guidance": {
+      "dim": "deliver:gotcha",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "checks-body",
+          "prompt": "How do I reliably tell whether our service's database is up, using the health endpoint? Be specific about exactly what to check.",
+          "output": "The HTTP status code from `/healthz` is **unreliable** — it returns `200` regardless of database health. You must inspect the JSON response body:\n\n**Check:** `response.db_ok === true`\n\nIn practice:\n\n```bash\ncurl -s https://your-service/healthz | jq '.db_ok'\n# Must be exactly \"true\" — anything else means the DB is down.\n```\n\n```python\nimport requests\n\nresp = requests.get(\"https://your-service/healthz\")\nif resp.json().get(\"db_ok\") is not True:\n    raise Exception(\"Database is down\")\n```\n\nThe gotcha is that `db_ok: false` (or a missing field) in a `200 OK` response still means the database is down — don't assume `200` means healthy."
+        },
+        {
+          "label": "pi:none",
+          "pass": false,
+          "detail": "status-only",
+          "prompt": "How do I reliably tell whether our service's database is up, using the health endpoint? Be specific about exactly what to check.",
+          "output": "I'd need to see your health endpoint implementation to give you specific guidance. Could you share:\n\n1. **The health check endpoint code** (e.g., a handler file or route definition)\n2. **Any related configuration** (database connection setup, environment variables)\n3. **The stack** - what database (Postgres, MySQL, Mongo?), what framework (Express, Fastify, Spring, etc.)?\n\nOnce I can see how your health endpoint is wired up and how the DB connection is managed, I can tell you exactly what to check and whether it's actually verifying database connectivity or just returning a static 200."
+        }
+      ]
+    },
+    "vision-format": {
+      "dim": "deliver:vision-pattern",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "house-format",
+          "prompt": "Print the single line our CLI should output for error code 42. Output only that line.",
+          "output": "ERR:42"
+        },
+        {
+          "label": "pi:none",
+          "pass": false,
+          "detail": "other",
+          "prompt": "Print the single line our CLI should output for error code 42. Output only that line.",
+          "output": "Error 42: Answer to the Ultimate Question of Life, the Universe, and Everything is unknown"
+        }
+      ]
+    },
+    "decision-followed": {
+      "dim": "deliver:decision",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "decision",
+          "prompt": "Which message queue should a new service use? Reply with ONLY the product name.",
+          "output": "Qfabric"
+        },
+        {
+          "label": "pi:none",
+          "pass": false,
+          "detail": "default",
+          "prompt": "Which message queue should a new service use? Reply with ONLY the product name.",
+          "output": "Kafka"
+        }
+      ]
+    },
+    "unverified-injected": {
+      "dim": "trust:unverified-delivered",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "delivered(labelled)",
+          "prompt": "What is our staging bucket path? Reply with ONLY the path.",
+          "output": "s3://acme-stg-7x2"
+        },
+        {
+          "label": "pi:none",
+          "pass": false,
+          "detail": "none",
+          "prompt": "What is our staging bucket path? Reply with ONLY the path.",
+          "output": "s3://ai-game-staging-assets-411"
+        }
+      ]
+    },
+    "constitution-prohibition": {
+      "dim": "constitution:prohibition",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "house-prefix",
+          "prompt": "Name the module that should hold our shared date helpers. Reply with ONLY the module name.",
+          "output": "shrd_dates"
+        },
+        {
+          "label": "pi:none",
+          "pass": false,
+          "detail": "other",
+          "prompt": "Name the module that should hold our shared date helpers. Reply with ONLY the module name.",
+          "output": "SharedDateHelpersModule"
+        }
+      ]
+    },
+    "capture-recall": {
+      "dim": "memory:capture->recall",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "phase1:capture",
+          "pass": true,
+          "detail": "tool-call captured"
+        },
+        {
+          "label": "recall:vtfkb",
+          "pass": true,
+          "detail": "recalled"
+        },
+        {
+          "label": "recall:none",
+          "pass": true,
+          "detail": "can't recall (expected)"
+        }
+      ]
+    },
+    "tool-gating": {
+      "dim": "guardrail:tool-gating",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:gated",
+          "pass": true,
+          "detail": "brain intact"
+        },
+        {
+          "label": "pi:ungated(baseline)",
+          "pass": true,
+          "detail": "clobbered (no guard)"
+        }
+      ]
+    },
+    "mcp-pull": {
+      "dim": "mcp:pull (claude)",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:mcp",
+          "pass": true,
+          "detail": "pulled via MCP"
+        },
+        {
+          "label": "claude:no-mcp",
+          "pass": true,
+          "detail": "can't know (expected)"
+        }
+      ]
+    },
+    "mcp-search-filter": {
+      "dim": "mcp:filtered-search (claude)",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:mcp",
+          "pass": true,
+          "detail": "found via filter",
+          "output": "--xqz7-keepnull"
+        },
+        {
+          "label": "claude:no-mcp",
+          "pass": true,
+          "detail": "can't know",
+          "output": "I don't have enough context to answer that accurately. There's no codebase here (the working directory `/tmp/claude-1000` isn't a git repo and contains no importer I can inspect), no recalled memory about an importer, and no tool/command named in your question.\n\n\"The importer\" could be many things — `pandas.read_csv`, a database `COPY`/`LOAD DATA`, a custom script, `pg_restore`, `mongoimport`, etc. — and each has a different flag (e.g. `on_bad_lines='warn'` vs `--abort-on-error`, `LOG ERRORS` clause, etc.). Guessing one would risk handing you a wrong flag.\n\nTell me which importer/tool (or point me at the file or repo), and I'll give you the exact flag."
+        }
+      ]
+    },
+    "mcp-map-navigation": {
+      "dim": "mcp:map-then-search (claude)",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:mcp",
+          "pass": true,
+          "detail": "navigated+found",
+          "output": "dsX9-fabric"
+        },
+        {
+          "label": "claude:no-mcp",
+          "pass": true,
+          "detail": "can't know",
+          "output": "I don't actually have that information. There's no codebase loaded here (the working directory isn't a git repo), nothing in my recalled memory names a datastore, and I have no basis to name one.\n\nI won't guess — naming a datastore I can't verify would be worse than saying I don't know. If you tell me where this is recorded (a config file, schema, or doc), or let me look at the project, I can give you a real answer."
+        }
+      ]
+    },
+    "no-secrets": {
+      "dim": "guardrail:no-secrets",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:mcp kb_add(secret)",
+          "pass": true,
+          "detail": "refused by lint"
+        }
+      ]
+    },
+    "parity-claude-stale": {
+      "dim": "parity:claude exclusion",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "corrected",
+          "prompt": "What hostname must I use to connect to the prod database right now? Reply with ONLY the hostname.",
+          "output": "db-prod-9c814.internal.example"
+        },
+        {
+          "label": "claude:naive",
+          "pass": false,
+          "detail": "STALE",
+          "prompt": "What hostname must I use to connect to the prod database right now? Reply with ONLY the hostname.",
+          "output": "db-prod-7f3a2.internal.example"
+        }
+      ]
+    },
+    "parity-claude-constitution": {
+      "dim": "parity:claude constitution",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "policy",
+          "prompt": "We are scaffolding a new internal HTTP service. Which TCP port should it listen on? Reply with ONLY the port number.",
+          "output": "8472"
+        },
+        {
+          "label": "claude:none",
+          "pass": false,
+          "detail": "default",
+          "prompt": "We are scaffolding a new internal HTTP service. Which TCP port should it listen on? Reply with ONLY the port number.",
+          "output": "8080"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,169 @@
+{
+  "model": "deepseek-v4-flash",
+  "provider": "deepseek",
+  "slug": "deepseek__deepseek-v4-flash",
+  "generated": "2026-06-03T12:29:56.181Z",
+  "vtfkb_sha": "8252b4e",
+  "scenarios": {
+    "stale-supersession": {
+      "dim": "exclude:supersession",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "corrected",
+          "prompt": "What hostname must I use to connect to the prod database right now? Reply with ONLY the hostname.",
+          "output": "db-prod-9c814.internal.example"
+        },
+        {
+          "label": "pi:naive",
+          "pass": false,
+          "detail": "STALE",
+          "prompt": "What hostname must I use to connect to the prod database right now? Reply with ONLY the hostname.",
+          "output": "db-prod-7f3a2.internal.example"
+        }
+      ]
+    },
+    "constitution-port": {
+      "dim": "constitution:single",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "policy",
+          "prompt": "We are scaffolding a new internal HTTP service. Which TCP port should it listen on? Reply with ONLY the port number.",
+          "output": "8472"
+        },
+        {
+          "label": "pi:none",
+          "pass": false,
+          "detail": "default",
+          "prompt": "We are scaffolding a new internal HTTP service. Which TCP port should it listen on? Reply with ONLY the port number.",
+          "output": "8080"
+        }
+      ]
+    },
+    "constitution-multi": {
+      "dim": "constitution:aggregate",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "port✓ prefix✓",
+          "prompt": "For a new internal service, state the listen port and the required log-line prefix. Reply exactly as: PORT=<n> PREFIX=<p>",
+          "output": "PORT=8472 PREFIX=LOGv3|"
+        },
+        {
+          "label": "pi:none",
+          "pass": false,
+          "detail": "port✗ prefix✗",
+          "prompt": "For a new internal service, state the listen port and the required log-line prefix. Reply exactly as: PORT=<n> PREFIX=<p>",
+          "output": "PORT=8080 PREFIX=[INTERNAL]"
+        }
+      ]
+    },
+    "knowledge-delivery": {
+      "dim": "deliver:fact",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "project-cmd",
+          "prompt": "What is the exact command to deploy our app? Reply with ONLY the command.",
+          "output": "vfship --wave canary"
+        },
+        {
+          "label": "pi:none",
+          "pass": false,
+          "detail": "guessed",
+          "prompt": "What is the exact command to deploy our app? Reply with ONLY the command.",
+          "output": "Unable to determine the exact deployment command without knowing your app's stack or deployment target. Please provide context (e.g., framework, hosting platform, script name)."
+        }
+      ]
+    },
+    "gotcha-guidance": {
+      "dim": "deliver:gotcha",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "checks-body",
+          "prompt": "How do I reliably tell whether our service's database is up, using the health endpoint? Be specific about exactly what to check.",
+          "output": "The only reliable way is to inspect the JSON body of the `/healthz` response.\n\n1. **Ignore the HTTP status code** – it stays `200` even when the database is unavailable.\n2. **Parse the response body as JSON** and look for the field **`db_ok`**.\n3. **Check that `db_ok` is `true`** – any other value (`false`, missing, etc.) means the database is down.\n\n**Example (pseudocode):**\n```python\nresponse = requests.get(\"/healthz\")\nbody = response.json()\ndb_up = body.get(\"db_ok\", False)  # default to False if missing\nif db_up is not True:\n    # database is not reachable\n```\n\nThat's the only signal that actually reflects database health."
+        },
+        {
+          "label": "pi:none",
+          "pass": false,
+          "detail": "status-only",
+          "prompt": "How do I reliably tell whether our service's database is up, using the health endpoint? Be specific about exactly what to check.",
+          "output": "To reliably tell whether your service’s database is up via a health endpoint, you need to **probe actual connectivity** and **return a clear signal** that monitoring tools (load balancers, Kubernetes probes, etc.) can interpret unambiguously. Here is what to check and how:\n\n---\n\n### 1. Endpoint Design\n- Use a dedicated path like `/health` or `/healthz` that is **fast** and **unauthenticated** (so monitoring can call it).\n- Return **HTTP 200** when the database is reachable, **HTTP 503** when it is not.\n\n### 2. What to Check (the actual probe)\nThe health check must **connect to the database** and verify a basic operation. For example:\n\n| Database | Probe                                    |\n|----------|------------------------------------------|\n| SQL      | `SELECT 1` or `SELECT NOW()`             |\n| Redis    | `PING`                                   |\n| MongoDB  | `db.runCommand({ ping: 1 })`             |\n| S3       | `HeadBucket` or list a known key         |\n\n**Crucially:**\n- **Do not run real queries** against production tables – it can interfere with your application.\n- **Set a short connection timeout** (e.g., 2 seconds) so the health check doesn’t hang if the DB is slow to respond.\n- **Re-use the connection pool** (if your app has one) but do not acquire a connection for longer than necessary. Some frameworks allow a lightweight “ping” that doesn’t take a real connection.\n\n### 3. Response Format (JSON)\nReturn a consistent JSON body with at least:\n```json\n{\n  \"status\": \"ok\",\n  \"database\": \"up\"\n}\n```\nOn failure:\n```json\n{\n  \"status\": \"error\",\n  \"database\": \"down\",\n  \"error\": \"connection refused\"\n}\n```\n\n### 4. Additional Checks for Reliability\n- **Connection pool health**: If your pool has a maximum size, verify that at least one connection can be acquired.\n- **Replica lag** (if relevant): For read replicas, check that lag is below a threshold (e.g., `< 10 seconds`). Return `503` only if lag is too high.\n- **Timeouts and retries**: Use a single attempt with a short timeout. Do **not** retry inside the health check – that delays the response and may mask intermittent issues.\n\n### 5. Separate “Deep” vs “Shallow” Checks\nKeep `/health` lightweight (ping only). If you also need to verify schema, indexes, or recent data freshness, put that on a separate endpoint like `/health/deep` that is called less frequently (e.g., every 60 seconds).\n\n---\n\n### Example (Python / Flask)\n\n```python\nimport time\nfrom flask import Flask, jsonify\nimport psycopg2\n\napp = Flask(__name__)\n\nDB_CONFIG = {\n    \"dbname\": \"mydb\",\n    \"user\": \"user\",\n    \"password\": \"pass\",\n    \"host\": \"db.example.com\",\n    \"port\": 5432,\n    \"connect_timeout\": 2,   # short timeout\n}\n\n@app.route(\"/health\")\ndef health():\n    try:\n        conn = psycopg2.connect(**DB_CONFIG)\n        cur = conn.cursor()\n        cur.execute(\"SELECT 1\")\n        cur.close()\n        conn.close()\n        return jsonify({\"status\": \"ok\", \"database\": \"up\"}), 200\n    except Exception as e:\n        return jsonify({\"status\": \"error\", \"database\": \"down\", \"error\": str(e)}), 503\n```\n\n---\n\n### 6. Infrastructure Integration\n- **Kubernetes**: Use `httpGet` probes on `/health` with `periodSeconds: 10`, `failureThreshold: 2`.\n- **Load balancer**: Configure health checks to the same endpoint. Only route traffic when it returns 200.\n\n---\n\n### Key Pitfalls to Avoid\n- ❌ **Caching health results** – the check should always hit the database.\n- ❌ **Checking only if the DB process is listening** – blocking on connection timeout is better.\n- ❌ **Returning 200 for “degraded” states** – if the DB is reachable but slow, return 200 (or a separate header) to let the load balancer decide; otherwise your service will be taken out of rotation unnecessarily.\n\nBy following this pattern, your health endpoint will reliably tell you **exactly** whether the database is reachable and usable."
+        }
+      ]
+    },
+    "vision-format": {
+      "dim": "deliver:vision-pattern",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "house-format",
+          "prompt": "Print the single line our CLI should output for error code 42. Output only that line.",
+          "output": "ERR:42"
+        },
+        {
+          "label": "pi:none",
+          "pass": false,
+          "detail": "other",
+          "prompt": "Print the single line our CLI should output for error code 42. Output only that line.",
+          "output": "Error 42: Invalid operation."
+        }
+      ]
+    },
+    "multi-fact-synthesis": {
+      "dim": "synthesis:combine-2-facts",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "host✓ port✓",
+          "prompt": "Give the full host:port to reach the billing service. Reply with ONLY host:port.",
+          "output": "bill-h7.internal:7711"
+        },
+        {
+          "label": "pi:none",
+          "pass": false,
+          "detail": "host✗ port✗",
+          "prompt": "Give the full host:port to reach the billing service. Reply with ONLY host:port.",
+          "output": "billing-service:8080"
+        }
+      ]
+    },
+    "supersession-chain": {
+      "dim": "exclude:supersession-chain",
+      "demonstrated": true,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "latest-in-chain",
+          "prompt": "What is the current release channel? Reply with ONLY the channel id.",
+          "output": "chan-C3"
+        },
+        {
+          "label": "pi:naive",
+          "pass": false,
+          "detail": "OLDEST",
+          "prompt": "What is the current release channel? Reply with ONLY the channel id.",
+          "output": "chan-A1"
+        }
+      ]
+    }
+  }
+}

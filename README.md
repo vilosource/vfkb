@@ -67,33 +67,46 @@ node scenarios/l4-purpose.mjs --list     # list scenario ids
 node scenarios/l4-purpose.mjs capture-recall mcp-pull   # subset
 ```
 
-**18/18 scenarios demonstrate the purpose** (DeepSeek-V4 + Claude Code, 2026-06-03) —
-each shows vtfkb PASS and the baseline fail, across every dimension:
+**24 scenarios** across every dimension (DeepSeek-V4-pro: **24/24 demonstrated**, 2026-06-03):
 
-| Dimension | Scenario | vtfkb → | baseline → |
-|---|---|---|---|
-| Exclude · supersession | stale-supersession | corrected host | naive → stale |
-| Exclude · `valid_until` | stale-expiry | current host | naive → expired |
-| Exclude · status | deprecated-excluded | active lib | naive → deprecated |
-| Exclude · prov-status | provstale-excluded | current path | naive → stale |
-| Rerank · precedence | precedence-distractor | corrected (amid 8 distractors) | naive → buried stale |
-| Constitution · single | constitution-port | 8472 | none → 8080 |
-| Constitution · aggregate | constitution-multi | port + log-prefix both | none → neither |
-| Deliver · fact | knowledge-delivery | `vfship --wave` | none → guessed |
-| Deliver · gotcha | gotcha-guidance | checks `db_ok` body | none → status-only |
-| Deliver · vision pattern | vision-format | `ERR:42` | none → prose |
-| Deliver · decision | decision-followed | Qfabric | none → RabbitMQ |
-| Trust · unverified | unverified-injected | delivered (labelled) | none → unknown |
-| Memory · capture→recall | capture-recall | recalls captured sigil next session | none → can't |
-| Guardrail · tool-gating | tool-gating | brain intact (write blocked) | ungated → clobbered |
-| Guardrail · no-secrets | no-secrets | `kb_add` refused the secret | — |
-| MCP · pull | mcp-pull | pulled via `kb_search` (claude) | no-mcp → can't |
-| Parity · exclusion | parity-claude-stale | corrected (Claude Code) | naive → stale |
-| Parity · constitution | parity-claude-constitution | 8472 (Claude Code) | none → 8080 |
+- **Stale-exclusion (the core value):** supersession, `valid_until` expiry, deprecated
+  status, provenance-stale, supersession-**chain**, and precedence-amid-distractors.
+- **Constitution / constraints:** single rule, aggregate (many rules at once),
+  prohibition (forbidden term + required prefix).
+- **Knowledge delivery:** fact, gotcha, vision-pattern, decision, link, and
+  multi-fact **synthesis** (combine two entries); unverified-but-delivered (trust).
+- **Memory:** passive capture → cross-session **recall**.
+- **Guardrails:** tool-gating (brain stays intact vs an ungated clobber) and
+  no-secrets (the agent's `kb_add` of a key is refused).
+- **MCP (cross-harness pull, claude):** pull via `kb_search`, filtered search,
+  map-then-search navigation.
+- **Cross-harness parity:** exclusion + constitution also hold on Claude Code.
 
-> Archive-zone exclusion is **table-stakes** (any reasonable memory drops the archive
-> zone), so it is verified by unit tests but deliberately omitted as an L4 scenario —
-> an L4 contrast only proves causation when the baseline reliably *fails*.
+### Recording behavior + comparing models
+
+Every run **records each model's behavior** to `scenarios/records/<provider>__<model>.{json,md}`
+(per-scenario verdicts + the agent's full output, merged across batched runs). Run the
+identical suite against another model and compare:
+
+```
+VTFKB_L4_MODEL=deepseek-v4-pro   node scenarios/l4-purpose.mjs          # baseline record
+VTFKB_L4_MODEL=deepseek-v4-flash node scenarios/l4-purpose.mjs <subset> # another model
+node scenarios/compare.mjs                                              # cross-model report card
+```
+
+Recorded so far: `deepseek-v4-pro` 24/24; `deepseek-v4-flash` 8/8 (subset); **no
+divergences** on shared scenarios.
+
+### Why the baselines are trustworthy (isolation discipline)
+
+A contrast only proves causation if the baseline **reliably fails** and is genuinely
+knowledge-free. Two real leaks were found and fixed: (1) the `claude` baseline pulled
+unguessable tokens from its **global MemPalace memory**, and (2) it **read the brain
+file off `/tmp`** with default tools. So every `claude` run uses `--strict-mcp-config`
++ an empty MCP config (no global memory) **and** denies all filesystem/exec tools
+(`--disallowedTools …`); the MCP variant keeps only the `mcp__vtfkb__*` tools, so it
+is *forced* to answer via `kb_search`. Archive-zone exclusion is **table-stakes** (any
+memory drops it) and is omitted from L4 (unit-tested instead).
 
 ## Try the auto-layer (against a throwaway brain)
 
