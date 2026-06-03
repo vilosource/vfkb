@@ -7,9 +7,11 @@ import {
   captureToolCall,
   readAll,
   renderContextBundle,
+  renderContextMap,
   deriveTrust,
 } from './engine.js';
-import type { AuthorRole, EntryType } from './types.js';
+import { query } from './read.js';
+import type { AuthorRole, EntryType, Zone, DecisionStatus } from './types.js';
 
 function readStdin(): Promise<string> {
   return new Promise((resolve) => {
@@ -42,6 +44,7 @@ async function main() {
       status: flag(rest, 'status') as any,
       provStatus: flag(rest, 'prov-status') as any,
       validUntil: flag(rest, 'valid-until'),
+      constitutional: rest.includes('--constitutional'),
     });
     process.stdout.write(`${e.id}\t[${e.type} ${deriveTrust(e.author.role)}]\t${e.text}\n`);
     return;
@@ -58,6 +61,36 @@ async function main() {
 
   if (cmd === 'context-block') {
     process.stdout.write(renderContextBundle(sub || 'spike'));
+    return;
+  }
+
+  if (cmd === 'map') {
+    process.stdout.write(renderContextMap() + '\n');
+    return;
+  }
+
+  // search/query: vtfkb search <text> [--type t] [--tag a,b] [--zone z] [--status s]
+  //               [--role r] [--limit N] [--stale] [--superseded]
+  if (cmd === 'search' || cmd === 'query') {
+    const args = [sub, ...rest].filter((a) => a !== undefined);
+    const text = args
+      .filter((a, i) => !a.startsWith('--') && !(i > 0 && args[i - 1].startsWith('--')))
+      .join(' ');
+    const limit = flag(args, 'limit');
+    const results = query({
+      text: text || undefined,
+      type: flag(args, 'type') as EntryType,
+      zone: flag(args, 'zone') as Zone,
+      status: flag(args, 'status') as DecisionStatus,
+      tags: flag(args, 'tag')?.split(',').map((t) => t.trim()).filter(Boolean),
+      authorRole: flag(args, 'role') as AuthorRole,
+      limit: limit ? Number(limit) : undefined,
+      includeStale: args.includes('--stale'),
+      includeSuperseded: args.includes('--superseded'),
+    });
+    for (const e of results) {
+      process.stdout.write(`${e.id}\t${e.type}\t${deriveTrust(e.author.role)}\t${e.text}\n`);
+    }
     return;
   }
 
@@ -91,7 +124,7 @@ async function main() {
   }
 
   process.stderr.write(
-    'usage: vtfkb <add|list|context-block|hook session-start|hook post-tool-use>\n',
+    'usage: vtfkb <add|list|search|query|map|context-block|hook session-start|hook post-tool-use>\n',
   );
   process.exit(1);
 }
