@@ -125,6 +125,71 @@ export function getIndex(): KbIndex {
 }
 
 // =========================================================================
+// Context Map (ADR-0006) — a DERIVED navigational artifact. v1 = the
+// Index/Topology layer: what knowledge exists + how to pull more. Auto-injected
+// at session start (Glossary + Routing Table are deferred / global tier).
+// =========================================================================
+
+export interface ContextMap {
+  total: number;
+  byType: Record<EntryType, number>;
+  byZone: Record<KnowledgeEntry['zone'], number>;
+  decisions: { accepted: number; proposed: number; superseded: number; deprecated: number; constitutional: number };
+  topTags: Array<{ tag: string; n: number }>;
+}
+
+export function buildContextMap(): ContextMap {
+  const all = readAll();
+  const superseded = supersededIds(all);
+  const byType = { fact: 0, decision: 0, gotcha: 0, pattern: 0, link: 0 } as Record<EntryType, number>;
+  const byZone = { incoming: 0, established: 0, archive: 0 } as Record<KnowledgeEntry['zone'], number>;
+  const decisions = { accepted: 0, proposed: 0, superseded: 0, deprecated: 0, constitutional: 0 };
+  const tagCounts = new Map<string, number>();
+
+  for (const e of all) {
+    byType[e.type]++;
+    byZone[e.zone]++;
+    for (const t of e.tags) tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1);
+    if (isDecisionFamily(e.type)) {
+      const eff = effectiveStatus(e, superseded);
+      if (eff === 'accepted') decisions.accepted++;
+      else if (eff === 'proposed') decisions.proposed++;
+      else if (eff === 'superseded') decisions.superseded++;
+      else if (eff === 'deprecated') decisions.deprecated++;
+      if (e.constitutional && eff === 'accepted') decisions.constitutional++;
+    }
+  }
+  const topTags = [...tagCounts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 8)
+    .map(([tag, n]) => ({ tag, n }));
+
+  return { total: all.length, byType, byZone, decisions, topTags };
+}
+
+export function renderContextMap(map: ContextMap = buildContextMap()): string {
+  const types = (Object.entries(map.byType) as Array<[EntryType, number]>)
+    .filter(([, n]) => n > 0)
+    .map(([t, n]) => `${t} ${n}`)
+    .join(' · ');
+  const d = map.decisions;
+  const decLine =
+    `decisions: ${d.accepted} accepted (${d.constitutional} constitutional)` +
+    (d.proposed ? ` · ${d.proposed} proposed` : '') +
+    (d.superseded ? ` · ${d.superseded} superseded` : '') +
+    (d.deprecated ? ` · ${d.deprecated} deprecated` : '');
+  const tags = map.topTags.length ? map.topTags.map((t) => `${t.tag}(${t.n})`).join(' ') : '(none)';
+  return (
+    `<vtfkb-map>\n` +
+    `${map.total} entries · ${types} · zones: established ${map.byZone.established}/incoming ${map.byZone.incoming}\n` +
+    `${decLine}\n` +
+    `top tags: ${tags}\n` +
+    `pull more: search <terms> · filter by type/tag/status/author\n` +
+    `</vtfkb-map>`
+  );
+}
+
+// =========================================================================
 // Decision family (ADR-0004/0007/0008/0009). Decisions are immutable in their
 // CONTENT (text/rationale) — superseded, not edited. But lifecycle/identity
 // fields the ENGINE manages (status, refs.supersedes, adr_no) may change via
@@ -296,6 +361,9 @@ export function renderContextBundle(project = 'spike', budget = SESSION_BUDGET_C
     body += '\n';
   }
   const constitutionalIds = new Set(constitution.map((c) => c.id));
+
+  // Context Map (ADR-0006): the navigational index, always injected, never dropped.
+  body += renderContextMap() + '\n\n';
 
   let dropped = 0;
   for (const e of injectable) {
