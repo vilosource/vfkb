@@ -5,7 +5,7 @@
 // Pure Node stdlib, ZERO runtime deps.
 
 import { randomBytes } from 'node:crypto';
-import { appendRecord, materialize } from './storage.js';
+import { appendRecord, materialize, readRecords } from './storage.js';
 import { selectIndex } from './index-store.js';
 import type { KbIndex } from './index-store.js';
 import type {
@@ -22,8 +22,15 @@ export type { KbIndex } from './index-store.js';
 export const SESSION_BUDGET_CHARS = 10_000; // Claude Code additionalContext cap (ADR-0015).
 
 // Fluid types are editable (last-write-wins); the decision family is immutable
-// (supersede-only) — ADR-0004.
+// (supersede-only) — ADR-0004. RFC = a `proposed` decision (ADR-0007),
+// constitutional = a flagged decision (ADR-0008) — both are the `decision` type,
+// not new types.
 const FLUID_TYPES: ReadonlySet<EntryType> = new Set(['fact', 'gotcha', 'pattern', 'link']);
+const DECISION_FAMILY: ReadonlySet<EntryType> = new Set(['decision']);
+
+export function isDecisionFamily(type: EntryType): boolean {
+  return DECISION_FAMILY.has(type);
+}
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -48,6 +55,8 @@ export interface AddOpts {
   origin?: ProvenanceOrigin;
   zone?: KnowledgeEntry['zone'];
   validUntil?: string;
+  constitutional?: boolean; // ADR-0008 (decision family only)
+  supersedes?: string; // refs.supersedes — set by supersede()
 }
 
 export function addEntry(type: EntryType, text: string, opts: AddOpts = {}): KnowledgeEntry {
@@ -60,13 +69,16 @@ export function addEntry(type: EntryType, text: string, opts: AddOpts = {}): Kno
     tags: opts.tags ?? [],
     zone: opts.zone ?? (deriveTrust(role) === 'operator' ? 'established' : 'incoming'),
     author: { role },
+    refs: opts.supersedes ? { supersedes: opts.supersedes } : undefined,
     provenance: {
       status: opts.provStatus ?? (deriveTrust(role) === 'operator' ? 'verified' : 'unverified'),
       date: ts,
       origin: opts.origin,
     },
     validity: { valid_from: ts, valid_until: opts.validUntil },
-    status: opts.status,
+    // default a brand-new decision to `proposed` (an RFC, ADR-0007) unless told.
+    status: opts.status ?? (isDecisionFamily(type) ? 'proposed' : undefined),
+    constitutional: isDecisionFamily(type) ? opts.constitutional : undefined,
     created: ts,
     updated: ts,
   };
@@ -112,9 +124,115 @@ export function getIndex(): KbIndex {
   return selectIndex();
 }
 
+// =========================================================================
+// Decision family (ADR-0004/0007/0008/0009). Decisions are immutable in their
+// CONTENT (text/rationale) — superseded, not edited. But lifecycle/identity
+// fields the ENGINE manages (status, refs.supersedes, adr_no) may change via
+// the dedicated operations below, which preserve the content verbatim.
+// =========================================================================
+
+// Supersede a decision with a new one (additive edge — the old is never edited).
+// The old entry's effective status becomes `superseded`, derived from the edge.
+export function supersede(oldId: string, text: string, opts: AddOpts = {}): KnowledgeEntry {
+  const old = readAll().find((e) => e.id === oldId);
+  if (!old) throw new Error(`no such entry: ${oldId}`);
+  if (!isDecisionFamily(old.type)) {
+    throw new Error(`entry ${oldId} is not a decision — fluid types are edited, not superseded`);
+  }
+  return addEntry('decision', text, {
+    role: opts.role ?? 'human',
+    tags: opts.tags,
+    status: opts.status ?? 'accepted',
+    constitutional: opts.constitutional ?? old.constitutional,
+    supersedes: oldId,
+  });
+}
+
+// Lifecycle transition (proposed→accepted→deprecated). Appends a new version with
+// the SAME content but a new status. Cannot set `superseded` (that is edge-derived),
+// and refuses to alter `text` (content-immutability — use supersede() instead).
+export function transitionDecision(
+  id: string,
+  status: NonNullable<KnowledgeEntry['status']>,
+): KnowledgeEntry {
+  if (status === 'superseded') {
+    throw new Error('`superseded` is derived from a supersession edge — use supersede()');
+  }
+  const cur = readAll().find((e) => e.id === id);
+  if (!cur) throw new Error(`no such entry: ${id}`);
+  if (!isDecisionFamily(cur.type)) {
+    throw new Error(`entry ${id} is not a decision — use updateEntry() for fluid types`);
+  }
+  const next: KnowledgeEntry = { ...cur, status, updated: nowIso() };
+  appendRecord(next);
+  return next;
+}
+
+// The set of ids superseded by some live entry (the supersession edges).
+export function supersededIds(entries: KnowledgeEntry[] = readAll()): Set<string> {
+  const s = new Set<string>();
+  for (const e of entries) if (e.refs?.supersedes) s.add(e.refs.supersedes);
+  return s;
+}
+
+// Effective status folds the supersession edge in: an entry pointed at by a live
+// supersession is `superseded` regardless of its own stored status.
+export function effectiveStatus(
+  e: KnowledgeEntry,
+  superseded: Set<string> = supersededIds(),
+): KnowledgeEntry['status'] {
+  if (superseded.has(e.id)) return 'superseded';
+  return e.status;
+}
+
+// Stamp human ADR ordinals (ADR-0009). Assigns the next monotonic `adr_no` to live
+// decision-family entries lacking one, in `created` order. Idempotent: already-
+// stamped entries keep their number. Models the engine's merge-to-main step (main
+// is serialized + sole-writer → monotonic, no collision).
+export function stampOrdinals(): number {
+  const live = readAll();
+  let max = 0;
+  for (const e of live) if (typeof e.adr_no === 'number' && e.adr_no > max) max = e.adr_no;
+  // "Creation order" = append-log order (first appearance in the JSONL). This is
+  // the ground-truth write order, immune to same-millisecond `created` collisions.
+  const firstSeen = new Map<string, number>();
+  readRecords().forEach((r, i) => {
+    if (!firstSeen.has(r.id)) firstSeen.set(r.id, i);
+  });
+  const unstamped = live
+    .filter((e) => isDecisionFamily(e.type) && typeof e.adr_no !== 'number')
+    .sort((a, b) => (firstSeen.get(a.id) ?? 0) - (firstSeen.get(b.id) ?? 0));
+  let stamped = 0;
+  for (const e of unstamped) {
+    appendRecord({ ...e, adr_no: ++max, updated: nowIso() });
+    stamped++;
+  }
+  return stamped;
+}
+
+// Derive the always-injected Constitution (ADR-0008): live, accepted, constitutional
+// decisions that are not superseded/deprecated.
+export function deriveConstitution(): KnowledgeEntry[] {
+  const live = readAll();
+  const superseded = supersededIds(live);
+  return live
+    .filter(
+      (e) =>
+        isDecisionFamily(e.type) &&
+        e.constitutional === true &&
+        effectiveStatus(e, superseded) === 'accepted',
+    )
+    .sort((a, b) => (a.adr_no ?? 1e9) - (b.adr_no ?? 1e9));
+}
+
 // --- Injection filter (ADR-0005 + ADR-0011 valid_until). Hard gate. ---
-export function isInjectable(e: KnowledgeEntry, today = nowIso().slice(0, 10)): boolean {
+export function isInjectable(
+  e: KnowledgeEntry,
+  today = nowIso().slice(0, 10),
+  superseded?: Set<string>,
+): boolean {
   if (e.zone === 'archive') return false;
+  if (superseded?.has(e.id)) return false; // superseded by a live edge (ADR-0004)
   if (e.status === 'deprecated' || e.status === 'superseded') return false;
   if (e.provenance.status === 'stale' || e.provenance.status === 'expired') return false;
   if (e.validity.valid_until && e.validity.valid_until.slice(0, 10) < today) return false;
@@ -158,12 +276,30 @@ function trustGlyph(e: KnowledgeEntry): string {
 }
 
 export function renderContextBundle(project = 'spike', budget = SESSION_BUDGET_CHARS): string {
-  const injectable = rerank(readAll().filter((e) => isInjectable(e)));
+  const all = readAll();
+  const today = nowIso().slice(0, 10);
+  const superseded = supersededIds(all);
+  const injectable = rerank(all.filter((e) => isInjectable(e, today, superseded)));
   const header = `<vtfkb-context project="${project}">\n`;
   const footer = `\n</vtfkb-context>`;
   let body = '';
+
+  // Constitution always leads (ADR-0008): accepted, constitutional, non-superseded
+  // decisions, injected first and never budget-dropped.
+  const constitution = deriveConstitution();
+  if (constitution.length > 0) {
+    body += '## Constitution (always applies)\n';
+    for (const c of constitution) {
+      const n = typeof c.adr_no === 'number' ? `ADR-${String(c.adr_no).padStart(4, '0')} ` : '';
+      body += `- [${n}constitutional] ${c.text}\n`;
+    }
+    body += '\n';
+  }
+  const constitutionalIds = new Set(constitution.map((c) => c.id));
+
   let dropped = 0;
   for (const e of injectable) {
+    if (constitutionalIds.has(e.id)) continue; // already in the Constitution section
     const line = `- [${e.type} ${trustGlyph(e)}] ${e.text}\n`;
     if (header.length + body.length + line.length + footer.length > budget) {
       dropped++;
