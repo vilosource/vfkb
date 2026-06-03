@@ -424,46 +424,6 @@
           "detail": "refused by lint"
         }
       ]
-    },
-    "parity-claude-stale": {
-      "dim": "parity:claude exclusion",
-      "demonstrated": true,
-      "rows": [
-        {
-          "label": "claude:vtfkb",
-          "pass": true,
-          "detail": "corrected",
-          "prompt": "What hostname must I use to connect to the prod database right now? Reply with ONLY the hostname.",
-          "output": "db-prod-9c814.internal.example"
-        },
-        {
-          "label": "claude:naive",
-          "pass": false,
-          "detail": "STALE",
-          "prompt": "What hostname must I use to connect to the prod database right now? Reply with ONLY the hostname.",
-          "output": "db-prod-7f3a2.internal.example"
-        }
-      ]
-    },
-    "parity-claude-constitution": {
-      "dim": "parity:claude constitution",
-      "demonstrated": true,
-      "rows": [
-        {
-          "label": "claude:vtfkb",
-          "pass": true,
-          "detail": "policy",
-          "prompt": "We are scaffolding a new internal HTTP service. Which TCP port should it listen on? Reply with ONLY the port number.",
-          "output": "8472"
-        },
-        {
-          "label": "claude:none",
-          "pass": false,
-          "detail": "default",
-          "prompt": "We are scaffolding a new internal HTTP service. Which TCP port should it listen on? Reply with ONLY the port number.",
-          "output": "8080"
-        }
-      ]
     }
   }
 }
