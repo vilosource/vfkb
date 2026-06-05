@@ -3,3 +3,6 @@ dist/
 coverage/
 *.log
 .vtfkb-spike/
+
+# local registry auth (token via env)
+.npmrc
