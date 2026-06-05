@@ -60,6 +60,16 @@ else
   echo "[devops-kb-pi] note: no ~/.ssh — git clone of <internal-gitlab> repos won't authenticate"
 fi
 
+# glab auth (for project/namespace discovery via the GitLab API). Use the GITLAB_TOKEN
+# PAT from the environment — NOT the host glab config: that stores an OAuth token that
+# glab refreshes by rewriting the file, which a read-only container mount can't do (→ 401).
+GLAB_ARGS=()
+if [ -n "${GITLAB_TOKEN:-}" ]; then
+  GLAB_ARGS=(-e GITLAB_HOST=<internal-gitlab> -e GITLAB_TOKEN="$GITLAB_TOKEN")
+else
+  echo "[devops-kb-pi] note: GITLAB_TOKEN not set — glab project discovery disabled (export your GitLab PAT to enable)"
+fi
+
 echo "[devops-kb-pi] brain: $BRAIN   repos: $GITLAB -> /gitlab   az: ~/.azure (live)   model: github-copilot/$MODEL"
 exec docker run --rm -it --user "$(id -u):$(id -g)" -e HOME=/work \
   -e VTFKB_DIR=/brain -e VTFKB_PROJECT=devops-kb -e VTFKB_MCP_CONFIG=/opt/vtfkb/mcp-config.json \
@@ -69,6 +79,7 @@ exec docker run --rm -it --user "$(id -u):$(id -g)" -e HOME=/work \
   -v "$HOME/.azure":/work/.azure \
   -v "$PICFG":/work/.pi/agent \
   "${SSH_ARGS[@]}" \
+  "${GLAB_ARGS[@]}" \
   -w /gitlab \
   devops-kb \
   pi --provider github-copilot --model "$MODEL" \

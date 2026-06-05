@@ -1,0 +1,9 @@
+# devops-kb container gitconfig (baked at /work/.gitconfig).
+# HTTPS clone URLs for the Optiscan GitLab can't authenticate in here (no credential
+# helper, no TTY to prompt) — but SSH (git@) is wired with the ed25519 key. Rewrite
+# any https://gitlab.optiscangroup.{com,net}/ URL to its git@ SSH form so the agent's
+# natural copy-pasted HTTPS URLs Just Work. Scoped to these two hosts only.
+[url "git@<internal-gitlab>:"]
+	insteadOf = https://<internal-gitlab>/
+[url "git@<internal-gitlab>:"]
+	insteadOf = https://<internal-gitlab>/
