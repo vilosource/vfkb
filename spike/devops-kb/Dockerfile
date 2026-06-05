@@ -29,8 +29,10 @@ RUN python3 -m venv /opt/ansible \
     && ln -s /opt/ansible/bin/ansible /opt/ansible/bin/ansible-playbook \
              /opt/ansible/bin/ansible-galaxy /opt/ansible/bin/ansible-inventory /usr/local/bin/
 
-# Agent runtime.
-RUN npm install -g @anthropic-ai/claude-code@2.1.162
+# Agent runtimes — both faces in one image: Claude Code and pi (the latter drives the
+# GitHub Copilot Claude Haiku 4.5 path; the launchers pick which one).
+RUN npm install -g @anthropic-ai/claude-code@2.1.162 \
+                   @mariozechner/pi-coding-agent@0.73.1
 
 # vtfkb substrate: built artifact + the single runtime dep (@modelcontextprotocol/sdk).
 WORKDIR /opt/vtfkb
@@ -38,8 +40,12 @@ COPY dist/ ./dist/
 COPY package.json ./
 RUN npm install --omit=dev
 
-# Clean-room config (devops-kb; ZERO mykb). CLAUDE.md bakes the operating rules.
-COPY spike/devops-kb/mcp-config.json spike/devops-kb/settings.json spike/devops-kb/bash-guard.mjs ./
+# Clean-room config (devops-kb; ZERO mykb).
+#   Claude face: settings.json (hooks) + bash-guard.mjs + /work/CLAUDE.md (operating rules)
+#   pi face:     infra-guard.mjs (mutation gate) + operating-rules.md (--append-system-prompt)
+#   shared:      mcp-config.json (the vtfkb MCP server; pi reads it via VTFKB_MCP_CONFIG)
+COPY spike/devops-kb/mcp-config.json spike/devops-kb/settings.json spike/devops-kb/bash-guard.mjs \
+     spike/devops-kb/infra-guard.mjs spike/devops-kb/operating-rules.md ./
 COPY spike/devops-kb/CLAUDE.md /work/CLAUDE.md
 
 # Writable HOME for the agent (claude + az write here). Host uid set with --user at
