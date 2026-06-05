@@ -23,6 +23,11 @@ describe('no-secrets write-time lint (D6e)', () => {
     expect(detectSecrets('ghp_' + 'a'.repeat(36)).map((h) => h.kind)).toContain('github-token');
     expect(detectSecrets('api_key = "sk-abcdef0123456789xyz"').map((h) => h.kind)).toContain('assigned-secret');
     expect(detectSecrets('-----BEGIN RSA PRIVATE KEY-----').map((h) => h.kind)).toContain('private-key-block');
+    expect(
+      detectSecrets(
+        'DefaultEndpointsProtocol=https;AccountName=foo;AccountKey=abcd1234567890abcdef0987654321ABCDEFGHabcdef==',
+      ).map((h) => h.kind),
+    ).toContain('azure-storage-key');
     expect(detectSecrets('the deploy host is example.com')).toHaveLength(0);
   });
   it('addEntry throws on a planted secret (and stores nothing)', () => {
