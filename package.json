@@ -1,17 +1,35 @@
 {
   "name": "@vilosource/vtfkb",
-  "version": "0.0.0-spike0",
-  "description": "vtfkb — VFSF per-project knowledge substrate. Phase 0 spike (greenfield TS, ADR-0001..0015).",
+  "version": "0.1.0",
+  "description": "vtfkb — VFSF per-project knowledge substrate. Greenfield TS (ADR-0001..0019).",
   "type": "module",
+  "main": "dist/engine.js",
+  "exports": {
+    ".": "./dist/engine.js",
+    "./pi-extension": "./dist/pi-extension.js",
+    "./pi-mcp-bridge": "./dist/pi-mcp-bridge.js",
+    "./package.json": "./package.json"
+  },
   "bin": {
     "vtfkb": "dist/cli.js",
     "vtfkb-mcp": "dist/mcp-server.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vilosource/vtfkb.git"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
   },
   "scripts": {
     "build": "tsc",
     "pretest": "tsc",
     "test": "vitest run",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run build"
   },
   "engines": {
     "node": ">=20"
