@@ -45,3 +45,7 @@ delivered through two vtfkb faces loaded as pi extensions:
 Clone any repo you need into **`/gitlab/<namespace>/<repo>`** (this mirrors the host
 `~/GitLab/<ns>/<repo>` convention; `/gitlab` is a persistent mounted volume). Don't
 ask before cloning a repo you need — just clone it there.
+
+`gitlab.optiscangroup.com` IS reachable from this container and SSH is pre-wired for
+it (ed25519 key, over `git@`). If a clone fails, it's an auth/path detail — not
+"network isolation"; diagnose before concluding the network is blocked.
