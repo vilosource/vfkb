@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "vtfkb": {
+      "command": "node",
+      "args": ["/opt/vtfkb/dist/mcp-server.js"],
+      "env": { "VTFKB_DIR": "/brain", "VTFKB_PROJECT": "devops-kb" }
+    }
+  }
+}
