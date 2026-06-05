@@ -46,13 +46,29 @@ cat > "$PICFG/settings.json" <<EOF
 EOF
 chmod -R 700 "$PICFG"
 
+# SSH for cloning <internal-gitlab> repos (the /gitlab convention). Mount the
+# host keys read-only and pin git to the ed25519 key: container OpenSSH 9.x + modern
+# GitLab reject ssh-rsa/SHA-1 (so id_rsa is dead here), and the host config's many
+# global IdentityFiles would trip MaxAuthTries before the right key. IdentitiesOnly +
+# an explicit -i sidesteps both. Direct `ssh` to infra still uses the full ~/.ssh/config.
+SSH_ARGS=(); GIT_SSH=""
+GITLAB_KEY="$HOME/.ssh/gitlab_ed25519"
+if [ -d "$HOME/.ssh" ]; then
+  SSH_ARGS=(-v "$HOME/.ssh":/work/.ssh:ro)
+  [ -f "$GITLAB_KEY" ] && GIT_SSH="ssh -i /work/.ssh/gitlab_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o BatchMode=yes"
+else
+  echo "[devops-kb-pi] note: no ~/.ssh — git clone of <internal-gitlab> repos won't authenticate"
+fi
+
 echo "[devops-kb-pi] brain: $BRAIN   repos: $GITLAB -> /gitlab   az: ~/.azure (live)   model: github-copilot/$MODEL"
 exec docker run --rm -it --user "$(id -u):$(id -g)" -e HOME=/work \
   -e VTFKB_DIR=/brain -e VTFKB_PROJECT=devops-kb -e VTFKB_MCP_CONFIG=/opt/vtfkb/mcp-config.json \
+  -e GIT_SSH_COMMAND="$GIT_SSH" \
   -v "$BRAIN":/brain \
   -v "$GITLAB":/gitlab \
   -v "$HOME/.azure":/work/.azure \
   -v "$PICFG":/work/.pi/agent \
+  "${SSH_ARGS[@]}" \
   -w /gitlab \
   devops-kb \
   pi --provider github-copilot --model "$MODEL" \
