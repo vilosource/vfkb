@@ -41,6 +41,16 @@ else
   echo "[devops-kb] note: no ~/.ssh — git clone of gitlab.optiscangroup.com repos won't authenticate"
 fi
 
+# glab auth (for project/namespace discovery via the GitLab API). Use the GITLAB_TOKEN
+# PAT from the environment — NOT the host glab config: that stores an OAuth token that
+# glab refreshes by rewriting the file, which a read-only container mount can't do (→ 401).
+GLAB_ARGS=()
+if [ -n "${GITLAB_TOKEN:-}" ]; then
+  GLAB_ARGS=(-e GITLAB_HOST=gitlab.optiscangroup.com -e GITLAB_TOKEN="$GITLAB_TOKEN")
+else
+  echo "[devops-kb] note: GITLAB_TOKEN not set — glab project discovery disabled (export your GitLab PAT to enable)"
+fi
+
 echo "[devops-kb] brain: $BRAIN   repos: $GITLAB -> /gitlab   az: ~/.azure (live)   -> clean-room tooled claude"
 exec docker run --rm -it --user "$(id -u):$(id -g)" -e HOME=/work \
   -e GIT_SSH_COMMAND="$GIT_SSH" \
@@ -50,6 +60,7 @@ exec docker run --rm -it --user "$(id -u):$(id -g)" -e HOME=/work \
   -v "$HOME/.claude/.credentials.json":/work/.claude/.credentials.json:ro \
   -v "$SYNTH":/work/.claude.json:ro \
   "${SSH_ARGS[@]}" \
+  "${GLAB_ARGS[@]}" \
   -w /gitlab \
   devops-kb \
   claude --strict-mcp-config \

@@ -46,6 +46,22 @@ Clone any repo you need into **`/gitlab/<namespace>/<repo>`** (this mirrors the 
 `~/GitLab/<ns>/<repo>` convention; `/gitlab` is a persistent mounted volume). Don't
 ask before cloning a repo you need — just clone it there.
 
-`gitlab.optiscangroup.com` IS reachable from this container and SSH is pre-wired for
-it (ed25519 key, over `git@`). If a clone fails, it's an auth/path detail — not
-"network isolation"; diagnose before concluding the network is blocked.
+`gitlab.optiscangroup.com` IS reachable from this container and **SSH (`git@`) is the
+working transport** (ed25519 key, pre-wired). HTTPS clone URLs are auto-rewritten to
+SSH, so either form works — but a raw HTTPS prompt for a username means *no creds*, not
+a network failure. Never conclude "network isolation" from a clone error: the network
+and your key both work; the cause is almost always a **wrong repo path**.
+
+GitLab namespaces here are **nested subgroups**, so verify the full path before cloning.
+e.g. the Hetzner VM repos live at
+`infrastructure/hetzner-optiscangroup/hetzner-pve-vms/<vm-name>` — `hetzner-pve-vms` is
+a *subgroup*, not a repo. A 403 "project not found or no permission" usually means the
+path is wrong or incomplete.
+
+**Discover paths yourself with `glab` — don't ask the operator for a path you can find.**
+`glab` is installed and authenticated. Useful moves:
+- list repos in a (sub)group:
+  `glab api "groups/<URL-encoded-full-path>/projects?per_page=100&include_subgroups=true"`
+  (encode `/` as `%2F`, e.g. `infrastructure%2Fhetzner-optiscangroup%2Fhetzner-pve-vms`)
+- search across all projects: `glab api "search?scope=projects&search=<term>"`
+- then clone the `path_with_namespace` it returns.
