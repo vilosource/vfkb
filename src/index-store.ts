@@ -75,8 +75,11 @@ export class InMemoryIndex implements KbIndex {
     return this.entries.find((e) => e.id === id);
   }
 
-  // BM25-lite: term-overlap over text + tags. (ADR-0012's reranker is a
-  // separate, envelope-aware stage applied to these candidates.)
+  // Stage-1 relevance: stemmed term-overlap count over text + tags — NOT BM25
+  // (no IDF, no length normalization; the score is # of entry tokens matching a
+  // query term). Adequate as a candidate signal at per-project scale; semantic
+  // ranking is the deferred EmbeddingReranker (ADR-0012/0016). The envelope-aware
+  // Heuristic reranker is a separate Stage-2 applied to these candidates.
   searchScored(query: string, k = 30): ScoredEntry[] {
     this.ensureFresh();
     const terms = new Set(tokenize(query));
