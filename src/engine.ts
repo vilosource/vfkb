@@ -325,14 +325,20 @@ function withinTierScore(e: KnowledgeEntry): number {
 
 // Tiered sort (L3): TYPE tier is the PRIMARY key (patterns/gotchas first), so
 // trust/recency reorder *within* a tier but never lift a fact above a pattern.
+// This is the correct order for the *injection* bundle and for non-text listing,
+// where there is no query and thus no relevance signal. For an explicit text
+// SEARCH, relevance is primary and this comparator is only the tiebreak among
+// equally-relevant entries (ADR-0012 — the read layer threads the score through).
+export function heuristicCompare(a: KnowledgeEntry, b: KnowledgeEntry): number {
+  const tier = TYPE_WEIGHT[b.type] - TYPE_WEIGHT[a.type];
+  if (tier !== 0) return tier;
+  const within = withinTierScore(b) - withinTierScore(a);
+  if (within !== 0) return within;
+  return b.updated.localeCompare(a.updated); // recency tiebreak
+}
+
 export function rerank(entries: KnowledgeEntry[]): KnowledgeEntry[] {
-  return [...entries].sort((a, b) => {
-    const tier = TYPE_WEIGHT[b.type] - TYPE_WEIGHT[a.type];
-    if (tier !== 0) return tier;
-    const within = withinTierScore(b) - withinTierScore(a);
-    if (within !== 0) return within;
-    return b.updated.localeCompare(a.updated); // recency tiebreak
-  });
+  return [...entries].sort(heuristicCompare);
 }
 
 // --- Tier-A session-start bundle (ADR-0015), budgeted to 10k chars. ---

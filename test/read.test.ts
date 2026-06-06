@@ -96,3 +96,38 @@ describe('Stark-FQDN characterization — corrected wins, stale never injects', 
     expect(block).not.toContain('stark-OLD'); // expired entry is filtered, not merely out-budgeted
   });
 });
+
+// ADR-0012 — for an EXPLICIT text query, relevance must be the primary sort.
+// Regression guard for the live-turn finding (2026-06-06): query() reused the
+// session-start/injection reranker (type -> trust -> recency) for text search,
+// discarding the Stage-1 relevance score. At corpus scale a relevant-but-low-trust
+// entry was buried ~rank 90 behind newer high-trust entries that merely shared a
+// common token, so a `limit` excluded it.
+describe('relevance ranking for text search (ADR-0012)', () => {
+  const Q = 'az ARM command hangs silently no error';
+  beforeEach(() => {
+    // High-trust, freshest, type-5 entries that share only the common token "az" but
+    // are NOT relevant to the symptom. Under the injection reranker these sort first.
+    for (let i = 0; i < 12; i++) {
+      addEntry('pattern', `az deployment runbook note number ${i}, unrelated to the symptom`, {
+        role: 'human', // operator trust -> within-tier boost + verified
+      });
+    }
+    // The one genuinely relevant entry: low-trust agent gotcha, distinctive terms.
+    addEntry('gotcha', 'az ARM management command hangs silently producing no error output', {
+      role: 'executor', // agent trust -> no within-tier boost, unverified
+    });
+  });
+
+  it('surfaces the relevant entry within a small limit (not buried by trust/recency)', () => {
+    // sanity: it is retrievable at all (freshness/filters do not drop it)
+    expect(query({ text: Q }).some((e) => e.text.includes('hangs silently'))).toBe(true);
+    // the bug: it must appear inside the top-5, ranked by RELEVANCE not trust/recency
+    const top = query({ text: Q, limit: 5 }).map((e) => e.text);
+    expect(top.some((t) => t.includes('hangs silently'))).toBe(true);
+  });
+
+  it('ranks the most relevant entry first', () => {
+    expect(query({ text: Q, limit: 5 })[0].text).toContain('hangs silently');
+  });
+});
