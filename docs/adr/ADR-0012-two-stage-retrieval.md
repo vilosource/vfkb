@@ -1,6 +1,6 @@
 # ADR-0012: Two-stage retrieval pipeline; v1 ships the Heuristic reranker (default); Stage-1 candidate-narrowing right-sized for the per-project tier
 
-- **Status:** Accepted
+- **Status:** Accepted — Amended by [ADR-0016](ADR-0016-search-ranking-and-embedding-revisit.md)
 - **Date:** 2026-06-03
 - **Deciders:** operator (delegated "find the best solution") + Claude
 
