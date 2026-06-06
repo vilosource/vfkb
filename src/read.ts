@@ -20,7 +20,7 @@ import {
 import { selectIndex } from './index-store.js';
 
 export interface QueryOpts {
-  text?: string; // BM25-lite candidate search (index); else the whole brain
+  text?: string; // stemmed term-overlap candidate search (index); else the whole brain
   type?: EntryType | EntryType[];
   zone?: Zone | Zone[];
   status?: DecisionStatus | DecisionStatus[]; // matched against EFFECTIVE status

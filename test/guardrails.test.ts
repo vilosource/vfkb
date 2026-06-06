@@ -41,6 +41,18 @@ describe('no-secrets write-time lint (D6e)', () => {
   });
 });
 
+describe("Tier-B capture skips vtfkb's own tools (no self-pollution)", () => {
+  it('does not capture kb_* / mcp__vtfkb__* calls, but still captures other tools', () => {
+    // an agent searching/writing its OWN brain is noise, not knowledge
+    expect(captureToolCall({ tool_name: 'kb_search', tool_input: { text: 'foo' } })).toBeNull();
+    expect(captureToolCall({ tool_name: 'mcp__vtfkb__kb_add', tool_input: { type: 'fact', text: 'x' } })).toBeNull();
+    expect(readAll()).toHaveLength(0);
+    // a real tool is still captured
+    expect(captureToolCall({ tool_name: 'Bash', tool_input: { command: 'kubectl get pods' } })).not.toBeNull();
+    expect(readAll()).toHaveLength(1);
+  });
+});
+
 describe('session isolation + per-turn delta (L4 / Tier C)', () => {
   it('two session ids keep independent injected sets, and persist by id', () => {
     addEntry('fact', 'shared fact', { role: 'human' });

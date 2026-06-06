@@ -426,8 +426,17 @@ export interface ToolEvent {
   call_id?: string;
 }
 
+// vtfkb's own knowledge tools (bare `kb_*` or harness-namespaced `mcp__vtfkb__*`).
+// Capturing an agent reading/writing its own brain is self-pollution — the noise
+// then gets re-surfaced by search/injection. Never capture these.
+function isOwnKnowledgeTool(name: string): boolean {
+  const n = name.toLowerCase();
+  return n.startsWith('kb_') || n.includes('vtfkb');
+}
+
 export function captureToolCall(ev: ToolEvent): KnowledgeEntry | null {
   if (!ev.tool_name) return null;
+  if (isOwnKnowledgeTool(ev.tool_name)) return null;
   const inputSummary =
     typeof ev.tool_input === 'object' && ev.tool_input
       ? JSON.stringify(ev.tool_input).slice(0, 200)
