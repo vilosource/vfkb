@@ -22,11 +22,26 @@ export interface KbIndex {
   freshnessToken(): string;
 }
 
+// Light suffix stripping (NOT a full Porter stemmer) so a natural-language query
+// term lexically matches the stored wording: hanging/hangs -> hang,
+// silently/silent -> silent. Found load-bearing by the devops-kb live turn — the
+// agent phrased "hanging silent" while the entry said "hangs silently", so the
+// relevant gotcha scored ~0 and was never surfaced. Conservative: min stem length
+// 3, longest suffix first; mismatches it can't resolve (running/runs) are accepted
+// for v1 — the real robustness fix is the deferred semantic reranker (ADR-0012).
+function stem(t: string): string {
+  for (const suf of ['ing', 'ed', 'ly', 'es', 's']) {
+    if (t.length - suf.length >= 3 && t.endsWith(suf)) return t.slice(0, -suf.length);
+  }
+  return t;
+}
+
 function tokenize(s: string): string[] {
   return s
     .toLowerCase()
     .split(/[^a-z0-9]+/)
-    .filter((t) => t.length > 1);
+    .filter((t) => t.length > 1)
+    .map(stem);
 }
 
 export class InMemoryIndex implements KbIndex {
