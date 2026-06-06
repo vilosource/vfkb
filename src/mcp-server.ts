@@ -18,6 +18,13 @@ import {
 import { query } from './read.js';
 import type { KnowledgeEntry } from './types.js';
 
+// Default page size for the read tools. An MCP tool result has a hard token
+// budget; an unbounded `query()` returns the whole candidate pool (up to ~200
+// full entries → ~130k chars), which overflows and errors the call. Cap the
+// pull-face here so a broad query degrades to "freshest relevant top-N", never
+// a hard error. Callers can still ask for a larger explicit `limit`.
+const SEARCH_DEFAULT_LIMIT = 25;
+
 const ENTRY_TYPE = z.enum(['fact', 'decision', 'gotcha', 'pattern', 'link']);
 const ZONE = z.enum(['incoming', 'established', 'archive']);
 const STATUS = z.enum(['proposed', 'accepted', 'deprecated', 'superseded']);
@@ -62,7 +69,7 @@ server.registerTool(
       status: a.status,
       tags: tags(a.tags),
       authorRole: a.author_role,
-      limit: a.limit,
+      limit: a.limit ?? SEARCH_DEFAULT_LIMIT,
       includeStale: a.include_stale,
       includeSuperseded: a.include_superseded,
     });
@@ -81,7 +88,7 @@ server.registerTool(
     },
   },
   async (a) => {
-    const r = query({ type: a.type, zone: a.zone, limit: a.limit });
+    const r = query({ type: a.type, zone: a.zone, limit: a.limit ?? SEARCH_DEFAULT_LIMIT });
     return text(r.length ? r.map(line).join('\n') : '(empty)');
   },
 );

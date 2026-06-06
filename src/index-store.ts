@@ -8,10 +8,16 @@
 import type { KnowledgeEntry } from './types.js';
 import { contentHash, materialize, readMeta, readRecords } from './storage.js';
 
+export interface ScoredEntry {
+  entry: KnowledgeEntry;
+  score: number;
+}
+
 export interface KbIndex {
   all(): KnowledgeEntry[];
   get(id: string): KnowledgeEntry | undefined;
   search(query: string, k?: number): KnowledgeEntry[];
+  searchScored(query: string, k?: number): ScoredEntry[];
   rebuild(): void;
   freshnessToken(): string;
 }
@@ -56,20 +62,24 @@ export class InMemoryIndex implements KbIndex {
 
   // BM25-lite: term-overlap over text + tags. (ADR-0012's reranker is a
   // separate, envelope-aware stage applied to these candidates.)
-  search(query: string, k = 30): KnowledgeEntry[] {
+  searchScored(query: string, k = 30): ScoredEntry[] {
     this.ensureFresh();
     const terms = new Set(tokenize(query));
     if (terms.size === 0) return [];
-    const scored = this.entries
-      .map((e) => {
-        const hay = tokenize(e.text + ' ' + e.tags.join(' '));
+    return this.entries
+      .map((entry) => {
+        const hay = tokenize(entry.text + ' ' + entry.tags.join(' '));
         let score = 0;
         for (const t of hay) if (terms.has(t)) score++;
-        return { e, score };
+        return { entry, score };
       })
       .filter((x) => x.score > 0)
-      .sort((a, b) => b.score - a.score || b.e.updated.localeCompare(a.e.updated));
-    return scored.slice(0, k).map((x) => x.e);
+      .sort((a, b) => b.score - a.score || b.entry.updated.localeCompare(a.entry.updated))
+      .slice(0, k);
+  }
+
+  search(query: string, k = 30): KnowledgeEntry[] {
+    return this.searchScored(query, k).map((x) => x.entry);
   }
 
   freshnessToken(): string {
