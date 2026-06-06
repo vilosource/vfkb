@@ -101,30 +101,45 @@ Make "v1 done" *provable*, not asserted.
   (PostToolUse capturing `Tool … invoked` as facts), and **de-dupe** seeded entries.
 - Correct the "BM25-lite" comment (it is unnormalized term-overlap).
 
-### H1 — Ratify the next milestone *(the gating move — design only, no code)*
-**This is the single most load-bearing step, and it is the answer to "what do we work
-on next."** vtfkb's downstream value (the whole Ingest Cycle) is blocked on a design
-that is still **[provisional]**:
-- Promote `vfsf-ingest-and-vtfkb-DESIGN.md` from **BRAINSTORMING → a FINAL, ratified
-  design** (it explicitly "authorizes no implementation" today).
-- **Reconcile it with the locked ADRs** — it is *stale*: it still assumes **Python**
-  and an undecided dir name, both settled since (TypeScript, ADR-0002/0003). Every
-  "(provisional)" decision in its §11 must be re-walked against ADR-0011…0016.
-- Resolve its open forks (§8): global-tier transport (git-repo vs served-API),
-  project-context shape (typed entries vs single evolving doc), the project schema
-  fields, per-branch vs canonical brain sync + the architect-on-`main` review gate.
+### H1 — Reconcile the design set *(mostly DONE — see correction)*
+**[corrected 2026-06-06 after deep grounding]** The earlier draft of this section
+claimed the ingest design was still brainstorming-grade with 5 open forks. That was
+**wrong** — it read the 2026-05-31 brainstorming doc's self-described forks without
+checking they'd since been closed. Verified: **every fork is already resolved in newer
+locked docs** (see §8 ledger). The ingest-cycle design is **ratified**, distributed
+across `vtfkb-DESIGN` (D1–D7), `project-onboarding-schema-DESIGN` (D-O1–O8, the #1↔#2
+contract), `IngestEngine/*` (the pipeline), and ADRs 0001–0016.
 
-### H2 — Ingest integration *(the critical path to platform value — needs H1)*
-vtfkb is "the substrate the ingest agents stand on." Wire it in:
-- **#1 Project onboarding** — greenfield wizard / brownfield `/init` writes the project
-  context doc + brain skeleton (needs the H1 project schema, the #1↔#2 contract).
-- **#2 Live-fleet wiring** — `kb` binary in the agent image + MCP registration in the
-  architect pod **and** the controller's executor/judge path; per-entry role
-  attribution + vtf task-ID linkage. *Asset: the merged **devops-kb spike** already
-  dogfooded exactly this containerization (image + MCP + session hooks + role gate) —
-  reuse it.*
-- **Methodologies** — architect structured-capture (JTBD→domain→spec-by-example),
-  executor read-brain/append-gotchas, judge record-review-knowledge.
+H1's *real*, much smaller residue:
+- **Supersede the stale brainstorming doc** (`vfsf-ingest-and-vtfkb-DESIGN.md`) — point
+  it at the locked set; flag that its "Python" is superseded by TypeScript (ADR-0002/0003).
+  *(done this session — banner added.)*
+- **Index the locked set** into one coherent map so it's navigable as a whole (§8).
+- **Genuinely-open design residue** (small): the kb-**write** methodology specifics
+  (how architect/executor/judge *capture* into vtfkb — the execution-side `architect.md`/
+  `executor.md`/`judge.md` already exist in vafi but don't write knowledge yet).
+
+### H2 — Ingest integration *(THE FRONTIER — design is locked, this is the real next step)*
+vtfkb is "the substrate the ingest agents stand on." The design is ready; the work is
+implementation. Verified current state (2026-06-06): vafi has **zero** kb wiring (only
+C4 diagrams reference it); vtaskforge has **zero** ingest models. So two tracks:
+
+- **H2a — Wire vtfkb into the live fleet *(smallest, highest-leverage; do first)*.**
+  The attachment points are known and narrow: add `vtfkb` alongside `vtf`/`cxdb` in
+  `vafi/config/bridge-roles.yaml` (`mcp_tools`), thread `VF_VTFKB_MCP_URL`/token in
+  `src/bridge/pi_session.py:build_pi_env`, and register it in both faces via
+  `images/agent/entrypoint.sh` + `pi_config.py`. Seed the brain at onboarding;
+  per-entry role attribution + vtf task-ID linkage. *Asset: the merged **devops-kb
+  spike** already dogfooded exactly this (image + MCP + session hooks + role gate).*
+- **H2b — Onboarding + ingest engine *(larger; designed-not-built)*.** Build project
+  `/init` (the locked `project-onboarding-schema-DESIGN` D-O1–O8: `onboarding_status`
+  draft→onboarding→ready, the human ready-gate D-O6, seed `author.role=init` + the
+  D-O8 context-doc skeleton) and the IngestEngine pipeline (designed 2026-04-05:
+  Full/Standard/Express, Pre-Architect + Pre-Execution gates, PM elicitation). This is
+  where the *missing front half* gets built; it spans vtaskforge + vafi, not just vtfkb.
+- **Methodology residue (the H1 leftover):** teach architect/executor/judge to *write*
+  knowledge (read-brain + append-gotchas + record-review), extending vafi's existing
+  `methodologies/*.md`.
 
 ### H3 — Global served tier *(Product #4 proper — after H2 proves per-project)*
 The vtfkb-served global instance (REST + MCP + web UI), project→global gated
@@ -139,33 +154,66 @@ curator/auto-distill, per-turn CC injection parity, session-continuity tier.
 ## 5. Critical path & the first step
 
 ```
-H1 (ratify ingest design)  ──►  H2 (onboarding + fleet wiring)  ──►  H3 (global tier)
-        ▲                                                              ▲
-   blocks everything                                              needs H2 proof
-        │
+H1 (reconcile — ~done) ──► H2a (wire vtfkb into fleet) ──► H2b (onboarding + ingest) ──► H3 (global tier)
+                                   ▲                              ▲                          ▲
+                              the real first step          designed-not-built          needs H2 proof
    H0 (close v1 cleanly) and H4 (enhancements) run independently, anytime
 ```
 
-**First step: H1.** Not a code task — a *design ratification*. Until the ingest design
-is FINAL and reconciled with the TS ADRs, H2/H3 cannot be sequenced honestly, and the
-"loose tracks" problem (no parent milestone) recurs. Everything else is either cheap
-cleanup (H0) or evidence-gated enhancement (H4).
+**First step: H2a — wire vtfkb into the live fleet.** H1 turned out to be largely
+already done (the design is locked across the doc set; see §8), so the frontier is
+implementation, not ratification. H2a is the smallest high-leverage move: the
+attachment points in vafi are known and narrow, and the devops-kb spike already proved
+the containerized substrate works. H2b (the actual *missing front half* — onboarding +
+the ingest pipeline) is the larger build behind it and spans vtaskforge + vafi.
 
 ---
 
-## 6. Open decisions blocking H1 (operator calls)
+## 6. Open decisions — RESOLVED (the earlier "5 forks" were stale)
 
-1. **Global-tier transport** — git-repo-as-system-of-record vs a vtf-served API. (Forks the whole global tier.)
-2. **Project-context shape** — discrete typed entries (mykb model) vs a single evolving doc.
-3. **Project schema** — the exact fields of the onboarding→ingest contract.
-4. **Brain sync model** — per-branch vs canonical `main`, and the architect-write review gate.
-5. **Confirm reconciliation** — accept that the ingest design's Python/dir-name assumptions are superseded by ADR-0002/0003.
+The earlier draft listed 5 "open decisions blocking H1." Deep grounding (2026-06-06)
+found **all are already settled** in newer locked docs — they were the *brainstorming
+doc's* forks, closed since by `vtfkb-DESIGN` D1–D7 and `project-onboarding-schema-DESIGN`:
+
+| Was-listed-as-open | Actually |
+|---|---|
+| Global-tier transport (git vs API) | **Resolved** — DESIGN D2b: per-project git-local; global = git SoR + vtfkb-served REST/MCP/web UI (deferred to H3) |
+| Project-context shape | **Resolved** — DESIGN D3c: 5 entry types; the context doc is first-class (not a type); requirements are vtf-side |
+| Project schema fields | **Locked** — `project-onboarding-schema-DESIGN` C1–C6 / D-O1–O8 |
+| Brain sync + review gate | **Resolved** — DESIGN D4b/D4e: architect→`main` (pull-rebase); review only at global promotion |
+| Python/dir-name | **Settled** — TypeScript (ADR-0002/0003); `.vtfkb/` (D2c) |
+
+**No design decision is blocking.** The only genuinely-open *design* residue is the
+kb-write methodology (H1 leftover, folded into H2). Everything else is build.
 
 ---
 
-## 7. Provenance
+## 7. Ingest-cycle design ledger (the locked set H1 indexes)
+
+| Stage / concern | Authoritative source | Status | Build |
+|---|---|---|---|
+| vtfkb engine (per-project tier) | `vtfkb-DESIGN` D1–D7 + ADRs 0001–0016 | locked | ✅ v1 built |
+| Entry schema / envelope | ADR-0011 + DESIGN D3 | locked | ✅ built |
+| #1↔#2 onboarding contract | `project-onboarding-schema-DESIGN` C1–C6 / D-O1–O8 | locked | ❌ unbuilt |
+| Project `/init` (greenfield + brownfield) | same (D-O2 state machine, D-O6 ready-gate) | locked | ❌ unbuilt |
+| Ingest pipeline (Full/Standard/Express) | `IngestEngine/pipeline-paths-DESIGN` | designed (2026-04-05) | ❌ unbuilt (vtaskforge has 0 ingest models) |
+| Gates (Pre-Architect, Pre-Execution) | `IngestEngine/gates-DESIGN` | designed | ❌ unbuilt |
+| PM elicitation (JTBD→DDD→spec→validate) | `IngestEngine/pm-elicitation-DESIGN` | designed | ❌ unbuilt |
+| Architect decomposition → SDD specs | `IngestEngine/architect-decomposition-DESIGN` | designed | ⚠️ architect pod exists; SDD spec is free-form markdown today |
+| Fleet kb wiring (MCP register, seed, attribution) | this doc H2a + the devops-kb spike | — | ❌ unbuilt (0 today) |
+| kb-write methodology | (open residue) | partial | ❌ vafi `methodologies/*.md` exist but don't write knowledge |
+| Global served tier | DESIGN D2a/D2b/D2g, ADR-0006 | locked | ❌ deferred (H3) |
+
+> **`vfsf-ingest-and-vtfkb-DESIGN.md` is superseded** by the rows above; it remains as
+> the originating brainstorm only. Its "Python" assumption is void (TypeScript).
+
+---
+
+## 8. Provenance
 Grounded against: the platform strategy + research roadmap, `docs/DESIGN.md`,
 `docs/FEATURES.md`, `docs/IMPLEMENTATION-PLAN.md`, `docs/adr/` (0001–0016),
-`vfsf-ingest-and-vtfkb-DESIGN.md` (brainstorming), and the verified 2026-06-06
-devops-kb live dogfood. Status/verification facts are observed this session; the
-ingest-cycle framing is brainstorming-grade until H1.
+the locked `project-onboarding-schema-DESIGN.md` (D-O1–O8) + `IngestEngine/*`
+(2026-04-05), `vfsf-ingest-and-vtfkb-DESIGN.md` (superseded brainstorm), the
+verified vafi/vtaskforge current state, and the 2026-06-06 devops-kb live dogfood.
+The §7 ledger reflects a four-reader reconciliation done 2026-06-06; status/
+verification facts are observed this session.
