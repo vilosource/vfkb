@@ -119,7 +119,14 @@ H1's *real*, much smaller residue:
   (how architect/executor/judge *capture* into vtfkb — the execution-side `architect.md`/
   `executor.md`/`judge.md` already exist in vafi but don't write knowledge yet).
 
-### H2 — Ingest integration *(THE FRONTIER — design is locked, this is the real next step)*
+### H2 — Ingest integration *(OUT OF SCOPE for current vtfkb development — 2026-06-06)*
+> **Scope note (2026-06-06):** integration into **vafi / vtaskforge is out of scope for
+> vtfkb development at this time.** vtfkb work stays inside the `vtfkb` repo. The plan
+> below is kept as the *designed-and-ready* target for when fleet integration is picked
+> up; only the **vtfkb-side** residue (already done — see H2a step 1) belonged here.
+> The active vtfkb frontier is **H0** + **H4** (both in-repo). Embedding `VTFKB_ROLE`
+> attribution (the one vtfkb-side prerequisite) shipped (`860cab8`).
+
 vtfkb is "the substrate the ingest agents stand on." The design is ready; the work is
 implementation. Verified current state (2026-06-06): vafi has **zero** kb wiring (only
 C4 diagrams reference it); vtaskforge has **zero** ingest models. So two tracks:
@@ -154,18 +161,18 @@ curator/auto-distill, per-turn CC injection parity, session-continuity tier.
 ## 5. Critical path & the first step
 
 ```
-H1 (reconcile — ~done) ──► H2a (wire vtfkb into fleet) ──► H2b (onboarding + ingest) ──► H3 (global tier)
-                                   ▲                              ▲                          ▲
-                              the real first step          designed-not-built          needs H2 proof
-   H0 (close v1 cleanly) and H4 (enhancements) run independently, anytime
+   IN SCOPE (vtfkb repo)            │   OUT OF SCOPE for now (vafi / vtaskforge)
+   H0 (close v1 cleanly)            │   H2 (fleet + ingest integration)
+   H4 (enhancements)               ─┼─► picked up when fleet integration is in scope
+   H3 design-readiness (in-repo)    │   (design is locked + ready; build is parked)
 ```
 
-**First step: H2a — wire vtfkb into the live fleet.** H1 turned out to be largely
-already done (the design is locked across the doc set; see §8), so the frontier is
-implementation, not ratification. H2a is the smallest high-leverage move: the
-attachment points in vafi are known and narrow, and the devops-kb spike already proved
-the containerized substrate works. H2b (the actual *missing front half* — onboarding +
-the ingest pipeline) is the larger build behind it and spans vtaskforge + vafi.
+**Active frontier: H0 and H4 — both in-repo.** H1 (reconcile) is ~done; H2 (fleet/ingest
+integration into vafi+vtaskforge) is **out of scope for current vtfkb development**
+(2026-06-06) — its one vtfkb-side prerequisite (`VTFKB_ROLE` attribution) already shipped.
+So the next concrete vtfkb work is the cheap, low-risk **H0** cleanups (L4 refresh +
+`tool-gating`, corpus self-pollution guard, dedup seeds) and, as wanted, **H4**
+enhancements (e.g. the ADR-0016 embedding reranker when phrasing-robustness is needed).
 
 ---
 

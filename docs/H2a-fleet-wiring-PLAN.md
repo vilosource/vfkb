@@ -1,9 +1,11 @@
 # H2a — Wire vtfkb into the live agent fleet (implementation plan)
 
-> **Status:** PLAN (proposed) — 2026-06-06. Targets **`vilosource/vafi`** (the fleet)
-> + a small **`vilosource/vtfkb`** addition. Realizes `STATUS-AND-ROADMAP.md` **H2a**.
-> Grounded against the verified current state of vafi (file shapes read 2026-06-06) and
-> the locked vtfkb DESIGN (D2b/D2c/D2d/D7c). No code changed yet.
+> **Status:** PLAN — PARKED (2026-06-06). The **vafi-side steps (§2, §4, §5) are OUT OF
+> SCOPE for current vtfkb development**; `vilosource/vafi` is not being touched at this
+> time. Kept as the designed-and-ready target for when fleet integration is in scope.
+> **Done:** the one vtfkb-side prerequisite — `VTFKB_ROLE` attribution (§3.1) — shipped
+> in `860cab8`. Grounded against the verified vafi file shapes (read 2026-06-06) and the
+> locked vtfkb DESIGN (D2b/D2c/D2d/D7c).
 
 ## 0. Goal & scope
 
