@@ -41,6 +41,14 @@ function text(s: string) {
 function tags(csv?: string): string[] | undefined {
   return csv ? csv.split(',').map((t) => t.trim()).filter(Boolean) : undefined;
 }
+// In the fleet, who wrote an entry must be stamped by the HARNESS, not self-reported
+// by the model (VERIFIED = observed, not asserted — applied to provenance). When the
+// pod sets VTFKB_ROLE, it is authoritative and overrides any model-supplied `role`.
+// Outside the fleet (no env), the tool param / per-tool default applies as before.
+function envRole(): z.infer<typeof ROLE> | undefined {
+  const p = ROLE.safeParse(process.env.VTFKB_ROLE);
+  return p.success ? p.data : undefined;
+}
 
 const server = new McpServer({ name: 'vtfkb', version: '0.0.0-spike0' });
 
@@ -130,7 +138,7 @@ server.registerTool(
   },
   async (a) => {
     const e = addEntry(a.type, a.text, {
-      role: a.role ?? 'executor',
+      role: envRole() ?? a.role ?? 'executor',
       tags: tags(a.tags),
       status: a.status,
       constitutional: a.constitutional,
@@ -147,7 +155,7 @@ server.registerTool(
     inputSchema: { old_id: z.string(), text: z.string(), role: ROLE.optional() },
   },
   async (a) => {
-    const e = supersede(a.old_id, a.text, { role: a.role ?? 'architect' });
+    const e = supersede(a.old_id, a.text, { role: envRole() ?? a.role ?? 'architect' });
     return text(`superseded ${a.old_id} -> ${line(e)}`);
   },
 );

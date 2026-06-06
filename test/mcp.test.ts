@@ -104,3 +104,42 @@ describe('tools/call round-trips through the real engine', () => {
     expect(callText(t)).toContain('/accepted');
   });
 });
+
+// H2a §3.1 — in the fleet the harness (not the model) must stamp who wrote an entry.
+// VTFKB_ROLE, set per-pod by the harness, is the authoritative author.role.
+describe('VTFKB_ROLE harness-stamped attribution', () => {
+  let c: Client;
+  let t: StdioClientTransport;
+
+  beforeAll(async () => {
+    const b = mkdtempSync(join(tmpdir(), 'vtfkb-role-'));
+    t = new StdioClientTransport({
+      command: process.execPath,
+      args: [serverPath],
+      env: { ...process.env, VTFKB_DIR: b, VTFKB_ROLE: 'judge' },
+    });
+    c = new Client({ name: 'vtfkb-role-client', version: '0.0.0' });
+    await c.connect(t);
+  }, 30_000);
+
+  afterAll(async () => {
+    await c?.close();
+  });
+
+  it('stamps author.role from VTFKB_ROLE when the model omits role', async () => {
+    const add = await c.callTool({ name: 'kb_add', arguments: { type: 'fact', text: 'role-from-env fact' } });
+    const id = callText(add).split(' ')[1];
+    const get = await c.callTool({ name: 'kb_get', arguments: { id } });
+    expect(JSON.parse(callText(get)).author.role).toBe('judge');
+  });
+
+  it('the harness role wins over a model-supplied role (no self-elevation)', async () => {
+    const add = await c.callTool({
+      name: 'kb_add',
+      arguments: { type: 'fact', text: 'cannot self-elevate', role: 'architect' },
+    });
+    const id = callText(add).split(' ')[1];
+    const get = await c.callTool({ name: 'kb_get', arguments: { id } });
+    expect(JSON.parse(callText(get)).author.role).toBe('judge');
+  });
+});
