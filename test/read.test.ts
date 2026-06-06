@@ -130,4 +130,13 @@ describe('relevance ranking for text search (ADR-0012)', () => {
   it('ranks the most relevant entry first', () => {
     expect(query({ text: Q, limit: 5 })[0].text).toContain('hangs silently');
   });
+
+  // The live turn also failed because the agent phrased "hanging silent" while the
+  // entry said "hangs silently" — no stemming → the term scored ~0. Light stemming
+  // makes inflected query terms match the stored wording.
+  it('matches inflected query terms to stored wording (hanging~hangs, silent~silently)', () => {
+    addEntry('gotcha', 'the ARM endpoint hangs silently with no error', { role: 'human' });
+    addEntry('fact', 'unrelated note about storage accounts', { role: 'human' });
+    expect(query({ text: 'why is the endpoint hanging silent' })[0].text).toContain('hangs silently');
+  });
 });
