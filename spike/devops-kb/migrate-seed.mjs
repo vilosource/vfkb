@@ -21,7 +21,9 @@ const MYKB = process.env.MYKB_DIR || join(process.env.HOME, '.mykb');
 const BRAIN = process.env.VTFKB_DIR;
 if (!BRAIN) { console.error('set VTFKB_DIR to the devops-kb brain dir'); process.exit(1); }
 
-const AREAS = [
+// Default = the Optiscan infra spine (og-devops bootstrap). Override per-instance with
+// VTFKB_SEED_AREAS="area1,area2,..." (e.g. the viloforge ecosystem for vf-devops).
+const DEFAULT_AREAS = [
   // core spine
   'azure-tenant', 'networking', 'identity', 'vault', 'backup',
   'disaster-recovery', 'iac', 'cloud-management',
@@ -30,6 +32,9 @@ const AREAS = [
   'sonarqube', 'mediawiki', 'observability', 'ssl-automation',
   'event-grid', 'event-router',
 ];
+const AREAS = process.env.VTFKB_SEED_AREAS
+  ? process.env.VTFKB_SEED_AREAS.split(',').map((s) => s.trim()).filter(Boolean)
+  : DEFAULT_AREAS;
 const FILE_TYPE = { 'facts.jsonl': 'fact', 'decisions.jsonl': 'decision', 'gotchas.jsonl': 'gotcha', 'patterns.jsonl': 'pattern' };
 const PROV_OK = new Set(['verified', 'unverified', 'stale', 'expired']);
 
