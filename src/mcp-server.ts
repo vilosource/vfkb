@@ -15,7 +15,8 @@ import {
   supersede,
   transitionDecision,
 } from './engine.js';
-import { query } from './read.js';
+import { query, queryExplained } from './read.js';
+import type { SearchDiagnosis } from './read.js';
 import type { KnowledgeEntry } from './types.js';
 
 // Default page size for the read tools. An MCP tool result has a hard token
@@ -38,6 +39,35 @@ function line(e: KnowledgeEntry): string {
 function text(s: string) {
   return { content: [{ type: 'text' as const, text: s }] };
 }
+// RFC-002: render an empty search as a cause-distinguished, honest no-match. The
+// engine returns structured truth (the diagnosis); this face turns it into words +
+// the agent contract — an empty result is NOT a licence to answer from model priors.
+function renderNoMatch(d: SearchDiagnosis, q?: string): string {
+  const subject = q ? `“${q}”` : 'that filter';
+  const contract =
+    'No recorded entry was found — do NOT present model-prior knowledge as if it were recorded. Say none was found, or rephrase/broaden.';
+  switch (d.reason) {
+    case 'empty_topic':
+      return `(no matches) — nothing recorded matches ${subject}. ${contract}`;
+    case 'no_match': {
+      const b = d.belowFloor;
+      const hint = b
+        ? ` Closest below the relevance floor (LOW CONFIDENCE — matched ${b.matched}/${b.queryTerms} terms, NOT a confirmed answer): ${line(b.entry)}`
+        : '';
+      return `(no matches) — recorded entries share wording with ${subject} but none cleared the relevance floor.${hint} ${contract}`;
+    }
+    case 'all_filtered': {
+      const parts = Object.entries(d.filteredOut ?? {})
+        .map(([k, v]) => `${v} ${k}`)
+        .join(', ');
+      const stale = (d.filteredOut?.stale ?? 0) + (d.filteredOut?.superseded ?? 0);
+      const staleNote = stale
+        ? ` ${stale} match(es) exist but are STALE/SUPERSEDED — the recorded knowledge here is out of date; pass include_stale/include_superseded to inspect it.`
+        : '';
+      return `(no matches) — ${d.candidates} candidate(s) matched ${subject} but were filtered out (${parts}).${staleNote} ${contract}`;
+    }
+  }
+}
 function tags(csv?: string): string[] | undefined {
   return csv ? csv.split(',').map((t) => t.trim()).filter(Boolean) : undefined;
 }
@@ -56,7 +86,8 @@ server.registerTool(
   'kb_search',
   {
     description:
-      'Search and filter project knowledge. Returns the freshest relevant entries (stale/superseded excluded by default).',
+      'Search and filter project knowledge. Returns the freshest relevant entries (stale/superseded excluded by default). ' +
+      'An empty result is reported as an honest, cause-distinguished no-match (nothing recorded / below relevance floor / all matches filtered as stale) — it means no recorded entry was found, NOT a licence to answer from model priors as if recorded.',
     inputSchema: {
       text: z.string().optional().describe('free-text query'),
       type: ENTRY_TYPE.optional(),
@@ -70,7 +101,7 @@ server.registerTool(
     },
   },
   async (a) => {
-    const r = query({
+    const { results, diagnosis } = queryExplained({
       text: a.text,
       type: a.type,
       zone: a.zone,
@@ -81,7 +112,7 @@ server.registerTool(
       includeStale: a.include_stale,
       includeSuperseded: a.include_superseded,
     });
-    return text(r.length ? r.map(line).join('\n') : '(no matches)');
+    return text(results.length ? results.map(line).join('\n') : renderNoMatch(diagnosis!, a.text));
   },
 );
 

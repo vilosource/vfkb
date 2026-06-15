@@ -12,7 +12,7 @@ import {
   supersede,
   deriveTrust,
 } from './engine.js';
-import { query } from './read.js';
+import { queryExplained } from './read.js';
 import { isBrainWrite, GATING_REASON } from './gating.js';
 import { save } from './git.js';
 import type { AuthorRole, EntryType, Zone, DecisionStatus } from './types.js';
@@ -108,7 +108,7 @@ async function main() {
       .filter((a, i) => !a.startsWith('--') && !(i > 0 && args[i - 1].startsWith('--')))
       .join(' ');
     const limit = flag(args, 'limit');
-    const results = query({
+    const { results, diagnosis } = queryExplained({
       text: text || undefined,
       type: flag(args, 'type') as EntryType,
       zone: flag(args, 'zone') as Zone,
@@ -121,6 +121,19 @@ async function main() {
     });
     for (const e of results) {
       process.stdout.write(`${e.id}\t${e.type}\t${deriveTrust(e.author.role)}\t${e.text}\n`);
+    }
+    // RFC-002: an empty result is reported with its cause, not silence — so the
+    // human/agent reading the CLI knows "no recorded entry" vs "all matches stale".
+    if (results.length === 0 && diagnosis) {
+      const extra =
+        diagnosis.reason === 'all_filtered'
+          ? ` (${diagnosis.candidates} filtered: ${Object.entries(diagnosis.filteredOut ?? {})
+              .map(([k, v]) => `${v} ${k}`)
+              .join(', ')})`
+          : diagnosis.reason === 'no_match' && diagnosis.belowFloor
+            ? ` (closest below floor, low confidence: ${diagnosis.belowFloor.entry.text})`
+            : '';
+      process.stdout.write(`NO-MATCH\t${diagnosis.reason}\tno recorded entry found${extra}\n`);
     }
     return;
   }

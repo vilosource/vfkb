@@ -41,12 +41,41 @@ export interface QueryOpts {
   limit?: number;
 }
 
+// RFC-002: why a search returned nothing. Each candidate the filter stage removes
+// is tallied by reason, so an empty result can be classified deterministically from
+// the pipeline counts (no heuristics) — never the agent's guess.
+export type DropReason = 'type' | 'zone' | 'role' | 'tags' | 'status' | 'superseded' | 'stale';
+
+export type NoMatchReason =
+  | 'empty_topic' // no lexical overlap at all (nothing recorded matches the wording)
+  | 'no_match' // lexical matches existed but none cleared the relevance floor (near-miss)
+  | 'all_filtered'; // candidates matched but the D5c filters / ADR-0005 gate removed them all
+
+export interface SearchDiagnosis {
+  reason: NoMatchReason;
+  // candidates that survived text + the RFC-001 floor, i.e. reached the filter stage
+  candidates: number;
+  // all_filtered: how many candidates each filter reason removed
+  filteredOut?: Partial<Record<DropReason, number>>;
+  // no_match: the best candidate that fell BELOW the relevance floor — a labelled
+  // low-confidence near-miss, kept OUT of `results` but reported so it isn't silently lost
+  belowFloor?: { entry: KnowledgeEntry; matched: number; queryTerms: number };
+}
+
+export interface SearchResult {
+  results: KnowledgeEntry[];
+  // present ONLY when results is empty — the honest, cause-distinguished no-match
+  diagnosis?: SearchDiagnosis;
+}
+
 function arr<T>(v?: T | T[]): T[] | undefined {
   if (v === undefined) return undefined;
   return Array.isArray(v) ? v : [v];
 }
 
-export function query(opts: QueryOpts = {}): KnowledgeEntry[] {
+// The single pipeline. `query` returns just the entries (unchanged contract);
+// `queryExplained` returns the entries plus, when empty, why (RFC-002).
+function run(opts: QueryOpts = {}): SearchResult {
   const all = readAll();
   const superseded = supersededIds(all);
 
@@ -75,19 +104,27 @@ export function query(opts: QueryOpts = {}): KnowledgeEntry[] {
   const statuses = arr(opts.status);
   const roles = arr(opts.authorRole);
 
+  // Tally the reason each candidate is dropped (first failing reason wins — same
+  // keep/drop decision as before, now also classified for RFC-002).
+  const filteredOut: Partial<Record<DropReason, number>> = {};
   const filtered = candidates.filter((e) => {
-    if (types && !types.includes(e.type)) return false;
-    if (zones && !zones.includes(e.zone)) return false;
-    if (roles && !roles.includes(e.author.role)) return false;
-    if (opts.tags && !opts.tags.every((t) => e.tags.includes(t))) return false;
-    if (statuses) {
+    let reason: DropReason | null = null;
+    if (types && !types.includes(e.type)) reason = 'type';
+    else if (zones && !zones.includes(e.zone)) reason = 'zone';
+    else if (roles && !roles.includes(e.author.role)) reason = 'role';
+    else if (opts.tags && !opts.tags.every((t) => e.tags.includes(t))) reason = 'tags';
+    else if (statuses) {
       const eff = effectiveStatus(e, superseded);
-      if (!eff || !statuses.includes(eff)) return false;
+      if (!eff || !statuses.includes(eff)) reason = 'status';
     }
-    // Supersession edge is handled separately from freshness so the two flags
-    // are independent.
-    if (superseded.has(e.id) && !opts.includeSuperseded) return false;
-    if (!opts.includeStale && !isInjectable(e)) return false; // freshness gate (no edge)
+    // Supersession edge and freshness are handled separately from the D5c filters
+    // so the include_* flags are independent.
+    if (!reason && superseded.has(e.id) && !opts.includeSuperseded) reason = 'superseded';
+    if (!reason && !opts.includeStale && !isInjectable(e)) reason = 'stale'; // freshness gate
+    if (reason) {
+      filteredOut[reason] = (filteredOut[reason] ?? 0) + 1;
+      return false;
+    }
     return true;
   });
 
@@ -102,5 +139,29 @@ export function query(opts: QueryOpts = {}): KnowledgeEntry[] {
         return s !== 0 ? s : heuristicCompare(a, b);
       })
     : rerank(filtered);
-  return opts.limit ? ranked.slice(0, opts.limit) : ranked;
+  const results = opts.limit ? ranked.slice(0, opts.limit) : ranked;
+  if (results.length > 0) return { results };
+
+  // Empty (RFC-002): classify deterministically from the stage counts.
+  let diagnosis: SearchDiagnosis;
+  if (candidates.length > 0) {
+    // Candidates survived text + floor but the filters / ADR-0005 gate removed them.
+    diagnosis = { reason: 'all_filtered', candidates: candidates.length, filteredOut };
+  } else if (hasText && scored.length > 0) {
+    // There were lexical matches, but none cleared the relevance floor (near-miss).
+    const b = scored[0];
+    diagnosis = { reason: 'no_match', candidates: 0, belowFloor: { entry: b.entry, matched: b.matched, queryTerms: qTerms } };
+  } else {
+    // No lexical overlap at all (or a structural query with nothing in scope).
+    diagnosis = { reason: 'empty_topic', candidates: 0 };
+  }
+  return { results, diagnosis };
+}
+
+export function query(opts: QueryOpts = {}): KnowledgeEntry[] {
+  return run(opts).results;
+}
+
+export function queryExplained(opts: QueryOpts = {}): SearchResult {
+  return run(opts);
 }

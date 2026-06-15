@@ -1,9 +1,10 @@
 # RFC-002: Search reports an explicit, cause-distinguished no-match
 
-- **Status:** Proposed
+- **Status:** Accepted — became [ADR-0018](../adr/ADR-0018-honest-no-match-contract.md)
+  (implemented + tested 2026-06-15)
 - **Date:** 2026-06-15
-- **Deciders:** operator + Claude (proposed — comment period open)
-- **Refines (on acceptance):** [ADR-0016](../adr/ADR-0016-search-ranking-and-embedding-revisit.md).
+- **Deciders:** operator + Claude
+- **Refines:** [ADR-0016](../adr/ADR-0016-search-ranking-and-embedding-revisit.md).
   **Depends on** [RFC-001](RFC-001-search-relevance-floor.md) (the floor that produces an
   empty result).
 

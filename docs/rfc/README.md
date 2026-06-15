@@ -17,7 +17,7 @@ role-attributed; options under discussion live in the RFC's Decision/text.
 | RFC | Title | Status |
 |---|---|---|
 | [RFC-001](RFC-001-search-relevance-floor.md) | Explicit search applies a relative relevance floor | Accepted → [ADR-0017](../adr/ADR-0017-search-relevance-floor.md) |
-| [RFC-002](RFC-002-honest-no-match-contract.md) | Search reports an explicit, cause-distinguished no-match | Proposed |
+| [RFC-002](RFC-002-honest-no-match-contract.md) | Search reports an explicit, cause-distinguished no-match | Accepted → [ADR-0018](../adr/ADR-0018-honest-no-match-contract.md) |
 | [RFC-003](RFC-003-embedding-accuracy-mode.md) | The EmbeddingReranker ships as an opt-in "accuracy mode" search tier | Proposed |
 
 These three were drafted 2026-06-15 from a study of AnythingLLM (Mintplex Labs)

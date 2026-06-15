@@ -8,7 +8,7 @@ function freshBrain() {
 }
 
 import { addEntry, supersede, buildContextMap, renderContextBundle } from '../src/engine.js';
-import { query } from '../src/read.js';
+import { query, queryExplained } from '../src/read.js';
 
 beforeEach(freshBrain);
 
@@ -182,5 +182,45 @@ describe('relevance floor for text search (RFC-001)', () => {
   it('an entirely off-topic query returns empty (honest no-match groundwork, RFC-002)', () => {
     addEntry('fact', 'az ARM management command hangs silently no error output', { role: 'human' });
     expect(query({ text: 'kubernetes ingress certificate rotation schedule' })).toHaveLength(0);
+  });
+});
+
+// RFC-002 — an empty search is reported with its CAUSE, so an agent can tell
+// "nothing recorded" from "everything I had went stale" from "your wording missed",
+// and never reads an empty result as a licence to answer from model priors.
+describe('cause-distinguished no-match (RFC-002)', () => {
+  it('empty_topic: no lexical overlap at all', () => {
+    addEntry('fact', 'the widget service deploys to prod', { role: 'human' });
+    const r = queryExplained({ text: 'kubernetes ingress certificate rotation' });
+    expect(r.results).toHaveLength(0);
+    expect(r.diagnosis?.reason).toBe('empty_topic');
+    // query() keeps its plain-array contract
+    expect(query({ text: 'kubernetes ingress certificate rotation' })).toEqual([]);
+  });
+
+  it('no_match: lexical hit existed but fell below the floor → labelled low-confidence hint', () => {
+    addEntry('gotcha', 'alpha note about an isolated subject', { role: 'human' });
+    const r = queryExplained({ text: 'alpha bravo charlie delta echo foxtrot' });
+    expect(r.results).toHaveLength(0);
+    expect(r.diagnosis?.reason).toBe('no_match');
+    expect(r.diagnosis?.belowFloor?.entry.text).toContain('alpha note');
+    expect(r.diagnosis?.belowFloor?.matched).toBe(1);
+    expect(r.diagnosis?.belowFloor?.queryTerms).toBe(6);
+  });
+
+  it('all_filtered: matches existed but were stale (operator signal); include_stale recovers them', () => {
+    addEntry('fact', 'the legacy widget endpoint url', { role: 'human', validUntil: '2020-01-01' });
+    const r = queryExplained({ text: 'legacy widget endpoint url' });
+    expect(r.results).toHaveLength(0);
+    expect(r.diagnosis?.reason).toBe('all_filtered');
+    expect(r.diagnosis?.filteredOut?.stale).toBe(1);
+    expect(queryExplained({ text: 'legacy widget endpoint url', includeStale: true }).results).toHaveLength(1);
+  });
+
+  it('no diagnosis when there are results', () => {
+    addEntry('gotcha', 'the widget pipeline fails on retry', { role: 'human' });
+    const r = queryExplained({ text: 'widget pipeline retry' });
+    expect(r.results.length).toBeGreaterThan(0);
+    expect(r.diagnosis).toBeUndefined();
   });
 });
