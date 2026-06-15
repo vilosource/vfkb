@@ -11,6 +11,11 @@ import { contentHash, materialize, readMeta, readRecords } from './storage.js';
 export interface ScoredEntry {
   entry: KnowledgeEntry;
   score: number;
+  // Distinct query terms this entry matches (RFC-001). `score` counts entry-token
+  // hits *including repeats* — so an entry repeating one common term scores high
+  // while matching only one distinct query term; `matched` is the floor's numerator
+  // (matched / queryTermCount), `score` stays the relevance sort key.
+  matched: number;
 }
 
 export interface KbIndex {
@@ -42,6 +47,13 @@ function tokenize(s: string): string[] {
     .split(/[^a-z0-9]+/)
     .filter((t) => t.length > 1)
     .map(stem);
+}
+
+// Distinct stemmed terms in a query — the denominator for RFC-001's relevance
+// floor (matched / queryTermCount). Shares the tokenizer/stemmer with searchScored
+// so the floor and the search agree on what a "term" is.
+export function queryTermCount(query: string): number {
+  return new Set(tokenize(query)).size;
 }
 
 export class InMemoryIndex implements KbIndex {
@@ -88,8 +100,13 @@ export class InMemoryIndex implements KbIndex {
       .map((entry) => {
         const hay = tokenize(entry.text + ' ' + entry.tags.join(' '));
         let score = 0;
-        for (const t of hay) if (terms.has(t)) score++;
-        return { entry, score };
+        const hit = new Set<string>();
+        for (const t of hay)
+          if (terms.has(t)) {
+            score++;
+            hit.add(t);
+          }
+        return { entry, score, matched: hit.size };
       })
       .filter((x) => x.score > 0)
       .sort((a, b) => b.score - a.score || b.entry.updated.localeCompare(a.entry.updated))

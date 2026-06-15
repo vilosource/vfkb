@@ -44,5 +44,12 @@ echo "== 6. MCP face loaded + strict isolation (vtfkb tools usable, no foreign M
 MCP=$(claude_p "Use your vtfkb knowledge tools to search the knowledge base for the word canary, then report the result count prefixed with RESULTS= . Use no other tool.")
 echo "$MCP" | grep -qi "RESULTS=" && ok "vtfkb MCP face usable in-container" || no "MCP face not usable -> ${MCP:0:140}"
 
+echo "== 7. RFC-001 relevance floor active in-container (deterministic, no LLM) =="
+STRONG=$(drun node /opt/vtfkb/dist/cli.js search "dogfood canary marker")
+NOISE=$(drun node /opt/vtfkb/dist/cli.js search "canary migration to a different cloud region entirely")
+{ echo "$STRONG" | grep -q "ZEBRA-7" && [ -z "$NOISE" ]; } \
+  && ok "floor drops 1-of-many noise, keeps the strong match" \
+  || no "RFC-001 floor not active -> strong='${STRONG:0:60}' noise='${NOISE:0:60}'"
+
 echo; echo "SMOKE: $pass passed, $fail failed"; rm -rf "$BRAIN"
 [ "$fail" -eq 0 ]

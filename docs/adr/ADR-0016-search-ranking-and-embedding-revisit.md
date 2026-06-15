@@ -1,6 +1,6 @@
 # ADR-0016: Explicit search is relevance-primary; the EmbeddingReranker is un-deferred to Planned-pending-verification (amends ADR-0012)
 
-- **Status:** Accepted
+- **Status:** Accepted — Amended by [ADR-0017](ADR-0017-search-relevance-floor.md)
 - **Date:** 2026-06-06
 - **Deciders:** operator + Claude
 - **Amends:** [ADR-0012](ADR-0012-two-stage-retrieval.md) — does **not** supersede it;
