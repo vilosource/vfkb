@@ -32,5 +32,6 @@ Immutable records of significant vtfkb architecture decisions, in
 | [ADR-0013](ADR-0013-no-hard-native-dep.md) | No hard native dep; pluggable `Index`, pure-JS in-memory default, SQLite/FTS5 optional (D-C) | Accepted |
 | [ADR-0014](ADR-0014-index-freshness.md) | Index freshness = content-derived token + explicit rebuild, never mtime (D-D) | Accepted |
 | [ADR-0015](ADR-0015-cross-harness-auto-layer.md) | Cross-harness auto-layer = tiered parity; per-turn push Pi-only on Claude Code; narrowed Phase 0 spike (D-E) | Accepted |
-| [ADR-0016](ADR-0016-search-ranking-and-embedding-revisit.md) | Explicit search is relevance-primary; EmbeddingReranker un-deferred to Planned-pending-verification (amends ADR-0012) | Accepted (Amended by ADR-0017) |
+| [ADR-0016](ADR-0016-search-ranking-and-embedding-revisit.md) | Explicit search is relevance-primary; EmbeddingReranker un-deferred to Planned-pending-verification (amends ADR-0012) | Accepted (Amended by ADR-0017, ADR-0018) |
 | [ADR-0017](ADR-0017-search-relevance-floor.md) | Explicit search applies a relative relevance floor (distinct query-term ratio; default 1/3); amends ADR-0016 | Accepted |
+| [ADR-0018](ADR-0018-honest-no-match-contract.md) | Search reports a cause-distinguished honest no-match (empty_topic/no_match/all_filtered); amends ADR-0016 | Accepted |

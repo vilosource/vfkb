@@ -47,9 +47,15 @@ echo "$MCP" | grep -qi "RESULTS=" && ok "vtfkb MCP face usable in-container" || 
 echo "== 7. RFC-001 relevance floor active in-container (deterministic, no LLM) =="
 STRONG=$(drun node /opt/vtfkb/dist/cli.js search "dogfood canary marker")
 NOISE=$(drun node /opt/vtfkb/dist/cli.js search "canary migration to a different cloud region entirely")
-{ echo "$STRONG" | grep -q "ZEBRA-7" && [ -z "$NOISE" ]; } \
+{ echo "$STRONG" | grep -q "ZEBRA-7" && ! echo "$NOISE" | grep -q "ZEBRA-7"; } \
   && ok "floor drops 1-of-many noise, keeps the strong match" \
   || no "RFC-001 floor not active -> strong='${STRONG:0:60}' noise='${NOISE:0:60}'"
+
+echo "== 8. RFC-002 honest cause-distinguished no-match (deterministic, no LLM) =="
+NM=$(drun node /opt/vtfkb/dist/cli.js search "kubernetes ingress certificate rotation schedule")
+{ echo "$NM" | grep -q "NO-MATCH" && ! echo "$NM" | grep -q "ZEBRA-7"; } \
+  && ok "off-topic query reports NO-MATCH (no spurious hit)" \
+  || no "RFC-002 no-match not reported -> '${NM:0:80}'"
 
 echo; echo "SMOKE: $pass passed, $fail failed"; rm -rf "$BRAIN"
 [ "$fail" -eq 0 ]
