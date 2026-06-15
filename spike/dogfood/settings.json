@@ -1,0 +1,36 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "VTFKB_DIR=/brain VTFKB_PROJECT=vtfkb-dogfood node /opt/vtfkb/dist/cli.js hook session-start"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "VTFKB_DIR=/brain node /opt/vtfkb/dist/cli.js hook pre-tool-use"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "VTFKB_DIR=/brain node /opt/vtfkb/dist/cli.js hook post-tool-use"
+          }
+        ]
+      }
+    ]
+  }
+}
