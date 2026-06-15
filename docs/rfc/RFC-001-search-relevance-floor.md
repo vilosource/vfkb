@@ -1,9 +1,10 @@
 # RFC-001: Explicit search applies a relative relevance floor
 
-- **Status:** Proposed
+- **Status:** Accepted — became [ADR-0017](../adr/ADR-0017-search-relevance-floor.md)
+  (implemented + tested 2026-06-15)
 - **Date:** 2026-06-15
-- **Deciders:** operator + Claude (proposed — comment period open)
-- **Refines (on acceptance):** [ADR-0016](../adr/ADR-0016-search-ranking-and-embedding-revisit.md)
+- **Deciders:** operator + Claude
+- **Refines:** [ADR-0016](../adr/ADR-0016-search-ranking-and-embedding-revisit.md)
   decision pt 1 (relevance-primary search). Does not touch the ADR-0005 injection gate.
 
 ## Context
