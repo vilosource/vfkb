@@ -57,14 +57,13 @@ Two facts drive the sequence:
 
 ### Track 1 — Memory that carries itself (continuity → auto-distill)  *(primary line)*
 
-**M1. Session-continuity Phase A — `[accepted, NEXT BUILD]`** (ADR-0020)
-Append-only per-session record (extend `SessionState` beyond `{injectedIds,turnCount}`) +
-derived digest (entries added/used/superseded + captured tool calls; optional caller commit/test
-signals labelled asserted) + the Tier-A **resume render** + a thin `kb_resume` CLI/MCP command.
-- *Dogfood first on vtfkb's own brain* (ADR-0019) — the resume render is exercised on this repo.
-- *Gate:* a deterministic test that a derived record cannot go stale (re-derives from ground truth)
-  + the resume render obeys ADR-0005 (no stale surfaced) and the 10k-char Tier-A budget.
-- *Backstop (P2):* the "can't go stale" property is unit-tested deterministically, not asserted.
+**M1. Session-continuity Phase A — `[DONE 2026-06-25, ff61215]`** (ADR-0020)
+Append-only per-session record (`SessionState` extended) + derived digest (added/superseded
+re-derived from the brain window; injected/captured/turns from the record; note/signals labelled
+ASSERTED) + the Tier-A **resume render** + `resume`/`resume-note` CLI + `kb_resume` MCP tool (8 tools).
+- ✅ Dogfooded on vtfkb's own brain (ADR-0019); ✅ resume obeys ADR-0005 + the 10k budget.
+- ✅ Gate met: `test/resume.test.ts` proves the digest **cannot go stale** (a mutated brain
+  re-derives a different digest from the SAME record) — the deterministic P2 backstop. **69/69 green.**
 
 **M2. Auto-distill / ACE — `[designed → draft RFC-006 next]`** (D7b, IMPL-PLAN L12)
 The write side (distil gotchas/decisions from a session into the `incoming` zone) + the curator
@@ -117,14 +116,18 @@ In all three cases the response is the same: **update this roadmap and re-ratify
 — never leave the next step to an ad-hoc question. (Scope: in-repo `vtfkb` only; vafi/vtaskforge
 work stays out-of-scope/HITL per H2.)
 
-### ▶ Current action — **M1: session-continuity Phase A** (ADR-0020)
-Build it now. **Definition of done:** (1) append-only per-session record extends `SessionState`
-(`<brain>/.sessions/<id>.json`) beyond `{injectedIds,turnCount}`; (2) a derived digest (entries
-added/used/superseded + captured tool calls; optional caller commit/test signals labelled asserted);
-(3) a Tier-A **resume render** obeying ADR-0005 (no stale) + the 10k budget; (4) a thin `kb_resume`
-(CLI + MCP); (5) **dogfooded on vtfkb's own brain** (ADR-0019); (6) a **deterministic test that a
-derived record cannot go stale** (re-derives from ground truth — the P2 backstop). When all six are
-green and pushed, the current-action pointer advances to **RFC-006 (M2)** — automatically, no ask.
+### ▶ Current action — **M2: draft RFC-006 (auto-distill / ACE)**
+M1 is **DONE** (`ff61215`, 69/69 green — all 6 DoD items met). Per the protocol the pointer
+advanced automatically. **Next action: draft RFC-006** deciding the *shape* of auto-distill (the
+write side: distil gotchas/decisions from a session into `incoming`) + the curator (prune/merge/
+promote/dedupe **by deltas + counters, never whole-entry rewrites** — IMPL-PLAN L12). RFC-006 is the
+riskiest item (an over-eager curator that deletes good knowledge is the worst memory failure), so it
+gets an RFC + safety rails **before any build**. On acceptance → ADR + build (M2), which then unlocks
+**M3** (continuity Phase B folds distilled knowledge into the resume digest).
+
+*Prior milestone (for the record):* **M1 DoD** was (1) append-only `SessionState` record; (2) derived
+digest; (3) Tier-A resume render (ADR-0005 + 10k budget); (4) `kb_resume` CLI+MCP; (5) dogfood on
+vtfkb's own brain; (6) deterministic "cannot go stale" test — all ✅.
 
 ---
 
