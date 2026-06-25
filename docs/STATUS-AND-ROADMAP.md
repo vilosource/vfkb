@@ -1,6 +1,6 @@
 # vtfkb — Status & Roadmap
 
-> **Type:** living north-star (status + sequenced roadmap). **Updated:** 2026-06-06.
+> **Type:** living north-star (status + sequenced roadmap). **Updated:** 2026-06-25.
 > This is the *middle* layer of the doc stack — the one you stand on day-to-day:
 > **platform strategy** (`viloforge-product-strategy-STRATEGY.md`, top) → **this doc**
 > → **decisions** (`docs/adr/`, immutable) + **build plan** (`docs/IMPLEMENTATION-PLAN.md`).
@@ -32,13 +32,15 @@ comes from context; context is what vtfkb supplies. vtfkb is the front-half leve
 
 ---
 
-## 2. Status — what is true today **[verified 2026-06-06]**
+## 2. Status — what is true today **[verified 2026-06-25]**
 
-**v1 (the per-project tier) is built, green, and now hardened by a live dogfood.**
+**v1 (the per-project tier) is built, green, hardened by a live dogfood, and now self-hosting.**
 
-- Repo `vilosource/vtfkb` `main` @ `bd90217`; package `0.1.0`; `tsc` clean; **52/52 tests**.
+- Repo `vilosource/vtfkb` `main` @ `5ba05c3`; package `0.1.0`; `tsc` clean; **64/64 tests**.
 - Greenfield **TypeScript**, mykb as a studied oracle (ADR-0002/0003) — zero code inheritance.
 - IMPLEMENTATION-PLAN Phases 0–6 delivered.
+- **Decisions ADR-0001–0020** ratified; **RFC-001–005** drafted (001/002/004/005 accepted;
+  003 proposed + evidence-gated). vtfkb now **dogfoods its own brain** (ADR-0019).
 
 ### Feature surface shipped (per-project tier)
 | Capability | Notes |
@@ -48,22 +50,24 @@ comes from context; context is what vtfkb supplies. vtfkb is the front-half leve
 | Storage | append-only JSONL (source of truth) + `merge=union`; tombstones; deterministic rebuild |
 | Index | pure-JS in-memory default; SQLite/FTS5 optional, graceful-degrade (ADR-0013); content-hash freshness, never mtime (ADR-0014) |
 | Decision family | immutable, supersede-only; ADR ordinal stamped at merge-to-`main` (ADR-0004/0009) |
-| Read/retrieval | two-stage; **search now relevance-primary** + light stemming (ADR-0016, this session) |
-| MCP server | ~11 scoped tools (`kb_search`/`kb_context`/`kb_add`/`kb_map`/…) — the cross-harness pull baseline |
+| Read/retrieval | two-stage; **relevance-primary** + light stemming (ADR-0016) + distinct-term **relevance floor** (ADR-0017) + cause-distinguished **honest no-match** (ADR-0018) |
+| MCP server | 7 scoped tools (`kb_add`/`kb_get`/`kb_list`/`kb_map`/`kb_search`/`kb_supersede`/`kb_transition`) — the cross-harness pull baseline (deterministic `tools/list` backstop) |
 | Auto-layer faces | Pi in-process extension **and** Claude Code hooks; session-start injection (Tier A, 10k budget, ADR-0015) |
 | Guardrails | no-secrets write-time lint; Bash mutation tool-gating |
-| Project context doc | first-class, `kb_context` |
+| Project context doc | first-class project context doc |
+| Self-hosted design-brain | vtfkb dogfoods its own per-project tier — committed `.vtfkb/` (ADR-0019): ADR/RFC link-index + native gotchas/patterns |
 
 ### Acceptance (L4)
-5 harness/model records, **20–22 of 22 scenarios demonstrated** (Pi + Claude Code).
-Caveats **[verified]**: (a) the records are against older shas, not HEAD; (b) the one
-L4-undemonstrated scenario — `guardrail:tool-gating` — is **deterministically
-backstopped** by a unit test (`gating.ts:isBrainWrite` + `guardrails.test.ts`), so the
-gap is a probabilistic-harness artifact, not a real hole (*deterministic backstop >
-probabilistic gate*). A full paid L4 re-run against HEAD is therefore **deferred as
-low-value**: every engine behavior the matrix exercises is unit-tested at HEAD (55/55).
+**Complete** — 5 harness/model records (deepseek-v4-pro/flash, claude-haiku/cli,
+copilot-sonnet), **22 scenarios** each (`scenarios/compare.mjs`): deepseek-v4-pro **22/22**,
+the rest 20–21/22. The two divergences (`tool-gating`, `capture-recall`) are model-quirk,
+not engine holes. Caveats **[verified]**: (a) records are against older shas, not HEAD;
+(b) `guardrail:tool-gating` is **deterministically backstopped** by a unit test
+(`gating.ts:isBrainWrite` + `guardrails.test.ts`), so that gap is a probabilistic-harness
+artifact (*deterministic backstop > probabilistic gate*). A full paid L4 re-run against HEAD
+stays **deferred as low-value**: every engine behavior is unit-tested at HEAD (64/64).
 
-### This session's hardening **[verified 2026-06-06]**
+### Hardening — 2026-06-06 (the dogfood that found the search bug) **[verified 2026-06-06]**
 - The **devops-kb live dogfood** (vtfkb as a real DevOps agent's operating memory)
   exposed a v1 retrieval bug: `query()` reused the *injection* reranker for explicit
   *search*, discarding relevance → a held answer buried ~rank 90 → the agent gave a
@@ -74,6 +78,18 @@ low-value**: every engine behavior the matrix exercises is unit-tested at HEAD (
 - **Claude-face live turn is now fully observed green** (gate ✓ injection ✓ recall ✓);
   the agent recalled the seeded gotcha on its first natural query and cited it by id.
 
+### Since 2026-06-06 **[verified 2026-06-25]**
+- **Search hardened further:** relevance **floor** (ADR-0017, RFC-001) drops 1-of-many
+  noise; **honest no-match** (ADR-0018, RFC-002) reports `empty_topic`/`no_match`/`all_filtered`.
+- **Self-hosted design-brain (ADR-0019, RFC-004):** vtfkb commits its own `.vtfkb/` and
+  dogfoods the per-project tier on itself; ADRs stay markdown SoR, the brain links to them.
+- **Dogfood check-6 flake hardened:** deterministic in-image `tools/list` preflight (6a) +
+  bounded LLM retry (6b) — proven green on host and in the `vtfkb-dogfood` image.
+- **Session-continuity accepted (ADR-0020, RFC-005):** the derived, append-only continuity
+  record — build sequenced as the next H4 work (§4 H4 → H4-DEVELOPMENT-ROADMAP).
+- **L4 confirmed complete** (the earlier "16/22 in-progress" was a stale status line, now
+  corrected — itself the motivating evidence for ADR-0020).
+
 ---
 
 ## 3. What v1 deliberately did NOT build (deferred, but designed)
@@ -82,12 +98,12 @@ low-value**: every engine behavior the matrix exercises is unit-tested at HEAD (
 |---|---|---|
 | Global served "Viloforge KB" tier (REST+MCP+web UI) + project→global promotion | DESIGN D2a/D2f/D2g | after per-project integration proves out (§4 H3) |
 | Context Map Glossary + Routing Table | ADR-0006 | with the global tier |
-| Embedding/semantic reranker | ADR-0012/0016 | **evidence-gated**: G1 passed → deferred as robustness; revisit when phrasing-robustness is needed |
-| ACE curator / auto-distill capture | DESIGN D7b | when explicit-write volume becomes the bottleneck |
-| Per-turn injection parity on Claude Code (Tier C) | ADR-0015 | Pi-only today; revisit when CC hooks allow |
+| Embedding/semantic reranker | ADR-0012/0016 → **RFC-003 (shape locked, Proposed)** | **evidence-gated**: build on a 2nd live phrasing miss or explicit request — not on spec |
+| ACE curator / auto-distill capture | DESIGN D7b → **RFC-006 (next to draft)** | needed for session-continuity Phase B; deltas-not-rewrites (IMPL-PLAN L12) |
+| Per-turn injection parity on Claude Code (Tier C) | ADR-0015 | **external-blocked**: Pi-only today; build when upstream `UserPromptSubmit` bugs are fixed |
 | Distinct RFC/constitution entry types | ADR-0007/0008 | only if the marker model proves insufficient |
-| Fully-onboarded project schema (the #1↔#2 contract) | DESIGN §6 / separate doc | **H1 (next), see below** |
-| Session-continuity tier | open thread | unscoped |
+| Fully-onboarded project schema (the #1↔#2 contract) | DESIGN §6 / separate doc | parked with H2 (fleet/ingest) |
+| Session-continuity record | **ADR-0020 / RFC-005 (Accepted)** | **build sequenced** — Phase A is the next H4 work |
 
 ---
 
@@ -97,7 +113,7 @@ low-value**: every engine behavior the matrix exercises is unit-tested at HEAD (
 > mykb-shaped core) is done; the unknowns are now downstream — in **integration** and
 > in a **ratified next design**.
 
-### H0 — Close v1 cleanly *(mostly DONE 2026-06-06)*
+### H0 — Close v1 cleanly *(DONE — 2026-06-25)*
 Make "v1 done" *provable*, not asserted.
 - ✅ **`tool-gating`** — closed without a paid rerun: it's deterministically unit-tested
   (see §2 Acceptance). Full L4 refresh deferred as low-value (every behavior unit-tested
@@ -105,6 +121,11 @@ Make "v1 done" *provable*, not asserted.
 - ✅ **Corpus self-pollution** — fixed (`31f4266`): Tier-B capture now skips vtfkb's own
   `kb_*`/`mcp__vtfkb__*` tools; regression-tested.
 - ✅ **"BM25-lite" comments** — corrected to "stemmed term-overlap (no IDF/length-norm)".
+- ✅ **Self-hosted design-brain** (ADR-0019) — vtfkb commits its own `.vtfkb/` and dogfoods
+  the per-project tier on itself.
+- ✅ **Dogfood check-6 flake** — hardened (deterministic `tools/list` preflight + bounded
+  LLM retry), proven in-image.
+- ✅ **L4 eval confirmed complete** — the "in-progress" was a stale status line, now corrected.
 - ⬜ **De-dupe seeded entries** — remaining, but it's *spike seed data* (the devops-kb
   `migrate-seed`), not vtfkb core; defer or handle in the spike, not here.
 
@@ -180,12 +201,13 @@ curator/auto-distill, per-turn CC injection parity, session-continuity tier.
    H3 design-readiness (in-repo)    │   (design is locked + ready; build is parked)
 ```
 
-**Active frontier: H0 and H4 — both in-repo.** H1 (reconcile) is ~done; H2 (fleet/ingest
-integration into vafi+vtaskforge) is **out of scope for current vtfkb development**
-(2026-06-06) — its one vtfkb-side prerequisite (`VTFKB_ROLE` attribution) already shipped.
-So the next concrete vtfkb work is the cheap, low-risk **H0** cleanups (L4 refresh +
-`tool-gating`, corpus self-pollution guard, dedup seeds) and, as wanted, **H4**
-enhancements (e.g. the ADR-0016 embedding reranker when phrasing-robustness is needed).
+**Active frontier: H4 — in-repo.** H0 is **closed** (§4); H1 (reconcile) is ~done; H2
+(fleet/ingest integration into vafi+vtaskforge) and H3 (global tier) stay **parked** —
+H2's one vtfkb-side prerequisite (`VTFKB_ROLE` attribution) already shipped (`860cab8`).
+So the next concrete vtfkb work is **H4, sequenced in
+[H4-DEVELOPMENT-ROADMAP](H4-DEVELOPMENT-ROADMAP.md)**: the immediate build is
+**session-continuity Phase A (M1)** (ADR-0020), then **RFC-006 for auto-distill/ACE (M2)**;
+the embedding reranker (RFC-003) and Claude Code per-turn parity stay gated/blocked.
 
 ---
 
@@ -231,9 +253,10 @@ kb-write methodology (H1 leftover, folded into H2). Everything else is build.
 
 ## 8. Provenance
 Grounded against: the platform strategy + research roadmap, `docs/DESIGN.md`,
-`docs/FEATURES.md`, `docs/IMPLEMENTATION-PLAN.md`, `docs/adr/` (0001–0016),
-the locked `project-onboarding-schema-DESIGN.md` (D-O1–O8) + `IngestEngine/*`
-(2026-04-05), `vfsf-ingest-and-vtfkb-DESIGN.md` (superseded brainstorm), the
-verified vafi/vtaskforge current state, and the 2026-06-06 devops-kb live dogfood.
-The §7 ledger reflects a four-reader reconciliation done 2026-06-06; status/
-verification facts are observed this session.
+`docs/FEATURES.md`, `docs/IMPLEMENTATION-PLAN.md`, `docs/H4-DEVELOPMENT-ROADMAP.md`,
+`docs/adr/` (0001–0020) + `docs/rfc/` (001–005), the locked
+`project-onboarding-schema-DESIGN.md` (D-O1–O8) + `IngestEngine/*` (2026-04-05),
+`vfsf-ingest-and-vtfkb-DESIGN.md` (superseded brainstorm), the verified vafi/vtaskforge
+current state, and the 2026-06-06 devops-kb live dogfood. The §7 ledger reflects a
+four-reader reconciliation done 2026-06-06; the §2 status / §4 horizon facts are
+observed on 2026-06-25 (`main` @ `5ba05c3`, 64/64 green).
