@@ -10,6 +10,8 @@ function freshBrain() {
 }
 
 import { addEntry, supersede, renderResume, renderResumeDigest } from '../src/engine.js';
+import { promote } from '../src/curator.js';
+import { recordSignal } from '../src/counters.js';
 import { SessionState, type SessionData } from '../src/session.js';
 
 // A prior-session record whose window spans "all of time" so live entries land in it.
@@ -84,5 +86,38 @@ describe('M1 session-continuity resume (ADR-0020)', () => {
   it('the first ever session has no prior continuity (honest, not fabricated)', () => {
     const out = renderResume('vtfkb-test', SessionState.load());
     expect(out).toContain('first recorded session — no prior continuity');
+  });
+});
+
+describe('M3 — distilled lessons folded into the resume digest (ADR-0020 Phase B)', () => {
+  beforeEach(freshBrain);
+
+  it('surfaces distilled incoming lessons trust-labelled — and stays DERIVED (anti-stale)', () => {
+    const e = addEntry('gotcha', 'Tool Bash can fail: connection refused', {
+      zone: 'incoming',
+      tags: ['distilled'],
+    });
+    const rec = priorRecord();
+    const out = renderResumeDigest(rec);
+    expect(out).toMatch(/learned \(auto-distilled this session/);
+    expect(out).toContain('Tool Bash can fail: connection refused');
+    expect(out).toMatch(/⚠agent/); // a trust-labelled candidate, NOT an asserted fact
+
+    // anti-stale: promote it → trusted (zone≠incoming) → it drops from the candidate
+    // list on the next render of the SAME record (proves the digest is re-derived).
+    promote(e.id);
+    expect(renderResumeDigest(rec)).not.toMatch(/learned \(auto-distilled this session/);
+  });
+
+  it('a plain (non-distilled) entry never shows as a learned lesson', () => {
+    addEntry('gotcha', 'a hand-written gotcha', { zone: 'incoming' });
+    expect(renderResumeDigest(priorRecord())).not.toMatch(/learned \(auto-distilled this session/);
+  });
+
+  it('shows the corroboration count when signals exist (M2b counters, aggregated at read)', () => {
+    const e = addEntry('gotcha', 'a distilled lesson', { zone: 'incoming', tags: ['distilled'] });
+    recordSignal(e.id, 'helpful');
+    recordSignal(e.id, 'helpful');
+    expect(renderResumeDigest(priorRecord())).toMatch(/\+2 corroborating/);
   });
 });

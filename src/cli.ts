@@ -157,6 +157,10 @@ async function main() {
     const session = SessionState.load();
     const ids = session.capturedIds;
     const { created, corroborated } = distill(ids.length ? ids : undefined);
+    // Distilling IS session activity — advance the record so the just-written lessons
+    // fall inside this session's [startedAt, lastAt] window (M3: the next session's
+    // resume digest derives "learned this session" from that window). No-op when ephemeral.
+    session.save();
     for (const e of created) process.stdout.write(`CANDIDATE\t${e.id}\tincoming/unverified\t${e.text}\n`);
     for (const id of corroborated) process.stdout.write(`CORROBORATED\t${id}\t${tally(id).net} net\n`);
     if (created.length === 0 && corroborated.length === 0) {
