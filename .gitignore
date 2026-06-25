@@ -4,5 +4,10 @@ coverage/
 *.log
 .vtfkb-spike/
 
+# vtfkb's own committed design-brain (RFC-004 / ADR-0019): entries.jsonl is the
+# git-committed SoR; the derived index is rebuildable and never committed (ADR-0014).
+.vtfkb/index-meta.json
+.vtfkb/.sessions/
+
 # local registry auth (token via env)
 .npmrc
