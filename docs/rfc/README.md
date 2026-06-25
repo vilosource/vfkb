@@ -19,10 +19,15 @@ role-attributed; options under discussion live in the RFC's Decision/text.
 | [RFC-001](RFC-001-search-relevance-floor.md) | Explicit search applies a relative relevance floor | Accepted → [ADR-0017](../adr/ADR-0017-search-relevance-floor.md) |
 | [RFC-002](RFC-002-honest-no-match-contract.md) | Search reports an explicit, cause-distinguished no-match | Accepted → [ADR-0018](../adr/ADR-0018-honest-no-match-contract.md) |
 | [RFC-003](RFC-003-embedding-accuracy-mode.md) | The EmbeddingReranker ships as an opt-in "accuracy mode" search tier | Proposed |
+| [RFC-004](RFC-004-self-hosted-design-brain.md) | vtfkb self-hosts its own design-brain (commit `.vtfkb/`; ADRs link-not-copy) | Accepted → [ADR-0019](../adr/ADR-0019-self-hosted-design-brain.md) |
 
-These three were drafted 2026-06-15 from a study of AnythingLLM (Mintplex Labs)
+RFC-001..003 were drafted 2026-06-15 from a study of AnythingLLM (Mintplex Labs)
 retrieval mechanics mapped onto vtfkb's substrate. All three **refine
 [ADR-0016](../adr/ADR-0016-search-ranking-and-embedding-revisit.md)**'s search
 behaviour and honour [ADR-0013](../adr/ADR-0013-no-hard-native-dep.md). They form one
 chain: RFC-001 produces empty results, RFC-002 reports them honestly, RFC-003 later
 supplies the normalized relevance signal RFC-001 lacks.
+
+RFC-004 (2026-06-25) is independent of that chain: it applies the locked per-project-tier
+design ([D2c](../DESIGN.md)) and the docs-via-`link` rule ([D1 constraint 4](../DESIGN.md))
+to vtfkb's *own* repo, so the substrate dogfoods itself.
