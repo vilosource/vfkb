@@ -14,6 +14,7 @@ import {
   deriveTrust,
 } from './engine.js';
 import { SessionState } from './session.js';
+import { promote, archive, mergeDuplicate, findLexicalDuplicates } from './curator.js';
 import { queryExplained } from './read.js';
 import { isBrainWrite, GATING_REASON } from './gating.js';
 import { save } from './git.js';
@@ -86,6 +87,37 @@ async function main() {
   if (cmd === 'resume') {
     const project = (sub && !sub.startsWith('--') ? sub : undefined) || process.env.VTFKB_PROJECT || 'spike';
     process.stdout.write(renderResume(project, SessionState.load()) + '\n');
+    return;
+  }
+
+  // curate: ACE curator maintenance (ADR-0021) — deltas only, NEVER rewrites text.
+  //   curate dups                       list exact lexical duplicate pairs (proposal only)
+  //   curate promote <id>               incoming -> established
+  //   curate archive <id>               retire out of the injection set
+  //   curate merge <loserId> <winnerId> archive the loser, keep the winner
+  if (cmd === 'curate') {
+    try {
+      if (sub === 'dups') {
+        const dups = findLexicalDuplicates();
+        for (const d of dups) process.stdout.write(`DUP\tloser=${d.loser}\twinner=${d.winner}\n`);
+        if (dups.length === 0) process.stdout.write('no exact lexical duplicates\n');
+      } else if (sub === 'promote') {
+        const e = promote(rest[0]);
+        process.stdout.write(`promoted ${e.id} -> ${e.zone}\n`);
+      } else if (sub === 'archive') {
+        const e = archive(rest[0]);
+        process.stdout.write(`archived ${e.id}\n`);
+      } else if (sub === 'merge') {
+        mergeDuplicate(rest[0], rest[1]);
+        process.stdout.write(`merged ${rest[0]} -> ${rest[1]} (loser archived)\n`);
+      } else {
+        process.stderr.write('usage: vtfkb curate <dups|promote <id>|archive <id>|merge <loser> <winner>>\n');
+        process.exit(1);
+      }
+    } catch (err) {
+      process.stderr.write(`error: ${(err as Error).message}\n`);
+      process.exit(1);
+    }
     return;
   }
 
@@ -243,7 +275,7 @@ async function main() {
   }
 
   process.stderr.write(
-    'usage: vtfkb <add|list|search|query|map|resume|resume-note|save|context-block|' +
+    'usage: vtfkb <add|list|search|query|map|resume|resume-note|curate|save|context-block|' +
       'hook session-start|hook pre-tool-use|hook post-tool-use>\n',
   );
   process.exit(1);

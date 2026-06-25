@@ -1,8 +1,8 @@
 # RFC-006: Auto-distill + ACE curator — capture distils to `incoming`; curation is deltas + counters, never rewrites
 
-- **Status:** Proposed
+- **Status:** Accepted → [ADR-0021](../adr/ADR-0021-auto-distill-and-curator.md)
 - **Date:** 2026-06-25
-- **Deciders:** operator + Claude (proposed — comment period open)
+- **Deciders:** operator + Claude (accepted; build sequenced in the H4 roadmap as M2a → M2b)
 - **Refines (on acceptance):** [D7b](../DESIGN.md) (passive capture → auto-distill, low-confidence →
   `incoming`) and [IMPL-PLAN L12](../IMPLEMENTATION-PLAN.md) (deltas-not-rewrites). Composes with
   [ADR-0020](../adr/ADR-0020-session-continuity-record.md) (feeds the resume digest — M3) and
