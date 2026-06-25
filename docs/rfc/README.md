@@ -20,6 +20,7 @@ role-attributed; options under discussion live in the RFC's Decision/text.
 | [RFC-002](RFC-002-honest-no-match-contract.md) | Search reports an explicit, cause-distinguished no-match | Accepted → [ADR-0018](../adr/ADR-0018-honest-no-match-contract.md) |
 | [RFC-003](RFC-003-embedding-accuracy-mode.md) | The EmbeddingReranker ships as an opt-in "accuracy mode" search tier | Proposed |
 | [RFC-004](RFC-004-self-hosted-design-brain.md) | vtfkb self-hosts its own design-brain (commit `.vtfkb/`; ADRs link-not-copy) | Accepted → [ADR-0019](../adr/ADR-0019-self-hosted-design-brain.md) |
+| [RFC-005](RFC-005-session-continuity-record.md) | Session continuity = a derived, append-only knowledge-continuity record (vtfkb's half of the vtf/vtfkb seam) | Proposed |
 
 RFC-001..003 were drafted 2026-06-15 from a study of AnythingLLM (Mintplex Labs)
 retrieval mechanics mapped onto vtfkb's substrate. All three **refine
@@ -31,3 +32,9 @@ supplies the normalized relevance signal RFC-001 lacks.
 RFC-004 (2026-06-25) is independent of that chain: it applies the locked per-project-tier
 design ([D2c](../DESIGN.md)) and the docs-via-`link` rule ([D1 constraint 4](../DESIGN.md))
 to vtfkb's *own* repo, so the substrate dogfoods itself.
+
+RFC-005 (2026-06-25) is an H4 enhancement: it makes session continuity a *derived,
+append-only* record (vtfkb's knowledge half of the [D1](../DESIGN.md) vtf/vtfkb seam),
+replacing mykb's forgettable/stale hand-written handoff slot. Composes with
+[D7b](../DESIGN.md) auto-distill and [ADR-0015](../adr/ADR-0015-cross-harness-auto-layer.md)
+Tier-A injection.
