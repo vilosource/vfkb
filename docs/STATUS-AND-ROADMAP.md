@@ -36,7 +36,7 @@ comes from context; context is what vtfkb supplies. vtfkb is the front-half leve
 
 **v1 (the per-project tier) is built, green, hardened by a live dogfood, and now self-hosting.**
 
-- Repo `vilosource/vtfkb` `main` @ `M3`; package `0.1.0`; `tsc` clean; **87/87 tests**.
+- Repo `vilosource/vtfkb` `main` @ `861089d`; package `0.1.0`; `tsc` clean; **87/87 tests**.
 - Greenfield **TypeScript**, mykb as a studied oracle (ADR-0002/0003) — zero code inheritance.
 - IMPLEMENTATION-PLAN Phases 0–6 delivered.
 - **Decisions ADR-0001–0021** ratified; **RFC-001–006** drafted (001/002/004/005/006 accepted;
@@ -270,4 +270,4 @@ Grounded against: the platform strategy + research roadmap, `docs/DESIGN.md`,
 `vfsf-ingest-and-vtfkb-DESIGN.md` (superseded brainstorm), the verified vafi/vtaskforge
 current state, and the 2026-06-06 devops-kb live dogfood. The §7 ledger reflects a
 four-reader reconciliation done 2026-06-06; the §2 status / §4 horizon facts are
-observed on 2026-06-25 (`main` @ `M3`, 87/87 green).
+observed on 2026-06-25 (`main` @ `861089d`, 87/87 green).
