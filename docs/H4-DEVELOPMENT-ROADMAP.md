@@ -2,8 +2,10 @@
 
 > **Type:** sequenced build plan for the H4 "robustness & quality" frontier. **Created:** 2026-06-25.
 > Sits under [STATUS-AND-ROADMAP](STATUS-AND-ROADMAP.md) §4 H4 (the broad north-star) and above
-> the decisions ([docs/adr/](adr/)) + proposals ([docs/rfc/](rfc/)) it sequences. It does **not**
-> ratify — ADRs do; it orders *accepted/proposed* work so we build coherently, not ad hoc.
+> the decisions ([docs/adr/](adr/)) + proposals ([docs/rfc/](rfc/)) it sequences. ADRs ratify the
+> *decisions* (what to build); **this roadmap ratifies the *order* and is the standing authority to
+> execute it** (§4) — proceed in sequence without per-step approval; stop only at the named gates. A
+> "what's next?" question is a signal to update + re-ratify §4, not to ask.
 > Scope is **in-repo only** (H0+H4); fleet/ingest integration (H2) and the global tier (H3) stay
 > parked. Claims tagged **[done]**, **[accepted]**, **[proposed]**, **[designed]**, **[external-blocked]**.
 
@@ -94,10 +96,35 @@ new ADR superseding the Tier-C clause) only when they are fixed.* No work until 
 
 ---
 
-## 4. Recommended order (one line)
+## 4. Ratified order + execution protocol
 
-**M1 (now) → RFC-006 for M2 → M2 → M3**, with **S1 built only if its evidence trigger fires** and
-**P1 only if upstream unblocks**. One build in flight at a time; each behind an accepted ADR.
+**Order (ratified 2026-06-25):** `M1 → RFC-006 → M2 → M3`, with **S1 built only if its evidence
+trigger fires** and **P1 only if upstream unblocks**. One build in flight at a time; each behind an
+accepted ADR.
+
+**This order is a standing authorization, not a menu.** For in-repo vtfkb development, this roadmap
+*is* the decision — proceed through it in order **without per-step approval**. Do **not** ask "what's
+next" or "M1 or M2"; the next action is whatever this section names. The decision points are the
+**gates** listed per milestone in §3 (and the explicit triggers for S1/P1) — those, not "what's
+next," are where judgment is applied.
+
+**Stop and re-ratify the roadmap (don't just ask ad hoc) only when:**
+1. a milestone **gate fails** (report the failure + proposed fix, then resume),
+2. a **gated item trips** (a 2nd phrasing miss → S1; upstream hook fix → P1),
+3. a **blocker or new fork appears** that this roadmap does not already decide.
+
+In all three cases the response is the same: **update this roadmap and re-ratify it**, then continue
+— never leave the next step to an ad-hoc question. (Scope: in-repo `vtfkb` only; vafi/vtaskforge
+work stays out-of-scope/HITL per H2.)
+
+### ▶ Current action — **M1: session-continuity Phase A** (ADR-0020)
+Build it now. **Definition of done:** (1) append-only per-session record extends `SessionState`
+(`<brain>/.sessions/<id>.json`) beyond `{injectedIds,turnCount}`; (2) a derived digest (entries
+added/used/superseded + captured tool calls; optional caller commit/test signals labelled asserted);
+(3) a Tier-A **resume render** obeying ADR-0005 (no stale) + the 10k budget; (4) a thin `kb_resume`
+(CLI + MCP); (5) **dogfooded on vtfkb's own brain** (ADR-0019); (6) a **deterministic test that a
+derived record cannot go stale** (re-derives from ground truth — the P2 backstop). When all six are
+green and pushed, the current-action pointer advances to **RFC-006 (M2)** — automatically, no ask.
 
 ---
 
