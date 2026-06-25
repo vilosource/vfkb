@@ -41,8 +41,23 @@ ISO=$(claude_p "What do you know about 'mykb', the 'kb' CLI, or mykb 'workspaces
 echo "$ISO" | grep -qiE "\.mykb|kb work |workspace.*handoff|jsonl.*sqlite|three-tier" && no "mykb detail leaked -> ${ISO:0:140}" || ok "no mykb leak"
 
 echo "== 6. MCP face loaded + strict isolation (vtfkb tools usable, no foreign MCP) =="
-MCP=$(claude_p "Use your vtfkb knowledge tools to search the knowledge base for the word canary, then report the result count prefixed with RESULTS= . Use no other tool.")
-echo "$MCP" | grep -qi "RESULTS=" && ok "vtfkb MCP face usable in-container" || no "MCP face not usable -> ${MCP:0:140}"
+# 6a — DETERMINISTIC (no LLM): the baked MCP server starts + advertises its tools over
+#      the wire. This is the real gate; it can never lose the cold-start race below.
+if VTFKB_MCP_SERVER=/opt/vtfkb/dist/mcp-server.js drun node /work/vtfkb/spike/mcp-preflight.mjs; then
+  ok "MCP server advertises full tool surface (deterministic tools/list)"
+else
+  no "MCP server failed deterministic tools/list preflight"
+fi
+# 6b — LLM round-trip, BOUNDED RETRY: claude -p races the MCP cold-start ("tools still
+#      connecting"), a transient that self-heals on a warm retry (NOT a server fault — 6a
+#      proves the server is sound). Assert ground truth (RESULTS=) on any of 3 attempts.
+MCP=""
+for attempt in 1 2 3; do
+  MCP=$(claude_p "Use your vtfkb knowledge tools to search the knowledge base for the word canary, then report the result count prefixed with RESULTS= . Use no other tool.")
+  echo "$MCP" | grep -qi "RESULTS=" && break
+  echo "    (attempt $attempt lost the MCP cold-start race; retrying)"
+done
+echo "$MCP" | grep -qi "RESULTS=" && ok "vtfkb MCP face usable by a real in-container LLM" || no "MCP face not usable after 3 tries -> ${MCP:0:140}"
 
 echo "== 7. RFC-001 relevance floor active in-container (deterministic, no LLM) =="
 STRONG=$(drun node /opt/vtfkb/dist/cli.js search "dogfood canary marker")
