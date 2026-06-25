@@ -9,6 +9,7 @@
 // distiller (write side) and the counter/signal stream that DRIVES promotion are M2b.
 
 import { readAll, updateEntry, transitionDecision, isDecisionFamily } from './engine.js';
+import { tally } from './counters.js';
 import type { KnowledgeEntry } from './types.js';
 
 function get(id: string): KnowledgeEntry {
@@ -26,6 +27,28 @@ export function promote(id: string): KnowledgeEntry {
     throw new Error(`promote() is for fluid types; a decision's standing is its status (use transitionDecision)`);
   }
   return updateEntry(id, { zone: 'established' });
+}
+
+// CORROBORATED promotion (ADR-0021 pt 4): auto-distilled `incoming` knowledge CANNOT be
+// minted into the trusted set on a single distillation — it needs ≥N independent
+// corroborating signals (or a human, who uses the unguarded promote() above). The
+// evidence is the append-only counter stream, aggregated at read; promotion itself is
+// still the same non-destructive zone transition (text never touched). This is the gate
+// that keeps machine extraction from self-promoting.
+export const PROMOTION_THRESHOLD = 2; // net helpful signals required (≥2 corroborations)
+
+export function eligibleForPromotion(id: string, threshold = PROMOTION_THRESHOLD): boolean {
+  return tally(id).net >= threshold;
+}
+
+export function promoteIfCorroborated(id: string, threshold = PROMOTION_THRESHOLD): KnowledgeEntry {
+  const t = tally(id);
+  if (t.net < threshold) {
+    throw new Error(
+      `entry ${id} is not corroborated (net ${t.net} < ${threshold}) — auto-distill alone cannot mint trusted knowledge (ADR-0021); needs more signals or a human promote`,
+    );
+  }
+  return promote(id);
 }
 
 // archive: retire a stale/noise entry out of the injection set. Fluid → zone

@@ -106,6 +106,9 @@ export class SessionState {
   recordCaptured(id: string): void {
     this.captured.add(id);
   }
+  get capturedIds(): string[] {
+    return [...this.captured];
+  }
   setNote(text: string): void {
     this.data.note = text;
   }
