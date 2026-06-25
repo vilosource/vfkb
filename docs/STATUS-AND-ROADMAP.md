@@ -36,7 +36,7 @@ comes from context; context is what vtfkb supplies. vtfkb is the front-half leve
 
 **v1 (the per-project tier) is built, green, hardened by a live dogfood, and now self-hosting.**
 
-- Repo `vilosource/vtfkb` `main` @ `2ed34aa`; package `0.1.0`; `tsc` clean; **84/84 tests**.
+- Repo `vilosource/vtfkb` `main` @ `M3`; package `0.1.0`; `tsc` clean; **87/87 tests**.
 - Greenfield **TypeScript**, mykb as a studied oracle (ADR-0002/0003) — zero code inheritance.
 - IMPLEMENTATION-PLAN Phases 0–6 delivered.
 - **Decisions ADR-0001–0021** ratified; **RFC-001–006** drafted (001/002/004/005/006 accepted;
@@ -65,7 +65,7 @@ not engine holes. Caveats **[verified]**: (a) records are against older shas, no
 (b) `guardrail:tool-gating` is **deterministically backstopped** by a unit test
 (`gating.ts:isBrainWrite` + `guardrails.test.ts`), so that gap is a probabilistic-harness
 artifact (*deterministic backstop > probabilistic gate*). A full paid L4 re-run against HEAD
-stays **deferred as low-value**: every engine behavior is unit-tested at HEAD (84/84).
+stays **deferred as low-value**: every engine behavior is unit-tested at HEAD (87/87).
 
 ### Hardening — 2026-06-06 (the dogfood that found the search bug) **[verified 2026-06-06]**
 - The **devops-kb live dogfood** (vtfkb as a real DevOps agent's operating memory)
@@ -91,7 +91,11 @@ stays **deferred as low-value**: every engine behavior is unit-tested at HEAD (8
   safety foundation (delta-only ops + never-rewrite Brake + quality regression); **M2b** = the deterministic
   distiller (a captured failure → a candidate gotcha, `incoming`-only **containment Brake**) + the append-only
   counter stream (aggregated at read) + **corroborated promotion** (auto-distill alone can't mint trusted
-  knowledge). M3 (continuity Phase B) is next.
+  knowledge).
+- **Session-continuity Phase B shipped (M3):** the resume digest now folds the session's auto-distilled
+  `incoming` lessons in — **trust-labelled** (`⚠agent`, "verify before trusting") with corroboration counts,
+  and **derived** so it can't go stale (a promoted/archived lesson drops out on the next render). This
+  closes **Track 1 — "memory that carries itself" — end-to-end.**
 - **L4 confirmed complete** (the earlier "16/22 in-progress" was a stale status line, now
   corrected — itself the motivating evidence for ADR-0020).
 
@@ -108,7 +112,7 @@ stays **deferred as low-value**: every engine behavior is unit-tested at HEAD (8
 | Per-turn injection parity on Claude Code (Tier C) | ADR-0015 | **external-blocked**: Pi-only today; build when upstream `UserPromptSubmit` bugs are fixed |
 | Distinct RFC/constitution entry types | ADR-0007/0008 | only if the marker model proves insufficient |
 | Fully-onboarded project schema (the #1↔#2 contract) | DESIGN §6 / separate doc | parked with H2 (fleet/ingest) |
-| Session-continuity record | **ADR-0020 / RFC-005 (Accepted)** | **Phase A shipped** (M1 `ff61215`); Phase B = M3 (**next**, unblocked by M2b) |
+| Session-continuity record | **ADR-0020 / RFC-005 (Accepted)** | **DONE** — Phase A (M1 `ff61215`) + Phase B (M3: resume digest folds distilled lessons, trust-labelled, derived) |
 
 ---
 
@@ -193,8 +197,9 @@ curator/auto-distill, per-turn CC injection parity, session-continuity tier.
 > this doc: search hardened (ADR-0017/0018), self-hosted design-brain shipped (ADR-0019),
 > session-continuity **Phase A shipped** (ADR-0020, M1 `ff61215`), auto-distill/ACE **accepted**
 > (RFC-006 → ADR-0021) with **M2a + M2b shipped** (`ee45289` + distiller/counters/corroborated promotion).
-> Remaining order: `continuity Phase B (M3)`; embedding reranker (RFC-003) stays evidence-gated; Claude
-> Code per-turn parity stays upstream-blocked.
+> **M3 shipped** (resume digest folds the auto-distilled lessons in) — **Track 1 (memory that carries
+> itself) is complete.** Remaining items are gated/blocked only: embedding reranker (RFC-003) stays
+> evidence-gated; Claude Code per-turn parity stays upstream-blocked.
 
 ---
 
@@ -211,9 +216,9 @@ curator/auto-distill, per-turn CC injection parity, session-continuity tier.
 (fleet/ingest integration into vafi+vtaskforge) and H3 (global tier) stay **parked** —
 H2's one vtfkb-side prerequisite (`VTFKB_ROLE` attribution) already shipped (`860cab8`).
 So the active vtfkb work is **H4, sequenced in
-[H4-DEVELOPMENT-ROADMAP](H4-DEVELOPMENT-ROADMAP.md)**: M1 (session-continuity Phase A) is **shipped**;
-the roadmap's remaining line is **continuity Phase B (M3)** (M1 + M2a + M2b shipped); the embedding
-reranker (RFC-003) and Claude Code per-turn parity stay gated/blocked.
+[H4-DEVELOPMENT-ROADMAP](H4-DEVELOPMENT-ROADMAP.md)**: **Track 1 (continuity → auto-distill) is complete**
+(M1 + M2a + M2b + M3 shipped); the only remaining items — the embedding reranker (RFC-003) and Claude Code
+per-turn parity — stay gated/blocked and are not built on spec.
 
 ---
 
@@ -265,4 +270,4 @@ Grounded against: the platform strategy + research roadmap, `docs/DESIGN.md`,
 `vfsf-ingest-and-vtfkb-DESIGN.md` (superseded brainstorm), the verified vafi/vtaskforge
 current state, and the 2026-06-06 devops-kb live dogfood. The §7 ledger reflects a
 four-reader reconciliation done 2026-06-06; the §2 status / §4 horizon facts are
-observed on 2026-06-25 (`main` @ `2ed34aa`, 84/84 green).
+observed on 2026-06-25 (`main` @ `M3`, 87/87 green).

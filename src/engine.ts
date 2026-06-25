@@ -8,6 +8,7 @@ import { randomBytes } from 'node:crypto';
 import { appendRecord, materialize, readRecords } from './storage.js';
 import { selectIndex } from './index-store.js';
 import { assertNoSecrets } from './secrets.js';
+import { tally } from './counters.js';
 import { SessionState } from './session.js';
 import type { SessionData } from './session.js';
 import type { KbIndex } from './index-store.js';
@@ -527,10 +528,22 @@ function sessionWindow(all: KnowledgeEntry[], from: string, to: string) {
   return { added, superseded };
 }
 
+const DIGEST_LESSON_CAP = 5; // bound the learned-lessons section in the digest
+
+// The auto-distilled `incoming` lessons of a session window (M3 / ADR-0020 Phase B):
+// candidate gotchas the distiller wrote (tag `distilled`, still incoming = unverified).
+// DERIVED from the live brain — a lesson later promoted (zone≠incoming) or archived drops
+// out on the next render, so this can no more go stale than the M1 counts can.
+function distilledLessons(added: KnowledgeEntry[]): KnowledgeEntry[] {
+  return added
+    .filter((e) => e.zone === 'incoming' && e.tags.includes('distilled'))
+    .sort((a, b) => b.created.localeCompare(a.created)); // newest first
+}
+
 // Render a single session record as a derived digest. Observed facts (added/
-// superseded counts) come from the live brain; the note + caller signals are
-// labelled ASSERTED (verified-vs-asserted — the discipline whose absence produced
-// the stale-L4 claim).
+// superseded counts + distilled candidate lessons) come from the live brain; the note +
+// caller signals are labelled ASSERTED (verified-vs-asserted — the discipline whose
+// absence produced the stale-L4 claim).
 export function renderResumeDigest(rec: SessionData, all: KnowledgeEntry[] = readAll()): string {
   const { added, superseded } = sessionWindow(all, rec.startedAt, rec.lastAt);
   const when = (rec.lastAt ?? '').slice(0, 16).replace('T', ' ');
@@ -540,6 +553,22 @@ export function renderResumeDigest(rec: SessionData, all: KnowledgeEntry[] = rea
       `${superseded.length} superseded, ${rec.injectedIds?.length ?? 0} injected, ` +
       `${rec.capturedIds?.length ?? 0} captured, ${rec.turnCount ?? 0} turns`,
   ];
+
+  // M3: the real learned lessons, not just counts — auto-distilled candidates, trust-
+  // labelled (ADR-0005) so a resuming session treats them as unverified, not as fact.
+  const lessons = distilledLessons(added);
+  if (lessons.length > 0) {
+    lines.push(`- learned (auto-distilled this session — candidates, verify before trusting):`);
+    for (const e of lessons.slice(0, DIGEST_LESSON_CAP)) {
+      const net = tally(e.id).net;
+      const corr = net > 0 ? ` (+${net} corroborating)` : '';
+      lines.push(`  - [${e.type} ${trustGlyph(e)}] ${e.text}${corr}`);
+    }
+    if (lessons.length > DIGEST_LESSON_CAP) {
+      lines.push(`  - …and ${lessons.length - DIGEST_LESSON_CAP} more (search tag:distilled)`);
+    }
+  }
+
   if (rec.note) lines.push(`- next (ASSERTED by operator, unverified): ${rec.note}`);
   for (const s of rec.signals ?? []) lines.push(`- ${s.label} (ASSERTED by caller): ${s.value}`);
   return lines.join('\n');

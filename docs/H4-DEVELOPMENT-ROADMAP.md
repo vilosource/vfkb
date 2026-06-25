@@ -13,11 +13,11 @@
 
 ## 1. Where we are (status snapshot, 2026-06-25)
 
-`main` is green (**84/84** unit). v1 (per-project tier) is shipped; **M1 (session-continuity Phase A)
-shipped** (`ff61215`); **RFC-006 accepted → ADR-0021**; **M2a (ACE curator safety foundation) shipped**
-(`ee45289`); **M2b (distiller write-side + counters) shipped** — deterministic distiller (failures →
-candidate gotchas, `incoming`-only, containment-tested) + append-only counter stream + corroborated
-promotion. Next: **M3** (session-continuity Phase B). Beyond that:
+`main` is green (**87/87** unit). v1 (per-project tier) is shipped; **M1 (session-continuity Phase A)
+shipped** (`ff61215`); **RFC-006 accepted → ADR-0021**; **M2a (curator safety foundation, `ee45289`) +
+M2b (distiller + counters + corroborated promotion) shipped**; **M3 (session-continuity Phase B) shipped**
+— the resume digest now folds the auto-distilled `incoming` lessons in, trust-labelled and derived.
+**Track 1 (memory that carries itself) is complete.** Beyond that:
 
 | Area | State |
 |---|---|
@@ -25,7 +25,7 @@ promotion. Next: **M3** (session-continuity Phase B). Beyond that:
 | Self-hosted design-brain | **[done]** ADR-0019 — vtfkb dogfoods its own `.vtfkb/` (committed SoR + ADR/RFC link-index) |
 | L4 cross-model eval | **[done]** 5 harness/model records, 22 scenarios each (deepseek-v4-pro 22/22; 2 known divergences: `tool-gating`, `capture-recall`) |
 | Dogfood smoke | **[done]** check 6 hardened — deterministic `tools/list` preflight (6a) + bounded LLM retry (6b) |
-| **Session continuity** | **[Phase A DONE]** ADR-0020 / RFC-005 — M1 shipped (`ff61215`); Phase B = M3 (next, unblocked by M2b) |
+| **Session continuity** | **[DONE]** ADR-0020 / RFC-005 — M1 (`ff61215`) + M3 (resume digest folds distilled lessons, trust-labelled, derived) |
 | Auto-distill / ACE curator | **[DONE]** RFC-006 → ADR-0021 — curator + never-rewrite Brake (`ee45289`, M2a) + distiller + counters + corroborated promotion (M2b) |
 | Embedding reranker | **[proposed]** RFC-003 — evidence-gated, do **not** build speculatively |
 | Per-turn injection on Claude Code | **[external-blocked]** ADR-0015 Tier C — waits on upstream hook fixes |
@@ -39,7 +39,7 @@ promotion. Next: **M3** (session-continuity Phase B). Beyond that:
                                │
   ADR-0020 session-continuity ─┤
      Phase A: record + resume render ── ✅ DONE (M1, ff61215)
-     Phase B: auto-distilled knowledge ──────────► M3 (next) — consumes ▼
+     Phase B: auto-distilled knowledge ── ✅ DONE (M3) — consumes ▼
                                                    D7b auto-distill / ACE  (RFC-006 → ADR-0021; M2a ✅ + M2b ✅ DONE)
                                                       └─ curator = deltas-not-rewrites (IMPL-PLAN L12); distiller = incoming-only containment
 
@@ -100,11 +100,17 @@ counter signal on the existing candidate instead of duplicating it.
   (`capture:ok|error` tag + `→ <summary>`); structured signals (isError/exit/stderr) are authoritative,
   enough for a deterministic error→gotcha distiller without storing full results; the no-secrets lint covers it.
 
-**M3. Session-continuity Phase B — `[blocked on M2b]`**
-Fold auto-distilled knowledge into the continuity record (the digest gains real learned lessons,
-not just counts). Ships after M2 lands.
-- *Gate:* the resume digest surfaces distilled `incoming` lessons **trust-labelled** (ADR-0005), and the
-  M1 "cannot go stale" property still holds (the digest stays derived, never a stored prose blob).
+**M3. Session-continuity Phase B — `[DONE]`** (`renderResumeDigest`, `test/resume.test.ts`)
+The resume digest now gains the real learned lessons, not just counts: the auto-distilled `incoming`
+candidates of the session window are folded in (`distilledLessons` — tag `distilled`, still incoming),
+**trust-labelled** (`⚠agent`, "candidates, verify before trusting") with their corroboration count
+(M2b counters, aggregated at read). To keep the window honest, `distill` now advances the session
+record (`lastAt`) so freshly-distilled lessons fall inside `[startedAt, lastAt]`.
+- *Gate — MET:* the digest surfaces distilled `incoming` lessons trust-labelled; the M1 "cannot go
+  stale" property still holds — the section is **derived** from the live brain, so a lesson later
+  promoted (zone≠incoming) or archived drops out on the next render (anti-stale test). 87/87 green;
+  dogfooded — full capture→distill→next-session-resume loop in a temp brain; the real `.vtfkb` honestly
+  omits the section (no distilled lessons there).
 
 ### Track 2 — Search robustness (embeddings)  *(parallel, evidence-gated)*
 
@@ -126,9 +132,10 @@ new ADR superseding the Tier-C clause) only when they are fixed.* No work until 
 
 ## 4. Ratified order + execution protocol
 
-**Order (ratified 2026-06-25):** `M1 ✅ → RFC-006 ✅ → M2a ✅ → M2b ✅ → M3`, with **S1 built only if its
-evidence trigger fires** and **P1 only if upstream unblocks**. One build in flight at a time; each behind
-an accepted ADR.
+**Order (ratified 2026-06-25):** `M1 ✅ → RFC-006 ✅ → M2a ✅ → M2b ✅ → M3 ✅` — **Track 1 complete.** The
+remaining roadmap items are the two **gated/blocked** tracks: **S1** (embedding reranker) builds only if its
+evidence trigger fires; **P1** (Claude Code per-turn push) only if upstream unblocks. One build in flight at
+a time; each behind an accepted ADR.
 
 *Gate-resolution note (2026-06-25):* the M2 *build* is evidence-gated (D7b — write-volume bottleneck),
 which conflicted with the bare order. Resolved: an **explicit operator go-ahead** is a valid trigger
@@ -149,20 +156,29 @@ In all three cases the response is the same: **update this roadmap and re-ratify
 — never leave the next step to an ad-hoc question. (Scope: in-repo `vtfkb` only; vafi/vtaskforge
 work stays out-of-scope/HITL per H2.)
 
-### ▶ Current action — **M3: session-continuity Phase B**
+### ▶ Current action — **Track 1 COMPLETE; hold at the two gated tracks (no speculative build)**
 M1 ✅, RFC-006 ✅ (→ ADR-0021), **M2a ✅** (`ee45289`), **M2b ✅** (distiller + counters + corroborated
-promotion, 84/84, dogfooded — both sub-decisions settled in §3 M2b). **Next action: build M3** — fold the
-auto-distilled `incoming` lessons into the resume digest, **trust-labelled** (ADR-0005), so a resuming
-session sees the real learned gotchas, not just counts. **Gate:** the digest surfaces distilled `incoming`
-lessons trust-labelled, and the M1 "cannot go stale" property still holds — the digest stays **derived**
-from the live brain at render time, never a stored prose blob. Dogfood on `.vtfkb`; behind ADR-0020.
+promotion), **M3 ✅** (resume digest folds the auto-distilled lessons in, trust-labelled + derived; 87/87,
+dogfooded). **Track 1 — "memory that carries itself" — is built end-to-end:** continuity record → resume
+digest → auto-distill write-side → curator maintenance → corroborated promotion → distilled lessons back
+into the digest. **There is no next in-order build.** The only remaining roadmap items are **gated/blocked**,
+and per the execution protocol they are NOT built on spec:
+- **S1 (embedding reranker, RFC-003)** — build *only* on a **2nd** live phrasing-robustness miss **or** an
+  explicit operator request. Keep the `selectIndex()` seam warm; nothing else.
+- **P1 (Claude Code per-turn push, ADR-0015 Tier C)** — **external-blocked**; watch upstream `UserPromptSubmit`
+  hook bugs, build (a new ADR) only when fixed.
+
+So the standing action is **watch the two triggers** — not poll for "what's next." A new in-repo build
+starts only when a trigger fires or the operator opens a new fork; either way, **update + re-ratify this
+roadmap first**. (H2 fleet/ingest + H3 global tier remain parked, out of scope for in-repo work.)
 
 *Milestones for the record:* **M1** = derived append-only continuity record + resume render (6/6 DoD).
 **M2a** = curator deltas-only ops + the structural Brake (text byte-identical) + retrieval-quality
 regression. **M2b** = deterministic distiller (failure→candidate gotcha, `incoming`-only containment Brake)
 + append-only counter stream (aggregated at read) + corroborated promotion (`promoteIfCorroborated`);
-capture now retains a bounded ok/error outcome. All dogfooded on vtfkb's own brain; each behind an accepted
-ADR (0020 / 0021).
+capture now retains a bounded ok/error outcome. **M3** = the resume digest folds the session's auto-distilled
+`incoming` lessons in, trust-labelled + derived (anti-stale holds). All dogfooded on vtfkb's own brain; each
+behind an accepted ADR (0020 / 0021).
 
 ---
 
