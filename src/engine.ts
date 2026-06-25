@@ -435,6 +435,34 @@ function isOwnKnowledgeTool(name: string): boolean {
   return n.startsWith('kb_') || n.includes('vtfkb');
 }
 
+// Bounded outcome classification (M2b, ADR-0021 sub-decision b). We retain a MINIMAL,
+// bounded summary of tool_result — enough for the deterministic distiller to turn a
+// failed call into a candidate gotcha (error→lesson), never the full result. Structured
+// error signals (isError / exit codes / stderr) are authoritative; a plain-string result
+// is only flagged on a tight error marker to keep false positives low.
+export type ToolOutcome = 'ok' | 'error';
+const RESULT_SUMMARY_CAP = 120;
+
+export function classifyToolOutcome(result: unknown): { outcome: ToolOutcome; summary: string } {
+  if (result === undefined || result === null) return { outcome: 'ok', summary: '' };
+  if (typeof result === 'object') {
+    const r = result as Record<string, unknown>;
+    const exit =
+      typeof r.exit_code === 'number' ? r.exit_code
+      : typeof r.exitCode === 'number' ? r.exitCode
+      : undefined;
+    const isErr =
+      r.isError === true || r.error != null || (typeof r.stderr === 'string' && r.stderr.trim() !== '') ||
+      (exit !== undefined && exit !== 0);
+    const basis = r.error ?? r.stderr ?? r.message ?? r.result ?? r;
+    const summary = (typeof basis === 'string' ? basis : JSON.stringify(basis)).slice(0, RESULT_SUMMARY_CAP);
+    return { outcome: isErr ? 'error' : 'ok', summary };
+  }
+  const s = String(result).slice(0, RESULT_SUMMARY_CAP);
+  const isErr = /(^|\s)(error|failed|failure|exception|denied|traceback|refused)\b/i.test(s);
+  return { outcome: isErr ? 'error' : 'ok', summary: s };
+}
+
 export function captureToolCall(ev: ToolEvent): KnowledgeEntry | null {
   if (!ev.tool_name) return null;
   if (isOwnKnowledgeTool(ev.tool_name)) return null;
@@ -442,11 +470,14 @@ export function captureToolCall(ev: ToolEvent): KnowledgeEntry | null {
     typeof ev.tool_input === 'object' && ev.tool_input
       ? JSON.stringify(ev.tool_input).slice(0, 200)
       : String(ev.tool_input ?? '');
-  const text = `Tool ${ev.tool_name} invoked${inputSummary ? `: ${inputSummary}` : ''}`;
+  const { outcome, summary } = classifyToolOutcome(ev.tool_result);
+  const text =
+    `Tool ${ev.tool_name} invoked${inputSummary ? `: ${inputSummary}` : ''}` +
+    (summary ? ` → ${outcome}: ${summary}` : '');
   try {
     return addEntry('fact', text, {
       role: 'executor',
-      tags: ['captured'],
+      tags: ['captured', `capture:${outcome}`],
       provStatus: 'unverified',
       origin: { kind: 'tool_call', tool: ev.tool_name, call_id: ev.call_id },
     });

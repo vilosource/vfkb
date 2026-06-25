@@ -8,6 +8,7 @@ coverage/
 # git-committed SoR; the derived index is rebuildable and never committed (ADR-0014).
 .vtfkb/index-meta.json
 .vtfkb/.sessions/
+.vtfkb/.signals/
 
 # local registry auth (token via env)
 .npmrc

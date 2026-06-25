@@ -14,7 +14,16 @@ import {
   deriveTrust,
 } from './engine.js';
 import { SessionState } from './session.js';
-import { promote, archive, mergeDuplicate, findLexicalDuplicates } from './curator.js';
+import {
+  promote,
+  archive,
+  mergeDuplicate,
+  findLexicalDuplicates,
+  promoteIfCorroborated,
+  eligibleForPromotion,
+} from './curator.js';
+import { distill } from './distiller.js';
+import { recordSignal, tally } from './counters.js';
 import { queryExplained } from './read.js';
 import { isBrainWrite, GATING_REASON } from './gating.js';
 import { save } from './git.js';
@@ -95,12 +104,29 @@ async function main() {
   //   curate promote <id>               incoming -> established
   //   curate archive <id>               retire out of the injection set
   //   curate merge <loserId> <winnerId> archive the loser, keep the winner
+  //   curate signal <id> <helpful|harmful>  record an append-only corroboration signal
+  //   curate promote-auto <id>          promote ONLY if corroborated (>=N signals)
   if (cmd === 'curate') {
     try {
       if (sub === 'dups') {
         const dups = findLexicalDuplicates();
         for (const d of dups) process.stdout.write(`DUP\tloser=${d.loser}\twinner=${d.winner}\n`);
         if (dups.length === 0) process.stdout.write('no exact lexical duplicates\n');
+      } else if (sub === 'signal') {
+        const kind = rest[1];
+        if (kind !== 'helpful' && kind !== 'harmful') {
+          process.stderr.write('usage: vtfkb curate signal <id> <helpful|harmful>\n');
+          process.exit(1);
+        }
+        recordSignal(rest[0], kind, 'operator');
+        const t = tally(rest[0]);
+        process.stdout.write(
+          `signal ${kind} -> ${rest[0]} (helpful ${t.helpful} / harmful ${t.harmful} / net ${t.net}` +
+            `${eligibleForPromotion(rest[0]) ? ', promotable' : ''})\n`,
+        );
+      } else if (sub === 'promote-auto') {
+        const e = promoteIfCorroborated(rest[0]);
+        process.stdout.write(`promoted (corroborated) ${e.id} -> ${e.zone}\n`);
       } else if (sub === 'promote') {
         const e = promote(rest[0]);
         process.stdout.write(`promoted ${e.id} -> ${e.zone}\n`);
@@ -111,12 +137,30 @@ async function main() {
         mergeDuplicate(rest[0], rest[1]);
         process.stdout.write(`merged ${rest[0]} -> ${rest[1]} (loser archived)\n`);
       } else {
-        process.stderr.write('usage: vtfkb curate <dups|promote <id>|archive <id>|merge <loser> <winner>>\n');
+        process.stderr.write(
+          'usage: vtfkb curate <dups|promote <id>|promote-auto <id>|archive <id>|merge <loser> <winner>|signal <id> <helpful|harmful>>\n',
+        );
         process.exit(1);
       }
     } catch (err) {
       process.stderr.write(`error: ${(err as Error).message}\n`);
       process.exit(1);
+    }
+    return;
+  }
+
+  // distill: auto-distill write side (ADR-0021) — turn this session's captured failures
+  // into CANDIDATE gotchas in incoming/unverified (containment). Recurrence corroborates
+  // an existing candidate instead of duplicating. Deterministic; never touches the
+  // trusted set. With KB_SESSION_ID, restricts to the session's captured ids; else all.
+  if (cmd === 'distill') {
+    const session = SessionState.load();
+    const ids = session.capturedIds;
+    const { created, corroborated } = distill(ids.length ? ids : undefined);
+    for (const e of created) process.stdout.write(`CANDIDATE\t${e.id}\tincoming/unverified\t${e.text}\n`);
+    for (const id of corroborated) process.stdout.write(`CORROBORATED\t${id}\t${tally(id).net} net\n`);
+    if (created.length === 0 && corroborated.length === 0) {
+      process.stdout.write('no distillable failure signals\n');
     }
     return;
   }
@@ -275,7 +319,7 @@ async function main() {
   }
 
   process.stderr.write(
-    'usage: vtfkb <add|list|search|query|map|resume|resume-note|curate|save|context-block|' +
+    'usage: vtfkb <add|list|search|query|map|resume|resume-note|curate|distill|save|context-block|' +
       'hook session-start|hook pre-tool-use|hook post-tool-use>\n',
   );
   process.exit(1);

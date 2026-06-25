@@ -13,9 +13,11 @@
 
 ## 1. Where we are (status snapshot, 2026-06-25)
 
-`main` is green (**76/76** unit). v1 (per-project tier) is shipped; **M1 (session-continuity Phase A)
+`main` is green (**84/84** unit). v1 (per-project tier) is shipped; **M1 (session-continuity Phase A)
 shipped** (`ff61215`); **RFC-006 accepted → ADR-0021**; **M2a (ACE curator safety foundation) shipped**
-(`ee45289`). Next: **M2b** (distiller + counters). Beyond that:
+(`ee45289`); **M2b (distiller write-side + counters) shipped** — deterministic distiller (failures →
+candidate gotchas, `incoming`-only, containment-tested) + append-only counter stream + corroborated
+promotion. Next: **M3** (session-continuity Phase B). Beyond that:
 
 | Area | State |
 |---|---|
@@ -23,8 +25,8 @@ shipped** (`ff61215`); **RFC-006 accepted → ADR-0021**; **M2a (ACE curator saf
 | Self-hosted design-brain | **[done]** ADR-0019 — vtfkb dogfoods its own `.vtfkb/` (committed SoR + ADR/RFC link-index) |
 | L4 cross-model eval | **[done]** 5 harness/model records, 22 scenarios each (deepseek-v4-pro 22/22; 2 known divergences: `tool-gating`, `capture-recall`) |
 | Dogfood smoke | **[done]** check 6 hardened — deterministic `tools/list` preflight (6a) + bounded LLM retry (6b) |
-| **Session continuity** | **[Phase A DONE]** ADR-0020 / RFC-005 — M1 shipped (`ff61215`); Phase B = M3 (pending M2b) |
-| Auto-distill / ACE curator | **[M2a DONE, M2b next]** RFC-006 → ADR-0021 — curator + never-rewrite Brake shipped (`ee45289`); distiller + counters = M2b |
+| **Session continuity** | **[Phase A DONE]** ADR-0020 / RFC-005 — M1 shipped (`ff61215`); Phase B = M3 (next, unblocked by M2b) |
+| Auto-distill / ACE curator | **[DONE]** RFC-006 → ADR-0021 — curator + never-rewrite Brake (`ee45289`, M2a) + distiller + counters + corroborated promotion (M2b) |
 | Embedding reranker | **[proposed]** RFC-003 — evidence-gated, do **not** build speculatively |
 | Per-turn injection on Claude Code | **[external-blocked]** ADR-0015 Tier C — waits on upstream hook fixes |
 
@@ -37,9 +39,9 @@ shipped** (`ff61215`); **RFC-006 accepted → ADR-0021**; **M2a (ACE curator saf
                                │
   ADR-0020 session-continuity ─┤
      Phase A: record + resume render ── ✅ DONE (M1, ff61215)
-     Phase B: auto-distilled knowledge ──────────► needs ▼
-                                                   D7b auto-distill / ACE  (RFC-006 → ADR-0021; M2a ✅, M2b next)
-                                                      └─ curator = deltas-not-rewrites (IMPL-PLAN L12)
+     Phase B: auto-distilled knowledge ──────────► M3 (next) — consumes ▼
+                                                   D7b auto-distill / ACE  (RFC-006 → ADR-0021; M2a ✅ + M2b ✅ DONE)
+                                                      └─ curator = deltas-not-rewrites (IMPL-PLAN L12); distiller = incoming-only containment
 
   RFC-003 embedding reranker ── independent track, EVIDENCE-GATED (2nd phrasing miss | explicit ask)
 
@@ -79,15 +81,24 @@ supersede/transition-only.
   **retrieval-quality regression** (a dedup pass keeps the answer surfacing, drops only the duplicate).
   CLI `curate`; dogfooded on vtfkb's own brain. **76/76 green.**
 
-**M2b. Distiller write-side + counters — `[next build]`**
-The deterministic `Distiller` (session signals → candidate gotchas/decisions written **only** to
-`incoming`/unverified — containment) + an optional off-hot-path LLM distiller behind the same seam;
-the **append-only counter/signal stream** (aggregated at read) that drives corroborated promotion.
-- *Gate:* distiller writes only to `incoming` (a deterministic containment test); counters never mutate
-  an entry (append-only); promotion needs ≥N corroborating signals. The **build trigger was the operator
-  go-ahead** (2026-06-25) — the explicit-request escape hatch on the D7b volume gate; not speculative.
-- *Open sub-decision to settle in M2b:* counter storage (operational vs committed) + the realistic
-  deterministic distillation signal (current capture discards `tool_result`; M2b decides how much to retain).
+**M2b. Distiller write-side + counters — `[DONE]`** (`src/distiller.ts`, `src/counters.ts`, +`promoteIfCorroborated`)
+The deterministic `Distiller` (a captured **failure** → a candidate gotcha written **only** to
+`incoming`/unverified/agent-trust — containment) behind a `Distiller` seam an optional off-hot-path LLM
+distiller can later fill; the **append-only counter/signal stream** (aggregated at read) that drives
+corroborated promotion. **Recurrence = corroboration:** re-distilling the same error *signature* records a
+counter signal on the existing candidate instead of duplicating it.
+- *Gate — MET:* distiller writes only to `incoming`/unverified/agent (a deterministic **containment Brake**,
+  `test/distiller.test.ts`); counters never mutate an entry (append-only test — entry text+`updated` byte-stable);
+  promotion needs ≥`PROMOTION_THRESHOLD` net corroborating signals (`promoteIfCorroborated` refuses below it —
+  "auto-distill alone cannot mint trusted knowledge"); 84/84 green; dogfooded on `.vtfkb` (clean no-op, no
+  pollution) + full loop proven in a temp brain. The build trigger was the operator go-ahead (2026-06-25).
+- *Sub-decisions settled (2026-06-25):* **(a) counter storage = operational/gitignored** at
+  `<brain>/.signals/counters.jsonl`, mirroring `.sessions` — the durable effect (promotion) lands in the
+  committed `entries.jsonl` SoR, so raw tallies stay append-only agent-trust telemetry (survive restart, not
+  clone); keeps the brain the single committed SoR. **(b) `tool_result` retention = minimal bounded outcome**
+  — capture now classifies each call ok/error (`classifyToolOutcome`) and keeps a ≤120-char summary
+  (`capture:ok|error` tag + `→ <summary>`); structured signals (isError/exit/stderr) are authoritative,
+  enough for a deterministic error→gotcha distiller without storing full results; the no-secrets lint covers it.
 
 **M3. Session-continuity Phase B — `[blocked on M2b]`**
 Fold auto-distilled knowledge into the continuity record (the digest gains real learned lessons,
@@ -115,7 +126,7 @@ new ADR superseding the Tier-C clause) only when they are fixed.* No work until 
 
 ## 4. Ratified order + execution protocol
 
-**Order (ratified 2026-06-25):** `M1 ✅ → RFC-006 ✅ → M2a ✅ → M2b → M3`, with **S1 built only if its
+**Order (ratified 2026-06-25):** `M1 ✅ → RFC-006 ✅ → M2a ✅ → M2b ✅ → M3`, with **S1 built only if its
 evidence trigger fires** and **P1 only if upstream unblocks**. One build in flight at a time; each behind
 an accepted ADR.
 
@@ -138,18 +149,20 @@ In all three cases the response is the same: **update this roadmap and re-ratify
 — never leave the next step to an ad-hoc question. (Scope: in-repo `vtfkb` only; vafi/vtaskforge
 work stays out-of-scope/HITL per H2.)
 
-### ▶ Current action — **M2b: distiller write-side + counters**
-M1 ✅, RFC-006 ✅ (→ ADR-0021), **M2a ✅** (`ee45289`, 76/76 — curator + the never-rewrite Brake +
-quality regression, dogfooded). **Next action: build M2b** — the deterministic `Distiller` (session
-signals → candidate gotchas/decisions, **`incoming`-only**, containment-tested) + the append-only
-counter stream (aggregated at read) driving corroborated promotion; optional off-hot-path LLM distiller
-behind the same seam. Settle the two sub-decisions named in §3 M2b (counter storage; how much
-`tool_result` to retain for deterministic distillation). On M2b green → **M3** (continuity Phase B folds
-distilled `incoming` lessons into the resume digest, trust-labelled).
+### ▶ Current action — **M3: session-continuity Phase B**
+M1 ✅, RFC-006 ✅ (→ ADR-0021), **M2a ✅** (`ee45289`), **M2b ✅** (distiller + counters + corroborated
+promotion, 84/84, dogfooded — both sub-decisions settled in §3 M2b). **Next action: build M3** — fold the
+auto-distilled `incoming` lessons into the resume digest, **trust-labelled** (ADR-0005), so a resuming
+session sees the real learned gotchas, not just counts. **Gate:** the digest surfaces distilled `incoming`
+lessons trust-labelled, and the M1 "cannot go stale" property still holds — the digest stays **derived**
+from the live brain at render time, never a stored prose blob. Dogfood on `.vtfkb`; behind ADR-0020.
 
 *Milestones for the record:* **M1** = derived append-only continuity record + resume render (6/6 DoD).
 **M2a** = curator deltas-only ops + the structural Brake (text byte-identical) + retrieval-quality
-regression. Both dogfooded on vtfkb's own brain; both behind accepted ADRs (0020 / 0021).
+regression. **M2b** = deterministic distiller (failure→candidate gotcha, `incoming`-only containment Brake)
++ append-only counter stream (aggregated at read) + corroborated promotion (`promoteIfCorroborated`);
+capture now retains a bounded ok/error outcome. All dogfooded on vtfkb's own brain; each behind an accepted
+ADR (0020 / 0021).
 
 ---
 
