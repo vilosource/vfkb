@@ -1,8 +1,8 @@
 # RFC-005: Session continuity = a derived, append-only knowledge-continuity record (vtfkb's half of the vtf/vtfkb seam) — not a hand-written handoff slot
 
-- **Status:** Proposed
+- **Status:** Accepted → [ADR-0020](../adr/ADR-0020-session-continuity-record.md)
 - **Date:** 2026-06-25
-- **Deciders:** operator + Claude (proposed — comment period open)
+- **Deciders:** operator + Claude (accepted; build sequenced in the H4 roadmap)
 - **Refines (on acceptance):** applies [D1](../DESIGN.md) (content-vs-work-state scope split;
   vtfkb owns *knowledge handover*, vtf owns *work-state handover*) and extends
   [ADR-0015](../adr/ADR-0015-cross-harness-auto-layer.md) Tier A (session-start injection) +

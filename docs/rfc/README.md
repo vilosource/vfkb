@@ -20,7 +20,7 @@ role-attributed; options under discussion live in the RFC's Decision/text.
 | [RFC-002](RFC-002-honest-no-match-contract.md) | Search reports an explicit, cause-distinguished no-match | Accepted → [ADR-0018](../adr/ADR-0018-honest-no-match-contract.md) |
 | [RFC-003](RFC-003-embedding-accuracy-mode.md) | The EmbeddingReranker ships as an opt-in "accuracy mode" search tier | Proposed |
 | [RFC-004](RFC-004-self-hosted-design-brain.md) | vtfkb self-hosts its own design-brain (commit `.vtfkb/`; ADRs link-not-copy) | Accepted → [ADR-0019](../adr/ADR-0019-self-hosted-design-brain.md) |
-| [RFC-005](RFC-005-session-continuity-record.md) | Session continuity = a derived, append-only knowledge-continuity record (vtfkb's half of the vtf/vtfkb seam) | Proposed |
+| [RFC-005](RFC-005-session-continuity-record.md) | Session continuity = a derived, append-only knowledge-continuity record (vtfkb's half of the vtf/vtfkb seam) | Accepted → [ADR-0020](../adr/ADR-0020-session-continuity-record.md) |
 
 RFC-001..003 were drafted 2026-06-15 from a study of AnythingLLM (Mintplex Labs)
 retrieval mechanics mapped onto vtfkb's substrate. All three **refine

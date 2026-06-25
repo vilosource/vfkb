@@ -163,6 +163,12 @@ promotion, and the Context Map Glossary/Routing layers. Same engine, new service
 Embedding reranker (when phrasing-robustness is needed — ADR-0016 G1), ACE
 curator/auto-distill, per-turn CC injection parity, session-continuity tier.
 
+> **Sequenced in [H4-DEVELOPMENT-ROADMAP](H4-DEVELOPMENT-ROADMAP.md) (2026-06-25).** Progress since
+> this doc: search hardened (ADR-0017/0018), self-hosted design-brain shipped (ADR-0019),
+> session-continuity **accepted** (ADR-0020 / RFC-005, build next). Build order: continuity Phase A
+> → RFC-006 for auto-distill/ACE → that build → continuity Phase B; embedding reranker (RFC-003)
+> stays evidence-gated; Claude Code per-turn parity stays upstream-blocked.
+
 ---
 
 ## 5. Critical path & the first step
