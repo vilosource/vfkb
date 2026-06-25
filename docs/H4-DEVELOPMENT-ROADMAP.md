@@ -13,7 +13,8 @@
 
 ## 1. Where we are (status snapshot, 2026-06-25)
 
-`main` is green (64/64 unit) and the per-project tier (v1) is shipped. Beyond v1:
+`main` is green (**69/69** unit). v1 (per-project tier) is shipped; **M1 (session-continuity Phase A)
+shipped 2026-06-25** (`ff61215`); **RFC-006 (auto-distill/ACE) drafted — Proposed**. Beyond that:
 
 | Area | State |
 |---|---|
@@ -21,8 +22,8 @@
 | Self-hosted design-brain | **[done]** ADR-0019 — vtfkb dogfoods its own `.vtfkb/` (committed SoR + ADR/RFC link-index) |
 | L4 cross-model eval | **[done]** 5 harness/model records, 22 scenarios each (deepseek-v4-pro 22/22; 2 known divergences: `tool-gating`, `capture-recall`) |
 | Dogfood smoke | **[done]** check 6 hardened — deterministic `tools/list` preflight (6a) + bounded LLM retry (6b) |
-| **Session continuity** | **[accepted]** ADR-0020 / RFC-005 — **build sequenced below (the immediate next work)** |
-| Auto-distill / ACE curator | **[designed]** D7b — needs an RFC before build |
+| **Session continuity** | **[Phase A DONE]** ADR-0020 / RFC-005 — M1 shipped (`ff61215`, 69/69); Phase B = M3 (pending M2) |
+| Auto-distill / ACE curator | **[Proposed]** RFC-006 (D7b, IMPL-PLAN L12) — shape + safety rails decided; awaiting acceptance, build evidence-gated |
 | Embedding reranker | **[proposed]** RFC-003 — evidence-gated, do **not** build speculatively |
 | Per-turn injection on Claude Code | **[external-blocked]** ADR-0015 Tier C — waits on upstream hook fixes |
 
@@ -34,9 +35,9 @@
   ADR-0019 self-hosted brain ──┐ (every enhancement below dogfoods here first)
                                │
   ADR-0020 session-continuity ─┤
-     Phase A: record + resume render ── independent, in-repo, NOW
+     Phase A: record + resume render ── ✅ DONE (M1, ff61215)
      Phase B: auto-distilled knowledge ──────────► needs ▼
-                                                   D7b auto-distill / ACE  (RFC-006, next)
+                                                   D7b auto-distill / ACE  (RFC-006 — Proposed, awaiting accept)
                                                       └─ curator = deltas-not-rewrites (IMPL-PLAN L12)
 
   RFC-003 embedding reranker ── independent track, EVIDENCE-GATED (2nd phrasing miss | explicit ask)
@@ -65,17 +66,21 @@ ASSERTED) + the Tier-A **resume render** + `resume`/`resume-note` CLI + `kb_resu
 - ✅ Gate met: `test/resume.test.ts` proves the digest **cannot go stale** (a mutated brain
   re-derives a different digest from the SAME record) — the deterministic P2 backstop. **69/69 green.**
 
-**M2. Auto-distill / ACE — `[designed → draft RFC-006 next]`** (D7b, IMPL-PLAN L12)
+**M2. Auto-distill / ACE — `[RFC-006 Proposed → awaiting acceptance, then build]`** (D7b, IMPL-PLAN L12)
 The write side (distil gotchas/decisions from a session into the `incoming` zone) + the curator
 (prune/merge/promote/dedupe **by deltas + counters, never whole-entry rewrites** — the L12 scar).
-- *Author RFC-006 before any build* (this is the riskiest item — an over-eager curator that
-  deletes good knowledge is the worst memory failure; decide the shape + the safety rails first).
-- *Gate:* curator emits only append-only entries / status transitions (no destructive edits);
-  a regression proves a curation pass never lowers retrieval quality on a fixed corpus.
+- ✅ *Shape + safety rails decided* in [RFC-006](rfc/RFC-006-auto-distill-and-curator.md) (the riskiest
+  item — an over-eager curator deleting good knowledge is the worst memory failure; designed before build).
+- *Gate (build):* auto-distill writes only to `incoming`/unverified (containment); a **structural Brake**
+  fails the build on any in-place rewrite; counters are append-only (aggregated at read); a regression
+  proves a curation pass never lowers retrieval quality on a fixed corpus. Build is **evidence-gated**
+  (D7b — when explicit-write volume becomes the bottleneck).
 
 **M3. Session-continuity Phase B — `[blocked on M2]`**
 Fold auto-distilled knowledge into the continuity record (the digest gains real learned lessons,
 not just counts). Ships after M2 lands.
+- *Gate:* the resume digest surfaces distilled `incoming` lessons **trust-labelled** (ADR-0005), and the
+  M1 "cannot go stale" property still holds (the digest stays derived, never a stored prose blob).
 
 ### Track 2 — Search robustness (embeddings)  *(parallel, evidence-gated)*
 
@@ -97,9 +102,9 @@ new ADR superseding the Tier-C clause) only when they are fixed.* No work until 
 
 ## 4. Ratified order + execution protocol
 
-**Order (ratified 2026-06-25):** `M1 → RFC-006 → M2 → M3`, with **S1 built only if its evidence
-trigger fires** and **P1 only if upstream unblocks**. One build in flight at a time; each behind an
-accepted ADR.
+**Order (ratified 2026-06-25):** `M1 ✅ → RFC-006 ✅ (Proposed) → M2 build → M3`, with **S1 built only
+if its evidence trigger fires** and **P1 only if upstream unblocks**. One build in flight at a time;
+each behind an accepted ADR.
 
 **This order is a standing authorization, not a menu.** For in-repo vtfkb development, this roadmap
 *is* the decision — proceed through it in order **without per-step approval**. Do **not** ask "what's
@@ -116,18 +121,18 @@ In all three cases the response is the same: **update this roadmap and re-ratify
 — never leave the next step to an ad-hoc question. (Scope: in-repo `vtfkb` only; vafi/vtaskforge
 work stays out-of-scope/HITL per H2.)
 
-### ▶ Current action — **M2: draft RFC-006 (auto-distill / ACE)**
-M1 is **DONE** (`ff61215`, 69/69 green — all 6 DoD items met). Per the protocol the pointer
-advanced automatically. **Next action: draft RFC-006** deciding the *shape* of auto-distill (the
-write side: distil gotchas/decisions from a session into `incoming`) + the curator (prune/merge/
-promote/dedupe **by deltas + counters, never whole-entry rewrites** — IMPL-PLAN L12). RFC-006 is the
-riskiest item (an over-eager curator that deletes good knowledge is the worst memory failure), so it
-gets an RFC + safety rails **before any build**. On acceptance → ADR + build (M2), which then unlocks
-**M3** (continuity Phase B folds distilled knowledge into the resume digest).
+### ▶ Current action — **awaiting decision: accept RFC-006, then build M2**
+M1 ✅ (`ff61215`, 69/69 green) and RFC-006 ✅ drafted
+([Proposed](rfc/RFC-006-auto-distill-and-curator.md)). The roadmap now sits at its one designated
+**decision gate** (ADR-0007 comment period): **RFC-006 acceptance**. On **accept** → promote to an ADR
+and **build M2** (deterministic distiller to `incoming` + curator deltas/counters + the structural
+Brake + the retrieval-quality regression), which then unlocks **M3** (continuity Phase B). This is a
+decision gate, not a "what's next" poll — execution resumes automatically on acceptance.
 
-*Prior milestone (for the record):* **M1 DoD** was (1) append-only `SessionState` record; (2) derived
+*Milestones for the record:* **M1 DoD** (all ✅) = (1) append-only `SessionState` record; (2) derived
 digest; (3) Tier-A resume render (ADR-0005 + 10k budget); (4) `kb_resume` CLI+MCP; (5) dogfood on
-vtfkb's own brain; (6) deterministic "cannot go stale" test — all ✅.
+vtfkb's own brain; (6) deterministic "cannot go stale" test. **RFC-006** decided M2's shape + the
+three safety rails (containment-by-zone, never-rewrite Brake, quality regression).
 
 ---
 
@@ -153,6 +158,7 @@ These are the invariants every item above must honour — they are *why* the pla
 
 ## 6. Provenance
 Grounded in [STATUS-AND-ROADMAP](STATUS-AND-ROADMAP.md) §3–4, [DESIGN](DESIGN.md) (D1 seam, D7b),
-[IMPLEMENTATION-PLAN](IMPLEMENTATION-PLAN.md) (L12 deltas-not-rewrites), ADRs 0005/0012/0013/0014/0015/0016/0019/0020,
-RFC-003/005, and the 2026-06-25 session (L4-eval ground-truthing, ADR-0019 build, check-6 hardening,
-RFC-005 acceptance).
+[IMPLEMENTATION-PLAN](IMPLEMENTATION-PLAN.md) (L12 deltas-not-rewrites), ADRs
+0001/0004/0005/0011/0012/0013/0014/0015/0016/0017/0018/0019/0020, RFC-003/005/006, and the 2026-06-25
+session (L4-eval ground-truthing, ADR-0019 build, check-6 hardening, RFC-005 acceptance → ADR-0020, M1
+build `ff61215`, RFC-006 draft).
