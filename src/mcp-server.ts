@@ -12,6 +12,7 @@ import {
   deriveTrust,
   readAll,
   renderContextMap,
+  renderResume,
   supersede,
   transitionDecision,
 } from './engine.js';
@@ -202,6 +203,16 @@ server.registerTool(
     const e = transitionDecision(a.id, a.status);
     return text(`transitioned ${line(e)}`);
   },
+);
+
+server.registerTool(
+  'kb_resume',
+  {
+    description:
+      'Session-continuity resume (ADR-0020): the prior session’s derived digest (what was added/superseded/injected/captured — recomputed from the brain, so never stale) + the live knowledge bundle. Pull this to see where the last session left off.',
+    inputSchema: {},
+  },
+  async () => text(renderResume(process.env.VTFKB_PROJECT || 'spike')),
 );
 
 async function main(): Promise<void> {
