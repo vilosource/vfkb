@@ -9,9 +9,11 @@ import {
   renderContextBundle,
   renderContextMap,
   renderNaiveDump,
+  renderResume,
   supersede,
   deriveTrust,
 } from './engine.js';
+import { SessionState } from './session.js';
 import { queryExplained } from './read.js';
 import { isBrainWrite, GATING_REASON } from './gating.js';
 import { save } from './git.js';
@@ -76,6 +78,33 @@ async function main() {
 
   if (cmd === 'map') {
     process.stdout.write(renderContextMap() + '\n');
+    return;
+  }
+
+  // resume [project]: the session-continuity render (ADR-0020) — prior-session
+  // digest (derived) + the live knowledge bundle. The MCP-pull-floor / CLI face.
+  if (cmd === 'resume') {
+    const project = (sub && !sub.startsWith('--') ? sub : undefined) || process.env.VTFKB_PROJECT || 'spike';
+    process.stdout.write(renderResume(project, SessionState.load()) + '\n');
+    return;
+  }
+
+  // resume-note <text...>: attach an ASSERTED operator intent ("next: …") to the
+  // current session's record. Persists only with KB_SESSION_ID (else ephemeral).
+  if (cmd === 'resume-note') {
+    const session = SessionState.load();
+    const note = cleanText([sub, ...rest].filter((a) => a !== undefined));
+    if (!note) {
+      process.stderr.write('usage: vtfkb resume-note <text>\n');
+      process.exit(1);
+    }
+    session.setNote(note);
+    session.save();
+    process.stdout.write(
+      session.sessionId
+        ? `noted for session ${session.sessionId}: ${note}\n`
+        : `note set (ephemeral — set KB_SESSION_ID to persist): ${note}\n`,
+    );
     return;
   }
 
@@ -144,9 +173,14 @@ async function main() {
       const project = process.env.VTFKB_PROJECT || 'spike';
       // --naive = the mykb-v1-style flat dump (L4 contrast baseline only); --limit N truncates it.
       const lim = flag(rest, 'limit');
+      // The Tier-A payload is the RESUME render (ADR-0020): prior-session digest +
+      // the live knowledge bundle, both derived. Persist this session's record so the
+      // NEXT session can resume from it (append-only; no-op without KB_SESSION_ID).
+      const session = SessionState.load();
       const additionalContext = rest.includes('--naive')
         ? renderNaiveDump(project, undefined, lim ? Number(lim) : undefined)
-        : renderContextBundle(project);
+        : renderResume(project, session);
+      session.save();
       process.stdout.write(
         JSON.stringify({
           hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext },
@@ -158,12 +192,18 @@ async function main() {
       const raw = await readStdin();
       try {
         const payload = JSON.parse(raw || '{}');
-        captureToolCall({
+        const captured = captureToolCall({
           tool_name: payload.tool_name,
           tool_input: payload.tool_input,
           tool_result: payload.tool_result,
           call_id: payload.call_id || payload.tool_use_id,
         });
+        // record the captured id into the session log (Tier-B → continuity signal).
+        if (captured) {
+          const session = SessionState.load();
+          session.recordCaptured(captured.id);
+          session.save();
+        }
       } catch {
         /* malformed payload: capture nothing, never block the tool (exit 0) */
       }
@@ -203,7 +243,7 @@ async function main() {
   }
 
   process.stderr.write(
-    'usage: vtfkb <add|list|search|query|map|save|context-block|' +
+    'usage: vtfkb <add|list|search|query|map|resume|resume-note|save|context-block|' +
       'hook session-start|hook pre-tool-use|hook post-tool-use>\n',
   );
   process.exit(1);

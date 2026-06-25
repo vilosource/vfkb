@@ -8,7 +8,8 @@ import { randomBytes } from 'node:crypto';
 import { appendRecord, materialize, readRecords } from './storage.js';
 import { selectIndex } from './index-store.js';
 import { assertNoSecrets } from './secrets.js';
-import type { SessionState } from './session.js';
+import { SessionState } from './session.js';
+import type { SessionData } from './session.js';
 import type { KbIndex } from './index-store.js';
 import type {
   AuthorRole,
@@ -476,4 +477,53 @@ export function renderContextDelta(session: SessionState, project = 'spike'): st
   session.markInjected(fresh.map((e) => e.id));
   const lines = fresh.map((e) => `- [${e.type} ${trustGlyph(e)}] ${e.text}`).join('\n');
   return `<vtfkb-context-delta project="${project}">\n${lines}\n</vtfkb-context-delta>`;
+}
+
+// =========================================================================
+// Session continuity (ADR-0020 / RFC-005) — vtfkb's knowledge half of the
+// vtf/vtfkb seam. The resume DIGEST is DERIVED from a session record's signals
+// against the LIVE brain at render time, never a stored prose blob — so it
+// cannot go stale (the failure that opened this work). The "Resume" view is a
+// Tier-A render: the prior-session digest + the live knowledge bundle, both
+// re-derived from ground truth and budgeted to the 10k cap.
+// =========================================================================
+
+// Entries created within a session's [startedAt, lastAt] window — recomputed from
+// the live brain, so a since-deleted/tombstoned entry never reappears (anti-stale).
+function sessionWindow(all: KnowledgeEntry[], from: string, to: string) {
+  const added = all.filter((e) => e.created >= from && e.created <= to);
+  const superseded = added.filter((e) => e.refs?.supersedes); // each new edge = one supersession in-window
+  return { added, superseded };
+}
+
+// Render a single session record as a derived digest. Observed facts (added/
+// superseded counts) come from the live brain; the note + caller signals are
+// labelled ASSERTED (verified-vs-asserted — the discipline whose absence produced
+// the stale-L4 claim).
+export function renderResumeDigest(rec: SessionData, all: KnowledgeEntry[] = readAll()): string {
+  const { added, superseded } = sessionWindow(all, rec.startedAt, rec.lastAt);
+  const when = (rec.lastAt ?? '').slice(0, 16).replace('T', ' ');
+  const lines = [
+    `## Resume — last recorded session (${when}Z)`,
+    `- observed (re-derived from the brain): ${added.length} entries added, ` +
+      `${superseded.length} superseded, ${rec.injectedIds?.length ?? 0} injected, ` +
+      `${rec.capturedIds?.length ?? 0} captured, ${rec.turnCount ?? 0} turns`,
+  ];
+  if (rec.note) lines.push(`- next (ASSERTED by operator, unverified): ${rec.note}`);
+  for (const s of rec.signals ?? []) lines.push(`- ${s.label} (ASSERTED by caller): ${s.value}`);
+  return lines.join('\n');
+}
+
+// The "Resume" render (ADR-0020 pt 5): the most recent PRIOR session's digest +
+// the live Tier-A knowledge bundle, budgeted to the 10k cap. Both halves are
+// derived from ground truth at call time.
+export function renderResume(project = 'spike', session: SessionState = SessionState.load()): string {
+  const all = readAll();
+  const prior = SessionState.records().find((r) => r.sessionId !== session.sessionId);
+  const digest = prior
+    ? renderResumeDigest(prior, all)
+    : '## Resume\n- (first recorded session — no prior continuity)';
+  const head = `<vtfkb-resume project="${project}">\n${digest}\n</vtfkb-resume>`;
+  const bundle = renderContextBundle(project, Math.max(0, SESSION_BUDGET_CHARS - head.length - 1));
+  return `${head}\n${bundle}`;
 }
