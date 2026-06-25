@@ -13,8 +13,9 @@
 
 ## 1. Where we are (status snapshot, 2026-06-25)
 
-`main` is green (**69/69** unit). v1 (per-project tier) is shipped; **M1 (session-continuity Phase A)
-shipped 2026-06-25** (`ff61215`); **RFC-006 (auto-distill/ACE) drafted — Proposed**. Beyond that:
+`main` is green (**76/76** unit). v1 (per-project tier) is shipped; **M1 (session-continuity Phase A)
+shipped** (`ff61215`); **RFC-006 accepted → ADR-0021**; **M2a (ACE curator safety foundation) shipped**
+(`ee45289`). Next: **M2b** (distiller + counters). Beyond that:
 
 | Area | State |
 |---|---|
@@ -22,8 +23,8 @@ shipped 2026-06-25** (`ff61215`); **RFC-006 (auto-distill/ACE) drafted — Propo
 | Self-hosted design-brain | **[done]** ADR-0019 — vtfkb dogfoods its own `.vtfkb/` (committed SoR + ADR/RFC link-index) |
 | L4 cross-model eval | **[done]** 5 harness/model records, 22 scenarios each (deepseek-v4-pro 22/22; 2 known divergences: `tool-gating`, `capture-recall`) |
 | Dogfood smoke | **[done]** check 6 hardened — deterministic `tools/list` preflight (6a) + bounded LLM retry (6b) |
-| **Session continuity** | **[Phase A DONE]** ADR-0020 / RFC-005 — M1 shipped (`ff61215`, 69/69); Phase B = M3 (pending M2) |
-| Auto-distill / ACE curator | **[Proposed]** RFC-006 (D7b, IMPL-PLAN L12) — shape + safety rails decided; awaiting acceptance, build evidence-gated |
+| **Session continuity** | **[Phase A DONE]** ADR-0020 / RFC-005 — M1 shipped (`ff61215`); Phase B = M3 (pending M2b) |
+| Auto-distill / ACE curator | **[M2a DONE, M2b next]** RFC-006 → ADR-0021 — curator + never-rewrite Brake shipped (`ee45289`); distiller + counters = M2b |
 | Embedding reranker | **[proposed]** RFC-003 — evidence-gated, do **not** build speculatively |
 | Per-turn injection on Claude Code | **[external-blocked]** ADR-0015 Tier C — waits on upstream hook fixes |
 
@@ -37,7 +38,7 @@ shipped 2026-06-25** (`ff61215`); **RFC-006 (auto-distill/ACE) drafted — Propo
   ADR-0020 session-continuity ─┤
      Phase A: record + resume render ── ✅ DONE (M1, ff61215)
      Phase B: auto-distilled knowledge ──────────► needs ▼
-                                                   D7b auto-distill / ACE  (RFC-006 — Proposed, awaiting accept)
+                                                   D7b auto-distill / ACE  (RFC-006 → ADR-0021; M2a ✅, M2b next)
                                                       └─ curator = deltas-not-rewrites (IMPL-PLAN L12)
 
   RFC-003 embedding reranker ── independent track, EVIDENCE-GATED (2nd phrasing miss | explicit ask)
@@ -66,17 +67,29 @@ ASSERTED) + the Tier-A **resume render** + `resume`/`resume-note` CLI + `kb_resu
 - ✅ Gate met: `test/resume.test.ts` proves the digest **cannot go stale** (a mutated brain
   re-derives a different digest from the SAME record) — the deterministic P2 backstop. **69/69 green.**
 
-**M2. Auto-distill / ACE — `[RFC-006 Proposed → awaiting acceptance, then build]`** (D7b, IMPL-PLAN L12)
-The write side (distil gotchas/decisions from a session into the `incoming` zone) + the curator
-(prune/merge/promote/dedupe **by deltas + counters, never whole-entry rewrites** — the L12 scar).
-- ✅ *Shape + safety rails decided* in [RFC-006](rfc/RFC-006-auto-distill-and-curator.md) (the riskiest
-  item — an over-eager curator deleting good knowledge is the worst memory failure; designed before build).
-- *Gate (build):* auto-distill writes only to `incoming`/unverified (containment); a **structural Brake**
-  fails the build on any in-place rewrite; counters are append-only (aggregated at read); a regression
-  proves a curation pass never lowers retrieval quality on a fixed corpus. Build is **evidence-gated**
-  (D7b — when explicit-write volume becomes the bottleneck).
+**M2 = ACE auto-distill (RFC-006 → ADR-0021), split into two build slices:**
 
-**M3. Session-continuity Phase B — `[blocked on M2]`**
+**M2a. Curator safety foundation — `[DONE 2026-06-25, ee45289]`**
+The load-bearing safety half (built first because it is *why* this was ADR'd). `src/curator.ts`:
+delta-only, text-preserving ops — `promote` (incoming→established), `archive`, `mergeDuplicate`
+(archive loser + auditable tag), `findLexicalDuplicates` (proposes, never acts); decisions stay
+supersede/transition-only.
+- ✅ Gate met: **the structural Brake** (`test/curator.test.ts`) asserts every op leaves entry text
+  **byte-identical** — any in-place rewrite fails the build (L12 can't sneak in via prose). Plus a
+  **retrieval-quality regression** (a dedup pass keeps the answer surfacing, drops only the duplicate).
+  CLI `curate`; dogfooded on vtfkb's own brain. **76/76 green.**
+
+**M2b. Distiller write-side + counters — `[next build]`**
+The deterministic `Distiller` (session signals → candidate gotchas/decisions written **only** to
+`incoming`/unverified — containment) + an optional off-hot-path LLM distiller behind the same seam;
+the **append-only counter/signal stream** (aggregated at read) that drives corroborated promotion.
+- *Gate:* distiller writes only to `incoming` (a deterministic containment test); counters never mutate
+  an entry (append-only); promotion needs ≥N corroborating signals. The **build trigger was the operator
+  go-ahead** (2026-06-25) — the explicit-request escape hatch on the D7b volume gate; not speculative.
+- *Open sub-decision to settle in M2b:* counter storage (operational vs committed) + the realistic
+  deterministic distillation signal (current capture discards `tool_result`; M2b decides how much to retain).
+
+**M3. Session-continuity Phase B — `[blocked on M2b]`**
 Fold auto-distilled knowledge into the continuity record (the digest gains real learned lessons,
 not just counts). Ships after M2 lands.
 - *Gate:* the resume digest surfaces distilled `incoming` lessons **trust-labelled** (ADR-0005), and the
@@ -102,9 +115,13 @@ new ADR superseding the Tier-C clause) only when they are fixed.* No work until 
 
 ## 4. Ratified order + execution protocol
 
-**Order (ratified 2026-06-25):** `M1 ✅ → RFC-006 ✅ (Proposed) → M2 build → M3`, with **S1 built only
-if its evidence trigger fires** and **P1 only if upstream unblocks**. One build in flight at a time;
-each behind an accepted ADR.
+**Order (ratified 2026-06-25):** `M1 ✅ → RFC-006 ✅ → M2a ✅ → M2b → M3`, with **S1 built only if its
+evidence trigger fires** and **P1 only if upstream unblocks**. One build in flight at a time; each behind
+an accepted ADR.
+
+*Gate-resolution note (2026-06-25):* the M2 *build* is evidence-gated (D7b — write-volume bottleneck),
+which conflicted with the bare order. Resolved: an **explicit operator go-ahead** is a valid trigger
+(the same escape hatch S1 carries), and the operator gave it — so M2 builds now, non-speculatively.
 
 **This order is a standing authorization, not a menu.** For in-repo vtfkb development, this roadmap
 *is* the decision — proceed through it in order **without per-step approval**. Do **not** ask "what's
@@ -121,18 +138,18 @@ In all three cases the response is the same: **update this roadmap and re-ratify
 — never leave the next step to an ad-hoc question. (Scope: in-repo `vtfkb` only; vafi/vtaskforge
 work stays out-of-scope/HITL per H2.)
 
-### ▶ Current action — **awaiting decision: accept RFC-006, then build M2**
-M1 ✅ (`ff61215`, 69/69 green) and RFC-006 ✅ drafted
-([Proposed](rfc/RFC-006-auto-distill-and-curator.md)). The roadmap now sits at its one designated
-**decision gate** (ADR-0007 comment period): **RFC-006 acceptance**. On **accept** → promote to an ADR
-and **build M2** (deterministic distiller to `incoming` + curator deltas/counters + the structural
-Brake + the retrieval-quality regression), which then unlocks **M3** (continuity Phase B). This is a
-decision gate, not a "what's next" poll — execution resumes automatically on acceptance.
+### ▶ Current action — **M2b: distiller write-side + counters**
+M1 ✅, RFC-006 ✅ (→ ADR-0021), **M2a ✅** (`ee45289`, 76/76 — curator + the never-rewrite Brake +
+quality regression, dogfooded). **Next action: build M2b** — the deterministic `Distiller` (session
+signals → candidate gotchas/decisions, **`incoming`-only**, containment-tested) + the append-only
+counter stream (aggregated at read) driving corroborated promotion; optional off-hot-path LLM distiller
+behind the same seam. Settle the two sub-decisions named in §3 M2b (counter storage; how much
+`tool_result` to retain for deterministic distillation). On M2b green → **M3** (continuity Phase B folds
+distilled `incoming` lessons into the resume digest, trust-labelled).
 
-*Milestones for the record:* **M1 DoD** (all ✅) = (1) append-only `SessionState` record; (2) derived
-digest; (3) Tier-A resume render (ADR-0005 + 10k budget); (4) `kb_resume` CLI+MCP; (5) dogfood on
-vtfkb's own brain; (6) deterministic "cannot go stale" test. **RFC-006** decided M2's shape + the
-three safety rails (containment-by-zone, never-rewrite Brake, quality regression).
+*Milestones for the record:* **M1** = derived append-only continuity record + resume render (6/6 DoD).
+**M2a** = curator deltas-only ops + the structural Brake (text byte-identical) + retrieval-quality
+regression. Both dogfooded on vtfkb's own brain; both behind accepted ADRs (0020 / 0021).
 
 ---
 
@@ -159,6 +176,6 @@ These are the invariants every item above must honour — they are *why* the pla
 ## 6. Provenance
 Grounded in [STATUS-AND-ROADMAP](STATUS-AND-ROADMAP.md) §3–4, [DESIGN](DESIGN.md) (D1 seam, D7b),
 [IMPLEMENTATION-PLAN](IMPLEMENTATION-PLAN.md) (L12 deltas-not-rewrites), ADRs
-0001/0004/0005/0011/0012/0013/0014/0015/0016/0017/0018/0019/0020, RFC-003/005/006, and the 2026-06-25
+0001/0004/0005/0011/0012/0013/0014/0015/0016/0017/0018/0019/0020/0021, RFC-003/005/006, and the 2026-06-25
 session (L4-eval ground-truthing, ADR-0019 build, check-6 hardening, RFC-005 acceptance → ADR-0020, M1
-build `ff61215`, RFC-006 draft).
+build `ff61215`, RFC-006 → ADR-0021 + M2a curator `ee45289`).
