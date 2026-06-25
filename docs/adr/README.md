@@ -37,3 +37,4 @@ Immutable records of significant vtfkb architecture decisions, in
 | [ADR-0018](ADR-0018-honest-no-match-contract.md) | Search reports a cause-distinguished honest no-match (empty_topic/no_match/all_filtered); amends ADR-0016 | Accepted |
 | [ADR-0019](ADR-0019-self-hosted-design-brain.md) | vtfkb self-hosts its own design-brain (commit `.vtfkb/`; ADRs link-not-copy); applies D2c + D1.4 to vtfkb's repo | Accepted |
 | [ADR-0020](ADR-0020-session-continuity-record.md) | Session continuity = a derived, append-only knowledge-continuity record (vtfkb's half of the vtf/vtfkb seam) | Accepted (build sequenced) |
+| [ADR-0021](ADR-0021-auto-distill-and-curator.md) | Auto-distill + ACE curator — capture distils to `incoming`; curation is deltas + counters, never rewrites | Accepted (build sequenced) |
