@@ -29,14 +29,17 @@ if (records.length === 0) { console.error('no records to compare'); process.exit
 const models = records.map((r) => `${r.provider}/${r.model}`);
 const allIds = [...new Set(records.flatMap((r) => Object.keys(r.scenarios || {})))].sort();
 
-const cell = (rec, id) => {
+// Diff logic keys on the demonstrated verdict only; display shows the trial pass-rate.
+const demoOf = (rec, id) => { const s = rec.scenarios?.[id]; return s ? (s.demonstrated ? 'YES' : 'no') : '-'; };
+const renderCell = (rec, id) => {
   const s = rec.scenarios?.[id];
-  if (!s) return '   -   ';
-  return s.demonstrated ? '  YES  ' : ' .no.  ';
+  if (!s) return '-';
+  const rate = s.trials || (s.demonstrated ? '1/1' : '0/1');
+  return `${s.demonstrated ? 'YES' : '.no'} ${rate}`;
 };
 
 console.log('=== vtfkb L4 cross-model report card ===');
-records.forEach((r) => console.log(`  ${r.provider}/${r.model}  (sha ${r.vtfkb_sha}, ${Object.keys(r.scenarios || {}).length} scenarios, ${r.generated})`));
+records.forEach((r) => console.log(`  ${r.provider}/${r.model}  (sha ${r.vtfkb_sha}, ${Object.keys(r.scenarios || {}).length} scenarios${r.trials_n ? `, N=${r.trials_n}` : ''}${r.image_digest ? `, img ${String(r.image_digest).slice(0, 19)}` : ''}, ${r.generated})`));
 console.log('');
 
 const idW = Math.max(10, ...allIds.map((i) => i.length));
@@ -44,10 +47,10 @@ console.log('scenario'.padEnd(idW) + ' | ' + models.map((m) => m.slice(0, 22).pa
 console.log('-'.repeat(idW) + '-+-' + models.map(() => '-'.repeat(22)).join('-+-'));
 const diffs = [];
 for (const id of allIds) {
-  const cells = records.map((r) => cell(r, id).trim());
-  const differ = new Set(cells.filter((c) => c !== '-')).size > 1;
+  const demos = records.map((r) => demoOf(r, id));
+  const differ = new Set(demos.filter((c) => c !== '-')).size > 1;
   if (differ) diffs.push(id);
-  console.log(id.padEnd(idW) + ' | ' + records.map((r) => cell(r, id).padEnd(22)).join(' | ') + (differ ? '  <-- DIFFERS' : ''));
+  console.log(id.padEnd(idW) + ' | ' + records.map((r) => renderCell(r, id).padEnd(22)).join(' | ') + (differ ? '  <-- DIFFERS' : ''));
 }
 
 console.log('');
