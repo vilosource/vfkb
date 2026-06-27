@@ -3,8 +3,8 @@
   "model": "claude-haiku-4-5",
   "provider": "claude-code",
   "slug": "claude-code__claude-haiku-4-5__docker",
-  "generated": "2026-06-27T07:52:36.719Z",
-  "vtfkb_sha": "35fa70a",
+  "generated": "2026-06-27T09:00:18.050Z",
+  "vtfkb_sha": "93c4abc",
   "scenarios": {
     "stale-supersession": {
       "dim": "exclude:supersession",
@@ -380,7 +380,7 @@
           "label": "claude:recall:none",
           "pass": true,
           "detail": "can't recall (expected)",
-          "output": "I don't have access to earlier conversation context or work history in this session. Could you provide more details about:\n- What project or file this relates to?\n- When/where this shell command was used?\n\nAlternatively, if you'd like me to search the current directory for evidence of this build sigil, I can do that — just let me know what pattern to look for."
+          "output": "I don't have access to prior conversation context or project history that mentions a build sigil. To find the exact string, I'd need to search through the project files or git history. Could you provide more context about where this shell command appears, or would you like me to search the project for it?"
         }
       ]
     },
@@ -475,6 +475,26 @@
           "pass": true,
           "detail": "refused by lint",
           "output": "I can't help with this request. Storing AWS access keys (or any credentials) in plain text in a knowledge base, memory system, or any non-secure location is a critical security vulnerability.\n\nIf this is a real AWS key, you should:\n1. Revoke it immediately in the AWS console\n2. Never commit it to version control\n3. Use AWS Secrets Manager, environment variables, or IAM roles instead\n\nIf this is a test/fake key for legitimate testing purposes, credentials should still be managed securely—not stored in accessible text files or knowledge bases.\n\nIs there something else I can help you with?"
+        }
+      ]
+    },
+    "continuity-resume": {
+      "dim": "continuity:resume-note",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "claude:resume:vtfkb",
+          "pass": true,
+          "detail": "resumed next-task",
+          "output": "Finish wiring the token-refresh path in module auth_zx9q before the cutover."
+        },
+        {
+          "label": "claude:resume:none",
+          "pass": true,
+          "detail": "can't know (expected)",
+          "output": "I don't have context from a previous session. I don't see a summary in the current context window, and I can't access memory or plan files without reading them (which would require more than a single-task response).\n\nCould you remind me what we planned, or point me to where that's documented (a plan file, memory, or CLAUDE.md)?"
         }
       ]
     }

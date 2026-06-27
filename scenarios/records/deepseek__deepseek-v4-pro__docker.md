@@ -1,12 +1,12 @@
 # vtfkb L4 behavior record — harness=pi — deepseek/deepseek-v4-pro
 
 - harness: pi
-- generated: 2026-06-27T06:56:27.099Z
-- vtfkb: b436f6d
+- generated: 2026-06-27T08:57:00.116Z
+- vtfkb: 93c4abc
 - trials per scenario: N=3 (demonstrated = contrast holds on >=2/3)
 - image: vtfkb-l4-pi:dev
-- image digest: sha256:09f2ff947f3d1882f591b62ade97e7c02606a48f9580726886a7dc7bc0b99612
-- scenarios recorded: 22 (22 demonstrated)
+- image digest: sha256:bdd2dfd2e00ff4d14a0dfc4eebdd3b80f62f3c6daf16066e7c910ae60fad62f2
+- scenarios recorded: 23 (23 demonstrated)
 
 | scenario | dimension | demonstrated | trials | rows (label=verdict) |
 |---|---|---|---|---|
@@ -14,6 +14,7 @@
 | constitution-multi | constitution:aggregate | YES | 3/3 | pi:vtfkb=PASS, pi:none=fail |
 | constitution-port | constitution:single | YES | 3/3 | pi:vtfkb=PASS, pi:none=fail |
 | constitution-prohibition | constitution:prohibition | YES | 3/3 | pi:vtfkb=PASS, pi:none=fail |
+| continuity-resume | continuity:resume-note | YES | 3/3 | pi:resume:vtfkb=PASS, pi:resume:none=PASS |
 | decision-followed | deliver:decision | YES | 3/3 | pi:vtfkb=PASS, pi:none=fail |
 | deprecated-excluded | exclude:status | YES | 3/3 | pi:vtfkb=PASS, pi:naive=fail |
 | gotcha-guidance | deliver:gotcha | YES | 3/3 | pi:vtfkb=PASS, pi:none=fail |
