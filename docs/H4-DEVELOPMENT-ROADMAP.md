@@ -321,14 +321,28 @@ query filter; no `kb_context`/context-doc) — RED contracts that need a build d
 None is Track-1-blocking. **Ratified follow-on order (operator, 2026-06-27)** — these were open decisions;
 the operator chose D-i next, so they are now sequenced here (the roadmap, not an ad-hoc poll, carries the
 order — §5 P8/roadmap-as-authority). Built scenario-first, lower priority than anything Track-1:
-- **D-i — `[active]`** build the `verified`/trust filter for `kb_search` (+ engine) → ship `verified-only-filter`
-  green. Small, in-scope for §3.6.
-- **D-iii** relabel trust on promotion so ADR-0021 §4's elevation is agent-visible (closes the Track-4
-  promotion-trust-render finding). Small ADR + engine.
-- **D-iv** capture tool *results* on pi (post-execution event) so pi can auto-distill live failures (closes the
-  Track-4 pi live-capture finding). Medium; **gated** on verifying pi's post-exec event API first.
-- **D-ii** build the context-doc + `kb_context` feature (FEATURES §3.7 / D-O8) → `kb-context-first-read`.
-  Largest; **its own RFC/ADR** before code. Sequenced last.
+- **D-i — `[active]`** build the `verified`/trust filter for `kb_search` (+ engine: filter on
+  `provenance.status === 'verified'`) → ship `verified-only-filter` green. Small, in-scope for §3.6 (already
+  decided) — **no new ADR**. *Autonomy: GO.*
+- **D-iii — shape pre-decided** relabel trust on promotion so ADR-0021 §4's elevation is agent-visible.
+  **Decided shape (operator-veto):** `promoteIfCorroborated` also sets `provenance.status = 'verified'`
+  (corroboration-by-recurrence *is* the "independent signal — a second agent" §3.6 requires; not the author
+  asserting), AND the distiller stops baking "(unverified)" into the immutable gotcha **text** so the derived
+  glyph carries trust (text-Brake-safe: change new distills, don't rewrite existing). Write a **short ADR**
+  recording this, then build + scenario. *Autonomy: GO (self-ratify the ADR; flag for operator glance).*
+- **D-iv — fallback decided** capture tool *results* on pi (post-execution event) so pi can auto-distill live
+  failures. **First verify pi's event API** (pi-types.ts only has `ToolCallEvent`): if a post-exec/result
+  event exists → build it; **if it does not → mark `external-blocked` (like P1), log, and skip to D-ii** — do
+  not block the run. *Autonomy: GO (verify-then-build-or-skip).*
+- **D-ii — autonomy ceiling** build the context-doc + `kb_context` feature (FEATURES §3.7 / D-O8). This is a
+  genuinely new feature with real design choices (where the doc is authored, stored, seeded, rendered).
+  **Procedure: draft the RFC, then PAUSE for operator review before any code** — this is the *one* designed
+  stop in the autonomous run. (NB: STATUS §2 over-claims this as shipped — it is not; corrected there.)
+
+> **Autonomy boundary (for an unattended run):** D-i → D-iii → D-iv proceed without operator input (shapes
+> pre-decided above; D-iii self-ratifies a short ADR, flagged for a glance; D-iv verifies-then-builds-or-skips).
+> The run **pauses at D-ii** by design — draft the RFC and bring it back. After D-ii, the in-repo H4 frontier
+> is exhausted; S1/P1 stay gated (triggers in §4 / Track 2–3); H2/H3 are parked. No other stop is expected.
 
 The two still-gated tracks are unchanged and NOT built on spec:
 - **S1 (embedding reranker, RFC-003)** — build *only* on a **2nd** live phrasing-robustness miss **or** an
@@ -377,7 +391,7 @@ These are the invariants every item above must honour — they are *why* the pla
 ## 6. Provenance
 Grounded in [STATUS-AND-ROADMAP](STATUS-AND-ROADMAP.md) §3–4, [DESIGN](DESIGN.md) (D1 seam, D7b),
 [IMPLEMENTATION-PLAN](IMPLEMENTATION-PLAN.md) (L12 deltas-not-rewrites), ADRs
-0001/0004/0005/0011/0012/0013/0014/0015/0016/0017/0018/0019/0020/0021/**0022**, RFC-003/005/006, and the
+0001/0004/0005/0011/0012/0013/0014/0015/0016/0017/0018/0019/0020/0021/**0022**/**0023**, RFC-003/005/006, and the
 2026-06-25 session (L4-eval ground-truthing, ADR-0019 build, check-6 hardening, RFC-005 acceptance →
 ADR-0020, M1 build `ff61215`, RFC-006 → ADR-0021 + M2a curator `ee45289`).
 **2026-06-27 re-ratification:** the L4 coverage audit (Track 1 had unit backstops but no L4 demonstration;
