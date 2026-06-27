@@ -88,6 +88,7 @@ server.registerTool(
   {
     description:
       'Search and filter project knowledge. Returns the freshest relevant entries (stale/superseded excluded by default). ' +
+      'Pass verified=true to get ONLY human-verified knowledge (excludes unverified agent-authored entries) — the trust filter. ' +
       'An empty result is reported as an honest, cause-distinguished no-match (nothing recorded / below relevance floor / all matches filtered as stale) — it means no recorded entry was found, NOT a licence to answer from model priors as if recorded.',
     inputSchema: {
       text: z.string().optional().describe('free-text query'),
@@ -96,6 +97,10 @@ server.registerTool(
       status: STATUS.optional().describe('effective decision status'),
       tags: z.string().optional().describe('comma-separated; entry must have ALL'),
       author_role: ROLE.optional(),
+      verified: z
+        .boolean()
+        .optional()
+        .describe('true → return ONLY verified knowledge (provenance verified); excludes unverified/agent-authored entries'),
       limit: z.number().int().positive().optional(),
       include_stale: z.boolean().optional(),
       include_superseded: z.boolean().optional(),
@@ -109,6 +114,7 @@ server.registerTool(
       status: a.status,
       tags: tags(a.tags),
       authorRole: a.author_role,
+      verifiedOnly: a.verified,
       limit: a.limit ?? SEARCH_DEFAULT_LIMIT,
       includeStale: a.include_stale,
       includeSuperseded: a.include_superseded,

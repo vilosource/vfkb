@@ -35,6 +35,7 @@ export interface QueryOpts {
   status?: DecisionStatus | DecisionStatus[]; // matched against EFFECTIVE status
   tags?: string[]; // entry must carry ALL of these
   authorRole?: AuthorRole | AuthorRole[];
+  verifiedOnly?: boolean; // FEATURES §3.6 trust filter → keep only provenance.status==='verified'
   includeStale?: boolean; // default false → apply the freshness gate (ADR-0005/0011)
   includeSuperseded?: boolean; // default false → drop entries behind a supersession edge
   minTermRatio?: number; // RFC-001 relevance floor; default DEFAULT_MIN_TERM_RATIO. 0 disables.
@@ -44,7 +45,7 @@ export interface QueryOpts {
 // RFC-002: why a search returned nothing. Each candidate the filter stage removes
 // is tallied by reason, so an empty result can be classified deterministically from
 // the pipeline counts (no heuristics) — never the agent's guess.
-export type DropReason = 'type' | 'zone' | 'role' | 'tags' | 'status' | 'superseded' | 'stale';
+export type DropReason = 'type' | 'zone' | 'role' | 'tags' | 'status' | 'provenance' | 'superseded' | 'stale';
 
 export type NoMatchReason =
   | 'empty_topic' // no lexical overlap at all (nothing recorded matches the wording)
@@ -112,6 +113,7 @@ function run(opts: QueryOpts = {}): SearchResult {
     if (types && !types.includes(e.type)) reason = 'type';
     else if (zones && !zones.includes(e.zone)) reason = 'zone';
     else if (roles && !roles.includes(e.author.role)) reason = 'role';
+    else if (opts.verifiedOnly && e.provenance.status !== 'verified') reason = 'provenance';
     else if (opts.tags && !opts.tags.every((t) => e.tags.includes(t))) reason = 'tags';
     else if (statuses) {
       const eff = effectiveStatus(e, superseded);

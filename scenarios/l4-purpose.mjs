@@ -654,6 +654,37 @@ const SCN = [
       return { rows, demonstrated: has(withMcp, 'xqz7-keepnull') && lacks(noMem, 'xqz7-keepnull') };
     },
   },
+  // ---- Trust gradient: kb_search `verified` filter returns ONLY verified knowledge ----
+  // FEATURES §3.6 — an agent can ask for verified-only. The server-side filter keeps
+  // provenance.status==='verified' (human-authored defaults to verified; executor hunch
+  // defaults to unverified). Contrast: WITH the filter the unverified token never reaches
+  // the agent; an unfiltered kb_search on the same topic still surfaces it. Written
+  // scenario-first (ADR-0023): run RED before the filter exists (the `verified` param is
+  // ignored → both tokens leak → fail) to prove it exercises the real path on each harness.
+  {
+    id: 'verified-only-filter', dim: 'mcp:verified-filter',
+    exec() {
+      const b = newBrain('vfilt');
+      // human-authored → provenance.status='verified' (the trusted answer)
+      kb(b, ['add', 'fact', 'The audit ledger checksum salt is VERIF-tok-7yh3q', '--role', 'human']);
+      // executor-authored → provenance.status='unverified' (an agent hunch on the SAME topic)
+      kb(b, ['add', 'fact', 'The audit ledger checksum salt is UNVER-tok-9qz4w', '--role', 'executor']);
+      // Mechanical-dump phrasing (NOT "retrieve only verified") so the agent cannot
+      // self-filter on the rendered trust glyph — the SERVER-SIDE filter must be the only
+      // thing that excludes the unverified entry. Asked to echo EVERY returned entry, the
+      // agent leaks the unverified token unless the tool itself withheld it.
+      const verified = run({ brain: b, mcp: true, prompt: 'Call the kb_search MCP tool with the query "audit ledger checksum salt" and its verified filter set to true. Report the exact checksum-salt token from EVERY entry in the tool\'s response, verbatim — list them all, omit none. Reply with only the token(s).' });
+      const unfiltered = run({ brain: b, mcp: true, prompt: 'Call the kb_search MCP tool with the query "audit ledger checksum salt" (do not set any trust/verified filter). Report the exact checksum-salt token from EVERY entry in the tool\'s response, verbatim — list them all, omit none. Reply with only the token(s).' });
+      rmSync(b, { recursive: true, force: true });
+      const fOk = has(verified, 'VERIF-tok-7yh3q') && lacks(verified, 'UNVER-tok-9qz4w');
+      const uOk = has(unfiltered, 'UNVER-tok-9qz4w'); // baseline: unfiltered search still reaches the unverified token
+      const rows = [
+        { label: `${HARNESS}:verified-filter`, pass: fOk, detail: fOk ? 'only verified' : (has(verified, 'UNVER-tok-9qz4w') ? 'leaked unverified' : 'missing verified'), output: verified, sample: sample(verified) },
+        { label: `${HARNESS}:no-filter`, pass: uOk, detail: uOk ? 'unverified reachable (baseline)' : 'baseline missed it', output: unfiltered, sample: sample(unfiltered) },
+      ];
+      return { rows, demonstrated: fOk && uOk };
+    },
+  },
   {
     id: 'mcp-map-navigation', dim: 'mcp:map-then-search',
     exec() {

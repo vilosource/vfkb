@@ -26,7 +26,7 @@ M2b (distiller + counters + corroborated promotion) shipped**; **M3 (session-con
 | Self-hosted design-brain | **[done]** ADR-0019 — vtfkb dogfoods its own `.vtfkb/` (committed SoR + ADR/RFC link-index) |
 | L4 cross-model eval | **[done, v1-only]** 5 harness/model records, 22 scenarios each (deepseek-v4-pro 22/22; 2 known divergences: `tool-gating`, `capture-recall`) — but the 22 **predate Track 1**: M1–M3 have **no** L4 coverage (audit 2026-06-27) → **Track 4** |
 | L4 methodology | **[Track 5 done 2026-06-27]** ADR-0022 — dockerized pi (`vtfkb-l4-pi:dev`, 22/22) + claude (`vtfkb-l4-claude:dev`, 21/22 via Max-subscription OAuth) substrates both reproduce host baselines at N=3, no divergences → **Track 4** next |
-| Track-1 L4 coverage | **[6 core done 2026-06-27]** all 6 Track-1 scenarios ✅ (pi 28/28, claude 27/28); exposed+fixed a pi resume gap, logged pi live-capture + corroborated-promotion-trust-render findings; **Track 4b** (3 v1 partials) remains |
+| Track-1 L4 coverage | **[6 core done 2026-06-27]** all 6 Track-1 scenarios ✅ (pi 28/28, claude 27/28); exposed+fixed a pi resume gap, logged pi live-capture + corroborated-promotion-trust-render findings. **Track 4b:** role-precedence ✅, D-i `verified-only-filter` ✅ (pi/claude 2/3); D-iii relabel-on-promotion active, D-iv/D-ii remain |
 | Dogfood smoke | **[done]** check 6 hardened — deterministic `tools/list` preflight (6a) + bounded LLM retry (6b) |
 | **Session continuity** | **[DONE]** ADR-0020 / RFC-005 — M1 (`ff61215`) + M3 (resume digest folds distilled lessons, trust-labelled, derived) |
 | Auto-distill / ACE curator | **[DONE]** RFC-006 → ADR-0021 — curator + never-rewrite Brake (`ee45289`, M2a) + distiller + counters + corroborated promotion (M2b) |
@@ -251,7 +251,7 @@ the mechanism exists) — which immediately split them into one delivered + two 
 | Scenario | FEATURES § | Mechanism check | Status |
 |---|---|---|---|
 | `role-precedence` | §3.3 attribution-as-precedence | `rerank`/`withinTierScore` weights operator-trust +3, verified +1 → **delivered** | **✅ pi 3/3, claude 3/3** |
-| `verified-only-filter` | §3.6 trust gradient | `kb_search` has type/zone/status/tags/author_role filters but **no provenance-`verified` filter** → an agent can't request verified-only | **🔴→building (D-i, active): add `verified`/trust filter to `kb_search` + engine, then ship green** |
+| `verified-only-filter` | §3.6 trust gradient | `kb_search` had no provenance-`verified` filter → **now built** (`verified` param on `kb_search` + `--verified` CLI + `verifiedOnly` in the engine, filters `provenance.status === 'verified'`); RED-first confirmed on both harnesses, then green | **✅ D-i DONE: pi 2/3, claude 2/3** |
 | `kb-context-first-read` | §3.7 context doc | **no `kb_context` MCP tool** and no authored context-document feature (only the entry-bundle injection exists) → unbuilt | **🔴 GAP — needs a feature (context-doc + `kb_context`), likely its own RFC/ADR** |
 
 Scenario-first did its job: 2 of 3 "partials" are genuinely unbuilt, surfaced *before* writing a scenario
@@ -265,9 +265,10 @@ for §3.6; the context-doc is a larger feature). Not Track-1-blocking.
 
 **Order (re-ratified 2026-06-27):**
 `M1 ✅ → RFC-006 ✅ → M2a ✅ → M2b ✅ → M3 ✅` (**Track 1 complete**)
-`→ ADR-0022 ✅ → T5a ✅ → T5b ✅ → Track 4 (6 core ✅) → ADR-0023 ✅ → Track 4b (role-precedence ✅ → **D-i verified-filter** → D-iii relabel-on-promotion → D-iv pi-capture-results → D-ii context-doc)`.
-The **active in-order build is D-i** (the `verified`/trust filter for `kb_search` → `verified-only-filter`
-green), ratified by the operator 2026-06-27. The remaining gaps are sequenced by cost/dependency (small
+`→ ADR-0022 ✅ → T5a ✅ → T5b ✅ → Track 4 (6 core ✅) → ADR-0023 ✅ → Track 4b (role-precedence ✅ → D-i verified-filter ✅ → **D-iii relabel-on-promotion** → D-iv pi-capture-results → D-ii context-doc)`.
+**D-i is DONE** (the `verified`/trust filter for `kb_search` → `verified-only-filter` green, pi 2/3 + claude
+2/3, 2026-06-27). The **active in-order build is now D-iii** (relabel trust on corroborated promotion).
+The remaining gaps are sequenced by cost/dependency (small
 finding-closers first; D-ii is RFC-gated and last); each is built scenario-first (ADR-0023). Track 4's 6 core
 scenarios are complete (pi 28/28, claude 27/28). **S1** (embedding reranker) and
 **P1** (Claude Code per-turn push) remain the two **gated/blocked** tracks — built only if their triggers
@@ -301,7 +302,7 @@ In all three cases the response is the same: **update this roadmap and re-ratify
 — never leave the next step to an ad-hoc question. (Scope: in-repo `vtfkb` only; vafi/vtaskforge
 work stays out-of-scope/HITL per H2.)
 
-### ▶ Current action — **Track 4b / D-i: `verified`-only filter for `kb_search`** (scenario-first, ADR-0023) — *lower priority*
+### ▶ Current action — **Track 4b / D-iii: relabel trust on corroborated promotion** (scenario-first, ADR-0023) — *lower priority*
 **Track 1 complete** (M1–M3; 87/87). **Track 5 complete** (2026-06-27): both dockerized substrates reproduce
 their host baselines at N=3 (T5a pi `vtfkb-l4-pi:dev` 22/22; T5b claude `vtfkb-l4-claude:dev` 21/22 via
 Max-subscription OAuth, no API key). **Track 4 core COMPLETE** (2026-06-27) — all 6 Track-1 scenarios, pi
@@ -321,10 +322,12 @@ query filter; no `kb_context`/context-doc) — RED contracts that need a build d
 None is Track-1-blocking. **Ratified follow-on order (operator, 2026-06-27)** — these were open decisions;
 the operator chose D-i next, so they are now sequenced here (the roadmap, not an ad-hoc poll, carries the
 order — §5 P8/roadmap-as-authority). Built scenario-first, lower priority than anything Track-1:
-- **D-i — `[active]`** build the `verified`/trust filter for `kb_search` (+ engine: filter on
-  `provenance.status === 'verified'`) → ship `verified-only-filter` green. Small, in-scope for §3.6 (already
-  decided) — **no new ADR**. *Autonomy: GO.*
-- **D-iii — shape pre-decided** relabel trust on promotion so ADR-0021 §4's elevation is agent-visible.
+- **D-i — `✅ DONE` (2026-06-27)** built the `verified`/trust filter for `kb_search` (`verified` MCP param +
+  `--verified` CLI + `verifiedOnly` in the engine, filters `provenance.status === 'verified'`; drop classified
+  as `provenance` in the RFC-002 diagnosis). Scenario-first: `verified-only-filter` written + run RED on both
+  harnesses (pi leaked both tokens; claude reported "no verified filter parameter") **before** the build, then
+  green — pi 2/3, claude 2/3 (`__docker` records). +2 unit tests (89/89). No new ADR (in-scope for §3.6).
+- **D-iii — `[active]`, shape pre-decided** relabel trust on promotion so ADR-0021 §4's elevation is agent-visible.
   **Decided shape (operator-veto):** `promoteIfCorroborated` also sets `provenance.status = 'verified'`
   (corroboration-by-recurrence *is* the "independent signal — a second agent" §3.6 requires; not the author
   asserting), AND the distiller stops baking "(unverified)" into the immutable gotcha **text** so the derived
