@@ -48,9 +48,25 @@ export interface ContextEventResult {
   messages?: PiMessage[];
 }
 
-// Capture events (Tier B).
+// Capture events (Tier B). `tool_call` fires at INVOCATION (pre-execution, no result) —
+// used for gating. `tool_execution_start`/`tool_execution_end` bracket the actual run; the
+// END event is the only one carrying the RESULT + an authoritative isError flag (D-iv).
+// Verified against @mariozechner/pi-coding-agent@0.73.1 dist/core/extensions/types.d.ts.
 export interface ToolCallEvent {
   toolName?: string;
   toolCallId?: string;
   input?: Record<string, unknown>;
+}
+export interface ToolExecutionStartEvent {
+  type?: 'tool_execution_start';
+  toolCallId?: string;
+  toolName?: string;
+  args?: unknown;
+}
+export interface ToolExecutionEndEvent {
+  type?: 'tool_execution_end';
+  toolCallId?: string;
+  toolName?: string;
+  result?: unknown;
+  isError?: boolean;
 }

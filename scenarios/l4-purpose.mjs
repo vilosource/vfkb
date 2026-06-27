@@ -738,6 +738,46 @@ const SCN = [
     },
   },
 
+  // ---- Track 4b / D-iv: pi captures tool RESULTS live → a real failure auto-distills ----
+  // The 2026-06-27 finding: pi's live extension captured at tool_call (invocation, NO result),
+  // so a live pi session could never record a capture:error and therefore never auto-distill a
+  // real failure (only the host-side post-tool-use seam could). D-iv wires pi.on('tool_execution_end')
+  // — which DOES carry { toolName, result, isError } (pi 0.73.1) — to captureToolCall WITH the
+  // result. Observable effect: after a REAL agent session runs a failing tool, the brain holds a
+  // capture:error fact that the distiller turns into a candidate gotcha. Contrast: no extension/hook
+  // (inject:none) → the failure is never recorded. Scenario-first (ADR-0023): RED on pi before the
+  // wiring (capture at tool_call has no result → classified ok → no candidate); green after.
+  // HARNESS-GATED to pi: verified 2026-06-27 that Claude Code's PostToolUse hook does NOT fire on a
+  // FAILED tool call (a failing `cat` produced no hook payload; a successful one did), so live
+  // failure-capture is EXTERNAL-BLOCKED on claude (upstream, like P1) — not a vtfkb delivery gap.
+  // The shared `hook post-tool-use` still reads `tool_response` (the claude result field) so
+  // SUCCESSFUL tool results are captured correctly (latent-bug fix, locked by test/hook.test.ts).
+  {
+    id: 'live-capture-result', dim: 'capture:live-tool-result', harness: 'pi',
+    exec() {
+      const cmd = 'cat /etc/probe_qz8x.cfg';
+      const prompt = `Use the Bash tool to run exactly this shell command: ${cmd}\nIt is expected to fail (the file does not exist). After it runs, reply with only the word DONE.`;
+      // Arm A — vtfkb live capture ON: the post-execution event records the failed call WITH result.
+      const bA = newBrain('livecap-on');
+      run({ brain: bA, inject: 'vtfkb', capture: true, allowTools: ['Bash'], prompt });
+      const distA = sh('node', [CLI, 'distill'], { env: { ...process.env, VTFKB_DIR: bA } });
+      const capturedErrA = /capture:error/.test(brainText(bA));
+      const distilledA = /CANDIDATE/.test(distA) && /probe_qz8x/i.test(brainText(bA));
+      // Arm B — no extension/hook (inject:none): the same failure is never recorded.
+      const bB = newBrain('livecap-off');
+      run({ brain: bB, inject: 'none', allowTools: ['Bash'], prompt });
+      const capturedErrB = /capture:error/.test(brainText(bB));
+      rmSync(bA, { recursive: true, force: true }); rmSync(bB, { recursive: true, force: true });
+      const aOk = capturedErrA && distilledA;
+      const bOk = !capturedErrB;
+      const rows = [
+        { label: `${HARNESS}:capture-on`, pass: aOk, detail: aOk ? 'live failure captured+distilled' : (capturedErrA ? 'captured but no candidate' : 'no capture:error (result missing?)'), output: '', sample: '' },
+        { label: `${HARNESS}:capture-off`, pass: bOk, detail: bOk ? 'nothing recorded (baseline)' : 'unexpectedly captured', output: '', sample: '' },
+      ];
+      return { rows, demonstrated: aOk && bOk };
+    },
+  },
+
   // ---- Guardrail: no-secrets lint refuses to store a secret via the MCP kb_add tool ----
   {
     id: 'no-secrets', dim: 'guardrail:no-secrets',
@@ -770,6 +810,13 @@ const SUBSTRATE = HARNESS === 'pi'
 console.log(`=== vtfkb COMPREHENSIVE L4 — harness: ${HARNESS} — agent: ${AGENT} — substrate: ${SUBSTRATE} — N=${TRIALS} ===\n`);
 const results = [];
 for (const s of toRun) {
+  // Harness-gated scenarios (e.g. a fix whose contrast is only deliverable on one harness
+  // because the other is external-blocked) run ONLY on their declared harness; on others
+  // they are SKIPPED (no record entry, never a false red). See live-capture-result.
+  if (s.harness && s.harness !== HARNESS) {
+    console.log(`# ${s.id}  [${s.dim}]  — SKIPPED on ${HARNESS} (harness-gated to ${s.harness})\n`);
+    continue;
+  }
   console.log(`# ${s.id}  [${s.dim}]  (N=${TRIALS})`);
   const trialVerdicts = [];
   let lastRows = [];
