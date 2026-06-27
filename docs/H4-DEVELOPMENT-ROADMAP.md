@@ -25,7 +25,7 @@ M2b (distiller + counters + corroborated promotion) shipped**; **M3 (session-con
 | Search hardening | **[done]** relevance-primary (ADR-0016) + relevance floor (ADR-0017) + honest no-match (ADR-0018) |
 | Self-hosted design-brain | **[done]** ADR-0019 — vtfkb dogfoods its own `.vtfkb/` (committed SoR + ADR/RFC link-index) |
 | L4 cross-model eval | **[done, v1-only]** 5 harness/model records, 22 scenarios each (deepseek-v4-pro 22/22; 2 known divergences: `tool-gating`, `capture-recall`) — but the 22 **predate Track 1**: M1–M3 have **no** L4 coverage (audit 2026-06-27) → **Track 4** |
-| L4 methodology | **[T5a done 2026-06-27]** ADR-0022 — dockerized pi substrate (`vtfkb-l4-pi:dev`) reproduces 22/22 at N=3 vs host baseline, no divergences; T5b (claude image, auth-prereq) next → **Track 5** |
+| L4 methodology | **[Track 5 done 2026-06-27]** ADR-0022 — dockerized pi (`vtfkb-l4-pi:dev`, 22/22) + claude (`vtfkb-l4-claude:dev`, 21/22 via Max-subscription OAuth) substrates both reproduce host baselines at N=3, no divergences → **Track 4** next |
 | Track-1 L4 coverage | **[planned]** the M1–M3 scenarios (continuity / auto-distill→recall / trust-labelled lessons) → **Track 4**, on Track 5's substrate |
 | Dogfood smoke | **[done]** check 6 hardened — deterministic `tools/list` preflight (6a) + bounded LLM retry (6b) |
 | **Session continuity** | **[DONE]** ADR-0020 / RFC-005 — M1 (`ff61215`) + M3 (resume digest folds distilled lessons, trust-labelled, derived) |
@@ -150,7 +150,7 @@ Claude Code degrades to MCP-pull today because `UserPromptSubmit` is documented-
 cache-inefficient. *Action: periodically re-check the upstream hook bugs; build a Tier-C push (a
 new ADR superseding the Tier-C clause) only when they are fixed.* No work until then.
 
-### Track 5 — L4 methodology: dockerized harnesses  *(active line — T5a ✅ done, T5b next)*  ([ADR-0022](adr/ADR-0022-l4-evaluation-methodology.md))
+### Track 5 — L4 methodology: dockerized harnesses  *(COMPLETE — T5a ✅ + T5b ✅, 2026-06-27)*  ([ADR-0022](adr/ADR-0022-l4-evaluation-methodology.md))
 
 Re-platform the L4 harness onto **pinned, self-contained containers** (operator decision 2026-06-27:
 self-contained docker images, not the `vfa` orchestrator). The contrast methodology (`vtfkb` vs
@@ -174,15 +174,28 @@ to a distinct `__docker` slug so the host baseline is never clobbered. `PI_MODE=
   3/3 (in-container tool call → host-mounted `entries.jsonl` → recalled by a second container; uid gotcha
   closed, not assumed). 87/87 unit tests still green.
 
-**T5b. claude-code image — `[planned, auth-prereq]`**
-`scenarios/docker/claude.Dockerfile` (node + `@anthropic-ai/claude-code`). The container is the sandbox, so
-the host-era `FS_DENY` / `--strict-mcp-config` workarounds are **dropped** — gated on a no-leak check, not
-assumed. Re-record the 22 on the claude image.
-- *Human-hands prereq (ask inline when this slice starts, per SOP — not a gating Phase 0):* headless Claude
-  Code needs explicit auth; the host `claude` uses an OAuth/subscription login and no `ANTHROPIC_API_KEY` is
-  set. **Recommended:** the operator supplies an `ANTHROPIC_API_KEY` (headless + CI + reproducible). A
-  mounted-OAuth or z.ai/GLM-proxy fallback is possible but lower-fidelity (see ADR-0022 Alternatives).
-- *Gate:* the 22 reproduce on the claude image; the no-leak check passes with the denylist removed.
+**T5b. claude-code image — `[done 2026-06-27]`**
+`scenarios/docker/claude.Dockerfile` (node:20-slim + pinned `@anthropic-ai/claude-code` 2.1.195 + baked
+`dist`) → `vtfkb-l4-claude:dev`. The claude harness `run()` ported to `docker run` (mirrors the pi port:
+uid-matched `/brain` mount, container-path `claudeSettings`/`mcpConfig`, `__docker` slug, N=3, `agentBrain()`
+for `tool-gating`; `VTFKB_L4_CLAUDE_MODE=host` escape hatch).
+- *Auth — RESOLVED (operator decision 2026-06-27):* use the **Claude Code Max subscription OAuth**, not an
+  `ANTHROPIC_API_KEY` (none set on this host). The harness mounts a **per-run throwaway copy** of
+  `~/.claude/.credentials.json`'s `claudeAiOauth` block at `/work/.claude` (`mcpOAuth` dropped — privacy;
+  never the live host file). **Verified** working headless in-container (`claude -p` → reply). See
+  [ADR-0022](adr/ADR-0022-l4-evaluation-methodology.md) #8.
+- *Denylist re-scoped (ADR-0022 #9):* `--strict-mcp-config`/empty-MCP are pure host-MCP no-ops in the sandbox
+  (kept for parity); `FS_DENY` is the **test-validity tool-gate** (stops the agent reading the mounted
+  `/brain` instead of injected context — the claude analogue of pi's `--no-tools`) and is **retained**.
+- *No-leak check — PASSED:* deterministic filesystem probe of the container (observed, not asserted): no host
+  home, no host `~/.pi`/`~/.azure`, `~/.claude.json` `mcpServers` empty, mounted credential carries only
+  `claudeAiOauth`.
+- *Gate — MET:* `vtfkb-l4-claude:dev` (digest `sha256:b65b9204…`) reproduced the host baseline **exactly at
+  N=3 — 21/22 demonstrated**, with `tool-gating` the sole non-demonstration on *both* substrates (the
+  documented haiku model divergence, not a substrate effect); `compare.mjs` reports **no divergences**. The
+  gate surfaced a real substrate effect — the multi-step MCP scenarios (kb_map→kb_search) exceeded the host
+  175 s budget under container + MCP-boot overhead → fixed with a `DOCKER_TIMEOUT` (300 s); both then
+  reproduced (mcp-pull 3/3, mcp-map-navigation 2/3). 87/87 unit green.
 
 ### Track 4 — L4 coverage for Track 1  *(builds on Track 5's substrate)*  (ADR-0020 / ADR-0021)
 
@@ -215,8 +228,9 @@ The audit also found three *partial* v1 gaps: `verified-only-filter` (trust grad
 
 **Order (re-ratified 2026-06-27):**
 `M1 ✅ → RFC-006 ✅ → M2a ✅ → M2b ✅ → M3 ✅` (**Track 1 complete**)
-`→ ADR-0022 ✅ → T5a ✅ → T5b → Track 4 (continuity-resume → resume-reflects-correction → kb-resume-mcp → auto-distill-recall → distill-trust-label → corroborated-promotion) → Track 4b`.
-The **active in-order build is T5b** (claude-code image — auth-prereq). **S1** (embedding reranker) and
+`→ ADR-0022 ✅ → T5a ✅ → T5b ✅ → Track 4 (continuity-resume → resume-reflects-correction → kb-resume-mcp → auto-distill-recall → distill-trust-label → corroborated-promotion) → Track 4b`.
+The **active in-order build is Track 4** (the first Track-1 L4 scenario, `continuity-resume`, on the now-
+validated dockerized substrate). **S1** (embedding reranker) and
 **P1** (Claude Code per-turn push) remain the two **gated/blocked** tracks — built only if their triggers
 fire. One build in flight at a time; each behind an accepted ADR.
 
@@ -248,20 +262,21 @@ In all three cases the response is the same: **update this roadmap and re-ratify
 — never leave the next step to an ad-hoc question. (Scope: in-repo `vtfkb` only; vafi/vtaskforge
 work stays out-of-scope/HITL per H2.)
 
-### ▶ Current action — **T5b: claude-code L4 harness image** (ADR-0022, auth-prereq)
-**Track 1 is complete** (M1 ✅, M2a ✅, M2b ✅, M3 ✅; 87/87, dogfooded). **T5a is complete** (2026-06-27):
-the dockerized pi substrate (`vtfkb-l4-pi:dev`, digest `sha256:09f2ff94…`) reproduced **22/22 at N=3** vs the
-known-good host record with no divergences; write-through proven (`capture-recall` 3/3); the gate caught +
-fixed a host-path port bug in `tool-gating`. The next in-order build is **T5b**:
-- Build `scenarios/docker/claude.Dockerfile` (node + `@anthropic-ai/claude-code`); point the claude harness's
-  `run()` at `docker run` (mirror the pi port — uid-matched brain mount, `__docker` slug, N=3). The container
-  is the sandbox, so the host-era `FS_DENY` / `--strict-mcp-config` workarounds are **dropped — gated on a
-  no-leak check, not assumed**. Re-record the 22 on the claude image.
-- **Human-hands prereq (ask inline, per SOP):** headless Claude Code needs explicit auth; the host `claude`
-  uses an OAuth/subscription login and **no `ANTHROPIC_API_KEY` is set**. Recommended: the operator supplies an
-  `ANTHROPIC_API_KEY` (headless + CI + reproducible). → **ask the operator for the key when starting T5b.**
-- *Gate:* the 22 reproduce on the claude image; the no-leak check passes with the denylist removed.
-- Then **Track 4** (the six Track-1 scenarios on the validated substrate), then **Track 4b** (v1 partials).
+### ▶ Current action — **Track 4: first Track-1 L4 scenario (`continuity-resume`)** (ADR-0020/0021)
+**Track 1 is complete** (M1 ✅, M2a ✅, M2b ✅, M3 ✅; 87/87, dogfooded). **Track 5 is complete** (2026-06-27):
+both dockerized substrates reproduce their host baselines at N=3 with no divergences —
+- **T5a** pi `vtfkb-l4-pi:dev` (digest `sha256:09f2ff94…`) **22/22**; write-through proven (`capture-recall`
+  3/3); the gate caught + fixed a host-path port bug in `tool-gating`.
+- **T5b** claude `vtfkb-l4-claude:dev` (digest `sha256:b65b9204…`) **21/22** (`tool-gating` is the known haiku
+  divergence on both substrates), via the **Max-subscription OAuth** (mounted throwaway creds copy, no API
+  key); no-leak check passed; the gate caught + fixed an in-container MCP timeout (`DOCKER_TIMEOUT`).
+
+The next in-order build is **Track 4** — add the six Track-1 purpose-demonstration scenarios on the now-
+validated substrate, **starting with `continuity-resume`** (s1 establishes facts; s2 with resume-injection
+answers "what we were doing/decided"; `none` can't). Each keeps the `vtfkb`-vs-baseline contrast, asserts on
+observable effects, runs N=3 on the pi image (claude too — auth is wired), and records to
+`scenarios/records/`. Dogfood the cross-session scenarios against vtfkb's own brain shape (ADR-0019).
+Then **Track 4b** (v1 partials: `verified-only-filter`, `role-precedence`, `kb-context-first-read`).
 
 The two still-gated tracks are unchanged and NOT built on spec:
 - **S1 (embedding reranker, RFC-003)** — build *only* on a **2nd** live phrasing-robustness miss **or** an
