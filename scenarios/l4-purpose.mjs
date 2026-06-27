@@ -490,6 +490,34 @@ const SCN = [
     },
   },
 
+  // ---- Track 1 / ADR-0021 §1 + ADR-0020 M3: auto-distill → recall (the headline loop) ----
+  // s1: a tool call FAILED and was captured; the deterministic distiller turned it into a
+  // CANDIDATE gotcha (incoming/unverified/distilled — containment); s2 resumes and the
+  // distilled lesson resurfaces in the resume digest; the no-memory baseline can't.
+  // The failure is seeded through the REAL post-tool-use capture hook fed a synthetic
+  // tool-failure event (harness-agnostic; also sidesteps pi's live extension which captures
+  // at invocation WITHOUT the result — a separate gap, noted). distill + recall are real.
+  {
+    id: 'auto-distill-recall', dim: 'distill:capture-fail->recall',
+    exec() {
+      const b = newBrain('distill');
+      const fail = { tool_name: 'Bash', tool_input: { command: 'cat /etc/probe_qz8x.cfg' }, tool_result: { exit_code: 7, stderr: 'cat: /etc/probe_qz8x.cfg: error: No such file or directory (probe_qz8x)' }, call_id: 'c1' };
+      sh('node', [CLI, 'hook', 'post-tool-use'], { input: JSON.stringify(fail), env: { ...process.env, VTFKB_DIR: b, KB_SESSION_ID: 's1' } });
+      sh('node', [CLI, 'distill'], { env: { ...process.env, VTFKB_DIR: b, KB_SESSION_ID: 's1' } });
+      const distilled = /distilled/.test(brainText(b)) && /probe_qz8x/.test(brainText(b));
+      const ask = 'Based on your resume / continuity context, what tool failure did we learn about last session? Reply with ONLY the missing path or token mentioned.';
+      const v = run({ brain: b, inject: 'vtfkb', sessionId: 's2', prompt: ask });
+      const n = run({ brain: b, inject: 'none', sessionId: 's2n', prompt: ask });
+      rmSync(b, { recursive: true, force: true });
+      const rows = [
+        { label: `${HARNESS}:distill`, pass: distilled, detail: distilled ? 'failure distilled' : 'not distilled', output: '', sample: '' },
+        { label: `${HARNESS}:recall:vtfkb`, pass: has(v, 'probe_qz8x'), detail: has(v, 'probe_qz8x') ? 'recalled lesson' : 'lost', output: v, sample: sample(v) },
+        { label: `${HARNESS}:recall:none`, pass: lacks(n, 'probe_qz8x'), detail: lacks(n, 'probe_qz8x') ? "can't know (expected)" : 'leaked?', output: n, sample: sample(n) },
+      ];
+      return { rows, demonstrated: distilled && has(v, 'probe_qz8x') && lacks(n, 'probe_qz8x') };
+    },
+  },
+
   // ---- Guardrail: tool-gating blocks direct brain tampering (with contrast) ----
   {
     id: 'tool-gating', dim: 'guardrail:tool-gating',

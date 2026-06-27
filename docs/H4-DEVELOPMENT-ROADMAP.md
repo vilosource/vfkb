@@ -26,7 +26,7 @@ M2b (distiller + counters + corroborated promotion) shipped**; **M3 (session-con
 | Self-hosted design-brain | **[done]** ADR-0019 — vtfkb dogfoods its own `.vtfkb/` (committed SoR + ADR/RFC link-index) |
 | L4 cross-model eval | **[done, v1-only]** 5 harness/model records, 22 scenarios each (deepseek-v4-pro 22/22; 2 known divergences: `tool-gating`, `capture-recall`) — but the 22 **predate Track 1**: M1–M3 have **no** L4 coverage (audit 2026-06-27) → **Track 4** |
 | L4 methodology | **[Track 5 done 2026-06-27]** ADR-0022 — dockerized pi (`vtfkb-l4-pi:dev`, 22/22) + claude (`vtfkb-l4-claude:dev`, 21/22 via Max-subscription OAuth) substrates both reproduce host baselines at N=3, no divergences → **Track 4** next |
-| Track-1 L4 coverage | **[in progress]** 3 of 6 done — `continuity-resume` ✅ + `resume-reflects-correction` ✅ + `kb-resume-mcp` ✅ (exposed+fixed a pi resume-delivery gap); 3 more Track-1 scenarios + 3 v1 partials remain → **Track 4** |
+| Track-1 L4 coverage | **[in progress]** 4 of 6 done — continuity-resume ✅ + resume-reflects-correction ✅ + kb-resume-mcp ✅ + auto-distill-recall ✅ (exposed+fixed a pi resume gap; logged a pi live-capture-result gap); 2 more Track-1 scenarios + 3 v1 partials remain → **Track 4** |
 | Dogfood smoke | **[done]** check 6 hardened — deterministic `tools/list` preflight (6a) + bounded LLM retry (6b) |
 | **Session continuity** | **[DONE]** ADR-0020 / RFC-005 — M1 (`ff61215`) + M3 (resume digest folds distilled lessons, trust-labelled, derived) |
 | Auto-distill / ACE curator | **[DONE]** RFC-006 → ADR-0021 — curator + never-rewrite Brake (`ee45289`, M2a) + distiller + counters + corroborated promotion (M2b) |
@@ -216,8 +216,8 @@ regression. This is Track 4 doing its job: a purpose-demonstration scenario expo
 | `continuity-resume` | ADR-0020 resume render | s1 leaves a resume-note (unguessable token, the one thing only the operator knows); **s2** surfaces it via the resume render and states the next task; `none` can't. *(cross-session)* | **✅ pi 3/3, claude 3/3** |
 | `resume-reflects-correction` | ADR-0020 "cannot go stale" | a decision is superseded between s1→s2; s2 resume surfaces the **corrected** value, the naive baseline replays the stale one. *(cross-session)* | **✅ pi 3/3, claude 3/3** |
 | `kb-resume-mcp` | ADR-0020 §5 MCP floor | agent pulls continuity via the `kb_resume` MCP tool (parity with `mcp-pull`). | **✅ pi 3/3, claude 2/3** |
-| `auto-distill-recall` | ADR-0021 §1 + ADR-0020 M3 | s1: a tool call **fails** (capture:error) → distill; **s2** resume/search surfaces the distilled candidate gotcha; `none` doesn't. *(the headline M2b→M3 loop on a real agent)* | **next** |
-| `distill-trust-label` | ADR-0021 §1 containment | the distilled lesson is delivered **labelled** (`⚠agent`, "verify before trusting"), not as an established fact. | planned |
+| `auto-distill-recall` | ADR-0021 §1 + ADR-0020 M3 | s1: a captured tool **failure** → distill → candidate gotcha; **s2** resume surfaces the distilled lesson; `none` doesn't. *(the headline M2b→M3 loop)* | **✅ pi 3/3, claude 3/3** |
+| `distill-trust-label` | ADR-0021 §1 containment | the distilled lesson is delivered **labelled** (`⚠agent`, "verify before trusting"), not as an established fact. | **next** |
 | `corroborated-promotion` | ADR-0021 §4 | corroborated ≥N → delivered as trusted; below threshold stays labelled. *(light — partly deterministic)* | planned |
 
 - *Gate:* each scenario `demonstrated` on ≥2/3 trials on **both** images (pi + claude — auth is wired);
@@ -225,7 +225,15 @@ regression. This is Track 4 doing its job: a purpose-demonstration scenario expo
   shape (ADR-0019). `continuity-resume` met it: **pi 3/3, claude 3/3** (records carry image digest + N=3).
 - *Harness additions for cross-session (2026-06-27):* `KB_SESSION_ID` is now threaded into the **claude**
   docker run (was pi-only) so `SessionState` persists a record across containers; a scenario sets a prior
-  session's note host-side via `vtfkb resume-note` (`KB_SESSION_ID=s1`).
+  session's note host-side via `vtfkb resume-note` (`KB_SESSION_ID=s1`), and seeds a captured tool failure
+  via the real `hook post-tool-use` CLI (harness-agnostic capture seam).
+- *Finding (2026-06-27, surfaced by `auto-distill-recall`):* the **pi live extension** captures tool calls at
+  the `tool_call` event — *before* execution, so **without the result** → every live pi capture is classified
+  `capture:ok`, never `capture:error`. So a pi *live* session cannot auto-distill a failure (the claude
+  `PostToolUse` hook has the result and can). The scenario sidesteps this by driving the real `post-tool-use`
+  capture hook with a synthetic failure (the distill + recall are real on both). **Fix (deferred, needs pi's
+  post-execution event API verified):** capture on a pi post-tool event that carries the result. Logged; not
+  blocking — distinct from the resume gap, which was a one-line fix.
 
 **Track 4b — close the v1 partials — `[planned, lower priority]`**
 The audit also found three *partial* v1 gaps: `verified-only-filter` (trust gradient, §3.6),
@@ -238,9 +246,9 @@ The audit also found three *partial* v1 gaps: `verified-only-filter` (trust grad
 
 **Order (re-ratified 2026-06-27):**
 `M1 ✅ → RFC-006 ✅ → M2a ✅ → M2b ✅ → M3 ✅` (**Track 1 complete**)
-`→ ADR-0022 ✅ → T5a ✅ → T5b ✅ → Track 4 (continuity-resume ✅ → resume-reflects-correction ✅ → kb-resume-mcp ✅ → auto-distill-recall → distill-trust-label → corroborated-promotion) → Track 4b`.
-The **active in-order build is Track 4 — next scenario `auto-distill-recall`** (continuity-resume + resume-
-reflects-correction + kb-resume-mcp shipped 2026-06-27). **S1** (embedding reranker) and
+`→ ADR-0022 ✅ → T5a ✅ → T5b ✅ → Track 4 (continuity-resume ✅ → resume-reflects-correction ✅ → kb-resume-mcp ✅ → auto-distill-recall ✅ → distill-trust-label → corroborated-promotion) → Track 4b`.
+The **active in-order build is Track 4 — next scenario `distill-trust-label`** (4 of 6 Track-1 scenarios
+shipped 2026-06-27). **S1** (embedding reranker) and
 **P1** (Claude Code per-turn push) remain the two **gated/blocked** tracks — built only if their triggers
 fire. One build in flight at a time; each behind an accepted ADR.
 
@@ -272,22 +280,25 @@ In all three cases the response is the same: **update this roadmap and re-ratify
 — never leave the next step to an ad-hoc question. (Scope: in-repo `vtfkb` only; vafi/vtaskforge
 work stays out-of-scope/HITL per H2.)
 
-### ▶ Current action — **Track 4: next scenario `auto-distill-recall`** (ADR-0020/0021)
+### ▶ Current action — **Track 4: next scenario `distill-trust-label`** (ADR-0020/0021)
 **Track 1 complete** (M1–M3; 87/87). **Track 5 complete** (2026-06-27): both dockerized substrates reproduce
 their host baselines at N=3, no divergences (T5a pi `vtfkb-l4-pi:dev` 22/22; T5b claude `vtfkb-l4-claude:dev`
-21/22 via Max-subscription OAuth, no API key). **Track 4 in progress** (2026-06-27): 3 of 6 scenarios done —
+21/22 via Max-subscription OAuth, no API key). **Track 4 in progress** (2026-06-27): 4 of 6 scenarios done —
 - `continuity-resume` (pi 3/3, claude 3/3) — also surfaced + fixed a real ADR-0020 delivery gap (the pi
   extension wasn't injecting the resume render; now does — full pi re-validation 23/23 on `sha256:bdd2dfd2…`).
 - `resume-reflects-correction` (pi 3/3, claude 3/3) — anti-stale across a session boundary.
 - `kb-resume-mcp` (pi 3/3, claude 2/3) — continuity on the MCP-pull floor via `kb_resume` (exists; no gap).
+- `auto-distill-recall` (pi 3/3, claude 3/3) — the headline M2b→M3 loop (captured failure → distill → recall);
+  logged a pi live-capture-result gap (sidestepped via the real `post-tool-use` hook seam).
 
-The next in-order build is **`auto-distill-recall`** (ADR-0021 §1 + ADR-0020 M3 — the headline M2b→M3 loop on a
-real agent): in s1 a tool call **fails** (`capture:error`) → `vtfkb distill` writes a candidate gotcha
-(`incoming`, tag `distilled`); s2's resume/search surfaces that distilled candidate, the `none` baseline
-doesn't. Then `distill-trust-label` → `corroborated-promotion`, then **Track 4b** (v1 partials:
-`verified-only-filter`, `role-precedence`, `kb-context-first-read`). Cross-session scaffolding is in place
-(`KB_SESSION_ID` threaded on both harnesses; `resume-note`/`distill` host-side seams; the prior execs are the
-templates). Each: `vtfkb`-vs-baseline contrast, observable effects, N=3 on both images, recorded.
+The next in-order build is **`distill-trust-label`** (ADR-0021 §1 containment): the distilled lesson must be
+delivered **trust-labelled** (`⚠agent`, "verify before trusting") — *not* as an established fact — so a
+resuming agent treats it as a candidate, not ground truth. Likely a light contrast over the
+`auto-distill-recall` setup (assert the agent reports the lesson as unverified/agent-sourced). Then
+`corroborated-promotion`, then **Track 4b** (v1 partials: `verified-only-filter`, `role-precedence`,
+`kb-context-first-read`). Cross-session scaffolding is in place (`KB_SESSION_ID` threaded on both harnesses;
+`resume-note`/`distill`/`post-tool-use` host-side seams; the prior execs are the templates). Each:
+`vtfkb`-vs-baseline contrast, observable effects, N=3 on both images, recorded.
 
 The two still-gated tracks are unchanged and NOT built on spec:
 - **S1 (embedding reranker, RFC-003)** — build *only* on a **2nd** live phrasing-robustness miss **or** an

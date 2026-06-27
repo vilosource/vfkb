@@ -1,15 +1,16 @@
 # vtfkb L4 behavior record — harness=claude — claude-code/claude-haiku-4-5
 
 - harness: claude
-- generated: 2026-06-27T10:04:52.398Z
-- vtfkb: 41fb846
+- generated: 2026-06-27T10:21:15.307Z
+- vtfkb: 5e94074
 - trials per scenario: N=3 (demonstrated = contrast holds on >=2/3)
 - image: vtfkb-l4-claude:dev
 - image digest: sha256:b65b9204722a9a45ecd35440f0f901b19811a45e1ac979deea0195b7744e4956
-- scenarios recorded: 25 (24 demonstrated)
+- scenarios recorded: 26 (25 demonstrated)
 
 | scenario | dimension | demonstrated | trials | rows (label=verdict) |
 |---|---|---|---|---|
+| auto-distill-recall | distill:capture-fail->recall | YES | 3/3 | claude:distill=PASS, claude:recall:vtfkb=PASS, claude:recall:none=PASS |
 | capture-recall | memory:capture->recall | YES | 3/3 | claude:capture=PASS, claude:recall:vtfkb=PASS, claude:recall:none=PASS |
 | constitution-multi | constitution:aggregate | YES | 3/3 | claude:vtfkb=PASS, claude:none=fail |
 | constitution-port | constitution:single | YES | 3/3 | claude:vtfkb=PASS, claude:none=fail |

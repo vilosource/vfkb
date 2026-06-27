@@ -3,8 +3,8 @@
   "model": "claude-haiku-4-5",
   "provider": "claude-code",
   "slug": "claude-code__claude-haiku-4-5__docker",
-  "generated": "2026-06-27T10:04:52.398Z",
-  "vtfkb_sha": "41fb846",
+  "generated": "2026-06-27T10:21:15.307Z",
+  "vtfkb_sha": "5e94074",
   "scenarios": {
     "stale-supersession": {
       "dim": "exclude:supersession",
@@ -535,6 +535,32 @@
           "pass": true,
           "detail": "can't know (expected)",
           "output": "I don't have access to the memory files in this context. There are no previous session memories available to me, so I cannot identify any planned next tasks from a previous session."
+        }
+      ]
+    },
+    "auto-distill-recall": {
+      "dim": "distill:capture-fail->recall",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "claude:distill",
+          "pass": true,
+          "detail": "failure distilled",
+          "output": ""
+        },
+        {
+          "label": "claude:recall:vtfkb",
+          "pass": true,
+          "detail": "recalled lesson",
+          "output": "`/etc/probe_qz8x.cfg`"
+        },
+        {
+          "label": "claude:recall:none",
+          "pass": true,
+          "detail": "can't know (expected)",
+          "output": "I don't have access to prior conversation context or a resumption from last session. This appears to be the start of a fresh conversation window. \n\nIf you'd like me to recall something from a previous session, please share the relevant details or I can check my persistent memory files if they exist."
         }
       ]
     }

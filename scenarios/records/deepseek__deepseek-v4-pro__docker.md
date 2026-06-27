@@ -1,15 +1,16 @@
 # vtfkb L4 behavior record — harness=pi — deepseek/deepseek-v4-pro
 
 - harness: pi
-- generated: 2026-06-27T09:55:03.182Z
-- vtfkb: 41fb846
+- generated: 2026-06-27T10:19:25.702Z
+- vtfkb: 5e94074
 - trials per scenario: N=3 (demonstrated = contrast holds on >=2/3)
 - image: vtfkb-l4-pi:dev
 - image digest: sha256:bdd2dfd2e00ff4d14a0dfc4eebdd3b80f62f3c6daf16066e7c910ae60fad62f2
-- scenarios recorded: 25 (25 demonstrated)
+- scenarios recorded: 26 (26 demonstrated)
 
 | scenario | dimension | demonstrated | trials | rows (label=verdict) |
 |---|---|---|---|---|
+| auto-distill-recall | distill:capture-fail->recall | YES | 3/3 | pi:distill=PASS, pi:recall:vtfkb=PASS, pi:recall:none=PASS |
 | capture-recall | memory:capture->recall | YES | 3/3 | pi:capture=PASS, pi:recall:vtfkb=PASS, pi:recall:none=PASS |
 | constitution-multi | constitution:aggregate | YES | 3/3 | pi:vtfkb=PASS, pi:none=fail |
 | constitution-port | constitution:single | YES | 3/3 | pi:vtfkb=PASS, pi:none=fail |
