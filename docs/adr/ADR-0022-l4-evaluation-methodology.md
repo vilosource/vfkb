@@ -71,9 +71,29 @@ The L4 harness runs each agent inside a **pinned, self-contained container**; th
    deterministic backstop: the existing 22 scenarios must **reproduce in-container** (within trial tolerance)
    against the known-good host records before any new scenario is trusted on it.
 8. **Claude-code auth is a named prereq, not a blocker.** The host `claude` uses an OAuth/subscription login;
-   headless container Claude Code needs explicit auth. Recommended: an `ANTHROPIC_API_KEY` injected as a
-   container env var (headless + CI + reproducible). The `pi`/deepseek image works today and is built first;
+   headless container Claude Code needs explicit auth. The `pi`/deepseek image works today and is built first;
    the claude-code image is gated only on the operator supplying auth when that slice is reached.
+   - **Operator decision (2026-06-27, settled when T5b was reached):** use the **Claude Code Max subscription
+     OAuth**, *not* an `ANTHROPIC_API_KEY` (none is set on this host). The harness mounts a **per-run throwaway
+     copy** of `~/.claude/.credentials.json`'s `claudeAiOauth` block at the container's `/work/.claude`
+     (`mcpOAuth` is dropped — privacy). Never the live host file, so a container-side token refresh cannot
+     disturb the host session's credential. This is the claude analogue of `pi`'s `DEEPSEEK_TOKEN`: the one
+     scoped model-auth secret the sandbox needs. Verified working headless in-container (`claude -p` → reply,
+     no API key). The earlier "recommended `ANTHROPIC_API_KEY`" is retained only as a CI alternative.
+
+9. **Re-scoped denylist (clarified when T5b was built).** Decision #4 ("drop the host-era `FS_DENY` /
+   `--strict-mcp-config`") conflated two roles `FS_DENY` actually plays. Corrected:
+   - `--strict-mcp-config` + the empty MCP config were **pure host-MCP controls** (disable the operator's real
+     Atlassian/Gmail/… servers). In the sandbox there are **no** user MCP servers, so they are behavior-neutral
+     no-ops — kept for parity, safe to drop. The **no-leak check** that gates this is a *deterministic
+     filesystem probe* of the container (observed, not asserted): no host home, no host `~/.pi`/`~/.azure`,
+     `~/.claude.json` `mcpServers` empty, and the mounted credential carries only `claudeAiOauth`. It passes.
+   - `FS_DENY` (deny the FS/exec tools on Q&A scenarios) is **NOT** a host-leak control — it is the
+     **test-validity tool-gate**: it stops the agent answering by reading the mounted `/brain/entries.jsonl`
+     instead of from injected context (the claude analogue of `pi`'s `--no-tools`). The brain is bind-mounted
+     into the container, so this gate is **still required in-container** and is **retained**. Dropping it would
+     let the `none` baseline read the brain and break the contrast — i.e. the "22 reproduce" gate would fail,
+     which is the deterministic backstop proving the point.
 
 ## Consequences
 

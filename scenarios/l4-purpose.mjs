@@ -27,7 +27,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tmpdir, homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 const REPO = resolve(process.argv[1], '../..');
@@ -41,6 +41,11 @@ const PROVIDER = process.env.VTFKB_L4_PROVIDER || 'claude-code';
 const MODEL = process.env.VTFKB_L4_MODEL || 'claude-haiku-4-5';
 const HARNESS = process.env.VTFKB_L4_HARNESS || 'claude'; // pi | claude — applies to ALL scenarios
 const TIMEOUT = 175_000;
+// Dockerized runs add container + in-container MCP-server boot overhead the host path
+// doesn't have; the multi-step MCP scenarios (kb_map→kb_search) can exceed the host
+// budget. Give `docker run` a larger wall-clock so a slow-but-correct run isn't scored
+// as a timeout failure. Override with VTFKB_L4_DOCKER_TIMEOUT (ms).
+const DOCKER_TIMEOUT = parseInt(process.env.VTFKB_L4_DOCKER_TIMEOUT || '300000', 10);
 // N=3 multi-trial (ADR-0022): each scenario runs TRIALS times; `demonstrated` requires
 // the contrast to hold on >=2/3 trials — separates genuine divergence from flakiness.
 const TRIALS = Math.max(1, parseInt(process.env.VTFKB_L4_TRIALS || '3', 10));
@@ -52,15 +57,39 @@ const TRIALS = Math.max(1, parseInt(process.env.VTFKB_L4_TRIALS || '3', 10));
 // regenerate the known-good baseline records).
 const PI_MODE = process.env.VTFKB_L4_PI_MODE || (HARNESS === 'pi' ? 'docker' : 'host');
 const PI_IMAGE = process.env.VTFKB_L4_PI_IMAGE || 'vtfkb-l4-pi:dev';
+// claude harness substrate (T5b): docker by default; VTFKB_L4_CLAUDE_MODE=host runs the
+// legacy host claude (used to regenerate the known-good host baseline records).
+const CLAUDE_MODE = process.env.VTFKB_L4_CLAUDE_MODE || 'docker';
+const CLAUDE_IMAGE = process.env.VTFKB_L4_CLAUDE_IMAGE || 'vtfkb-l4-claude:dev';
 const UID = typeof process.getuid === 'function' ? process.getuid() : 0;
 const GID = typeof process.getgid === 'function' ? process.getgid() : 0;
-// Fixed in-container paths (must match scenarios/docker/pi.Dockerfile).
+// Fixed in-container paths (must match scenarios/docker/{pi,claude}.Dockerfile).
 const C_HOME = '/work';
 const C_BRAIN = '/brain';
 const C_DIST = '/opt/vtfkb/dist';
+const C_CLI = `${C_DIST}/cli.js`;
 const C_EXT = `${C_DIST}/pi-extension.js`;
 const C_BRIDGE = `${C_DIST}/pi-mcp-bridge.js`;
 const C_MCP = `${C_DIST}/mcp-server.js`;
+
+// Per-run throwaway copy of the Claude Code subscription credential, mounted at the
+// container's /work/.claude (T5b, operator decision 2026-06-27: use the Max subscription
+// OAuth, NOT an ANTHROPIC_API_KEY — none is set on this host). Only the `claudeAiOauth`
+// block is copied (the `mcpOAuth` block — e.g. the mediawiki MCP token — is dropped:
+// privacy). NEVER the live host file, so a container-side token refresh can't disturb the
+// host session's credential. Created once, reused across runs, cleaned at exit.
+let CLAUDE_CREDS_DIR = null;
+function claudeCredsDir() {
+  if (CLAUDE_CREDS_DIR) return CLAUDE_CREDS_DIR;
+  const host = join(process.env.HOME || homedir(), '.claude', '.credentials.json');
+  const c = JSON.parse(readFileSync(host, 'utf8'));
+  if (!c.claudeAiOauth) throw new Error('no claudeAiOauth in ~/.claude/.credentials.json — log in with host `claude` first');
+  const d = mkdtempSync(join(tmpdir(), 'vtfkb-l4-claudecfg-'));
+  writeFileSync(join(d, '.credentials.json'), JSON.stringify({ claudeAiOauth: c.claudeAiOauth }), { mode: 0o600 });
+  CLAUDE_CREDS_DIR = d;
+  return d;
+}
+process.on('exit', () => { try { if (CLAUDE_CREDS_DIR) rmSync(CLAUDE_CREDS_DIR, { recursive: true, force: true }); } catch {} });
 // claude filesystem/exec deny list (prevents reading the brain file off /tmp).
 const FS_DENY = 'Read,Edit,Write,Bash,BashOutput,Glob,Grep,WebFetch,WebSearch,NotebookEdit,Task,KillShell';
 
@@ -87,8 +116,13 @@ function brainText(brain) {
 }
 // Build a claude settings file with exactly the hooks a scenario needs.
 // caps: { inject:'vtfkb'|'naive'|'none', capture:bool, gating:bool, naiveLimit }
-function claudeSettings(brain, caps) {
-  const cmd = (sub) => `VTFKB_DIR=${brain} VTFKB_PROJECT=l4 node ${CLI} hook ${sub}`;
+// `container`: emit IN-CONTAINER paths for the dockerized claude (T5b). The settings
+// FILE is written to the host brain dir (so it lands in the /brain bind mount); the hook
+// commands inside it + the returned --settings path use container paths.
+function claudeSettings(brain, caps, container = false) {
+  const cliPath = container ? C_CLI : CLI;
+  const vdir = container ? C_BRAIN : brain;
+  const cmd = (sub) => `VTFKB_DIR=${vdir} VTFKB_PROJECT=l4 node ${cliPath} hook ${sub}`;
   const hooks = {};
   if (caps.inject && caps.inject !== 'none') {
     const ss = cmd('session-start') + (caps.inject === 'naive' ? ` --naive${caps.naiveLimit ? ` --limit ${caps.naiveLimit}` : ''}` : '');
@@ -100,14 +134,14 @@ function claudeSettings(brain, caps) {
   if (caps.capture) {
     hooks.PostToolUse = [{ matcher: '*', hooks: [{ type: 'command', command: cmd('post-tool-use') }] }];
   }
-  const f = join(brain, `settings.${caps.inject}.${caps.capture ? 'c' : ''}${caps.gating ? 'g' : ''}.json`);
-  writeFileSync(f, JSON.stringify({ hooks }));
-  return f;
+  const name = `settings.${caps.inject}.${caps.capture ? 'c' : ''}${caps.gating ? 'g' : ''}.json`;
+  writeFileSync(join(brain, name), JSON.stringify({ hooks }));
+  return container ? `${C_BRAIN}/${name}` : join(brain, name);
 }
-function mcpConfig(brain) {
-  const f = join(brain, 'mcp.json');
-  writeFileSync(f, JSON.stringify({ mcpServers: { vtfkb: { command: 'node', args: [MCP], env: { VTFKB_DIR: brain } } } }));
-  return f;
+function mcpConfig(brain, container = false) {
+  writeFileSync(join(brain, 'mcp.json'),
+    JSON.stringify({ mcpServers: { vtfkb: { command: 'node', args: [container ? C_MCP : MCP], env: { VTFKB_DIR: container ? C_BRAIN : brain } } } }));
+  return container ? `${C_BRAIN}/mcp.json` : join(brain, 'mcp.json');
 }
 // Per-brain mcpServers config for the pi MCP bridge (Claude-compatible format).
 function piMcpConfig(brain) {
@@ -129,10 +163,9 @@ function piMcpConfigC(brain) {
 // the test must not reach the user's real connected services and must have no
 // out-of-band knowledge source. (The PROVEN token-leak vector was filesystem reads —
 // see the runner's --disallowedTools; this is defense-in-depth + privacy hygiene.)
-function emptyMcp(brain) {
-  const f = join(brain, 'mcp-empty.json');
-  writeFileSync(f, JSON.stringify({ mcpServers: {} }));
-  return f;
+function emptyMcp(brain, container = false) {
+  writeFileSync(join(brain, 'mcp-empty.json'), JSON.stringify({ mcpServers: {} }));
+  return container ? `${C_BRAIN}/mcp-empty.json` : join(brain, 'mcp-empty.json');
 }
 
 // Unified agent runner, capability-aware on BOTH harnesses.
@@ -144,17 +177,21 @@ function emptyMcp(brain) {
 function run({ harness = HARNESS, brain, prompt, inject = 'vtfkb', mcp = false, capture = false, gating = false, allowTools, sessionId, naiveLimit }) {
   try {
     if (harness === 'claude') {
-      // ALWAYS strict-mcp-config: disable the user's global MCP servers (no real
-      // Atlassian/Gmail/etc., no out-of-band knowledge). Tool policy controls the
-      // PROVEN leak vector (reading the brain file off /tmp).
+      const cdocker = CLAUDE_MODE === 'docker';
+      // --strict-mcp-config + emptyMcp disable any user-level MCP servers. On the host
+      // that mattered (the operator's real Atlassian/Gmail/etc.); in the dockerized
+      // sandbox there are none, so it's a behavior-neutral no-op kept for parity. The
+      // PROVEN test-validity gate is the tool policy: FS_DENY denies the FS/exec tools so
+      // the agent answers from injected context, never by reading the brain file (the
+      // claude analogue of pi's --no-tools). FS_DENY is therefore retained in-container.
       const args = ['-p', prompt, '--strict-mcp-config'];
       // Pin the model when MODEL names a Claude model (e.g. claude-haiku-4-5); the
       // 'cli' sentinel (or any non-claude MODEL) falls through to the CLI default.
       if (/^(claude|haiku|sonnet|opus)/.test(MODEL)) args.push('--model', MODEL);
       if (mcp) {
-        args.push('--mcp-config', mcpConfig(brain), '--dangerously-skip-permissions', '--disallowedTools', FS_DENY);
+        args.push('--mcp-config', mcpConfig(brain, cdocker), '--dangerously-skip-permissions', '--disallowedTools', FS_DENY);
       } else {
-        args.push('--settings', claudeSettings(brain, { inject, capture, gating, naiveLimit }), '--mcp-config', emptyMcp(brain));
+        args.push('--settings', claudeSettings(brain, { inject, capture, gating, naiveLimit }, cdocker), '--mcp-config', emptyMcp(brain, cdocker));
         if (allowTools && allowTools.length) {
           // capture/gating: allow ONLY the named tools (everything else implicitly denied).
           args.push('--dangerously-skip-permissions', '--allowedTools', allowTools.join(','));
@@ -162,7 +199,19 @@ function run({ harness = HARNESS, brain, prompt, inject = 'vtfkb', mcp = false, 
           args.push('--disallowedTools', FS_DENY); // qa: no tools at all
         }
       }
-      return sh('claude', args, { cwd: tmpdir(), timeout: TIMEOUT, env: { ...process.env } }).trim();
+      if (!cdocker) return sh('claude', args, { cwd: tmpdir(), timeout: TIMEOUT, env: { ...process.env } }).trim();
+      // Dockerized (T5b): uid-matched brain bind-mount (writes persist to host /brain) +
+      // a throwaway subscription-creds copy mounted at /work/.claude. No host creds/FS/MCP
+      // reach the sandbox beyond these two scoped mounts (the no-leak property).
+      const creds = claudeCredsDir();
+      const dargs = ['run', '--rm', '--user', `${UID}:${GID}`,
+        '-e', `HOME=${C_HOME}`,
+        '-e', `VTFKB_DIR=${C_BRAIN}`,
+        '-e', 'VTFKB_PROJECT=l4',
+        '-v', `${brain}:${C_BRAIN}`,
+        '-v', `${creds}:${C_HOME}/.claude`,
+        CLAUDE_IMAGE, 'claude', ...args];
+      return sh('docker', dargs, { timeout: DOCKER_TIMEOUT, env: process.env }).trim();
     }
     // pi: the EXT extension provides inject + capture + gating in-process; the BRIDGE
     // provides MCP. Tools on whenever the scenario needs to act. PI_MODE=docker (default
@@ -200,7 +249,7 @@ function run({ harness = HARNESS, brain, prompt, inject = 'vtfkb', mcp = false, 
       '-e', `DEEPSEEK_TOKEN=${process.env.DEEPSEEK_TOKEN || ''}`];
     if (env.VTFKB_MCP_CONFIG) dargs.push('-e', `VTFKB_MCP_CONFIG=${env.VTFKB_MCP_CONFIG}`);
     dargs.push('-v', `${brain}:${C_BRAIN}`, PI_IMAGE, 'pi', ...args);
-    return sh('docker', dargs, { timeout: TIMEOUT, env: process.env }).trim();
+    return sh('docker', dargs, { timeout: DOCKER_TIMEOUT, env: process.env }).trim();
   } catch (e) {
     return `__ERROR__ ${(e && e.message) || e}`;
   }
@@ -462,7 +511,9 @@ const toRun = only.length ? SCN.filter((s) => only.includes(s.id)) : SCN;
 const AGENT = HARNESS === 'claude'
   ? `claude-code (${/^(claude|haiku|sonnet|opus)/.test(MODEL) ? MODEL : 'CLI default model'})`
   : `pi/${PROVIDER}/${MODEL}`;
-const SUBSTRATE = HARNESS === 'pi' ? (PI_MODE === 'docker' ? `docker:${PI_IMAGE}` : 'host pi') : 'host claude';
+const SUBSTRATE = HARNESS === 'pi'
+  ? (PI_MODE === 'docker' ? `docker:${PI_IMAGE}` : 'host pi')
+  : (CLAUDE_MODE === 'docker' ? `docker:${CLAUDE_IMAGE}` : 'host claude');
 console.log(`=== vtfkb COMPREHENSIVE L4 — harness: ${HARNESS} — agent: ${AGENT} — substrate: ${SUBSTRATE} — N=${TRIALS} ===\n`);
 const results = [];
 for (const s of toRun) {
@@ -491,12 +542,13 @@ if (!argv.includes('--no-record')) {
   // from the host pi baseline, so it gets a `__docker` slug — it never clobbers the
   // known-good host record the gate compares against.
   const piDocker = HARNESS === 'pi' && PI_MODE === 'docker';
-  let imageRef = null, imageDigest = null;
-  if (piDocker) {
-    imageRef = PI_IMAGE;
-    try { imageDigest = sh('docker', ['image', 'inspect', '--format', '{{.Id}}', PI_IMAGE]).trim(); } catch {}
+  const claudeDocker = HARNESS === 'claude' && CLAUDE_MODE === 'docker';
+  const isDocker = piDocker || claudeDocker;
+  let imageRef = piDocker ? PI_IMAGE : (claudeDocker ? CLAUDE_IMAGE : null), imageDigest = null;
+  if (imageRef) {
+    try { imageDigest = sh('docker', ['image', 'inspect', '--format', '{{.Id}}', imageRef]).trim(); } catch {}
   }
-  const slug = (`${PROVIDER}__${MODEL}` + (piDocker ? '__docker' : '')).replace(/[^A-Za-z0-9._-]/g, '_');
+  const slug = (`${PROVIDER}__${MODEL}` + (isDocker ? '__docker' : '')).replace(/[^A-Za-z0-9._-]/g, '_');
   const dir = join(REPO, 'scenarios', 'records');
   mkdirSync(dir, { recursive: true });
   const jsonPath = join(dir, `${slug}.json`);

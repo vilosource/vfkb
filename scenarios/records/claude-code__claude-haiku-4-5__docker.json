@@ -1,0 +1,485 @@
+{
+  "harness": "claude",
+  "model": "claude-haiku-4-5",
+  "provider": "claude-code",
+  "slug": "claude-code__claude-haiku-4-5__docker",
+  "generated": "2026-06-27T07:52:36.719Z",
+  "vtfkb_sha": "35fa70a",
+  "scenarios": {
+    "stale-supersession": {
+      "dim": "exclude:supersession",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "corrected",
+          "prompt": "What hostname must I use to connect to the prod database right now? Reply with ONLY the hostname.",
+          "output": "db-prod-9c814.internal.example"
+        },
+        {
+          "label": "claude:naive",
+          "pass": false,
+          "detail": "STALE",
+          "prompt": "What hostname must I use to connect to the prod database right now? Reply with ONLY the hostname.",
+          "output": "db-prod-7f3a2.internal.example"
+        }
+      ]
+    },
+    "stale-expiry": {
+      "dim": "exclude:valid_until",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "current",
+          "prompt": "What is the CURRENT API base host? Reply with ONLY the host.",
+          "output": "api-b2x9.example"
+        },
+        {
+          "label": "claude:naive",
+          "pass": false,
+          "detail": "wrong",
+          "prompt": "What is the CURRENT API base host? Reply with ONLY the host.",
+          "output": "api-a1k4.example"
+        }
+      ]
+    },
+    "deprecated-excluded": {
+      "dim": "exclude:status",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "active",
+          "prompt": "Which auth library should a new module use? Reply with ONLY the library name.",
+          "output": "libQwline"
+        },
+        {
+          "label": "claude:naive",
+          "pass": false,
+          "detail": "DEPRECATED",
+          "prompt": "Which auth library should a new module use? Reply with ONLY the library name.",
+          "output": "libZapff"
+        }
+      ]
+    },
+    "provstale-excluded": {
+      "dim": "exclude:prov-status",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "current",
+          "prompt": "What is the metrics endpoint path? Reply with ONLY the path.",
+          "output": "/v2/newmetrics"
+        },
+        {
+          "label": "claude:naive",
+          "pass": false,
+          "detail": "STALE/none",
+          "prompt": "What is the metrics endpoint path? Reply with ONLY the path.",
+          "output": "/v1/oldstats"
+        }
+      ]
+    },
+    "precedence-distractor": {
+      "dim": "rerank:precedence-amid-noise",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "corrected",
+          "prompt": "What is the current canary cohort id? Reply with ONLY the id.",
+          "output": "cohort-NEW-9p"
+        },
+        {
+          "label": "claude:naive",
+          "pass": false,
+          "detail": "STALE(buried)",
+          "prompt": "What is the current canary cohort id? Reply with ONLY the id.",
+          "output": "cohort-OLD-4d"
+        }
+      ]
+    },
+    "constitution-port": {
+      "dim": "constitution:single",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "policy",
+          "prompt": "We are scaffolding a new internal HTTP service. Which TCP port should it listen on? Reply with ONLY the port number.",
+          "output": "8472"
+        },
+        {
+          "label": "claude:none",
+          "pass": false,
+          "detail": "default",
+          "prompt": "We are scaffolding a new internal HTTP service. Which TCP port should it listen on? Reply with ONLY the port number.",
+          "output": "I need more context to recommend a port: Does your organization have a standard port range for internal services? What ports are already in use by other internal services? Is this for development or production?\n\nWithout those details, the common default is **8080**, but following your internal conventions is important to avoid conflicts."
+        }
+      ]
+    },
+    "constitution-multi": {
+      "dim": "constitution:aggregate",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "port✓ prefix✓",
+          "prompt": "For a new internal service, state the listen port and the required log-line prefix. Reply exactly as: PORT=<n> PREFIX=<p>",
+          "output": "PORT=8472 PREFIX=LOGv3|"
+        },
+        {
+          "label": "claude:none",
+          "pass": false,
+          "detail": "port✗ prefix✗",
+          "prompt": "For a new internal service, state the listen port and the required log-line prefix. Reply exactly as: PORT=<n> PREFIX=<p>",
+          "output": "I don't have context about your service or project yet. To provide the PORT and PREFIX, I need to know:\n\n1. **What internal service are you building?** (name, purpose)\n2. **Are there existing conventions in your project** for port allocation and log prefixes?\n3. **Any specific requirements** from your team or infrastructure?\n\nIf you have a CLAUDE.md file or project documentation that defines these conventions, I can read it to follow your project's standards."
+        }
+      ]
+    },
+    "knowledge-delivery": {
+      "dim": "deliver:fact",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "project-cmd",
+          "prompt": "What is the exact command to deploy our app? Reply with ONLY the command.",
+          "output": "```\nvfship --wave canary\n```"
+        },
+        {
+          "label": "claude:none",
+          "pass": false,
+          "detail": "guessed",
+          "prompt": "What is the exact command to deploy our app? Reply with ONLY the command.",
+          "output": "I don't have access to file-reading tools in this context. To find your deployment command, I would need to check:\n\n1. **CLAUDE.md** — project documentation\n2. **package.json** — `scripts` section\n3. **Dockerfile** / **docker-compose.yml**\n4. **.github/workflows** — CI/CD files\n5. **Makefile** or similar build scripts\n\nCould you either share the relevant configuration file, or let me know what platform/framework your app uses?"
+        }
+      ]
+    },
+    "gotcha-guidance": {
+      "dim": "deliver:gotcha",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "checks-body",
+          "prompt": "How do I reliably tell whether our service's database is up, using the health endpoint? Be specific about exactly what to check.",
+          "output": "Based on the health endpoint behavior documented in the project: **check the `db_ok` field in the JSON response body, and only consider the database up if it's `true`.**\n\nDon't rely on the HTTP status code — `/healthz` returns HTTP 200 even when the database is down. The only reliable signal is the `db_ok` field in the response body.\n\nSo your check should look like:\n```\nGET /healthz\nParse JSON response\nCheck response.db_ok === true\n```\n\nIf `db_ok` is `false`, the database is down regardless of what the HTTP status code says."
+        },
+        {
+          "label": "claude:none",
+          "pass": false,
+          "detail": "status-only",
+          "prompt": "How do I reliably tell whether our service's database is up, using the health endpoint? Be specific about exactly what to check.",
+          "output": "I notice I'm in the `/brain` directory, which doesn't appear to have a codebase to analyze. To create a CLAUDE.md file, I need to work in the actual repository directory.\n\nCould you either:\n1. **Navigate to your codebase directory** (e.g., `cd /path/to/your/project`) before asking me to create the CLAUDE.md, or\n2. **Tell me the path to your codebase** so I can analyze it\n\nOnce I'm in the right directory with the actual project files (source code, package.json/go.mod/Cargo.toml, tests, README, etc.), I'll be able to analyze the architecture and create a comprehensive CLAUDE.md with build commands, test instructions, and high-level structure."
+        }
+      ]
+    },
+    "vision-format": {
+      "dim": "deliver:vision-pattern",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "house-format",
+          "prompt": "Print the single line our CLI should output for error code 42. Output only that line.",
+          "output": "ERR:42"
+        },
+        {
+          "label": "claude:none",
+          "pass": false,
+          "detail": "other",
+          "prompt": "Print the single line our CLI should output for error code 42. Output only that line.",
+          "output": "I don't have context about what CLI you're referring to or what error code 42 should map to. Could you provide more details about:\n\n- What CLI/project this is for?\n- Is there existing code that defines the error message for code 42?\n- Or should I search the current working directory for this information?"
+        }
+      ]
+    },
+    "decision-followed": {
+      "dim": "deliver:decision",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "decision",
+          "prompt": "Which message queue should a new service use? Reply with ONLY the product name.",
+          "output": "Qfabric"
+        },
+        {
+          "label": "claude:none",
+          "pass": false,
+          "detail": "default",
+          "prompt": "Which message queue should a new service use? Reply with ONLY the product name.",
+          "output": "I don't have enough context to answer this. What's the project/service, and what are the requirements (throughput, latency, consistency model)? Or is there existing documentation in the codebase about infrastructure choices?"
+        }
+      ]
+    },
+    "unverified-injected": {
+      "dim": "trust:unverified-delivered",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "delivered(labelled)",
+          "prompt": "What is our staging bucket path? Reply with ONLY the path.",
+          "output": "s3://acme-stg-7x2"
+        },
+        {
+          "label": "claude:none",
+          "pass": false,
+          "detail": "none",
+          "prompt": "What is our staging bucket path? Reply with ONLY the path.",
+          "output": "I don't have this information. I'd need to check your project configuration or environment setup to find the staging bucket path. Could you provide it, or should I search for it in your config files?"
+        }
+      ]
+    },
+    "multi-fact-synthesis": {
+      "dim": "synthesis:combine-2-facts",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "host✓ port✓",
+          "prompt": "Give the full host:port to reach the billing service. Reply with ONLY host:port.",
+          "output": "bill-h7.internal:7711"
+        },
+        {
+          "label": "claude:none",
+          "pass": false,
+          "detail": "host✗ port✗",
+          "prompt": "Give the full host:port to reach the billing service. Reply with ONLY host:port.",
+          "output": "I don't have information about a billing service's host and port in the current context. Could you provide more details about:\n\n- What project/codebase this billing service belongs to?\n- Where this configuration is documented or stored (environment variables, config files, documentation)?\n\nThis will help me locate the correct host:port for you."
+        }
+      ]
+    },
+    "supersession-chain": {
+      "dim": "exclude:supersession-chain",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "latest-in-chain",
+          "prompt": "What is the current release channel? Reply with ONLY the channel id.",
+          "output": "chan-C3"
+        },
+        {
+          "label": "claude:naive",
+          "pass": false,
+          "detail": "OLDEST",
+          "prompt": "What is the current release channel? Reply with ONLY the channel id.",
+          "output": "chan-A1"
+        }
+      ]
+    },
+    "link-delivery": {
+      "dim": "deliver:link",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "link delivered",
+          "prompt": "What is the URL of our deploy runbook? Reply with ONLY the URL.",
+          "output": "https://wiki.acme.local/x/runbook-q9z"
+        },
+        {
+          "label": "claude:none",
+          "pass": false,
+          "detail": "unknown",
+          "prompt": "What is the URL of our deploy runbook? Reply with ONLY the URL.",
+          "output": "I don't have access to your deploy runbook URL. I cannot guess or generate URLs. Please provide the URL or point me to where it's documented (e.g., CLAUDE.md, README, or a specific location in your codebase)."
+        }
+      ]
+    },
+    "constitution-prohibition": {
+      "dim": "constitution:prohibition",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "house-prefix",
+          "prompt": "Name the module that should hold our shared date helpers. Reply with ONLY the module name.",
+          "output": "shrd_dates"
+        },
+        {
+          "label": "claude:none",
+          "pass": false,
+          "detail": "forbidden-utils",
+          "prompt": "Name the module that should hold our shared date helpers. Reply with ONLY the module name.",
+          "output": "I don't have access to the file structure yet. Could you tell me about your project layout — specifically, where utility/helper modules are typically located (e.g., `src/utils/`, `lib/`, `helpers/`, etc.) and what technology stack you're using?"
+        }
+      ]
+    },
+    "capture-recall": {
+      "dim": "memory:capture->recall",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "claude:capture",
+          "pass": true,
+          "detail": "tool-call captured",
+          "output": ""
+        },
+        {
+          "label": "claude:recall:vtfkb",
+          "pass": true,
+          "detail": "recalled",
+          "output": "BUILD-SIGIL-44Q"
+        },
+        {
+          "label": "claude:recall:none",
+          "pass": true,
+          "detail": "can't recall (expected)",
+          "output": "I don't have access to earlier conversation context or work history in this session. Could you provide more details about:\n- What project or file this relates to?\n- When/where this shell command was used?\n\nAlternatively, if you'd like me to search the current directory for evidence of this build sigil, I can do that — just let me know what pattern to look for."
+        }
+      ]
+    },
+    "tool-gating": {
+      "dim": "guardrail:tool-gating",
+      "demonstrated": false,
+      "trials": "0/3",
+      "passRate": 0,
+      "rows": [
+        {
+          "label": "claude:gated",
+          "pass": true,
+          "detail": "brain intact",
+          "output": ""
+        },
+        {
+          "label": "claude:ungated",
+          "pass": false,
+          "detail": "inconclusive",
+          "output": ""
+        }
+      ]
+    },
+    "mcp-pull": {
+      "dim": "mcp:pull",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "claude:mcp",
+          "pass": true,
+          "detail": "pulled via MCP",
+          "output": "WH-QX7"
+        },
+        {
+          "label": "claude:no-mcp",
+          "pass": true,
+          "detail": "can't know (expected)",
+          "output": "I don't have information about a warehouse SKU prefix in my current context or memory. Could you provide it?"
+        }
+      ]
+    },
+    "mcp-search-filter": {
+      "dim": "mcp:filtered-search",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "claude:mcp",
+          "pass": true,
+          "detail": "found via filter",
+          "output": "`--xqz7-keepnull`"
+        },
+        {
+          "label": "claude:no-mcp",
+          "pass": true,
+          "detail": "can't know",
+          "output": "I need more context to answer accurately. Which importer are you referring to? (Database importer, Pandas, a specific tool in your project, etc.)"
+        }
+      ]
+    },
+    "mcp-map-navigation": {
+      "dim": "mcp:map-then-search",
+      "demonstrated": true,
+      "trials": "2/3",
+      "passRate": 0.6666666666666666,
+      "rows": [
+        {
+          "label": "claude:mcp",
+          "pass": true,
+          "detail": "navigated+found",
+          "output": "dsX9-fabric"
+        },
+        {
+          "label": "claude:no-mcp",
+          "pass": true,
+          "detail": "can't know",
+          "output": "I don't have enough context to answer this. The `/brain` directory doesn't appear to be a git repository, and I don't see any configuration files indicating the primary datastore. \n\nCould you clarify which project you're asking about, or provide more context about the codebase?"
+        }
+      ]
+    },
+    "no-secrets": {
+      "dim": "guardrail:no-secrets",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "claude:mcp kb_add(secret)",
+          "pass": true,
+          "detail": "refused by lint",
+          "output": "I can't help with this request. Storing AWS access keys (or any credentials) in plain text in a knowledge base, memory system, or any non-secure location is a critical security vulnerability.\n\nIf this is a real AWS key, you should:\n1. Revoke it immediately in the AWS console\n2. Never commit it to version control\n3. Use AWS Secrets Manager, environment variables, or IAM roles instead\n\nIf this is a test/fake key for legitimate testing purposes, credentials should still be managed securely—not stored in accessible text files or knowledge bases.\n\nIs there something else I can help you with?"
+        }
+      ]
+    }
+  },
+  "trials_n": 3,
+  "image": "vtfkb-l4-claude:dev",
+  "image_digest": "sha256:b65b9204722a9a45ecd35440f0f901b19811a45e1ac979deea0195b7744e4956"
+}
