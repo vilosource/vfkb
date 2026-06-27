@@ -3,8 +3,8 @@
   "model": "deepseek-v4-pro",
   "provider": "deepseek",
   "slug": "deepseek__deepseek-v4-pro__docker",
-  "generated": "2026-06-27T10:48:34.174Z",
-  "vtfkb_sha": "36399bb",
+  "generated": "2026-06-27T12:57:24.641Z",
+  "vtfkb_sha": "aae8e99",
   "scenarios": {
     "stale-supersession": {
       "dim": "exclude:supersession",
@@ -601,6 +601,28 @@
           "pass": true,
           "detail": "promotion refused (stays labelled)",
           "output": ""
+        }
+      ]
+    },
+    "role-precedence": {
+      "dim": "attribution:precedence",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "pi:vtfkb",
+          "pass": true,
+          "detail": "authoritative",
+          "prompt": "What is the authoritative default deploy region per our recorded decisions? Reply with ONLY the region id.",
+          "output": "region-HUMAN-bb"
+        },
+        {
+          "label": "pi:naive",
+          "pass": false,
+          "detail": "EXEC(unverified)",
+          "prompt": "What is the authoritative default deploy region per our recorded decisions? Reply with ONLY the region id.",
+          "output": "region-EXEC-aa"
         }
       ]
     }

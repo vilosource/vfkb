@@ -244,10 +244,20 @@ so the elevation is agent-visible — otherwise corroborated promotion has no ag
   post-execution event API verified):** capture on a pi post-tool event that carries the result. Logged; not
   blocking — distinct from the resume gap, which was a one-line fix.
 
-**Track 4b — close the v1 partials — `[planned, lower priority]`**
-The audit also found three *partial* v1 gaps: `verified-only-filter` (trust gradient, §3.6),
-`role-precedence` (attribution-as-precedence, §3.3), `kb-context-first-read` (the context doc as first read,
-§3.7). Add after Track 4; not Track-1-blocking.
+**Track 4b — close the v1 partials — `[scenario-first, in progress]`** (applies [ADR-0023](adr/ADR-0023-scenario-contract-first.md))
+The audit flagged three *partial* v1 gaps. Per ADR-0023 each was contract-grounded **before** any code (check
+the mechanism exists) — which immediately split them into one delivered + two genuinely-unbuilt:
+
+| Scenario | FEATURES § | Mechanism check | Status |
+|---|---|---|---|
+| `role-precedence` | §3.3 attribution-as-precedence | `rerank`/`withinTierScore` weights operator-trust +3, verified +1 → **delivered** | **✅ pi 3/3, claude 3/3** |
+| `verified-only-filter` | §3.6 trust gradient | `kb_search` has type/zone/status/tags/author_role filters but **no provenance-`verified` filter** → an agent can't request verified-only | **🔴 GAP — needs a small build (add a `verified`/trust filter to `kb_search` + engine)** |
+| `kb-context-first-read` | §3.7 context doc | **no `kb_context` MCP tool** and no authored context-document feature (only the entry-bundle injection exists) → unbuilt | **🔴 GAP — needs a feature (context-doc + `kb_context`), likely its own RFC/ADR** |
+
+Scenario-first did its job: 2 of 3 "partials" are genuinely unbuilt, surfaced *before* writing a scenario
+against a non-existent mechanism. `role-precedence` (the delivered one) is recorded; the two gaps are RED
+contracts pending an operator decision on whether/when to build (the `verified` filter is small and in-scope
+for §3.6; the context-doc is a larger feature). Not Track-1-blocking.
 
 ---
 
@@ -255,9 +265,11 @@ The audit also found three *partial* v1 gaps: `verified-only-filter` (trust grad
 
 **Order (re-ratified 2026-06-27):**
 `M1 ✅ → RFC-006 ✅ → M2a ✅ → M2b ✅ → M3 ✅` (**Track 1 complete**)
-`→ ADR-0022 ✅ → T5a ✅ → T5b ✅ → Track 4 (continuity-resume ✅ → resume-reflects-correction ✅ → kb-resume-mcp ✅ → auto-distill-recall ✅ → distill-trust-label ✅ → corroborated-promotion ✅) → Track 4b`.
-The **active in-order build is Track 4b** (the 3 v1 partials) — Track 4's **6 core Track-1 scenarios are
-complete** (shipped 2026-06-27; pi 28/28, claude 27/28). **S1** (embedding reranker) and
+`→ ADR-0022 ✅ → T5a ✅ → T5b ✅ → Track 4 (6 core ✅) → ADR-0023 ✅ → Track 4b (role-precedence ✅; verified-only-filter 🔴 + kb-context-first-read 🔴 = gaps pending a build decision)`.
+The **active build is paused at a decision point**: Track 4's 6 core scenarios are complete (pi 28/28, claude
+27/28); Track 4b's `role-precedence` is done (pi/claude 3/3); its other two partials are RED contracts
+(ADR-0023) needing an operator decision on whether to build the missing mechanisms (a `verified` query filter;
+a context-doc + `kb_context` feature). **S1** (embedding reranker) and
 **P1** (Claude Code per-turn push) remain the two **gated/blocked** tracks — built only if their triggers
 fire. One build in flight at a time; each behind an accepted ADR.
 
@@ -289,7 +301,7 @@ In all three cases the response is the same: **update this roadmap and re-ratify
 — never leave the next step to an ad-hoc question. (Scope: in-repo `vtfkb` only; vafi/vtaskforge
 work stays out-of-scope/HITL per H2.)
 
-### ▶ Current action — **Track 4b: the 3 v1 partials** (ADR-0015/§3) — *lower priority*
+### ▶ Current action — **Track 4b at a decision point** (scenario-first per ADR-0023) — *lower priority*
 **Track 1 complete** (M1–M3; 87/87). **Track 5 complete** (2026-06-27): both dockerized substrates reproduce
 their host baselines at N=3 (T5a pi `vtfkb-l4-pi:dev` 22/22; T5b claude `vtfkb-l4-claude:dev` 21/22 via
 Max-subscription OAuth, no API key). **Track 4 core COMPLETE** (2026-06-27) — all 6 Track-1 scenarios, pi
@@ -302,13 +314,18 @@ Max-subscription OAuth, no API key). **Track 4 core COMPLETE** (2026-06-27) — 
 - `distill-trust-label` (3/3, 3/3) — trust gradient distilled→CANDIDATE vs human→ESTABLISHED.
 - `corroborated-promotion` (3/3, 3/3) — deterministic §4 gate; logged the promotion-trust-render finding.
 
-The next in-order build is **Track 4b** (lower priority — *not* Track-1-blocking): the three v1 partials the
-audit flagged — `verified-only-filter` (trust-gradient delivery, §3.6), `role-precedence`
-(attribution-as-precedence, §3.3), `kb-context-first-read` (the context doc as first read, §3.7). Same
-shape: `vtfkb`-vs-baseline contrast, observable effects, N=3 on both images, recorded; the prior execs are the
-templates. **Two findings remain open for an operator decision** (neither blocks Track-1): the pi
-live-capture-result gap (pi can't auto-distill live failures) and the corroborated-promotion trust-render gap
-(promotion isn't agent-visible) — both logged in §3 Track-4.
+**Track 4b** is scenario-first (ADR-0023). Contract-grounding the three partials *before* code split them:
+`role-precedence` (§3.3) is **delivered** (rerank weights trust) — scenario done, pi/claude 3/3.
+`verified-only-filter` (§3.6) and `kb-context-first-read` (§3.7) are **genuinely unbuilt** (no `verified`
+query filter; no `kb_context`/context-doc) — RED contracts that need a build decision (see §3 Track-4b table).
+None is Track-1-blocking. **Open decisions for the operator** (lower priority):
+- **D-i:** build the `verified`/trust filter for `kb_search` (small, in-scope for §3.6) → then write the
+  `verified-only-filter` scenario green.
+- **D-ii:** build the context-doc + `kb_context` feature (larger; likely its own RFC/ADR) → then
+  `kb-context-first-read`.
+- **D-iii (from Track 4):** relabel trust on promotion so ADR-0021 §4's elevation is agent-visible.
+- **D-iv (from Track 4):** capture tool *results* on pi (post-execution event) so pi can auto-distill live
+  failures — needs pi's event API verified.
 
 The two still-gated tracks are unchanged and NOT built on spec:
 - **S1 (embedding reranker, RFC-003)** — build *only* on a **2nd** live phrasing-robustness miss **or** an
