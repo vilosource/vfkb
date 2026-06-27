@@ -583,6 +583,21 @@ const SCN = [
     },
   },
 
+  // ---- Track 4b / FEATURES §3.3: attribution-as-precedence (role-precedence) ----
+  // A human/operator-trust VERIFIED decision outranks an executor UNVERIFIED one on the
+  // same question: vtfkb's rerank weights trust (withinTierScore: operator +3, verified
+  // +1), so the authoritative entry is delivered first + trust-labelled; a naive,
+  // attribution-blind memory surfaces by load-order (here the executor hunch, added first).
+  qa({
+    id: 'role-precedence', dim: 'attribution:precedence', baseline: 'naive', naiveLimit: 1,
+    seed(b) {
+      kb(b, ['add', 'decision', 'The default deploy region is region-EXEC-aa', '--role', 'executor']); // unverified, added first
+      kb(b, ['add', 'decision', 'The default deploy region is region-HUMAN-bb', '--role', 'human', '--status', 'accepted']); // verified/operator
+    },
+    prompt: 'What is the authoritative default deploy region per our recorded decisions? Reply with ONLY the region id.',
+    assert: (o) => ({ pass: has(o, 'region-HUMAN-bb') && lacks(o, 'region-EXEC-aa'), detail: has(o, 'region-HUMAN-bb') ? (has(o, 'region-EXEC-aa') ? 'both' : 'authoritative') : has(o, 'region-EXEC-aa') ? 'EXEC(unverified)' : 'none' }),
+  }),
+
   // ---- Guardrail: tool-gating blocks direct brain tampering (with contrast) ----
   {
     id: 'tool-gating', dim: 'guardrail:tool-gating',

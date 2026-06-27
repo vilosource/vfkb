@@ -1,12 +1,12 @@
 # vtfkb L4 behavior record — harness=pi — deepseek/deepseek-v4-pro
 
 - harness: pi
-- generated: 2026-06-27T10:48:34.174Z
-- vtfkb: 36399bb
+- generated: 2026-06-27T12:57:24.641Z
+- vtfkb: aae8e99
 - trials per scenario: N=3 (demonstrated = contrast holds on >=2/3)
 - image: vtfkb-l4-pi:dev
 - image digest: sha256:bdd2dfd2e00ff4d14a0dfc4eebdd3b80f62f3c6daf16066e7c910ae60fad62f2
-- scenarios recorded: 28 (28 demonstrated)
+- scenarios recorded: 29 (29 demonstrated)
 
 | scenario | dimension | demonstrated | trials | rows (label=verdict) |
 |---|---|---|---|---|
@@ -32,6 +32,7 @@
 | precedence-distractor | rerank:precedence-amid-noise | YES | 3/3 | pi:vtfkb=PASS, pi:naive=fail |
 | provstale-excluded | exclude:prov-status | YES | 3/3 | pi:vtfkb=PASS, pi:naive=fail |
 | resume-reflects-correction | continuity:anti-stale | YES | 3/3 | pi:resume:vtfkb=PASS, pi:resume:naive=fail |
+| role-precedence | attribution:precedence | YES | 3/3 | pi:vtfkb=PASS, pi:naive=fail |
 | stale-expiry | exclude:valid_until | YES | 3/3 | pi:vtfkb=PASS, pi:naive=fail |
 | stale-supersession | exclude:supersession | YES | 3/3 | pi:vtfkb=PASS, pi:naive=fail |
 | supersession-chain | exclude:supersession-chain | YES | 3/3 | pi:vtfkb=PASS, pi:naive=fail |

@@ -1,12 +1,12 @@
 # vtfkb L4 behavior record — harness=claude — claude-code/claude-haiku-4-5
 
 - harness: claude
-- generated: 2026-06-27T10:48:35.292Z
-- vtfkb: 36399bb
+- generated: 2026-06-27T12:59:16.847Z
+- vtfkb: aae8e99
 - trials per scenario: N=3 (demonstrated = contrast holds on >=2/3)
 - image: vtfkb-l4-claude:dev
 - image digest: sha256:b65b9204722a9a45ecd35440f0f901b19811a45e1ac979deea0195b7744e4956
-- scenarios recorded: 28 (27 demonstrated)
+- scenarios recorded: 29 (28 demonstrated)
 
 | scenario | dimension | demonstrated | trials | rows (label=verdict) |
 |---|---|---|---|---|
@@ -32,6 +32,7 @@
 | precedence-distractor | rerank:precedence-amid-noise | YES | 3/3 | claude:vtfkb=PASS, claude:naive=fail |
 | provstale-excluded | exclude:prov-status | YES | 3/3 | claude:vtfkb=PASS, claude:naive=fail |
 | resume-reflects-correction | continuity:anti-stale | YES | 3/3 | claude:resume:vtfkb=PASS, claude:resume:naive=fail |
+| role-precedence | attribution:precedence | YES | 3/3 | claude:vtfkb=PASS, claude:naive=fail |
 | stale-expiry | exclude:valid_until | YES | 3/3 | claude:vtfkb=PASS, claude:naive=fail |
 | stale-supersession | exclude:supersession | YES | 3/3 | claude:vtfkb=PASS, claude:naive=fail |
 | supersession-chain | exclude:supersession-chain | YES | 3/3 | claude:vtfkb=PASS, claude:naive=fail |

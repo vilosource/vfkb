@@ -3,8 +3,8 @@
   "model": "claude-haiku-4-5",
   "provider": "claude-code",
   "slug": "claude-code__claude-haiku-4-5__docker",
-  "generated": "2026-06-27T10:48:35.292Z",
-  "vtfkb_sha": "36399bb",
+  "generated": "2026-06-27T12:59:16.847Z",
+  "vtfkb_sha": "aae8e99",
   "scenarios": {
     "stale-supersession": {
       "dim": "exclude:supersession",
@@ -601,6 +601,28 @@
           "pass": true,
           "detail": "promotion refused (stays labelled)",
           "output": ""
+        }
+      ]
+    },
+    "role-precedence": {
+      "dim": "attribution:precedence",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "claude:vtfkb",
+          "pass": true,
+          "detail": "authoritative",
+          "prompt": "What is the authoritative default deploy region per our recorded decisions? Reply with ONLY the region id.",
+          "output": "region-HUMAN-bb"
+        },
+        {
+          "label": "claude:naive",
+          "pass": false,
+          "detail": "EXEC(unverified)",
+          "prompt": "What is the authoritative default deploy region per our recorded decisions? Reply with ONLY the region id.",
+          "output": "region-EXEC-aa"
         }
       ]
     }
