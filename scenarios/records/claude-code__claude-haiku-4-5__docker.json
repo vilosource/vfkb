@@ -3,8 +3,8 @@
   "model": "claude-haiku-4-5",
   "provider": "claude-code",
   "slug": "claude-code__claude-haiku-4-5__docker",
-  "generated": "2026-06-27T10:21:15.307Z",
-  "vtfkb_sha": "5e94074",
+  "generated": "2026-06-27T10:33:49.008Z",
+  "vtfkb_sha": "722644e",
   "scenarios": {
     "stale-supersession": {
       "dim": "exclude:supersession",
@@ -561,6 +561,26 @@
           "pass": true,
           "detail": "can't know (expected)",
           "output": "I don't have access to prior conversation context or a resumption from last session. This appears to be the start of a fresh conversation window. \n\nIf you'd like me to recall something from a previous session, please share the relevant details or I can check my persistent memory files if they exist."
+        }
+      ]
+    },
+    "distill-trust-label": {
+      "dim": "distill:trust-gradient",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "claude:distilled",
+          "pass": true,
+          "detail": "flagged CANDIDATE",
+          "output": "CANDIDATE"
+        },
+        {
+          "label": "claude:human-fact",
+          "pass": true,
+          "detail": "treated ESTABLISHED",
+          "output": "ESTABLISHED"
         }
       ]
     }
