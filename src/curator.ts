@@ -8,7 +8,7 @@
 // M2a ships the curator ops + the Brake + the retrieval-quality regression. The
 // distiller (write side) and the counter/signal stream that DRIVES promotion are M2b.
 
-import { readAll, updateEntry, transitionDecision, isDecisionFamily } from './engine.js';
+import { readAll, updateEntry, setProvenanceStatus, transitionDecision, isDecisionFamily } from './engine.js';
 import { tally } from './counters.js';
 import type { KnowledgeEntry } from './types.js';
 
@@ -48,7 +48,14 @@ export function promoteIfCorroborated(id: string, threshold = PROMOTION_THRESHOL
       `entry ${id} is not corroborated (net ${t.net} < ${threshold}) — auto-distill alone cannot mint trusted knowledge (ADR-0021); needs more signals or a human promote`,
     );
   }
-  return promote(id);
+  // D-iii (ADR-0024): the trust elevation must be AGENT-OBSERVABLE, not just a zone move.
+  // Corroboration-by-recurrence is the independent "second agent" signal §3.6 requires
+  // (the recurrence, not the author, asserts it) — so promotion both moves the zone AND
+  // re-stamps provenance verified, putting the lesson into the verified-only view + the ✓
+  // glyph. Text stays byte-identical (the never-rewrite Brake holds — setProvenanceStatus
+  // touches only metadata).
+  promote(id);
+  return setProvenanceStatus(id, 'verified');
 }
 
 // archive: retire a stale/noise entry out of the injection set. Fluid → zone

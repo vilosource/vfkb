@@ -1,12 +1,12 @@
 # vtfkb L4 behavior record — harness=pi — deepseek/deepseek-v4-pro
 
 - harness: pi
-- generated: 2026-06-27T17:13:25.447Z
-- vtfkb: 502d35f
+- generated: 2026-06-27T17:44:27.420Z
+- vtfkb: 5b82145
 - trials per scenario: N=3 (demonstrated = contrast holds on >=2/3)
 - image: vtfkb-l4-pi:dev
-- image digest: sha256:bddde7a8b8426ffb1cd3df9b6493a4d981cd3b2d4fe84f7844ed5987377ddfa3
-- scenarios recorded: 30 (30 demonstrated)
+- image digest: sha256:3a2d3fbe6500de7dc9f086f5c5cea071d814cbc62c506e41dff590ffe249b51b
+- scenarios recorded: 31 (31 demonstrated)
 
 | scenario | dimension | demonstrated | trials | rows (label=verdict) |
 |---|---|---|---|---|
@@ -30,6 +30,7 @@
 | multi-fact-synthesis | synthesis:combine-2-facts | YES | 3/3 | pi:vtfkb=PASS, pi:none=fail |
 | no-secrets | guardrail:no-secrets | YES | 3/3 | pi:mcp kb_add(secret)=PASS |
 | precedence-distractor | rerank:precedence-amid-noise | YES | 3/3 | pi:vtfkb=PASS, pi:naive=fail |
+| promotion-relabel | distill:promotion-agent-observable | YES | 2/3 | pi:promoted=fail, pi:not-promoted=PASS |
 | provstale-excluded | exclude:prov-status | YES | 3/3 | pi:vtfkb=PASS, pi:naive=fail |
 | resume-reflects-correction | continuity:anti-stale | YES | 3/3 | pi:resume:vtfkb=PASS, pi:resume:naive=fail |
 | role-precedence | attribution:precedence | YES | 3/3 | pi:vtfkb=PASS, pi:naive=fail |

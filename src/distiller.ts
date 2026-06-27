@@ -92,7 +92,10 @@ export function distillCandidates(
     bySig.set(sig, {
       sig,
       tool,
-      text: `Tool ${tool} can fail: ${summary} — auto-distilled from a captured failure (unverified)`,
+      // Trust lives in the GLYPH/provenance (provStatus below), NOT baked into the immutable
+      // text — so when corroborated promotion re-stamps the entry verified (D-iii/ADR-0024) the
+      // text doesn't contradict the ✓. (Text-Brake-safe: only new distills; never rewrites existing.)
+      text: `Tool ${tool} can fail: ${summary} — auto-distilled from a captured failure`,
       sourceIds: [e.id],
       origin: { kind: 'tool_call', tool },
     });

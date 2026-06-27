@@ -113,6 +113,26 @@ export function updateEntry(
   return next;
 }
 
+// Non-destructive provenance re-stamp (D-iii / ADR-0024). Flips the trust label
+// (provenance.status) while leaving the entry's TEXT byte-identical — the curator's
+// never-rewrite Brake stays intact. This is how corroborated promotion makes its trust
+// elevation AGENT-OBSERVABLE (the ✓ glyph + the verified-only filter), not just a zone
+// move. Deliberately metadata-only: it does not touch text/zone/status.
+export function setProvenanceStatus(
+  id: string,
+  status: KnowledgeEntry['provenance']['status'],
+): KnowledgeEntry {
+  const cur = readAll().find((e) => e.id === id);
+  if (!cur) throw new Error(`no such entry: ${id}`);
+  const next: KnowledgeEntry = {
+    ...cur,
+    provenance: { ...cur.provenance, status },
+    updated: nowIso(),
+  };
+  appendRecord(next);
+  return next;
+}
+
 // Delete = additive tombstone (never rewrites; merge=union safe).
 export function deleteEntry(id: string): void {
   appendRecord({ id, deleted: true, updated: nowIso() });

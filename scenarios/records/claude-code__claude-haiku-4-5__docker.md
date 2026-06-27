@@ -1,12 +1,12 @@
 # vtfkb L4 behavior record — harness=claude — claude-code/claude-haiku-4-5
 
 - harness: claude
-- generated: 2026-06-27T17:22:38.237Z
-- vtfkb: 502d35f
+- generated: 2026-06-27T17:54:49.225Z
+- vtfkb: 5b82145
 - trials per scenario: N=3 (demonstrated = contrast holds on >=2/3)
 - image: vtfkb-l4-claude:dev
-- image digest: sha256:4e2317b8c6f3d43a828890cff5a1c3ff500a8e23dea41636ce0ea6e39a04d0bf
-- scenarios recorded: 30 (29 demonstrated)
+- image digest: sha256:c8c4814599e602218262d72e7bd35e4c676f70a6e19e50845bb7574076f68cbb
+- scenarios recorded: 31 (30 demonstrated)
 
 | scenario | dimension | demonstrated | trials | rows (label=verdict) |
 |---|---|---|---|---|
@@ -30,6 +30,7 @@
 | multi-fact-synthesis | synthesis:combine-2-facts | YES | 3/3 | claude:vtfkb=PASS, claude:none=fail |
 | no-secrets | guardrail:no-secrets | YES | 3/3 | claude:mcp kb_add(secret)=PASS |
 | precedence-distractor | rerank:precedence-amid-noise | YES | 3/3 | claude:vtfkb=PASS, claude:naive=fail |
+| promotion-relabel | distill:promotion-agent-observable | YES | 2/3 | claude:promoted=PASS, claude:not-promoted=PASS |
 | provstale-excluded | exclude:prov-status | YES | 3/3 | claude:vtfkb=PASS, claude:naive=fail |
 | resume-reflects-correction | continuity:anti-stale | YES | 3/3 | claude:resume:vtfkb=PASS, claude:resume:naive=fail |
 | role-precedence | attribution:precedence | YES | 3/3 | claude:vtfkb=PASS, claude:naive=fail |
