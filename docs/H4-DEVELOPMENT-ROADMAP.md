@@ -251,7 +251,7 @@ the mechanism exists) — which immediately split them into one delivered + two 
 | Scenario | FEATURES § | Mechanism check | Status |
 |---|---|---|---|
 | `role-precedence` | §3.3 attribution-as-precedence | `rerank`/`withinTierScore` weights operator-trust +3, verified +1 → **delivered** | **✅ pi 3/3, claude 3/3** |
-| `verified-only-filter` | §3.6 trust gradient | `kb_search` has type/zone/status/tags/author_role filters but **no provenance-`verified` filter** → an agent can't request verified-only | **🔴 GAP — needs a small build (add a `verified`/trust filter to `kb_search` + engine)** |
+| `verified-only-filter` | §3.6 trust gradient | `kb_search` has type/zone/status/tags/author_role filters but **no provenance-`verified` filter** → an agent can't request verified-only | **🔴→building (D-i, active): add `verified`/trust filter to `kb_search` + engine, then ship green** |
 | `kb-context-first-read` | §3.7 context doc | **no `kb_context` MCP tool** and no authored context-document feature (only the entry-bundle injection exists) → unbuilt | **🔴 GAP — needs a feature (context-doc + `kb_context`), likely its own RFC/ADR** |
 
 Scenario-first did its job: 2 of 3 "partials" are genuinely unbuilt, surfaced *before* writing a scenario
@@ -265,11 +265,11 @@ for §3.6; the context-doc is a larger feature). Not Track-1-blocking.
 
 **Order (re-ratified 2026-06-27):**
 `M1 ✅ → RFC-006 ✅ → M2a ✅ → M2b ✅ → M3 ✅` (**Track 1 complete**)
-`→ ADR-0022 ✅ → T5a ✅ → T5b ✅ → Track 4 (6 core ✅) → ADR-0023 ✅ → Track 4b (role-precedence ✅; verified-only-filter 🔴 + kb-context-first-read 🔴 = gaps pending a build decision)`.
-The **active build is paused at a decision point**: Track 4's 6 core scenarios are complete (pi 28/28, claude
-27/28); Track 4b's `role-precedence` is done (pi/claude 3/3); its other two partials are RED contracts
-(ADR-0023) needing an operator decision on whether to build the missing mechanisms (a `verified` query filter;
-a context-doc + `kb_context` feature). **S1** (embedding reranker) and
+`→ ADR-0022 ✅ → T5a ✅ → T5b ✅ → Track 4 (6 core ✅) → ADR-0023 ✅ → Track 4b (role-precedence ✅ → **D-i verified-filter** → D-iii relabel-on-promotion → D-iv pi-capture-results → D-ii context-doc)`.
+The **active in-order build is D-i** (the `verified`/trust filter for `kb_search` → `verified-only-filter`
+green), ratified by the operator 2026-06-27. The remaining gaps are sequenced by cost/dependency (small
+finding-closers first; D-ii is RFC-gated and last); each is built scenario-first (ADR-0023). Track 4's 6 core
+scenarios are complete (pi 28/28, claude 27/28). **S1** (embedding reranker) and
 **P1** (Claude Code per-turn push) remain the two **gated/blocked** tracks — built only if their triggers
 fire. One build in flight at a time; each behind an accepted ADR.
 
@@ -301,7 +301,7 @@ In all three cases the response is the same: **update this roadmap and re-ratify
 — never leave the next step to an ad-hoc question. (Scope: in-repo `vtfkb` only; vafi/vtaskforge
 work stays out-of-scope/HITL per H2.)
 
-### ▶ Current action — **Track 4b at a decision point** (scenario-first per ADR-0023) — *lower priority*
+### ▶ Current action — **Track 4b / D-i: `verified`-only filter for `kb_search`** (scenario-first, ADR-0023) — *lower priority*
 **Track 1 complete** (M1–M3; 87/87). **Track 5 complete** (2026-06-27): both dockerized substrates reproduce
 their host baselines at N=3 (T5a pi `vtfkb-l4-pi:dev` 22/22; T5b claude `vtfkb-l4-claude:dev` 21/22 via
 Max-subscription OAuth, no API key). **Track 4 core COMPLETE** (2026-06-27) — all 6 Track-1 scenarios, pi
@@ -318,14 +318,17 @@ Max-subscription OAuth, no API key). **Track 4 core COMPLETE** (2026-06-27) — 
 `role-precedence` (§3.3) is **delivered** (rerank weights trust) — scenario done, pi/claude 3/3.
 `verified-only-filter` (§3.6) and `kb-context-first-read` (§3.7) are **genuinely unbuilt** (no `verified`
 query filter; no `kb_context`/context-doc) — RED contracts that need a build decision (see §3 Track-4b table).
-None is Track-1-blocking. **Open decisions for the operator** (lower priority):
-- **D-i:** build the `verified`/trust filter for `kb_search` (small, in-scope for §3.6) → then write the
-  `verified-only-filter` scenario green.
-- **D-ii:** build the context-doc + `kb_context` feature (larger; likely its own RFC/ADR) → then
-  `kb-context-first-read`.
-- **D-iii (from Track 4):** relabel trust on promotion so ADR-0021 §4's elevation is agent-visible.
-- **D-iv (from Track 4):** capture tool *results* on pi (post-execution event) so pi can auto-distill live
-  failures — needs pi's event API verified.
+None is Track-1-blocking. **Ratified follow-on order (operator, 2026-06-27)** — these were open decisions;
+the operator chose D-i next, so they are now sequenced here (the roadmap, not an ad-hoc poll, carries the
+order — §5 P8/roadmap-as-authority). Built scenario-first, lower priority than anything Track-1:
+- **D-i — `[active]`** build the `verified`/trust filter for `kb_search` (+ engine) → ship `verified-only-filter`
+  green. Small, in-scope for §3.6.
+- **D-iii** relabel trust on promotion so ADR-0021 §4's elevation is agent-visible (closes the Track-4
+  promotion-trust-render finding). Small ADR + engine.
+- **D-iv** capture tool *results* on pi (post-execution event) so pi can auto-distill live failures (closes the
+  Track-4 pi live-capture finding). Medium; **gated** on verifying pi's post-exec event API first.
+- **D-ii** build the context-doc + `kb_context` feature (FEATURES §3.7 / D-O8) → `kb-context-first-read`.
+  Largest; **its own RFC/ADR** before code. Sequenced last.
 
 The two still-gated tracks are unchanged and NOT built on spec:
 - **S1 (embedding reranker, RFC-003)** — build *only* on a **2nd** live phrasing-robustness miss **or** an
