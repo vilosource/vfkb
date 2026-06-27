@@ -1,12 +1,12 @@
 # vtfkb L4 behavior record — harness=claude — claude-code/claude-haiku-4-5
 
 - harness: claude
-- generated: 2026-06-27T09:45:23.887Z
-- vtfkb: 57a0214
+- generated: 2026-06-27T10:04:52.398Z
+- vtfkb: 41fb846
 - trials per scenario: N=3 (demonstrated = contrast holds on >=2/3)
 - image: vtfkb-l4-claude:dev
 - image digest: sha256:b65b9204722a9a45ecd35440f0f901b19811a45e1ac979deea0195b7744e4956
-- scenarios recorded: 24 (23 demonstrated)
+- scenarios recorded: 25 (24 demonstrated)
 
 | scenario | dimension | demonstrated | trials | rows (label=verdict) |
 |---|---|---|---|---|
@@ -18,6 +18,7 @@
 | decision-followed | deliver:decision | YES | 3/3 | claude:vtfkb=PASS, claude:none=fail |
 | deprecated-excluded | exclude:status | YES | 3/3 | claude:vtfkb=PASS, claude:naive=fail |
 | gotcha-guidance | deliver:gotcha | YES | 3/3 | claude:vtfkb=PASS, claude:none=fail |
+| kb-resume-mcp | mcp:resume-floor | YES | 2/3 | claude:mcp=fail, claude:no-mcp=PASS |
 | knowledge-delivery | deliver:fact | YES | 3/3 | claude:vtfkb=PASS, claude:none=fail |
 | link-delivery | deliver:link | YES | 3/3 | claude:vtfkb=PASS, claude:none=fail |
 | mcp-map-navigation | mcp:map-then-search | YES | 2/3 | claude:mcp=PASS, claude:no-mcp=PASS |

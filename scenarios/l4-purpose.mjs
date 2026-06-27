@@ -470,6 +470,26 @@ const SCN = [
     },
   },
 
+  // ---- Track 1 / ADR-0020 §5: the resume on the MCP-pull floor (kb_resume) ----
+  // Parity with mcp-pull, but for continuity: an agent on the pull floor uses the
+  // kb_resume MCP tool to load the prior session's derived digest and recover the
+  // next task; the no-memory baseline can't. (kb_resume returns renderResume.)
+  {
+    id: 'kb-resume-mcp', dim: 'mcp:resume-floor',
+    exec() {
+      const b = newBrain('mcpresume');
+      sh('node', [CLI, 'resume-note', 'wire the retry/backoff into module svc_qp7z next'], { env: { ...process.env, VTFKB_DIR: b, KB_SESSION_ID: 's1' } });
+      const withMcp = run({ brain: b, mcp: true, sessionId: 's2', prompt: 'Use the kb_resume MCP tool to load our session continuity, then reply with ONLY the next task we planned.' });
+      const noMem = run({ brain: b, inject: 'none', prompt: 'What was the next task we planned in the previous session? Reply with ONLY the task.' });
+      rmSync(b, { recursive: true, force: true });
+      const rows = [
+        { label: `${HARNESS}:mcp`, pass: has(withMcp, 'svc_qp7z'), detail: has(withMcp, 'svc_qp7z') ? 'pulled via kb_resume' : 'failed', output: withMcp, sample: sample(withMcp) },
+        { label: `${HARNESS}:no-mcp`, pass: lacks(noMem, 'svc_qp7z'), detail: lacks(noMem, 'svc_qp7z') ? "can't know (expected)" : 'leaked?', output: noMem, sample: sample(noMem) },
+      ];
+      return { rows, demonstrated: has(withMcp, 'svc_qp7z') && lacks(noMem, 'svc_qp7z') };
+    },
+  },
+
   // ---- Guardrail: tool-gating blocks direct brain tampering (with contrast) ----
   {
     id: 'tool-gating', dim: 'guardrail:tool-gating',
