@@ -1,0 +1,25 @@
+{
+  "providers": {
+    "deepseek": {
+      "baseUrl": "https://api.deepseek.com/anthropic",
+      "api": "anthropic-messages",
+      "apiKey": "DEEPSEEK_TOKEN",
+      "models": [
+        {
+          "id": "deepseek-v4-pro",
+          "name": "DeepSeek V4 Pro",
+          "contextWindow": 1000000,
+          "input": ["text"],
+          "maxTokens": 8192
+        },
+        {
+          "id": "deepseek-v4-flash",
+          "name": "DeepSeek V4 Flash",
+          "contextWindow": 1000000,
+          "input": ["text"],
+          "maxTokens": 8192
+        }
+      ]
+    }
+  }
+}
