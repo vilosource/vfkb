@@ -51,6 +51,18 @@ describe('query filters (D5c)', () => {
     expect(r[0].type === 'pattern' || r[0].type === 'gotcha').toBe(true);
     expect(r).toHaveLength(2);
   });
+  it('verifiedOnly returns only provenance-verified knowledge (FEATURES §3.6)', () => {
+    const r = query({ verifiedOnly: true });
+    // human-authored fresh entries default to verified; executor/architect hunches are unverified
+    expect(r.map((e) => e.text).sort()).toEqual(['a proposed decision', 'infra fact one']);
+    expect(r.every((e) => e.provenance.status === 'verified')).toBe(true);
+  });
+  it('verifiedOnly drop is classified as provenance in the no-match diagnosis (RFC-002)', () => {
+    const { results, diagnosis } = queryExplained({ type: 'pattern', verifiedOnly: true });
+    expect(results).toHaveLength(0);
+    expect(diagnosis?.reason).toBe('all_filtered');
+    expect(diagnosis?.filteredOut?.provenance).toBe(1); // the lone pattern is architect-authored = unverified
+  });
 });
 
 describe('Context Map (ADR-0006)', () => {

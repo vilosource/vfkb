@@ -1,12 +1,12 @@
 # vtfkb L4 behavior record — harness=pi — deepseek/deepseek-v4-pro
 
 - harness: pi
-- generated: 2026-06-27T12:57:24.641Z
-- vtfkb: aae8e99
+- generated: 2026-06-27T17:13:25.447Z
+- vtfkb: 502d35f
 - trials per scenario: N=3 (demonstrated = contrast holds on >=2/3)
 - image: vtfkb-l4-pi:dev
-- image digest: sha256:bdd2dfd2e00ff4d14a0dfc4eebdd3b80f62f3c6daf16066e7c910ae60fad62f2
-- scenarios recorded: 29 (29 demonstrated)
+- image digest: sha256:bddde7a8b8426ffb1cd3df9b6493a4d981cd3b2d4fe84f7844ed5987377ddfa3
+- scenarios recorded: 30 (30 demonstrated)
 
 | scenario | dimension | demonstrated | trials | rows (label=verdict) |
 |---|---|---|---|---|
@@ -38,4 +38,5 @@
 | supersession-chain | exclude:supersession-chain | YES | 3/3 | pi:vtfkb=PASS, pi:naive=fail |
 | tool-gating | guardrail:tool-gating | YES | 2/3 | pi:gated=PASS, pi:ungated=PASS |
 | unverified-injected | trust:unverified-delivered | YES | 3/3 | pi:vtfkb=PASS, pi:none=fail |
+| verified-only-filter | mcp:verified-filter | YES | 2/3 | pi:verified-filter=PASS, pi:no-filter=PASS |
 | vision-format | deliver:vision-pattern | YES | 3/3 | pi:vtfkb=PASS, pi:none=fail |

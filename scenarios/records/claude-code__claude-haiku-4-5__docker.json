@@ -3,8 +3,8 @@
   "model": "claude-haiku-4-5",
   "provider": "claude-code",
   "slug": "claude-code__claude-haiku-4-5__docker",
-  "generated": "2026-06-27T12:59:16.847Z",
-  "vtfkb_sha": "aae8e99",
+  "generated": "2026-06-27T17:22:38.237Z",
+  "vtfkb_sha": "502d35f",
   "scenarios": {
     "stale-supersession": {
       "dim": "exclude:supersession",
@@ -625,9 +625,29 @@
           "output": "region-EXEC-aa"
         }
       ]
+    },
+    "verified-only-filter": {
+      "dim": "mcp:verified-filter",
+      "demonstrated": true,
+      "trials": "2/3",
+      "passRate": 0.6666666666666666,
+      "rows": [
+        {
+          "label": "claude:verified-filter",
+          "pass": true,
+          "detail": "only verified",
+          "output": "VERIF-tok-7yh3q"
+        },
+        {
+          "label": "claude:no-filter",
+          "pass": true,
+          "detail": "unverified reachable (baseline)",
+          "output": "VERIF-tok-7yh3q\nUNVER-tok-9qz4w"
+        }
+      ]
     }
   },
   "trials_n": 3,
   "image": "vtfkb-l4-claude:dev",
-  "image_digest": "sha256:b65b9204722a9a45ecd35440f0f901b19811a45e1ac979deea0195b7744e4956"
+  "image_digest": "sha256:4e2317b8c6f3d43a828890cff5a1c3ff500a8e23dea41636ce0ea6e39a04d0bf"
 }

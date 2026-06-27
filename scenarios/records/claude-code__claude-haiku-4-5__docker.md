@@ -1,12 +1,12 @@
 # vtfkb L4 behavior record — harness=claude — claude-code/claude-haiku-4-5
 
 - harness: claude
-- generated: 2026-06-27T12:59:16.847Z
-- vtfkb: aae8e99
+- generated: 2026-06-27T17:22:38.237Z
+- vtfkb: 502d35f
 - trials per scenario: N=3 (demonstrated = contrast holds on >=2/3)
 - image: vtfkb-l4-claude:dev
-- image digest: sha256:b65b9204722a9a45ecd35440f0f901b19811a45e1ac979deea0195b7744e4956
-- scenarios recorded: 29 (28 demonstrated)
+- image digest: sha256:4e2317b8c6f3d43a828890cff5a1c3ff500a8e23dea41636ce0ea6e39a04d0bf
+- scenarios recorded: 30 (29 demonstrated)
 
 | scenario | dimension | demonstrated | trials | rows (label=verdict) |
 |---|---|---|---|---|
@@ -38,4 +38,5 @@
 | supersession-chain | exclude:supersession-chain | YES | 3/3 | claude:vtfkb=PASS, claude:naive=fail |
 | tool-gating | guardrail:tool-gating | no | 0/3 | claude:gated=PASS, claude:ungated=fail |
 | unverified-injected | trust:unverified-delivered | YES | 3/3 | claude:vtfkb=PASS, claude:none=fail |
+| verified-only-filter | mcp:verified-filter | YES | 2/3 | claude:verified-filter=PASS, claude:no-filter=PASS |
 | vision-format | deliver:vision-pattern | YES | 3/3 | claude:vtfkb=PASS, claude:none=fail |

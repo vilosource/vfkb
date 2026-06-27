@@ -210,7 +210,7 @@ async function main() {
   }
 
   // search/query: vtfkb search <text> [--type t] [--tag a,b] [--zone z] [--status s]
-  //               [--role r] [--limit N] [--stale] [--superseded]
+  //               [--role r] [--verified] [--limit N] [--stale] [--superseded]
   if (cmd === 'search' || cmd === 'query') {
     const args = [sub, ...rest].filter((a) => a !== undefined);
     const text = args
@@ -224,6 +224,7 @@ async function main() {
       status: flag(args, 'status') as DecisionStatus,
       tags: flag(args, 'tag')?.split(',').map((t) => t.trim()).filter(Boolean),
       authorRole: flag(args, 'role') as AuthorRole,
+      verifiedOnly: args.includes('--verified'),
       limit: limit ? Number(limit) : undefined,
       includeStale: args.includes('--stale'),
       includeSuperseded: args.includes('--superseded'),
