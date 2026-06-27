@@ -3,8 +3,8 @@
   "model": "deepseek-v4-pro",
   "provider": "deepseek",
   "slug": "deepseek__deepseek-v4-pro__docker",
-  "generated": "2026-06-27T06:56:27.099Z",
-  "vtfkb_sha": "b436f6d",
+  "generated": "2026-06-27T08:57:00.116Z",
+  "vtfkb_sha": "93c4abc",
   "scenarios": {
     "stale-supersession": {
       "dim": "exclude:supersession",
@@ -156,7 +156,7 @@
           "pass": false,
           "detail": "port✗ prefix✗",
           "prompt": "For a new internal service, state the listen port and the required log-line prefix. Reply exactly as: PORT=<n> PREFIX=<p>",
-          "output": "PORT=8080 PREFIX=internal"
+          "output": "PORT=<n> PREFIX=<p>"
         }
       ]
     },
@@ -193,14 +193,14 @@
           "pass": true,
           "detail": "checks-body",
           "prompt": "How do I reliably tell whether our service's database is up, using the health endpoint? Be specific about exactly what to check.",
-          "output": "To reliably determine if the database is up, ignore the HTTP status code—`/healthz` always returns `200 OK`, even when the database is unreachable. Instead, check the **JSON response body** for the field `db_ok`. The database is healthy only when `db_ok` is **`true`**.\n\n**Example check with `curl` and `jq`:**\n```bash\ncurl -s http://your-service/healthz | jq -e '.db_ok == true'\n```\nThis command succeeds (exit code 0) if the database is up, and fails otherwise.\n\nIf you’re monitoring via code, parse the JSON and assert:\n```json\n{ \"db_ok\": true }\n```\nAny other value, missing field, or parsing failure means the database is down."
+          "output": "To reliably determine whether the service’s database is up, ignore the HTTP status code (the `/healthz` endpoint always returns `200 OK`) and instead inspect the **`db_ok` field** in the JSON response body.\n\n- **Endpoint:** `GET /healthz`\n- **Field to check:** `db_ok` (a boolean)\n- **Interpretation:**\n  - `db_ok: true` → database is reachable and healthy.\n  - `db_ok: false` → database is **down** or unavailable.\n\nFor example, using `curl`:\n```bash\ncurl -s https://your-service/healthz | jq '.db_ok'\n```\nIf the output is `true`, the database is up; if `false`, it’s down. No other field or the HTTP status code reliably signals the database state."
         },
         {
           "label": "pi:none",
           "pass": false,
           "detail": "status-only",
           "prompt": "How do I reliably tell whether our service's database is up, using the health endpoint? Be specific about exactly what to check.",
-          "output": "To reliably tell if your service’s database is up from the health endpoint, **your service’s endpoint must include a dedicated database health check** that goes beyond a simple TCP handshake. The consumer (you) then checks for that specific signal. Here’s exactly what to verify, point by point.\n\n---\n\n### 1. Confirm the endpoint exposes a database check\n\nThe health response should include a **nested component status**, not just a binary `200 OK`. Look for something like:\n\n```json\n{\n  \"status\": \"ok\",\n  \"checks\": {\n    \"db\": {\n      \"status\": \"ok\",\n      \"message\": \"mysql is able to execute a simple query\",\n      \"latency_ms\": 2.1\n    }\n  }\n}\n```\n\nOther common key names: `\"database\"`, `\"sql\"`, `\"postgres\"`. Many frameworks use a schema like [Health Check Response Format for HTTP APIs](https://inadarei.github.io/rfc-healthcheck/) or Kubernetes probes, where the top-level status aggregates component statuses.\n\n---\n\n### 2. Check the HTTP status code\n\n- A **200** overall typically means all checks (including DB) passed.  \n- If the database is down, the endpoint should return a **503 Service Unavailable** (or a custom code like 500), and the top-level `\"status\"` should be `\"fail\"` or `\"error\"`.  \n- **Do not** interpret a 200 as proof the database is up unless you also validate the DB component status – a misconfigured health endpoint might return 200 while ignoring the DB.\n\n---\n\n### 3. Validate exactly the `db` component status\n\nParse the JSON and assert:\n\n```javascript\nconst data = await response.json();\nconst dbStatus = data?.checks?.db?.status;  // adjust path to your API\nreturn dbStatus === 'ok' || dbStatus === 'healthy' || dbStatus === 'pass';\n```\n\nPossible safe values: `\"ok\"`, `\"healthy\"`, `\"pass\"`, `\"up\"`. Be case‑sensitive and match your service’s convention.\n\n---\n\n### 4. Ensure the check is not stale or cached\n\nIf the endpoint caches results or only checks the database on startup, it might report “ok” when the DB actually died minutes ago. Verify that:\n\n- The response includes a **timestamp** (`last_checked_at`, `timestamp`, `checked_at`) and it is recent (e.g., within the last 5 seconds, adjusted to your probe interval).  \n- The **latency** field is present and non‑zero, indicating an actual query was executed.\n\nExample:\n\n```json\n\"db\": {\n  \"status\": \"ok\",\n  \"query\": \"SELECT 1\",\n  \"latency_ms\": 1.4,\n  \"last_checked_at\": \"2026-06-27T12:34:56Z\"\n}\n```\n\nIf `last_checked_at` is older than your threshold, or no timestamp exists, treat the result as **unreliable**.\n\n---\n\n### 5. Prefer a dedicated database endpoint if available\n\nSome services expose `GET /health/db` (or `/healthz/db`) that returns **only** the DB status. If that exists, checking it directly is simpler and more robust:\n\n- Expect **200** and a body like `{\"status\":\"ok\"}` (or just `OK`).  \n- No aggregation logic needed; the service is designed to isolate the dependency.\n\n---\n\n### 6. Distinguish between liveness and readiness\n\nIn Kubernetes:\n\n- **Liveness probe** (e.g., `/healthz`) should **not** fail just because the database is down; otherwise, the container gets restarted repeatedly even though the app is fine.  \n- **Readiness probe** (e.g., `/ready`) is where the database check belongs. A down database means the pod should stop receiving traffic, but not be killed.  \n\nWhen you consume the health endpoint, know which probe you’re hitting. If you’re using a generic `/health` endpoint, it should ideally behave like a readiness probe (include DB and other dependencies). Confirm with the service team which checks are included where.\n\n---\n\n### 7. Validate the check is a real query, not just a pool status\n\nThe service’s health check logic must execute a **lightweight query** (e.g., `SELECT 1` or `SELECT 1;`) against the target database. Simply checking if a connection pool handle is non‑null can lie (pool may hold stale connections). A quick way to detect this: look for a `query` field in the response or ask the team if the check actually executes a statement.\n\n---\n\n### 8. Handle missing or unexpected response gracefully\n\nYour client code should survive:\n\n- Missing `checks.db` key → **assume DB is down** (or unknown).  \n- Non‑JSON response (plain text “OK”) → if there’s no DB field, treat as ambiguous – do not consider it proof of DB health.  \n- Timeout or connection error → equivalent to DB down.\n\n---\n\n### Final check checklist in one line\n\n```python\ndef is_database_up(response):\n    data = response.json()\n    return (\n        response.status_code == 200\n        and data.get(\"checks\", {}).get(\"db\", {}).get(\"status\") in (\"ok\", \"pass\", \"healthy\")\n        and (datetime.now(UTC) - parse_timestamp(data[\"checks\"][\"db\"].get(\"last_checked_at\"))).seconds < 5\n    )\n```\n\nIf all those conditions hold, you have a **reliable** signal that the service’s database is reachable and responsive."
+          "output": "To reliably tell if your service’s database is up using the health endpoint, you need to look beyond a simple HTTP 200. Here’s exactly what to check and why.\n\n## 1. The health endpoint must include a database-specific check\nA generic `/health` that returns `200 OK` does not guarantee the database is reachable. Many frameworks return a top-level status `\"UP\"` even if the database check is missing or disabled.  \nYou need the endpoint to **report a dedicated database component status**.\n\n### Example with Spring Boot Actuator (`/actuator/health`)\n```json\n{\n  \"status\": \"UP\",\n  \"components\": {\n    \"db\": {\n      \"status\": \"UP\",\n      \"details\": {\n        \"database\": \"PostgreSQL\",\n        \"validationQuery\": \"isValid()\"\n      }\n    }\n  }\n}\n```\n**What to verify:**\n- `$.components.db.status` must equal `\"UP\"` (not `\"DOWN\"` or `\"UNKNOWN\"`).\n- Optionally, ensure `details.database` is present and matches the expected DBMS – that confirms the check actually reached the database, not just the connection pool.\n\n### For custom endpoints (Node.js, Python, etc.)\nA well-designed endpoint typically returns something like:\n```json\n{ \"status\": \"healthy\", \"db\": \"connected\" }\n```\nor\n```json\n{ \"postgres\": \"up\", \"redis\": \"up\" }\n```\n**Verify** the specific key (`db`, `database`, `postgres`, etc.) has value `\"connected\"`, `\"up\"`, or `\"healthy\"`.\n\nIf your endpoint only returns `{\"alive\": true}`, **it is not checking the database** – you must add a DB probe.\n\n## 2. Guard against false positives\n- **Always check the database component, not just the overall status.**  \n  A common misconfiguration is to return `UP` if *some* components are up, ignoring a `DOWN` database.\n- **Never rely on HTTP status code alone.** Health endpoints often return `503` or `500` when DB is down, but some \"naive\" endpoints still return `200` with a broken DB – you must parse the body.\n\n## 3. Ensure the health check actually hits the database\nSome frameworks only verify that the connection pool thinks it’s healthy. That can be stale. The health check **must execute a real, lightweight query** like `SELECT 1` or a ping.  \n- **Spring Boot DataSource health indicator**: it uses `Connection.isValid(timeout)` by default, which just validates the underlying socket (may be cached). For real liveness, set `spring.datasource.validation-query=SELECT 1` (or use HikariCP’s `connectionTestQuery`) **and** ensure the health indicator actually runs this query (Actuator does if a validation query is defined).\n- **Node.js / Express**: use a library like `knex` or `sequelize` and call `db.raw('SELECT 1')` inside the health handler, not just check a flag.\n\n## 4. Prevent caching\nHealth endpoint responses can be cached by proxies, CDNs, or even the browser.  \n- Send appropriate headers from the service:  \n  `Cache-Control: no-cache, no-store, must-revalidate`  \n- If calling externally, append a random query parameter to bypass caches:  \n  `https://service.example.com/health?nocache=12345`\n\n## 5. Set proper timeouts\nA slow/hanging database can cause the health check to block, making the service appear *down* even when it’s not.  \n- The health check should have a **short timeout** (e.g., 2–5 seconds) but long enough for a real query to complete.  \n- If using Kubernetes probes, set `timeoutSeconds` greater than the health check’s own timeout, and `periodSeconds` accordingly.\n\n## 6. Readiness vs. Liveness\n- **Liveness probe** (`/health/liveness` or a lightweight variant) may skip DB checks to avoid restarting the pod just because the DB is temporarily unreachable.  \n- **Readiness probe** (`/health/readiness`) **should include the database**. Only when this probe succeeds should the service receive traffic.  \n**Your DB check belongs in the readiness endpoint.**\n\n## 7. Concrete check for your service\nStill unsure exactly what your `/health` returns? Grab a sample response (e.g., `curl -s http://service/health | jq .`). Then:  \n\n1. Identify the key that represents the database (common names: `db`, `database`, `postgres`, `mysql`, `dataSource`).\n2. Confirm its value indicates healthy (e.g., `true`, `\"up\"`, `\"connected\"`).\n3. If the key is missing, ask the service owner to add an explicit DB health indicator.\n\n---\n\n**In one sentence:**  \nCheck that the health endpoint’s JSON body contains a database-specific section with a status of `\"UP\"`/`\"healthy\"`, and that this check actually performs a real query, not just a connection pool touch."
         }
       ]
     },
@@ -222,7 +222,7 @@
           "pass": false,
           "detail": "other",
           "prompt": "Print the single line our CLI should output for error code 42. Output only that line.",
-          "output": "I'll look around the project to find where error code 42 is defined and what its corresponding message is. Let me first list the top-level files."
+          "output": "Error 42: The answer to life, the universe, and everything."
         }
       ]
     },
@@ -288,7 +288,7 @@
           "pass": false,
           "detail": "host✗ port✗",
           "prompt": "Give the full host:port to reach the billing service. Reply with ONLY host:port.",
-          "output": "localhost:8080"
+          "output": "I don't have enough context to answer that. Could you please provide the host and port for the billing service, or point me to a configuration file that contains it?"
         }
       ]
     },
@@ -332,7 +332,7 @@
           "pass": false,
           "detail": "unknown",
           "prompt": "What is the URL of our deploy runbook? Reply with ONLY the URL.",
-          "output": "https://github.com/mariozechner/pi-coding-agent/blob/main/docs/deploy.md"
+          "output": "```bash\ngrep -r \"runbook\" /brain /usr/local/lib/node_modules/@mariozechner/pi-coding-agent/ 2>/dev/null\n```"
         }
       ]
     },
@@ -352,9 +352,9 @@
         {
           "label": "pi:none",
           "pass": false,
-          "detail": "other",
+          "detail": "forbidden-utils",
           "prompt": "Name the module that should hold our shared date helpers. Reply with ONLY the module name.",
-          "output": "date_helpers"
+          "output": "dateUtils"
         }
       ]
     },
@@ -380,7 +380,7 @@
           "label": "pi:recall:none",
           "pass": true,
           "detail": "can't recall (expected)",
-          "output": "I don't have that information."
+          "output": "PI_SIGIL"
         }
       ]
     },
@@ -420,7 +420,7 @@
           "label": "pi:no-mcp",
           "pass": true,
           "detail": "can't know (expected)",
-          "output": "Let me check the files in the current directory for the SKU prefix."
+          "output": "I don't have access to your company's warehouse SKU prefix. Could you provide more context or check your internal documentation/system?"
         }
       ]
     },
@@ -440,7 +440,7 @@
           "label": "pi:no-mcp",
           "pass": true,
           "detail": "can't know",
-          "output": "--strict"
+          "output": "error_bad_lines=True"
         }
       ]
     },
@@ -460,7 +460,7 @@
           "label": "pi:no-mcp",
           "pass": true,
           "detail": "can't know",
-          "output": "Brain"
+          "output": "LanceDB"
         }
       ]
     },
@@ -474,12 +474,32 @@
           "label": "pi:mcp kb_add(secret)",
           "pass": true,
           "detail": "refused by lint",
-          "output": "The knowledge base refused to store that text — it detected what looks like an AWS access key ID and blocked it, since the brain is git-committed and shouldn't contain secrets.\n\nDone."
+          "output": "The tool refused to store that fact — it detected the text looks like an AWS access key ID, and since the knowledge base is git-committed, it blocks secrets from being stored (policy D6e).\n\nDone."
+        }
+      ]
+    },
+    "continuity-resume": {
+      "dim": "continuity:resume-note",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "pi:resume:vtfkb",
+          "pass": true,
+          "detail": "resumed next-task",
+          "output": "finish wiring the token-refresh path in module auth_zx9q before the cutover"
+        },
+        {
+          "label": "pi:resume:none",
+          "pass": true,
+          "detail": "can't know (expected)",
+          "output": "No previous session task planned."
         }
       ]
     }
   },
   "trials_n": 3,
   "image": "vtfkb-l4-pi:dev",
-  "image_digest": "sha256:09f2ff947f3d1882f591b62ade97e7c02606a48f9580726886a7dc7bc0b99612"
+  "image_digest": "sha256:bdd2dfd2e00ff4d14a0dfc4eebdd3b80f62f3c6daf16066e7c910ae60fad62f2"
 }

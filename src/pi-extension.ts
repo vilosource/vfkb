@@ -13,8 +13,8 @@ import {
   brainDir,
   captureToolCall,
   currentInjectableIds,
-  renderContextBundle,
   renderContextDelta,
+  renderResume,
 } from './engine.js';
 import { SessionState } from './session.js';
 import { isBrainWrite, GATING_REASON } from './gating.js';
@@ -40,15 +40,19 @@ export default function (pi: ExtensionAPI): void {
     mkdirSync(brainDir(), { recursive: true });
   });
 
-  // Tier A — session-start injection. APPEND the full bundle; mark its entries
-  // injected so the per-turn delta won't repeat them.
+  // Tier A — session-start injection. The payload is the RESUME render (ADR-0020 pt 5):
+  // the prior-session continuity digest + the live knowledge bundle, both derived at
+  // render time. Parity with the claude SessionStart hook (`hook session-start`), which
+  // already injects renderResume — the pi half previously injected only the bundle, so
+  // cross-session continuity was undelivered here. Mark the bundle's entries injected so
+  // the per-turn delta won't repeat them.
   pi.on('before_agent_start', async (...args: unknown[]): Promise<BeforeAgentStartResult> => {
     const e = (args[0] as BeforeAgentStartEvent) || {};
     const current = e.systemPrompt || '';
-    const bundle = renderContextBundle(project());
+    const resume = renderResume(project(), session);
     session.markInjected(currentInjectableIds());
     session.save();
-    return { systemPrompt: current + '\n\n' + bundle };
+    return { systemPrompt: current + '\n\n' + resume };
   });
 
   // Tier C — per-turn delta (Pi-only). Inject ONLY entries new since the last turn

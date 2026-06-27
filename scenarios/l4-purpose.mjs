@@ -207,10 +207,12 @@ function run({ harness = HARNESS, brain, prompt, inject = 'vtfkb', mcp = false, 
       const dargs = ['run', '--rm', '--user', `${UID}:${GID}`,
         '-e', `HOME=${C_HOME}`,
         '-e', `VTFKB_DIR=${C_BRAIN}`,
-        '-e', 'VTFKB_PROJECT=l4',
-        '-v', `${brain}:${C_BRAIN}`,
-        '-v', `${creds}:${C_HOME}/.claude`,
-        CLAUDE_IMAGE, 'claude', ...args];
+        '-e', 'VTFKB_PROJECT=l4'];
+      // Thread KB_SESSION_ID into the hooks' env so SessionState persists a record under
+      // the /brain mount (cross-session continuity scenarios). Without it SessionState is
+      // ephemeral and nothing carries to the next container.
+      if (sessionId) dargs.push('-e', `KB_SESSION_ID=${sessionId}`);
+      dargs.push('-v', `${brain}:${C_BRAIN}`, '-v', `${creds}:${C_HOME}/.claude`, CLAUDE_IMAGE, 'claude', ...args);
       return sh('docker', dargs, { timeout: DOCKER_TIMEOUT, env: process.env }).trim();
     }
     // pi: the EXT extension provides inject + capture + gating in-process; the BRIDGE
@@ -409,6 +411,32 @@ const SCN = [
         { label: `${HARNESS}:recall:none`, pass: lacks(recallN, 'BUILD-SIGIL-44Q'), detail: lacks(recallN, 'BUILD-SIGIL-44Q') ? "can't recall (expected)" : 'leaked?', output: recallN, sample: sample(recallN) },
       ];
       return { rows, demonstrated: captured && has(recallV, 'BUILD-SIGIL-44Q') && lacks(recallN, 'BUILD-SIGIL-44Q') };
+    },
+  },
+
+  // ---- Track 1 / ADR-0020: session-continuity RESUME render (cross-session) ----
+  // A prior session (s1) leaves the one thing only the operator knows — the next task —
+  // as a resume note carrying an unguessable token. A later session (s2) receives the
+  // RESUME render (renderResume: prior-session digest + live bundle) at session start and
+  // can state the next task; the no-memory baseline cannot. Isolates continuity: the token
+  // lives ONLY in s1's session record, surfaced ONLY via the resume digest (not the bundle).
+  {
+    id: 'continuity-resume', dim: 'continuity:resume-note',
+    exec() {
+      const b = newBrain('continuity');
+      const note = 'finish wiring the token-refresh path in module auth_zx9q before the cutover';
+      kb(b, ['add', 'fact', 'The service is deployed behind feature flag ff_rollout', '--role', 'human']);
+      // s1: the prior session records its continuity note (KB_SESSION_ID isolates it).
+      sh('node', [CLI, 'resume-note', note], { env: { ...process.env, VTFKB_DIR: b, KB_SESSION_ID: 's1' } });
+      const ask = 'Using your resume / continuity context from the previous session, what is the single next task we planned to do? Reply with ONLY that task.';
+      const v = run({ brain: b, inject: 'vtfkb', sessionId: 's2', prompt: ask });
+      const n = run({ brain: b, inject: 'none', sessionId: 's2n', prompt: ask });
+      rmSync(b, { recursive: true, force: true });
+      const rows = [
+        { label: `${HARNESS}:resume:vtfkb`, pass: has(v, 'auth_zx9q'), detail: has(v, 'auth_zx9q') ? 'resumed next-task' : 'lost', output: v, sample: sample(v) },
+        { label: `${HARNESS}:resume:none`, pass: lacks(n, 'auth_zx9q'), detail: lacks(n, 'auth_zx9q') ? "can't know (expected)" : 'leaked?', output: n, sample: sample(n) },
+      ];
+      return { rows, demonstrated: has(v, 'auth_zx9q') && lacks(n, 'auth_zx9q') };
     },
   },
 
