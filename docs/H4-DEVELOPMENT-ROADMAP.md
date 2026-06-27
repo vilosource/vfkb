@@ -1,13 +1,14 @@
 # vtfkb — H4 Development Roadmap (the active, in-repo frontier)
 
 > **Type:** sequenced build plan for the H4 "robustness & quality" frontier. **Created:** 2026-06-25.
+> **Re-ratified:** 2026-06-27 (added Track 5 dockerized L4 substrate + Track 4 Track-1 L4 coverage; ADR-0022).
 > Sits under [STATUS-AND-ROADMAP](STATUS-AND-ROADMAP.md) §4 H4 (the broad north-star) and above
 > the decisions ([docs/adr/](adr/)) + proposals ([docs/rfc/](rfc/)) it sequences. ADRs ratify the
 > *decisions* (what to build); **this roadmap ratifies the *order* and is the standing authority to
 > execute it** (§4) — proceed in sequence without per-step approval; stop only at the named gates. A
 > "what's next?" question is a signal to update + re-ratify §4, not to ask.
 > Scope is **in-repo only** (H0+H4); fleet/ingest integration (H2) and the global tier (H3) stay
-> parked. Claims tagged **[done]**, **[accepted]**, **[proposed]**, **[designed]**, **[external-blocked]**.
+> parked. Claims tagged **[done]**, **[accepted]**, **[proposed]**, **[designed]**, **[planned]**, **[external-blocked]**.
 
 ---
 
@@ -23,12 +24,24 @@ M2b (distiller + counters + corroborated promotion) shipped**; **M3 (session-con
 |---|---|
 | Search hardening | **[done]** relevance-primary (ADR-0016) + relevance floor (ADR-0017) + honest no-match (ADR-0018) |
 | Self-hosted design-brain | **[done]** ADR-0019 — vtfkb dogfoods its own `.vtfkb/` (committed SoR + ADR/RFC link-index) |
-| L4 cross-model eval | **[done]** 5 harness/model records, 22 scenarios each (deepseek-v4-pro 22/22; 2 known divergences: `tool-gating`, `capture-recall`) |
+| L4 cross-model eval | **[done, v1-only]** 5 harness/model records, 22 scenarios each (deepseek-v4-pro 22/22; 2 known divergences: `tool-gating`, `capture-recall`) — but the 22 **predate Track 1**: M1–M3 have **no** L4 coverage (audit 2026-06-27) → **Track 4** |
+| L4 methodology | **[planned]** ADR-0022 — host harness is non-reproducible + leak-controlled by denylist; dockerize for a reproducible, sandboxed, multi-trial substrate → **Track 5** |
+| Track-1 L4 coverage | **[planned]** the M1–M3 scenarios (continuity / auto-distill→recall / trust-labelled lessons) → **Track 4**, on Track 5's substrate |
 | Dogfood smoke | **[done]** check 6 hardened — deterministic `tools/list` preflight (6a) + bounded LLM retry (6b) |
 | **Session continuity** | **[DONE]** ADR-0020 / RFC-005 — M1 (`ff61215`) + M3 (resume digest folds distilled lessons, trust-labelled, derived) |
 | Auto-distill / ACE curator | **[DONE]** RFC-006 → ADR-0021 — curator + never-rewrite Brake (`ee45289`, M2a) + distiller + counters + corroborated promotion (M2b) |
 | Embedding reranker | **[proposed]** RFC-003 — evidence-gated, do **not** build speculatively |
 | Per-turn injection on Claude Code | **[external-blocked]** ADR-0015 Tier C — waits on upstream hook fixes |
+
+**New fork (2026-06-27 L4 coverage audit).** Track 1's features shipped with their **deterministic unit
+backstops** (`resume.test.ts` / `curator.test.ts` / `distiller.test.ts`) — those *are* the gate (principle
+#4), so Track 1 is correctly *shipped*. What is missing is the **L4 purpose-demonstration**: no scenario
+yet proves *a real agent behaves better because of* resume / auto-distill — for a product whose entire pitch
+is "memory that carries itself across sessions." The same audit found the L4 *harness itself* is
+non-reproducible (host-installed agents, unpinned models) and leak-controlled by fragile denylists, with no
+ADR of record. Decision: re-platform the harness first (**Track 5**, [ADR-0022](adr/ADR-0022-l4-evaluation-methodology.md))
+— a reproducible, sandboxed, multi-trial substrate that also re-records the existing 22 cleanly — then add
+the Track-1 scenarios on it (**Track 4**). Sequenced below, ratified in §4.
 
 ---
 
@@ -46,14 +59,23 @@ M2b (distiller + counters + corroborated promotion) shipped**; **M3 (session-con
   RFC-003 embedding reranker ── independent track, EVIDENCE-GATED (2nd phrasing miss | explicit ask)
 
   ADR-0015 Tier-C per-turn push on Claude Code ── EXTERNAL-BLOCKED (watch upstream)
+
+  ADR-0022 L4 methodology ── Track 5 dockerized substrate ──► Track 4 Track-1 L4 scenarios
+     (substrate re-records the existing 22 as its deterministic backstop, THEN the new
+      cross-session scenarios run on it; ADR-0020/0021 are the features those scenarios assert)
 ```
 
-Two facts drive the sequence:
+Three facts drive the sequence:
 1. **Session-continuity Phase B *depends on* auto-distill (D7b).** Phase A (the record + resume
    render) does not — so Phase A ships now, and auto-distill is the natural *next* design+build,
-   which then unlocks Phase B.
+   which then unlocks Phase B. *(Track 1 — done.)*
 2. **Embeddings and Tier-C parity are independent of the continuity/distill line** — embeddings is
    gated on evidence, Tier-C on an upstream fix. Neither blocks anything; neither is built on spec.
+3. **Track 4 (Track-1 L4 scenarios) runs best on Track 5's substrate.** The scenarios are
+   harness-agnostic and *could* be added to the host harness, but they are **cross-session** — exactly
+   what benefits from the dockerized, reproducible multi-session substrate — so Track 5 lands first and
+   Track 4 is recorded on it. The two are otherwise orthogonal (the scenarios don't change the engine;
+   the substrate doesn't change a scenario's assertion).
 
 ---
 
@@ -128,14 +150,79 @@ Claude Code degrades to MCP-pull today because `UserPromptSubmit` is documented-
 cache-inefficient. *Action: periodically re-check the upstream hook bugs; build a Tier-C push (a
 new ADR superseding the Tier-C clause) only when they are fixed.* No work until then.
 
+### Track 5 — L4 methodology: dockerized harnesses  *(active line — builds FIRST)*  ([ADR-0022](adr/ADR-0022-l4-evaluation-methodology.md))
+
+Re-platform the L4 harness onto **pinned, self-contained containers** (operator decision 2026-06-27:
+self-contained docker images, not the `vfa` orchestrator). The contrast methodology (`vtfkb` vs
+`naive`/`none`) and the observable-effects rule are **unchanged**; this changes only *where* the agent runs.
+Builds before Track 4 so the new cross-session scenarios get a reproducible, sandboxed home and the existing
+22 are re-recorded cleanly. Two slices:
+
+**T5a. pi-coding image + dockerized runner + multi-trial — `[planned]`** *(the proven path first)*
+`scenarios/docker/pi.Dockerfile` (node + `pi` + `DEEPSEEK_TOKEN`); port `run()` so the pi harness executes
+`docker run` instead of host `pi`; brain bind-mounted **uid-matched** (`--user $(id -u):$(id -g)`, `HOME`
+set) so the agent's writes persist to the host mount; cross-session via threaded `KB_SESSION_ID` + shared
+mount (the kb-spike pattern). Add **N=3 multi-trial** (demonstrated = contrast holds ≥2/3) and extend the
+record schema with **image digest + trial pass-rate**; `compare.mjs` renders pass-rate.
+- *Gate (deterministic backstop, P2):* the existing **22 scenarios reproduce in-container** on the pi image
+  (within trial tolerance) versus the known-good host pi record — i.e. the substrate is validated against
+  ground truth *before* any new scenario is trusted on it. Plus a write-through proof: a captured tool call
+  in the container lands in the host-mounted `entries.jsonl` (the uid gotcha is closed, not assumed).
+
+**T5b. claude-code image — `[planned, auth-prereq]`**
+`scenarios/docker/claude.Dockerfile` (node + `@anthropic-ai/claude-code`). The container is the sandbox, so
+the host-era `FS_DENY` / `--strict-mcp-config` workarounds are **dropped** — gated on a no-leak check, not
+assumed. Re-record the 22 on the claude image.
+- *Human-hands prereq (ask inline when this slice starts, per SOP — not a gating Phase 0):* headless Claude
+  Code needs explicit auth; the host `claude` uses an OAuth/subscription login and no `ANTHROPIC_API_KEY` is
+  set. **Recommended:** the operator supplies an `ANTHROPIC_API_KEY` (headless + CI + reproducible). A
+  mounted-OAuth or z.ai/GLM-proxy fallback is possible but lower-fidelity (see ADR-0022 Alternatives).
+- *Gate:* the 22 reproduce on the claude image; the no-leak check passes with the denylist removed.
+
+### Track 4 — L4 coverage for Track 1  *(builds on Track 5's substrate)*  (ADR-0020 / ADR-0021)
+
+The agent-level **purpose-demonstration** the audit found missing: prove a real agent behaves better
+*because of* Track 1. Each scenario keeps the `vtfkb`-vs-baseline contrast and asserts on observable effects.
+**Scope note:** the curator never-rewrite Brake + append-only counters are *structural invariants* — they
+stay **deterministic unit tests** (ADR-0021 §5; principle #4); L4 only exercises agent-observable behavior.
+
+| Scenario | Asserts (ADR) | Shape |
+|---|---|---|
+| `continuity-resume` | ADR-0020 resume render | s1 establishes facts; **s2** with resume-injection answers "what we were doing/decided"; `none` can't. *(cross-session)* |
+| `resume-reflects-correction` | ADR-0020 "cannot go stale" | a fact is superseded between s1→s2; s2 resume surfaces the **corrected** value, not the stale blob. *(cross-session)* |
+| `kb-resume-mcp` | ADR-0020 §5 MCP floor | agent pulls continuity via the `kb_resume` MCP tool (parity with `mcp-pull`). |
+| `auto-distill-recall` | ADR-0021 §1 + ADR-0020 M3 | s1: a tool call **fails** (capture:error) → distill; **s2** resume/search surfaces the distilled candidate gotcha; `none` doesn't. *(the headline M2b→M3 loop on a real agent)* |
+| `distill-trust-label` | ADR-0021 §1 containment | the distilled lesson is delivered **labelled** (`⚠agent`, "verify before trusting"), not as an established fact. |
+| `corroborated-promotion` | ADR-0021 §4 | corroborated ≥N → delivered as trusted; below threshold stays labelled. *(light — partly deterministic)* |
+
+- *Gate:* each scenario `demonstrated` on ≥2/3 trials on **both** images (pi required; claude once T5b's
+  auth prereq is met); recorded into `scenarios/records/`. Dogfood the continuity scenarios against vtfkb's
+  own brain shape (ADR-0019).
+
+**Track 4b — close the v1 partials — `[planned, lower priority]`**
+The audit also found three *partial* v1 gaps: `verified-only-filter` (trust gradient, §3.6),
+`role-precedence` (attribution-as-precedence, §3.3), `kb-context-first-read` (the context doc as first read,
+§3.7). Add after Track 4; not Track-1-blocking.
+
 ---
 
 ## 4. Ratified order + execution protocol
 
-**Order (ratified 2026-06-25):** `M1 ✅ → RFC-006 ✅ → M2a ✅ → M2b ✅ → M3 ✅` — **Track 1 complete.** The
-remaining roadmap items are the two **gated/blocked** tracks: **S1** (embedding reranker) builds only if its
-evidence trigger fires; **P1** (Claude Code per-turn push) only if upstream unblocks. One build in flight at
-a time; each behind an accepted ADR.
+**Order (re-ratified 2026-06-27):**
+`M1 ✅ → RFC-006 ✅ → M2a ✅ → M2b ✅ → M3 ✅` (**Track 1 complete**)
+`→ ADR-0022 ✅ → T5a → T5b → Track 4 (continuity-resume → resume-reflects-correction → kb-resume-mcp → auto-distill-recall → distill-trust-label → corroborated-promotion) → Track 4b`.
+The **active in-order build is T5a** (dockerized pi harness + multi-trial). **S1** (embedding reranker) and
+**P1** (Claude Code per-turn push) remain the two **gated/blocked** tracks — built only if their triggers
+fire. One build in flight at a time; each behind an accepted ADR.
+
+*Fork-resolution note (2026-06-27):* the 2026-06-27 L4 coverage audit surfaced a genuine new fork (Track 1
+shipped with unit backstops but no L4 purpose-demonstration; the L4 harness itself is non-reproducible). Per
+the protocol this re-ratifies the roadmap rather than acting ad hoc. Operator settled the build shape this
+session: **driver = self-contained docker images** (not the `vfa` orchestrator); **sequencing = Track 5
+substrate before Track 4 scenarios**. The methodology decision is recorded as
+[ADR-0022](adr/ADR-0022-l4-evaluation-methodology.md) (Accepted) — its "shape" was decided by these fork
+answers, analogous to the M2 operator-cleared gate. One open prereq (claude-code container auth) is deferred
+to T5b per SOP, not gating T5a.
 
 *Gate-resolution note (2026-06-25):* the M2 *build* is evidence-gated (D7b — write-volume bottleneck),
 which conflicted with the bare order. Resolved: an **explicit operator go-ahead** is a valid trigger
@@ -156,21 +243,26 @@ In all three cases the response is the same: **update this roadmap and re-ratify
 — never leave the next step to an ad-hoc question. (Scope: in-repo `vtfkb` only; vafi/vtaskforge
 work stays out-of-scope/HITL per H2.)
 
-### ▶ Current action — **Track 1 COMPLETE; hold at the two gated tracks (no speculative build)**
-M1 ✅, RFC-006 ✅ (→ ADR-0021), **M2a ✅** (`ee45289`), **M2b ✅** (distiller + counters + corroborated
-promotion), **M3 ✅** (resume digest folds the auto-distilled lessons in, trust-labelled + derived; 87/87,
-dogfooded). **Track 1 — "memory that carries itself" — is built end-to-end:** continuity record → resume
-digest → auto-distill write-side → curator maintenance → corroborated promotion → distilled lessons back
-into the digest. **There is no next in-order build.** The only remaining roadmap items are **gated/blocked**,
-and per the execution protocol they are NOT built on spec:
+### ▶ Current action — **T5a: dockerized pi-coding L4 harness + multi-trial** (ADR-0022)
+**Track 1 is complete** (M1 ✅, M2a ✅, M2b ✅, M3 ✅ — "memory that carries itself" end-to-end; 87/87,
+dogfooded). The 2026-06-27 audit opened a new fork (no L4 purpose-demonstration for Track 1; the L4 harness
+is non-reproducible), now ratified as **Track 5 → Track 4**. The next in-order build is **T5a**:
+- Build `scenarios/docker/pi.Dockerfile` (node + `pi` + `DEEPSEEK_TOKEN`); port the harness `run()` to
+  `docker run` for the pi path; bind-mount the brain **uid-matched** (`--user $(id -u):$(id -g)`, `HOME` set);
+  thread `KB_SESSION_ID` for cross-session; add **N=3 multi-trial** + image-digest/trial-pass-rate in records.
+- **Gate (deterministic backstop):** the existing **22 scenarios reproduce in-container** vs the known-good
+  host pi record, and a captured tool call writes through to the host-mounted `entries.jsonl` (uid gotcha
+  closed). Only then is the substrate trusted for new scenarios.
+- Then **T5b** (claude-code image — ask for `ANTHROPIC_API_KEY` when starting it, per SOP), then **Track 4**
+  (the six Track-1 scenarios), then **Track 4b** (v1 partials).
+
+The two still-gated tracks are unchanged and NOT built on spec:
 - **S1 (embedding reranker, RFC-003)** — build *only* on a **2nd** live phrasing-robustness miss **or** an
   explicit operator request. Keep the `selectIndex()` seam warm; nothing else.
 - **P1 (Claude Code per-turn push, ADR-0015 Tier C)** — **external-blocked**; watch upstream `UserPromptSubmit`
   hook bugs, build (a new ADR) only when fixed.
 
-So the standing action is **watch the two triggers** — not poll for "what's next." A new in-repo build
-starts only when a trigger fires or the operator opens a new fork; either way, **update + re-ratify this
-roadmap first**. (H2 fleet/ingest + H3 global tier remain parked, out of scope for in-repo work.)
+(H2 fleet/ingest + H3 global tier remain parked, out of scope for in-repo work.)
 
 *Milestones for the record:* **M1** = derived append-only continuity record + resume render (6/6 DoD).
 **M2a** = curator deltas-only ops + the structural Brake (text byte-identical) + retrieval-quality
@@ -205,6 +297,13 @@ These are the invariants every item above must honour — they are *why* the pla
 ## 6. Provenance
 Grounded in [STATUS-AND-ROADMAP](STATUS-AND-ROADMAP.md) §3–4, [DESIGN](DESIGN.md) (D1 seam, D7b),
 [IMPLEMENTATION-PLAN](IMPLEMENTATION-PLAN.md) (L12 deltas-not-rewrites), ADRs
-0001/0004/0005/0011/0012/0013/0014/0015/0016/0017/0018/0019/0020/0021, RFC-003/005/006, and the 2026-06-25
-session (L4-eval ground-truthing, ADR-0019 build, check-6 hardening, RFC-005 acceptance → ADR-0020, M1
-build `ff61215`, RFC-006 → ADR-0021 + M2a curator `ee45289`).
+0001/0004/0005/0011/0012/0013/0014/0015/0016/0017/0018/0019/0020/0021/**0022**, RFC-003/005/006, and the
+2026-06-25 session (L4-eval ground-truthing, ADR-0019 build, check-6 hardening, RFC-005 acceptance →
+ADR-0020, M1 build `ff61215`, RFC-006 → ADR-0021 + M2a curator `ee45289`).
+**2026-06-27 re-ratification:** the L4 coverage audit (Track 1 had unit backstops but no L4 demonstration;
+the host harness is non-reproducible + leak-controlled by denylist + had no ADR of record) → new
+[ADR-0022](adr/ADR-0022-l4-evaluation-methodology.md) (dockerized, reproducible, multi-trial, contrast-
+preserving, dual-harness) + **Track 5** (dockerized substrate) → **Track 4** (Track-1 L4 scenarios). Driver
++ sequencing forks settled by the operator this session; grounded additionally in mykb's `scripts/spike/`
+kb-spike container harness (patterns borrowed, the `vfa` dependency rejected) and the host-harness
+leak-control comments (`scenarios/l4-purpose.mjs` lines 94–102).
