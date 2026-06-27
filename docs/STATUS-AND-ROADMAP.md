@@ -32,14 +32,19 @@ comes from context; context is what vtfkb supplies. vtfkb is the front-half leve
 
 ---
 
-## 2. Status — what is true today **[verified 2026-06-25]**
+## 2. Status — what is true today **[verified 2026-06-25; partially refreshed 2026-06-27]**
+
+> For the *current* in-repo frontier and the live build order, **[H4-DEVELOPMENT-ROADMAP](H4-DEVELOPMENT-ROADMAP.md)
+> is the authority** (this north-star is refreshed less often). As of 2026-06-27: Track 1 ✅, Track 5
+> (dockerized L4 substrate) ✅, Track 4 core ✅ (6 Track-1 L4 scenarios), ADR-0022/0023 ratified; Track 4b in
+> progress (D-i active).
 
 **v1 (the per-project tier) is built, green, hardened by a live dogfood, and now self-hosting.**
 
-- Repo `vilosource/vtfkb` `main` @ `861089d`; package `0.1.0`; `tsc` clean; **87/87 tests**.
+- Repo `vilosource/vtfkb` `main` @ `fd654e3` (was `861089d` on 2026-06-25); package `0.1.0`; `tsc` clean; **87/87 tests**.
 - Greenfield **TypeScript**, mykb as a studied oracle (ADR-0002/0003) — zero code inheritance.
 - IMPLEMENTATION-PLAN Phases 0–6 delivered.
-- **Decisions ADR-0001–0021** ratified; **RFC-001–006** drafted (001/002/004/005/006 accepted;
+- **Decisions ADR-0001–0023** ratified; **RFC-001–006** drafted (001/002/004/005/006 accepted;
   003 proposed + evidence-gated). vtfkb now **dogfoods its own brain** (ADR-0019).
 
 ### Feature surface shipped (per-project tier)
@@ -51,10 +56,11 @@ comes from context; context is what vtfkb supplies. vtfkb is the front-half leve
 | Index | pure-JS in-memory default; SQLite/FTS5 optional, graceful-degrade (ADR-0013); content-hash freshness, never mtime (ADR-0014) |
 | Decision family | immutable, supersede-only; ADR ordinal stamped at merge-to-`main` (ADR-0004/0009) |
 | Read/retrieval | two-stage; **relevance-primary** + light stemming (ADR-0016) + distinct-term **relevance floor** (ADR-0017) + cause-distinguished **honest no-match** (ADR-0018) |
-| MCP server | 7 scoped tools (`kb_add`/`kb_get`/`kb_list`/`kb_map`/`kb_search`/`kb_supersede`/`kb_transition`) — the cross-harness pull baseline (deterministic `tools/list` backstop) |
+| MCP server | 8 scoped tools (`kb_add`/`kb_get`/`kb_list`/`kb_map`/`kb_search`/`kb_supersede`/`kb_transition`/`kb_resume`) — the cross-harness pull baseline (deterministic `tools/list` backstop) |
 | Auto-layer faces | Pi in-process extension **and** Claude Code hooks; session-start injection (Tier A, 10k budget, ADR-0015) |
 | Guardrails | no-secrets write-time lint; Bash mutation tool-gating |
-| Project context doc | first-class project context doc |
+| Session continuity | append-only per-session record + derived **resume render** (`resume`/`resume-note` CLI + `kb_resume`); auto-distill → trust-labelled lessons in the digest (ADR-0020/0021) |
+| ~~Project context doc~~ | **NOT shipped** (corrected 2026-06-27): only the injected entries-bundle (`context-block` = `renderContextBundle`) + resume render exist. The authored per-project **context document** + a `kb_context` tool (FEATURES §3.7 / D-O8) are **unbuilt** → Track-4b **D-ii** |
 | Self-hosted design-brain | vtfkb dogfoods its own per-project tier — committed `.vtfkb/` (ADR-0019): ADR/RFC link-index + native gotchas/patterns |
 
 ### Acceptance (L4)
