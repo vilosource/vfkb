@@ -3,8 +3,8 @@
   "model": "deepseek-v4-pro",
   "provider": "deepseek",
   "slug": "deepseek__deepseek-v4-pro__docker",
-  "generated": "2026-06-27T17:44:27.420Z",
-  "vtfkb_sha": "5b82145",
+  "generated": "2026-06-27T18:08:56.192Z",
+  "vtfkb_sha": "6883a41",
   "scenarios": {
     "stale-supersession": {
       "dim": "exclude:supersession",
@@ -665,9 +665,29 @@
           "output": "NONE"
         }
       ]
+    },
+    "live-capture-result": {
+      "dim": "capture:live-tool-result",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "pi:capture-on",
+          "pass": true,
+          "detail": "live failure captured+distilled",
+          "output": ""
+        },
+        {
+          "label": "pi:capture-off",
+          "pass": true,
+          "detail": "nothing recorded (baseline)",
+          "output": ""
+        }
+      ]
     }
   },
   "trials_n": 3,
   "image": "vtfkb-l4-pi:dev",
-  "image_digest": "sha256:3a2d3fbe6500de7dc9f086f5c5cea071d814cbc62c506e41dff590ffe249b51b"
+  "image_digest": "sha256:1c74317b08738d53e4b67981c564feaad562a00f2a83f929a227fcadbbc803a9"
 }

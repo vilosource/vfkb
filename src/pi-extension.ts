@@ -5,7 +5,8 @@
 // Contracts copied verbatim from the verified mykb spike (src/extension/*):
 //   before_agent_start -> { systemPrompt } : APPEND the bundle (Tier A inject)
 //   context            -> { messages:[{role:'custom',...}] } : per-turn (Tier C, Pi-only)
-//   tool_call          -> { toolName, input } : gate brain writes + capture (Tier B)
+//   tool_call          -> { toolName, input } : gate brain writes (pre-execution block)
+//   tool_execution_end -> { toolName, result, isError } : capture WITH result (Tier B, D-iv)
 //   session_shutdown   -> git save
 
 import { mkdirSync } from 'node:fs';
@@ -26,10 +27,31 @@ import type {
   ContextEventResult,
   ExtensionAPI,
   ToolCallEvent,
+  ToolExecutionStartEvent,
+  ToolExecutionEndEvent,
 } from './pi-types.js';
 
 function project(): string {
   return process.env.VTFKB_PROJECT || 'spike';
+}
+
+// Reduce a pi tool result (AgentToolResult-ish: { content:[{text}], details } | string |
+// object) to a bounded text summary for capture. classifyToolOutcome caps length; here we
+// just extract the most useful string.
+function resultText(r: unknown): string {
+  if (r == null) return '';
+  if (typeof r === 'string') return r;
+  if (typeof r === 'object') {
+    const o = r as Record<string, unknown>;
+    if (Array.isArray(o.content)) {
+      return o.content
+        .map((c) => (c && typeof (c as { text?: unknown }).text === 'string' ? (c as { text: string }).text : ''))
+        .join(' ')
+        .trim();
+    }
+    return JSON.stringify(o);
+  }
+  return String(r);
 }
 
 export default function (pi: ExtensionAPI): void {
@@ -66,16 +88,39 @@ export default function (pi: ExtensionAPI): void {
     return { messages: [{ role: 'custom', content: delta }, ...messages] };
   });
 
-  // Tool-gating + Tier-B capture. Gate brain-file writes first (force writes
-  // through the engine); otherwise capture the tool call.
+  // Tool-gating (pre-execution). Gate brain-file writes here — the block MUST happen
+  // before the tool runs, so a blocked write never reaches tool_execution_end and is
+  // never captured. Capture itself moved to tool_execution_end (D-iv): tool_call has no
+  // result, so capturing here recorded every failure as capture:ok and the distiller
+  // could never act on a LIVE pi failure (the 2026-06-27 finding).
   pi.on('tool_call', async (...args: unknown[]): Promise<unknown> => {
     const e = (args[0] as ToolCallEvent) || {};
     if (isBrainWrite(e.toolName, e.input)) {
       return { block: true, reason: GATING_REASON }; // refuse direct brain edits
     }
-    if (e.toolName) {
-      captureToolCall({ tool_name: e.toolName, tool_input: e.input, call_id: e.toolCallId });
-    }
+    return undefined;
+  });
+
+  // Correlate start→end by toolCallId so the capture keeps the call's INPUT (the end event
+  // carries result+isError but not args). Bounded: entries removed on end.
+  const pendingArgs = new Map<string, unknown>();
+  pi.on('tool_execution_start', async (...args: unknown[]): Promise<unknown> => {
+    const e = (args[0] as ToolExecutionStartEvent) || {};
+    if (e.toolCallId) pendingArgs.set(e.toolCallId, e.args);
+    return undefined;
+  });
+
+  // Tier-B capture (D-iv) — fires AFTER the tool runs, with the result + pi's authoritative
+  // isError flag. Feed classifyToolOutcome the isError signal so a real failed call records
+  // as capture:error → the distiller turns it into a candidate gotcha (live auto-distill).
+  pi.on('tool_execution_end', async (...args: unknown[]): Promise<unknown> => {
+    const e = (args[0] as ToolExecutionEndEvent) || {};
+    if (!e.toolName) return undefined;
+    const input = e.toolCallId ? pendingArgs.get(e.toolCallId) : undefined;
+    if (e.toolCallId) pendingArgs.delete(e.toolCallId);
+    const summary = resultText(e.result);
+    const tool_result = e.isError ? { isError: true, error: summary } : { isError: false, result: summary };
+    captureToolCall({ tool_name: e.toolName, tool_input: input, tool_result, call_id: e.toolCallId });
     return undefined;
   });
 

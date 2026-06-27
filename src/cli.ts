@@ -276,7 +276,13 @@ async function main() {
         const captured = captureToolCall({
           tool_name: payload.tool_name,
           tool_input: payload.tool_input,
-          tool_result: payload.tool_result,
+          // Claude Code's PostToolUse payload carries the result under `tool_response`
+          // ({stdout,stderr,…}), NOT `tool_result` (verified 2026-06-27). Without this
+          // fallback the result was dropped → every live capture classified `ok` → no
+          // capture:error → the distiller never fired on a real claude failure (D-iv,
+          // the claude analog of the pi tool_call-has-no-result gap). The host-side
+          // synthetic seam feeds `tool_result`, so it keeps precedence.
+          tool_result: payload.tool_result ?? payload.tool_response,
           call_id: payload.call_id || payload.tool_use_id,
         });
         // record the captured id into the session log (Tier-B → continuity signal).

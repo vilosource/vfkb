@@ -1,11 +1,11 @@
 # vtfkb L4 behavior record — harness=claude — claude-code/claude-haiku-4-5
 
 - harness: claude
-- generated: 2026-06-27T17:54:49.225Z
-- vtfkb: 5b82145
+- generated: 2026-06-27T18:26:28.750Z
+- vtfkb: 6883a41
 - trials per scenario: N=3 (demonstrated = contrast holds on >=2/3)
 - image: vtfkb-l4-claude:dev
-- image digest: sha256:c8c4814599e602218262d72e7bd35e4c676f70a6e19e50845bb7574076f68cbb
+- image digest: sha256:9cb2afda47322209ac795631c63ba64763a1e2a2b4ea811ba81508854b049172
 - scenarios recorded: 31 (30 demonstrated)
 
 | scenario | dimension | demonstrated | trials | rows (label=verdict) |
