@@ -3,8 +3,8 @@
   "model": "deepseek-v4-pro",
   "provider": "deepseek",
   "slug": "deepseek__deepseek-v4-pro__docker",
-  "generated": "2026-06-27T09:44:17.565Z",
-  "vtfkb_sha": "57a0214",
+  "generated": "2026-06-27T09:55:03.182Z",
+  "vtfkb_sha": "41fb846",
   "scenarios": {
     "stale-supersession": {
       "dim": "exclude:supersession",
@@ -515,6 +515,26 @@
           "pass": false,
           "detail": "STALE(replayed)",
           "output": "cluster-blue-7q"
+        }
+      ]
+    },
+    "kb-resume-mcp": {
+      "dim": "mcp:resume-floor",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "pi:mcp",
+          "pass": true,
+          "detail": "pulled via kb_resume",
+          "output": "Wire the retry/backoff into module `svc_qp7z` next."
+        },
+        {
+          "label": "pi:no-mcp",
+          "pass": true,
+          "detail": "can't know (expected)",
+          "output": "I don't have access to any previous session history or planned tasks. I can only see what's in the current working directory (`/brain`) and this conversation. \n\nWould you like me to check if there are any task lists, notes, or project files in `/brain` that might contain your planned next task?"
         }
       ]
     }

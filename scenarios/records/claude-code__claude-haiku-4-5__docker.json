@@ -3,8 +3,8 @@
   "model": "claude-haiku-4-5",
   "provider": "claude-code",
   "slug": "claude-code__claude-haiku-4-5__docker",
-  "generated": "2026-06-27T09:45:23.887Z",
-  "vtfkb_sha": "57a0214",
+  "generated": "2026-06-27T10:04:52.398Z",
+  "vtfkb_sha": "41fb846",
   "scenarios": {
     "stale-supersession": {
       "dim": "exclude:supersession",
@@ -515,6 +515,26 @@
           "pass": false,
           "detail": "STALE(replayed)",
           "output": "cluster-blue-7q"
+        }
+      ]
+    },
+    "kb-resume-mcp": {
+      "dim": "mcp:resume-floor",
+      "demonstrated": true,
+      "trials": "2/3",
+      "passRate": 0.6666666666666666,
+      "rows": [
+        {
+          "label": "claude:mcp",
+          "pass": false,
+          "detail": "failed",
+          "output": "__ERROR__ spawnSync docker ETIMEDOUT"
+        },
+        {
+          "label": "claude:no-mcp",
+          "pass": true,
+          "detail": "can't know (expected)",
+          "output": "I don't have access to the memory files in this context. There are no previous session memories available to me, so I cannot identify any planned next tasks from a previous session."
         }
       ]
     }

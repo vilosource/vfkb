@@ -1,12 +1,12 @@
 # vtfkb L4 behavior record — harness=pi — deepseek/deepseek-v4-pro
 
 - harness: pi
-- generated: 2026-06-27T09:44:17.565Z
-- vtfkb: 57a0214
+- generated: 2026-06-27T09:55:03.182Z
+- vtfkb: 41fb846
 - trials per scenario: N=3 (demonstrated = contrast holds on >=2/3)
 - image: vtfkb-l4-pi:dev
 - image digest: sha256:bdd2dfd2e00ff4d14a0dfc4eebdd3b80f62f3c6daf16066e7c910ae60fad62f2
-- scenarios recorded: 24 (24 demonstrated)
+- scenarios recorded: 25 (25 demonstrated)
 
 | scenario | dimension | demonstrated | trials | rows (label=verdict) |
 |---|---|---|---|---|
@@ -18,6 +18,7 @@
 | decision-followed | deliver:decision | YES | 3/3 | pi:vtfkb=PASS, pi:none=fail |
 | deprecated-excluded | exclude:status | YES | 3/3 | pi:vtfkb=PASS, pi:naive=fail |
 | gotcha-guidance | deliver:gotcha | YES | 3/3 | pi:vtfkb=PASS, pi:none=fail |
+| kb-resume-mcp | mcp:resume-floor | YES | 3/3 | pi:mcp=PASS, pi:no-mcp=PASS |
 | knowledge-delivery | deliver:fact | YES | 3/3 | pi:vtfkb=PASS, pi:none=fail |
 | link-delivery | deliver:link | YES | 3/3 | pi:vtfkb=PASS, pi:none=fail |
 | mcp-map-navigation | mcp:map-then-search | YES | 3/3 | pi:mcp=PASS, pi:no-mcp=PASS |
