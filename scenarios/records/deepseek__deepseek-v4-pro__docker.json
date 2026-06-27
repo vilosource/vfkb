@@ -3,8 +3,8 @@
   "model": "deepseek-v4-pro",
   "provider": "deepseek",
   "slug": "deepseek__deepseek-v4-pro__docker",
-  "generated": "2026-06-27T09:55:03.182Z",
-  "vtfkb_sha": "41fb846",
+  "generated": "2026-06-27T10:19:25.702Z",
+  "vtfkb_sha": "5e94074",
   "scenarios": {
     "stale-supersession": {
       "dim": "exclude:supersession",
@@ -535,6 +535,32 @@
           "pass": true,
           "detail": "can't know (expected)",
           "output": "I don't have access to any previous session history or planned tasks. I can only see what's in the current working directory (`/brain`) and this conversation. \n\nWould you like me to check if there are any task lists, notes, or project files in `/brain` that might contain your planned next task?"
+        }
+      ]
+    },
+    "auto-distill-recall": {
+      "dim": "distill:capture-fail->recall",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "pi:distill",
+          "pass": true,
+          "detail": "failure distilled",
+          "output": ""
+        },
+        {
+          "label": "pi:recall:vtfkb",
+          "pass": true,
+          "detail": "recalled lesson",
+          "output": "/etc/probe_qz8x.cfg"
+        },
+        {
+          "label": "pi:recall:none",
+          "pass": true,
+          "detail": "can't know (expected)",
+          "output": "unknown"
         }
       ]
     }
