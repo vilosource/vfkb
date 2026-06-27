@@ -38,3 +38,4 @@ Immutable records of significant vtfkb architecture decisions, in
 | [ADR-0019](ADR-0019-self-hosted-design-brain.md) | vtfkb self-hosts its own design-brain (commit `.vtfkb/`; ADRs link-not-copy); applies D2c + D1.4 to vtfkb's repo | Accepted |
 | [ADR-0020](ADR-0020-session-continuity-record.md) | Session continuity = a derived, append-only knowledge-continuity record (vtfkb's half of the vtf/vtfkb seam) | Accepted (build sequenced) |
 | [ADR-0021](ADR-0021-auto-distill-and-curator.md) | Auto-distill + ACE curator — capture distils to `incoming`; curation is deltas + counters, never rewrites | Accepted (build sequenced) |
+| [ADR-0022](ADR-0022-l4-evaluation-methodology.md) | L4 evaluation methodology = dockerized, reproducible, contrast-based, multi-trial, dual-harness (self-contained images) | Accepted (build sequenced) |
