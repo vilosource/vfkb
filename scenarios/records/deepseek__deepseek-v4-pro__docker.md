@@ -1,12 +1,12 @@
 # vtfkb L4 behavior record — harness=pi — deepseek/deepseek-v4-pro
 
 - harness: pi
-- generated: 2026-06-27T10:32:05.520Z
-- vtfkb: 722644e
+- generated: 2026-06-27T10:48:34.174Z
+- vtfkb: 36399bb
 - trials per scenario: N=3 (demonstrated = contrast holds on >=2/3)
 - image: vtfkb-l4-pi:dev
 - image digest: sha256:bdd2dfd2e00ff4d14a0dfc4eebdd3b80f62f3c6daf16066e7c910ae60fad62f2
-- scenarios recorded: 27 (27 demonstrated)
+- scenarios recorded: 28 (28 demonstrated)
 
 | scenario | dimension | demonstrated | trials | rows (label=verdict) |
 |---|---|---|---|---|
@@ -16,6 +16,7 @@
 | constitution-port | constitution:single | YES | 3/3 | pi:vtfkb=PASS, pi:none=fail |
 | constitution-prohibition | constitution:prohibition | YES | 3/3 | pi:vtfkb=PASS, pi:none=fail |
 | continuity-resume | continuity:resume-note | YES | 3/3 | pi:resume:vtfkb=PASS, pi:resume:none=PASS |
+| corroborated-promotion | distill:corroborated-promotion | YES | 3/3 | pi:corroborated(net>=2)=PASS, pi:below-threshold(net 0)=PASS |
 | decision-followed | deliver:decision | YES | 3/3 | pi:vtfkb=PASS, pi:none=fail |
 | deprecated-excluded | exclude:status | YES | 3/3 | pi:vtfkb=PASS, pi:naive=fail |
 | distill-trust-label | distill:trust-gradient | YES | 3/3 | pi:distilled=PASS, pi:human-fact=PASS |

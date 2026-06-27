@@ -548,6 +548,41 @@ const SCN = [
     },
   },
 
+  // ---- Track 1 / ADR-0021 §4: corroboration PROMOTES a candidate to trusted ----
+  // Recurrence = corroboration: re-distilling the same error signature records helpful
+  // signals; at net >=2 the candidate is ELIGIBLE to promote out of incoming into the
+  // established zone; below threshold promotion is REFUSED ("auto-distill alone cannot mint
+  // trusted knowledge"). This is DETERMINISTIC (engine logic) — and deliberately so:
+  // FINDING (2026-06-27) — promotion elevates the ZONE but NOT the agent-visible trust
+  // presentation (the entry keeps its ⚠agent glyph + "(unverified)" text, since trust is
+  // role-derived and the role stays `executor`). So an agent CANNOT observe the trust
+  // elevation; both a promoted and an unpromoted distilled lesson read as a candidate.
+  // Hence this is asserted at the deterministic gate (the real, observable §4 behavior),
+  // not as an agent contrast — see the roadmap finding + ADR-0021 §4.
+  {
+    id: 'corroborated-promotion', dim: 'distill:corroborated-promotion',
+    exec() {
+      const fail = { tool_name: 'Bash', tool_input: { command: 'cat /etc/probe_qz8x.cfg' }, tool_result: { exit_code: 7, stderr: 'cat: /etc/probe_qz8x.cfg: error: No such file or directory (probe_qz8x)' }, call_id: 'c1' };
+      const distillOnce = (b) => { sh('node', [CLI, 'hook', 'post-tool-use'], { input: JSON.stringify(fail), env: { ...process.env, VTFKB_DIR: b, KB_SESSION_ID: 's1' } }); return sh('node', [CLI, 'distill'], { env: { ...process.env, VTFKB_DIR: b, KB_SESSION_ID: 's1' } }); };
+      const idFrom = (out) => { const m = out.split('\n').find((l) => l.startsWith('CANDIDATE')); return m ? m.split('\t')[1] : null; };
+      const promoteAuto = (b, id) => { try { return /established/.test(sh('node', [CLI, 'curate', 'promote-auto', id], { env: { ...process.env, VTFKB_DIR: b }, stdio: ['ignore', 'pipe', 'ignore'] })); } catch { return false; } };
+      // Arm A — the SAME failure recurs >=2x (net >=2 corroborations) → promotion SUCCEEDS.
+      const bA = newBrain('promo-corrob');
+      const candId = idFrom(distillOnce(bA)); distillOnce(bA); distillOnce(bA); // net 2
+      const promoted = promoteAuto(bA, candId);
+      // Arm B — distilled once (net 0) → promotion REFUSED (below threshold, stays labelled).
+      const bB = newBrain('promo-candidate');
+      const candIdB = idFrom(distillOnce(bB));
+      const refused = !promoteAuto(bB, candIdB);
+      rmSync(bA, { recursive: true, force: true }); rmSync(bB, { recursive: true, force: true });
+      const rows = [
+        { label: `${HARNESS}:corroborated(net>=2)`, pass: promoted, detail: promoted ? 'promoted -> established' : 'NOT promoted', output: '', sample: '' },
+        { label: `${HARNESS}:below-threshold(net 0)`, pass: refused, detail: refused ? 'promotion refused (stays labelled)' : 'promoted unexpectedly', output: '', sample: '' },
+      ];
+      return { rows, demonstrated: promoted && refused };
+    },
+  },
+
   // ---- Guardrail: tool-gating blocks direct brain tampering (with contrast) ----
   {
     id: 'tool-gating', dim: 'guardrail:tool-gating',

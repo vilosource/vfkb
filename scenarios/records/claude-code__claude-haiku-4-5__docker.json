@@ -3,8 +3,8 @@
   "model": "claude-haiku-4-5",
   "provider": "claude-code",
   "slug": "claude-code__claude-haiku-4-5__docker",
-  "generated": "2026-06-27T10:33:49.008Z",
-  "vtfkb_sha": "722644e",
+  "generated": "2026-06-27T10:48:35.292Z",
+  "vtfkb_sha": "36399bb",
   "scenarios": {
     "stale-supersession": {
       "dim": "exclude:supersession",
@@ -581,6 +581,26 @@
           "pass": true,
           "detail": "treated ESTABLISHED",
           "output": "ESTABLISHED"
+        }
+      ]
+    },
+    "corroborated-promotion": {
+      "dim": "distill:corroborated-promotion",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "claude:corroborated(net>=2)",
+          "pass": true,
+          "detail": "promoted -> established",
+          "output": ""
+        },
+        {
+          "label": "claude:below-threshold(net 0)",
+          "pass": true,
+          "detail": "promotion refused (stays labelled)",
+          "output": ""
         }
       ]
     }
