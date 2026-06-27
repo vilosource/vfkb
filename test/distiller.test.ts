@@ -115,7 +115,15 @@ describe('corroborated promotion — M2b (ADR-0021 pt 4)', () => {
     expect(eligibleForPromotion(cand.id)).toBe(true);
     const out = promoteIfCorroborated(cand.id);
     expect(out.zone).toBe('established'); // now trusted — but only via corroboration
-    expect(out.text).toBe(cand.text); // promotion never rewrote text
+    expect(out.provenance.status).toBe('verified'); // D-iii: relabel makes the elevation agent-observable
+    expect(out.text).toBe(cand.text); // promotion never rewrote text (never-rewrite Brake holds)
+  });
+
+  it('D-iii: a distilled candidate does NOT bake "(unverified)" into its immutable text — trust lives in the glyph', () => {
+    captureError('Bash', { command: 'a' }, 'connection refused');
+    const cand = distill().created[0];
+    expect(cand.provenance.status).toBe('unverified'); // trust carried by provenance/glyph...
+    expect(cand.text).not.toMatch(/\(unverified\)/); // ...not stuck in the text (so a later verified relabel won't contradict it)
   });
 
   it('harmful signals cancel helpful ones (net gate)', () => {

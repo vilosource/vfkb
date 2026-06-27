@@ -552,13 +552,12 @@ const SCN = [
   // Recurrence = corroboration: re-distilling the same error signature records helpful
   // signals; at net >=2 the candidate is ELIGIBLE to promote out of incoming into the
   // established zone; below threshold promotion is REFUSED ("auto-distill alone cannot mint
-  // trusted knowledge"). This is DETERMINISTIC (engine logic) — and deliberately so:
-  // FINDING (2026-06-27) — promotion elevates the ZONE but NOT the agent-visible trust
-  // presentation (the entry keeps its ⚠agent glyph + "(unverified)" text, since trust is
-  // role-derived and the role stays `executor`). So an agent CANNOT observe the trust
-  // elevation; both a promoted and an unpromoted distilled lesson read as a candidate.
-  // Hence this is asserted at the deterministic gate (the real, observable §4 behavior),
-  // not as an agent contrast — see the roadmap finding + ADR-0021 §4.
+  // trusted knowledge"). This is DETERMINISTIC (engine logic): it stays the §4 ZONE/refusal
+  // gate. The 2026-06-27 finding (promotion elevated the zone but NOT the agent-visible
+  // trust) is now CLOSED by D-iii/ADR-0024 — promoteIfCorroborated re-stamps provenance
+  // verified, and the agent-observable contrast lives in the `promotion-relabel` scenario
+  // (a promoted lesson enters the verified-only view). This scenario keeps the deterministic
+  // zone-promote/refuse assertions; `promotion-relabel` adds the agent eyes.
   {
     id: 'corroborated-promotion', dim: 'distill:corroborated-promotion',
     exec() {
@@ -580,6 +579,43 @@ const SCN = [
         { label: `${HARNESS}:below-threshold(net 0)`, pass: refused, detail: refused ? 'promotion refused (stays labelled)' : 'promoted unexpectedly', output: '', sample: '' },
       ];
       return { rows, demonstrated: promoted && refused };
+    },
+  },
+
+  // ---- Track 4b / D-iii: corroborated promotion is AGENT-OBSERVABLE (relabel-on-promotion) ----
+  // The 2026-06-27 finding: corroborated promotion (ADR-0021 §4) elevated the ZONE but not the
+  // agent-visible trust label — a promoted and an unpromoted distilled lesson both read as a
+  // candidate, so the trust elevation had no observable effect. D-iii: promoteIfCorroborated also
+  // sets provenance.status='verified' (corroboration-by-recurrence IS the §3.6 "independent
+  // signal — a second agent", not the author asserting). Observed through D-i's verified filter:
+  // a PROMOTED lesson now enters the verified-only view; an unpromoted one stays excluded. Written
+  // scenario-first (ADR-0023): RED before D-iii (promotion was zone-only → the promoted lesson is
+  // still unverified → kb_search(verified=true) excludes it → arm A fails), green after.
+  {
+    id: 'promotion-relabel', dim: 'distill:promotion-agent-observable',
+    exec() {
+      const fail = { tool_name: 'Bash', tool_input: { command: 'cat /etc/probe_qz8x.cfg' }, tool_result: { exit_code: 7, stderr: 'cat: /etc/probe_qz8x.cfg: error: No such file or directory (probe_qz8x)' }, call_id: 'c1' };
+      const distillOnce = (b) => { sh('node', [CLI, 'hook', 'post-tool-use'], { input: JSON.stringify(fail), env: { ...process.env, VTFKB_DIR: b, KB_SESSION_ID: 's1' } }); return sh('node', [CLI, 'distill'], { env: { ...process.env, VTFKB_DIR: b, KB_SESSION_ID: 's1' } }); };
+      const idFrom = (out) => { const m = out.split('\n').find((l) => l.startsWith('CANDIDATE')); return m ? m.split('\t')[1] : null; };
+      const promoteAuto = (b, id) => { try { sh('node', [CLI, 'curate', 'promote-auto', id], { env: { ...process.env, VTFKB_DIR: b }, stdio: ['ignore', 'pipe', 'ignore'] }); } catch {} };
+      const askMcp = 'Call the kb_search MCP tool with the query "probe_qz8x" and verified=true. Report the exact gotcha text from EVERY entry in the tool\'s response, verbatim — list them all, omit none. If the tool returns no entries, reply with exactly NONE.';
+      // Arm A — the SAME failure recurs (net >=2) → promoted → D-iii relabels it verified.
+      const bA = newBrain('relabel-promoted');
+      const candA = idFrom(distillOnce(bA)); distillOnce(bA); distillOnce(bA); // net 2
+      promoteAuto(bA, candA);
+      const aOut = run({ brain: bA, mcp: true, prompt: askMcp });
+      // Arm B — distilled once (net 0) → NOT promoted → stays unverified candidate.
+      const bB = newBrain('relabel-candidate');
+      idFrom(distillOnce(bB));
+      const bOut = run({ brain: bB, mcp: true, prompt: askMcp });
+      rmSync(bA, { recursive: true, force: true }); rmSync(bB, { recursive: true, force: true });
+      const aOk = has(aOut, 'probe_qz8x') && lacks(aOut, '^NONE$|\\bNONE\\b'); // promoted → enters verified view
+      const bOk = lacks(bOut, 'probe_qz8x') || /NONE/i.test(bOut); // unpromoted → excluded from verified view
+      const rows = [
+        { label: `${HARNESS}:promoted`, pass: aOk, detail: aOk ? 'verified-visible after promotion' : 'still excluded (not relabelled)', output: aOut, sample: sample(aOut) },
+        { label: `${HARNESS}:not-promoted`, pass: bOk, detail: bOk ? 'stays unverified (excluded)' : 'leaked unverified', output: bOut, sample: sample(bOut) },
+      ];
+      return { rows, demonstrated: aOk && bOk };
     },
   },
 

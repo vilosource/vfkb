@@ -3,8 +3,8 @@
   "model": "deepseek-v4-pro",
   "provider": "deepseek",
   "slug": "deepseek__deepseek-v4-pro__docker",
-  "generated": "2026-06-27T17:13:25.447Z",
-  "vtfkb_sha": "502d35f",
+  "generated": "2026-06-27T17:44:27.420Z",
+  "vtfkb_sha": "5b82145",
   "scenarios": {
     "stale-supersession": {
       "dim": "exclude:supersession",
@@ -645,9 +645,29 @@
           "output": "VERIF-tok-7yh3q\nUNVER-tok-9qz4w"
         }
       ]
+    },
+    "promotion-relabel": {
+      "dim": "distill:promotion-agent-observable",
+      "demonstrated": true,
+      "trials": "2/3",
+      "passRate": 0.6666666666666666,
+      "rows": [
+        {
+          "label": "pi:promoted",
+          "pass": false,
+          "detail": "still excluded (not relabelled)",
+          "output": "NONE"
+        },
+        {
+          "label": "pi:not-promoted",
+          "pass": true,
+          "detail": "stays unverified (excluded)",
+          "output": "NONE"
+        }
+      ]
     }
   },
   "trials_n": 3,
   "image": "vtfkb-l4-pi:dev",
-  "image_digest": "sha256:bddde7a8b8426ffb1cd3df9b6493a4d981cd3b2d4fe84f7844ed5987377ddfa3"
+  "image_digest": "sha256:3a2d3fbe6500de7dc9f086f5c5cea071d814cbc62c506e41dff590ffe249b51b"
 }
