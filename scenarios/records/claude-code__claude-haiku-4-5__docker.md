@@ -1,12 +1,12 @@
 # vtfkb L4 behavior record — harness=claude — claude-code/claude-haiku-4-5
 
 - harness: claude
-- generated: 2026-06-27T10:33:49.008Z
-- vtfkb: 722644e
+- generated: 2026-06-27T10:48:35.292Z
+- vtfkb: 36399bb
 - trials per scenario: N=3 (demonstrated = contrast holds on >=2/3)
 - image: vtfkb-l4-claude:dev
 - image digest: sha256:b65b9204722a9a45ecd35440f0f901b19811a45e1ac979deea0195b7744e4956
-- scenarios recorded: 27 (26 demonstrated)
+- scenarios recorded: 28 (27 demonstrated)
 
 | scenario | dimension | demonstrated | trials | rows (label=verdict) |
 |---|---|---|---|---|
@@ -16,6 +16,7 @@
 | constitution-port | constitution:single | YES | 3/3 | claude:vtfkb=PASS, claude:none=fail |
 | constitution-prohibition | constitution:prohibition | YES | 3/3 | claude:vtfkb=PASS, claude:none=fail |
 | continuity-resume | continuity:resume-note | YES | 3/3 | claude:resume:vtfkb=PASS, claude:resume:none=PASS |
+| corroborated-promotion | distill:corroborated-promotion | YES | 3/3 | claude:corroborated(net>=2)=PASS, claude:below-threshold(net 0)=PASS |
 | decision-followed | deliver:decision | YES | 3/3 | claude:vtfkb=PASS, claude:none=fail |
 | deprecated-excluded | exclude:status | YES | 3/3 | claude:vtfkb=PASS, claude:naive=fail |
 | distill-trust-label | distill:trust-gradient | YES | 3/3 | claude:distilled=PASS, claude:human-fact=PASS |
