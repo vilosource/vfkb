@@ -22,6 +22,7 @@ role-attributed; options under discussion live in the RFC's Decision/text.
 | [RFC-004](RFC-004-self-hosted-design-brain.md) | vtfkb self-hosts its own design-brain (commit `.vtfkb/`; ADRs link-not-copy) | Accepted → [ADR-0019](../adr/ADR-0019-self-hosted-design-brain.md) |
 | [RFC-005](RFC-005-session-continuity-record.md) | Session continuity = a derived, append-only knowledge-continuity record (vtfkb's half of the vtf/vtfkb seam) | Accepted → [ADR-0020](../adr/ADR-0020-session-continuity-record.md) |
 | [RFC-006](RFC-006-auto-distill-and-curator.md) | Auto-distill + ACE curator — capture distils to `incoming`; curation is deltas + counters, never rewrites | Accepted → [ADR-0021](../adr/ADR-0021-auto-distill-and-curator.md) |
+| [RFC-007](RFC-007-project-context-doc-and-kb-context.md) | The project context doc + `kb_context` — an assembled "agent's first read" (authored spine + derived sections) | Proposed |
 
 RFC-001..003 were drafted 2026-06-15 from a study of AnythingLLM (Mintplex Labs)
 retrieval mechanics mapped onto vtfkb's substrate. All three **refine
