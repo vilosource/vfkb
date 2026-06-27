@@ -440,6 +440,36 @@ const SCN = [
     },
   },
 
+  // ---- Track 1 / ADR-0020: the resume CANNOT GO STALE (cross-session correction) ----
+  // The failure ADR-0020 exists to kill: a stored handoff that froze a now-wrong value
+  // (the 2026-06-25 stale-L4 incident). s1 records a fact + leaves a continuity record;
+  // the fact is CORRECTED (superseded) AFTER s1; s2 resumes. vtfkb's resume render is
+  // DERIVED from the live brain, so it surfaces the corrected value; a naive memory that
+  // just replays what it stored surfaces the stale s1 value. (The corrected value rides
+  // the live bundle inside renderResume — the point is the resuming agent isn't misled.)
+  {
+    id: 'resume-reflects-correction', dim: 'continuity:anti-stale',
+    exec() {
+      const b = newBrain('correction');
+      // A decision (supersedable; facts are fluid/edited, not superseded).
+      const o = kb(b, ['add', 'decision', 'The deploy target is cluster-blue-7q', '--role', 'human', '--status', 'accepted']);
+      sh('node', [CLI, 'resume-note', 'continue the rollout to the current deploy target'], { env: { ...process.env, VTFKB_DIR: b, KB_SESSION_ID: 's1' } });
+      // Between sessions the fact is corrected — the stale-handoff trap.
+      kb(b, ['supersede', idOf(o), 'The deploy target is cluster-green-9p', '--role', 'human']);
+      const ask = 'Resuming this project, what is the CURRENT deploy target? Reply with ONLY the target id.';
+      const v = run({ brain: b, inject: 'vtfkb', sessionId: 's2', prompt: ask });
+      const n = run({ brain: b, inject: 'naive', naiveLimit: 1, sessionId: 's2n', prompt: ask });
+      rmSync(b, { recursive: true, force: true });
+      const vOk = has(v, 'cluster-green-9p') && lacks(v, 'cluster-blue-7q');
+      const nOk = has(n, 'cluster-green-9p') && lacks(n, 'cluster-blue-7q');
+      const rows = [
+        { label: `${HARNESS}:resume:vtfkb`, pass: vOk, detail: vOk ? 'corrected' : has(v, 'cluster-blue-7q') ? 'STALE' : 'none', output: v, sample: sample(v) },
+        { label: `${HARNESS}:resume:naive`, pass: nOk, detail: nOk ? 'corrected' : has(n, 'cluster-blue-7q') ? 'STALE(replayed)' : 'none', output: n, sample: sample(n) },
+      ];
+      return { rows, demonstrated: vOk && !nOk };
+    },
+  },
+
   // ---- Guardrail: tool-gating blocks direct brain tampering (with contrast) ----
   {
     id: 'tool-gating', dim: 'guardrail:tool-gating',

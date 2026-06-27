@@ -3,8 +3,8 @@
   "model": "claude-haiku-4-5",
   "provider": "claude-code",
   "slug": "claude-code__claude-haiku-4-5__docker",
-  "generated": "2026-06-27T09:00:18.050Z",
-  "vtfkb_sha": "93c4abc",
+  "generated": "2026-06-27T09:45:23.887Z",
+  "vtfkb_sha": "57a0214",
   "scenarios": {
     "stale-supersession": {
       "dim": "exclude:supersession",
@@ -495,6 +495,26 @@
           "pass": true,
           "detail": "can't know (expected)",
           "output": "I don't have context from a previous session. I don't see a summary in the current context window, and I can't access memory or plan files without reading them (which would require more than a single-task response).\n\nCould you remind me what we planned, or point me to where that's documented (a plan file, memory, or CLAUDE.md)?"
+        }
+      ]
+    },
+    "resume-reflects-correction": {
+      "dim": "continuity:anti-stale",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "claude:resume:vtfkb",
+          "pass": true,
+          "detail": "corrected",
+          "output": "cluster-green-9p"
+        },
+        {
+          "label": "claude:resume:naive",
+          "pass": false,
+          "detail": "STALE(replayed)",
+          "output": "cluster-blue-7q"
         }
       ]
     }
