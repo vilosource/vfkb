@@ -345,6 +345,12 @@ These are the invariants every item above must honour — they are *why* the pla
    outliving the truth is the failure ADR-0020 exists to kill (2026-06-25 stale-L4 incident).
 7. **One build in flight; report the diff before merging.** No overlapping long runs; surface what a
    change does (and whether it deploys/triggers) before landing it.
+8. **Scenario-contract-first for agent-observable behaviour** ([ADR-0023](adr/ADR-0023-scenario-contract-first.md)).
+   The L4 purpose-demonstration scenario is part of the DoD — named in the ADR/RFC, written as a contract, and
+   run **RED before implementation** (a red run proves it exercises the real path *on every harness*). The
+   deterministic unit test stays the fast inner gate (P2); the scenario is the once-per-feature purpose gate.
+   Structural invariants get **no** scenario — they stay unit tests (ADR-0022 #7). This is the process the
+   2026-06-27 Track-4 build's three after-the-fact delivery findings argue for.
 
 ---
 
