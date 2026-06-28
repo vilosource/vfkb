@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "vfkb": {
+      "command": "node",
+      "args": ["dist/mcp-server.js"],
+      "env": {
+        "VFKB_DIR": ".vfkb",
+        "VFKB_PROJECT": "vfkb"
+      }
+    }
+  }
+}

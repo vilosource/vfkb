@@ -1,0 +1,25 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "VFKB_DIR=.vfkb VFKB_PROJECT=vfkb node dist/cli.js hook session-start"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "VFKB_DIR=.vfkb VFKB_PROJECT=vfkb node dist/cli.js hook pre-tool-use"
+          }
+        ]
+      }
+    ]
+  }
+}
