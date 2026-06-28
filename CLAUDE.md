@@ -14,6 +14,23 @@ JSONL brain**. Minimal deps (`@modelcontextprotocol/sdk` + `zod`; the engine its
 
 Repo: `git@github.com:vilosource/vfkb.git` (vilosource/vfkb). Dev working copy: `~/VFKB/vfkb`.
 
+## vfkb is wired as this session's native auto-layer
+
+This repo ships the Claude Code integration committed at the root, so a session here **runs on
+vfkb automatically** (this is vfkb's actual product surface, not just a CLI):
+- **`.mcp.json`** registers the **`vfkb` MCP server** (`node dist/mcp-server.js`, `VFKB_DIR=.vfkb`)
+  → you have the 9 `mcp__vfkb__kb_*` tools (`kb_search`, `kb_context`, `kb_add`, `kb_resume`, …).
+- **`.claude/settings.json`** hooks:
+  - **`SessionStart`** → injects the resume digest + knowledge bundle (continuity, automatic).
+  - **`PreToolUse`** (Write/Edit/MultiEdit) → **gates direct writes to `.vfkb/`** (forces brain
+    writes through the engine; normal code/doc edits pass through untouched).
+  - **`PostToolUse` auto-capture is intentionally OFF** — against the *committed* brain it would
+    flood `.vfkb` with tool-call noise. Knowledge here is **deliberate** (`kb_add` / `vfkb add`).
+- Requires a built `dist/` (`npm run build`). On first interactive `claude`, approve the project
+  MCP server + hooks when prompted (once per machine).
+
+So prefer the **`mcp__vfkb__*` tools** in-session; the CLI (below) is the equivalent for scripting.
+
 ## ⚠️ How we track work HERE (read first)
 
 - **Do NOT use mykb / the `kb` CLI / `~/.mykb`** in this repo. That operator workflow does **not**
