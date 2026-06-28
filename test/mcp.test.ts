@@ -39,7 +39,7 @@ describe('MCP protocol surface', () => {
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual(
-      ['kb_add', 'kb_get', 'kb_list', 'kb_map', 'kb_resume', 'kb_search', 'kb_supersede', 'kb_transition'].sort(),
+      ['kb_add', 'kb_context', 'kb_get', 'kb_list', 'kb_map', 'kb_resume', 'kb_search', 'kb_supersede', 'kb_transition'].sort(),
     );
     expect(tools.length).toBeLessThanOrEqual(10); // tight surface (ASDLC MCP discipline)
     // every tool has a description + input schema delivered to the client

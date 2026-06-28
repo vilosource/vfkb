@@ -3,8 +3,8 @@
   "model": "claude-haiku-4-5",
   "provider": "claude-code",
   "slug": "claude-code__claude-haiku-4-5__docker",
-  "generated": "2026-06-27T18:26:28.750Z",
-  "vtfkb_sha": "6883a41",
+  "generated": "2026-06-28T04:28:38.839Z",
+  "vtfkb_sha": "afe9dac",
   "scenarios": {
     "stale-supersession": {
       "dim": "exclude:supersession",
@@ -665,9 +665,29 @@
           "output": "I have the tool schema loaded. Now I'll invoke mcp__vtfkb__kb_search with text=\"probe_qz8x\" and verified=true.\n\nNONE"
         }
       ]
+    },
+    "kb-context-first-read": {
+      "dim": "mcp:context-doc-orientation",
+      "demonstrated": true,
+      "trials": "3/3",
+      "passRate": 1,
+      "rows": [
+        {
+          "label": "claude:kb_context",
+          "pass": true,
+          "detail": "oriented via context doc",
+          "output": "ZephyrLedger-qx7k"
+        },
+        {
+          "label": "claude:no-mem",
+          "pass": true,
+          "detail": "can't know (baseline)",
+          "output": "I don't have access to a CLAUDE.md or project documentation file in this directory that would contain a codename. The working directory `/brain` doesn't appear to have project metadata available to me."
+        }
+      ]
     }
   },
   "trials_n": 3,
   "image": "vtfkb-l4-claude:dev",
-  "image_digest": "sha256:9cb2afda47322209ac795631c63ba64763a1e2a2b4ea811ba81508854b049172"
+  "image_digest": "sha256:0c662ab075559f3f58f6db7130706eee1fcd1da46728fb7eed8cf4c8eb9788d7"
 }

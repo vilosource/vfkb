@@ -38,6 +38,22 @@ export function appendRecord(rec: StoredRecord): void {
   writeMeta();
 }
 
+// --- Project context doc spine (D-ii / ADR-0025). The AUTHORED, architect-maintained
+//     half of the context document — a plain Markdown file in the brain, NOT a JSONL
+//     entry (so it stays freely editable; the never-rewrite Brake governs entries only).
+//     The derived sections are stitched at render time in engine.renderContext. ---
+export function contextSpinePath(): string {
+  return join(brainDir(), 'context.md');
+}
+export function readContextSpine(): string | null {
+  const p = contextSpinePath();
+  return existsSync(p) ? readFileSync(p, 'utf8').trim() : null;
+}
+export function writeContextSpine(content: string): void {
+  mkdirSync(brainDir(), { recursive: true });
+  writeFileSync(contextSpinePath(), content);
+}
+
 export function readRecords(): StoredRecord[] {
   const f = recordsFile();
   if (!existsSync(f)) return [];
