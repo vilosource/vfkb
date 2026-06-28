@@ -1,4 +1,4 @@
-# ADR-0020: Session continuity = a derived, append-only knowledge-continuity record (vtfkb's half of the vtf/vtfkb seam)
+# ADR-0020: Session continuity = a derived, append-only knowledge-continuity record (vfkb's half of the vtf/vfkb seam)
 
 - **Status:** Accepted
 - **Date:** 2026-06-25
@@ -13,22 +13,22 @@
 
 ## Context
 
-vtfkb's lineage solves session continuity *manually* (mykb's `kb work handoff` → a `## Resume`
+vfkb's lineage solves session continuity *manually* (mykb's `kb work handoff` → a `## Resume`
 slot), which fails three ways: **forgotten** (no handoff written), **stale** (a single
 overwritten slot that lies once outdated), **low-fidelity** (captures what the author recalled,
 not what happened). This project hit the *stale* failure on 2026-06-25: a workspace "Active"
 line claimed the L4 eval was "16/22 in-progress" when the records showed it complete — a stale
 prose slot outlived the truth.
 
-The fix is latent in vtfkb's design: continuity is **not one tier — it is the vtf/vtfkb seam**.
-[D1](../DESIGN.md) splits *content vs work-state*: vtfkb owns *knowledge handover*, vtf owns
+The fix is latent in vfkb's design: continuity is **not one tier — it is the vtf/vfkb seam**.
+[D1](../DESIGN.md) splits *content vs work-state*: vfkb owns *knowledge handover*, vtf owns
 *work-state handover*. mykb conflates them because it is one tool. `SessionState`
 (`src/session.ts`, keyed by `KB_SESSION_ID`, persisted at `<brain>/.sessions/<id>.json`) is the
-seed of vtfkb's half — it carries only `{ injectedIds, turnCount }` today.
+seed of vfkb's half — it carries only `{ injectedIds, turnCount }` today.
 
 ## Decision
 
-vtfkb builds **its knowledge half** of session continuity; it does **not** build a work-state
+vfkb builds **its knowledge half** of session continuity; it does **not** build a work-state
 tracker (that stays vtf's, referenced one-way by string — [D1 constraint 1](../DESIGN.md)).
 
 1. **Derived, not dictated** — the record is computed from ground truth (entries added / used /
@@ -55,7 +55,7 @@ tracker (that stays vtf's, referenced one-way by string — [D1 constraint 1](..
 - **+** Structurally defeats forgotten/stale/clobbered; the 2026-06-25 bug could not have
   survived a derived record. Reuses `SessionState`, `KB_SESSION_ID` isolation, Tier-A injection,
   and the provenance envelope — no new storage model, no native dep, no vtf dependency.
-- **+** Keeps the D1 seam clean (vtfkb stays a knowledge product); encodes verified-vs-asserted
+- **+** Keeps the D1 seam clean (vfkb stays a knowledge product); encodes verified-vs-asserted
   into the artifact.
 - **−** A per-session log needs a retention/compaction policy (bounded — derived, gitignored).
 - **−** "Derived" is only as rich as the signals fed in; engine-internal counts are free, external
@@ -66,8 +66,8 @@ tracker (that stays vtf's, referenced one-way by string — [D1 constraint 1](..
 
 - **Port mykb's manual handoff slot as-is** — rejected (reproduces all three failures; the
   stale-L4 incident is the proof).
-- **Build a work-state tracker inside vtfkb** — rejected (violates [D1](../DESIGN.md); breaks the
-  one-way vtfkb→vtf reference; couples vtfkb to a product it must stay agnostic of).
+- **Build a work-state tracker inside vfkb** — rejected (violates [D1](../DESIGN.md); breaks the
+  one-way vfkb→vtf reference; couples vfkb to a product it must stay agnostic of).
 - **One overwritten "latest handoff" entry** — rejected (re-introduces clobber; the
   `KB_SESSION_ID` isolation work exists to prevent exactly this).
 - **Commit session records to git as knowledge** — rejected ([ADR-0014](ADR-0014-index-freshness.md):
@@ -80,7 +80,7 @@ tracker (that stays vtf's, referenced one-way by string — [D1 constraint 1](..
 [RFC-005](../rfc/RFC-005-session-continuity-record.md) (origin), [D1](../DESIGN.md),
 [D7b](../DESIGN.md), [ADR-0015](ADR-0015-cross-harness-auto-layer.md),
 [ADR-0005](ADR-0005-injection-filters-stale.md), [ADR-0014](ADR-0014-index-freshness.md),
-[ADR-0019](ADR-0019-self-hosted-design-brain.md) (vtfkb's own brain — first place the resume
+[ADR-0019](ADR-0019-self-hosted-design-brain.md) (vfkb's own brain — first place the resume
 render is dogfooded), [H4-DEVELOPMENT-ROADMAP](../H4-DEVELOPMENT-ROADMAP.md) (build sequencing).
 Code: `src/session.ts`, `src/engine.ts` (`renderContextBundle`, `renderContextDelta`,
 `captureToolCall`). Evidence: 2026-06-25 stale-L4 incident; mykb `kb work handoff` failure modes.

@@ -1,4 +1,4 @@
-// vtfkb entry envelope — Phase 0 spike shape.
+// vfkb entry envelope — Phase 0 spike shape.
 // Implements ADR-0011 (validity window + structured provenance.origin; trust derived).
 
 export type EntryType = 'fact' | 'decision' | 'gotcha' | 'pattern' | 'link';

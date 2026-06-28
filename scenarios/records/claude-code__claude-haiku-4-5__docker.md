@@ -1,44 +1,44 @@
-# vtfkb L4 behavior record — harness=claude — claude-code/claude-haiku-4-5
+# vfkb L4 behavior record — harness=claude — claude-code/claude-haiku-4-5
 
 - harness: claude
 - generated: 2026-06-28T04:28:38.839Z
-- vtfkb: afe9dac
+- vfkb: afe9dac
 - trials per scenario: N=3 (demonstrated = contrast holds on >=2/3)
-- image: vtfkb-l4-claude:dev
+- image: vfkb-l4-claude:dev
 - image digest: sha256:0c662ab075559f3f58f6db7130706eee1fcd1da46728fb7eed8cf4c8eb9788d7
 - scenarios recorded: 32 (31 demonstrated)
 
 | scenario | dimension | demonstrated | trials | rows (label=verdict) |
 |---|---|---|---|---|
-| auto-distill-recall | distill:capture-fail->recall | YES | 3/3 | claude:distill=PASS, claude:recall:vtfkb=PASS, claude:recall:none=PASS |
-| capture-recall | memory:capture->recall | YES | 3/3 | claude:capture=PASS, claude:recall:vtfkb=PASS, claude:recall:none=PASS |
-| constitution-multi | constitution:aggregate | YES | 3/3 | claude:vtfkb=PASS, claude:none=fail |
-| constitution-port | constitution:single | YES | 3/3 | claude:vtfkb=PASS, claude:none=fail |
-| constitution-prohibition | constitution:prohibition | YES | 3/3 | claude:vtfkb=PASS, claude:none=fail |
-| continuity-resume | continuity:resume-note | YES | 3/3 | claude:resume:vtfkb=PASS, claude:resume:none=PASS |
+| auto-distill-recall | distill:capture-fail->recall | YES | 3/3 | claude:distill=PASS, claude:recall:vfkb=PASS, claude:recall:none=PASS |
+| capture-recall | memory:capture->recall | YES | 3/3 | claude:capture=PASS, claude:recall:vfkb=PASS, claude:recall:none=PASS |
+| constitution-multi | constitution:aggregate | YES | 3/3 | claude:vfkb=PASS, claude:none=fail |
+| constitution-port | constitution:single | YES | 3/3 | claude:vfkb=PASS, claude:none=fail |
+| constitution-prohibition | constitution:prohibition | YES | 3/3 | claude:vfkb=PASS, claude:none=fail |
+| continuity-resume | continuity:resume-note | YES | 3/3 | claude:resume:vfkb=PASS, claude:resume:none=PASS |
 | corroborated-promotion | distill:corroborated-promotion | YES | 3/3 | claude:corroborated(net>=2)=PASS, claude:below-threshold(net 0)=PASS |
-| decision-followed | deliver:decision | YES | 3/3 | claude:vtfkb=PASS, claude:none=fail |
-| deprecated-excluded | exclude:status | YES | 3/3 | claude:vtfkb=PASS, claude:naive=fail |
+| decision-followed | deliver:decision | YES | 3/3 | claude:vfkb=PASS, claude:none=fail |
+| deprecated-excluded | exclude:status | YES | 3/3 | claude:vfkb=PASS, claude:naive=fail |
 | distill-trust-label | distill:trust-gradient | YES | 3/3 | claude:distilled=PASS, claude:human-fact=PASS |
-| gotcha-guidance | deliver:gotcha | YES | 3/3 | claude:vtfkb=PASS, claude:none=fail |
+| gotcha-guidance | deliver:gotcha | YES | 3/3 | claude:vfkb=PASS, claude:none=fail |
 | kb-context-first-read | mcp:context-doc-orientation | YES | 3/3 | claude:kb_context=PASS, claude:no-mem=PASS |
 | kb-resume-mcp | mcp:resume-floor | YES | 2/3 | claude:mcp=fail, claude:no-mcp=PASS |
-| knowledge-delivery | deliver:fact | YES | 3/3 | claude:vtfkb=PASS, claude:none=fail |
-| link-delivery | deliver:link | YES | 3/3 | claude:vtfkb=PASS, claude:none=fail |
+| knowledge-delivery | deliver:fact | YES | 3/3 | claude:vfkb=PASS, claude:none=fail |
+| link-delivery | deliver:link | YES | 3/3 | claude:vfkb=PASS, claude:none=fail |
 | mcp-map-navigation | mcp:map-then-search | YES | 2/3 | claude:mcp=PASS, claude:no-mcp=PASS |
 | mcp-pull | mcp:pull | YES | 3/3 | claude:mcp=PASS, claude:no-mcp=PASS |
 | mcp-search-filter | mcp:filtered-search | YES | 3/3 | claude:mcp=PASS, claude:no-mcp=PASS |
-| multi-fact-synthesis | synthesis:combine-2-facts | YES | 3/3 | claude:vtfkb=PASS, claude:none=fail |
+| multi-fact-synthesis | synthesis:combine-2-facts | YES | 3/3 | claude:vfkb=PASS, claude:none=fail |
 | no-secrets | guardrail:no-secrets | YES | 3/3 | claude:mcp kb_add(secret)=PASS |
-| precedence-distractor | rerank:precedence-amid-noise | YES | 3/3 | claude:vtfkb=PASS, claude:naive=fail |
+| precedence-distractor | rerank:precedence-amid-noise | YES | 3/3 | claude:vfkb=PASS, claude:naive=fail |
 | promotion-relabel | distill:promotion-agent-observable | YES | 2/3 | claude:promoted=PASS, claude:not-promoted=PASS |
-| provstale-excluded | exclude:prov-status | YES | 3/3 | claude:vtfkb=PASS, claude:naive=fail |
-| resume-reflects-correction | continuity:anti-stale | YES | 3/3 | claude:resume:vtfkb=PASS, claude:resume:naive=fail |
-| role-precedence | attribution:precedence | YES | 3/3 | claude:vtfkb=PASS, claude:naive=fail |
-| stale-expiry | exclude:valid_until | YES | 3/3 | claude:vtfkb=PASS, claude:naive=fail |
-| stale-supersession | exclude:supersession | YES | 3/3 | claude:vtfkb=PASS, claude:naive=fail |
-| supersession-chain | exclude:supersession-chain | YES | 3/3 | claude:vtfkb=PASS, claude:naive=fail |
+| provstale-excluded | exclude:prov-status | YES | 3/3 | claude:vfkb=PASS, claude:naive=fail |
+| resume-reflects-correction | continuity:anti-stale | YES | 3/3 | claude:resume:vfkb=PASS, claude:resume:naive=fail |
+| role-precedence | attribution:precedence | YES | 3/3 | claude:vfkb=PASS, claude:naive=fail |
+| stale-expiry | exclude:valid_until | YES | 3/3 | claude:vfkb=PASS, claude:naive=fail |
+| stale-supersession | exclude:supersession | YES | 3/3 | claude:vfkb=PASS, claude:naive=fail |
+| supersession-chain | exclude:supersession-chain | YES | 3/3 | claude:vfkb=PASS, claude:naive=fail |
 | tool-gating | guardrail:tool-gating | no | 0/3 | claude:gated=PASS, claude:ungated=fail |
-| unverified-injected | trust:unverified-delivered | YES | 3/3 | claude:vtfkb=PASS, claude:none=fail |
+| unverified-injected | trust:unverified-delivered | YES | 3/3 | claude:vfkb=PASS, claude:none=fail |
 | verified-only-filter | mcp:verified-filter | YES | 2/3 | claude:verified-filter=PASS, claude:no-filter=PASS |
-| vision-format | deliver:vision-pattern | YES | 3/3 | claude:vtfkb=PASS, claude:none=fail |
+| vision-format | deliver:vision-pattern | YES | 3/3 | claude:vfkb=PASS, claude:none=fail |

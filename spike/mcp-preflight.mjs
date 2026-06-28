@@ -1,4 +1,4 @@
-// spike/mcp-preflight.mjs — deterministic, LLM-free proof that the vtfkb MCP server
+// spike/mcp-preflight.mjs — deterministic, LLM-free proof that the vfkb MCP server
 // starts and advertises its full tool surface over the wire (initialize + tools/list).
 //
 // Used by dogfood-smoke check 6a to SEPARATE two claims the old single check conflated:
@@ -8,7 +8,7 @@
 // Honours pattern P2 (deterministic backstop > probabilistic gate).
 //
 //   node spike/mcp-preflight.mjs                 # tests ./dist/mcp-server.js (host)
-//   VTFKB_MCP_SERVER=/opt/vtfkb/dist/mcp-server.js node ...   # tests the baked server
+//   VFKB_MCP_SERVER=/opt/vfkb/dist/mcp-server.js node ...   # tests the baked server
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { mkdtempSync } from 'node:fs';
@@ -17,16 +17,16 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const server =
-  process.env.VTFKB_MCP_SERVER ||
+  process.env.VFKB_MCP_SERVER ||
   resolve(fileURLToPath(import.meta.url), '../../dist/mcp-server.js');
 const REQUIRED = ['kb_add', 'kb_get', 'kb_list', 'kb_map', 'kb_search', 'kb_supersede', 'kb_transition'];
 
 const transport = new StdioClientTransport({
   command: process.execPath,
   args: [server],
-  env: { ...process.env, VTFKB_DIR: mkdtempSync(join(tmpdir(), 'vtfkb-preflight-')) },
+  env: { ...process.env, VFKB_DIR: mkdtempSync(join(tmpdir(), 'vfkb-preflight-')) },
 });
-const client = new Client({ name: 'vtfkb-preflight', version: '0.0.0' });
+const client = new Client({ name: 'vfkb-preflight', version: '0.0.0' });
 try {
   await client.connect(transport);
   const { tools } = await client.listTools();

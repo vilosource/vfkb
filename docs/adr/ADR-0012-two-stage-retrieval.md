@@ -15,15 +15,15 @@ entry because order was storage order, not relevance. mykb's prescribed fix is
 pluggable `EntryReranker` (Noop / Heuristic / opt-in Embedding); LLM-rerank excluded
 (latency on the always-on injection path).
 
-Two facts reshape this for vtfkb:
+Two facts reshape this for vfkb:
 
 1. **The per-project tier is flat and small** (D2e — no areas; tens–low-hundreds of
    entries). At that scale, Stage-1 *candidate narrowing* (the recall optimization)
    matters little — you can score the whole brain cheaply. The **load-bearing half
    is Stage 2**: ordering entries by relevance + freshness + trust *before* the
    budget cut, so the corrected/operator/fresh entry is never dropped.
-2. **vtfkb has the ADR-0011 envelope (validity, derived trust) from schema v1.**
-   mykb defaulted to `Noop` only because envelope-v2 hadn't shipped. vtfkb can make
+2. **vfkb has the ADR-0011 envelope (validity, derived trust) from schema v1.**
+   mykb defaulted to `Noop` only because envelope-v2 hadn't shipped. vfkb can make
    the envelope drive selection from day one.
 
 There is also a separation-of-concerns risk to pin down: the ADR-0005 injection

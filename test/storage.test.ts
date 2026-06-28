@@ -4,10 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 function freshBrain() {
-  process.env.VTFKB_DIR = mkdtempSync(join(tmpdir(), 'vtfkb-storage-'));
+  process.env.VFKB_DIR = mkdtempSync(join(tmpdir(), 'vfkb-storage-'));
 }
 function brainFile() {
-  return join(process.env.VTFKB_DIR!, 'entries.jsonl');
+  return join(process.env.VFKB_DIR!, 'entries.jsonl');
 }
 
 import { addEntry, deleteEntry, readAll, updateEntry, rebuild, getIndex } from '../src/engine.js';
@@ -86,7 +86,7 @@ describe('index rebuild + freshness + search', () => {
       validity: { valid_from: '2026-01-01' }, created: '2026-01-01', updated: '2026-09-01T00:00:00Z' };
     appendFileSync(brainFile(), JSON.stringify(rec) + '\n', 'utf8');
     // recompute the sidecar the way a writer would
-    writeFileSync(join(process.env.VTFKB_DIR!, 'index-meta.json'),
+    writeFileSync(join(process.env.VFKB_DIR!, 'index-meta.json'),
       JSON.stringify({ content_hash: contentHash(), entry_count: 2, last_write: 'x' }), 'utf8');
 
     expect(ix.all()).toHaveLength(2); // ensureFresh() rebuilt

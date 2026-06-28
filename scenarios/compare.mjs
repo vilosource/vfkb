@@ -38,8 +38,8 @@ const renderCell = (rec, id) => {
   return `${s.demonstrated ? 'YES' : '.no'} ${rate}`;
 };
 
-console.log('=== vtfkb L4 cross-model report card ===');
-records.forEach((r) => console.log(`  ${r.provider}/${r.model}  (sha ${r.vtfkb_sha}, ${Object.keys(r.scenarios || {}).length} scenarios${r.trials_n ? `, N=${r.trials_n}` : ''}${r.image_digest ? `, img ${String(r.image_digest).slice(0, 19)}` : ''}, ${r.generated})`));
+console.log('=== vfkb L4 cross-model report card ===');
+records.forEach((r) => console.log(`  ${r.provider}/${r.model}  (sha ${r.vfkb_sha}, ${Object.keys(r.scenarios || {}).length} scenarios${r.trials_n ? `, N=${r.trials_n}` : ''}${r.image_digest ? `, img ${String(r.image_digest).slice(0, 19)}` : ''}, ${r.generated})`));
 console.log('');
 
 const idW = Math.max(10, ...allIds.map((i) => i.length));

@@ -2,7 +2,7 @@
 // @mariozechner/pi-coding-agent at runtime; these stubs are copied from the
 // VERIFIED mykb spike contract (src/extension/pi-types.ts + hooks/*), NOT
 // re-derived — mykb L7: hand-written Pi stubs were wrong and silently dropped
-// injection for weeks. Only the surface vtfkb's Phase-0 face uses is included.
+// injection for weeks. Only the surface vfkb's Phase-0 face uses is included.
 
 export interface ExtensionAPI {
   on(event: string, handler: (...args: unknown[]) => Promise<unknown>): void;

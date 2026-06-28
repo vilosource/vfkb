@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 function freshBrain() {
-  process.env.VTFKB_DIR = mkdtempSync(join(tmpdir(), 'vtfkb-guard-'));
+  process.env.VFKB_DIR = mkdtempSync(join(tmpdir(), 'vfkb-guard-'));
   delete process.env.KB_SESSION_ID;
 }
 
@@ -41,11 +41,11 @@ describe('no-secrets write-time lint (D6e)', () => {
   });
 });
 
-describe("Tier-B capture skips vtfkb's own tools (no self-pollution)", () => {
-  it('does not capture kb_* / mcp__vtfkb__* calls, but still captures other tools', () => {
+describe("Tier-B capture skips vfkb's own tools (no self-pollution)", () => {
+  it('does not capture kb_* / mcp__vfkb__* calls, but still captures other tools', () => {
     // an agent searching/writing its OWN brain is noise, not knowledge
     expect(captureToolCall({ tool_name: 'kb_search', tool_input: { text: 'foo' } })).toBeNull();
-    expect(captureToolCall({ tool_name: 'mcp__vtfkb__kb_add', tool_input: { type: 'fact', text: 'x' } })).toBeNull();
+    expect(captureToolCall({ tool_name: 'mcp__vfkb__kb_add', tool_input: { type: 'fact', text: 'x' } })).toBeNull();
     expect(readAll()).toHaveLength(0);
     // a real tool is still captured
     expect(captureToolCall({ tool_name: 'Bash', tool_input: { command: 'kubectl get pods' } })).not.toBeNull();
@@ -90,7 +90,7 @@ describe('session isolation + per-turn delta (L4 / Tier C)', () => {
 
 describe('tool-gating (block direct brain writes)', () => {
   it('flags writes into the brain dir, ignores writes elsewhere + non-write tools', () => {
-    const brain = process.env.VTFKB_DIR!;
+    const brain = process.env.VFKB_DIR!;
     expect(isBrainWrite('Write', { file_path: join(brain, 'entries.jsonl') })).toBe(true);
     expect(isBrainWrite('edit', { path: join(brain, '.sessions/x.json') })).toBe(true);
     expect(isBrainWrite('Write', { file_path: '/tmp/somewhere-else/file.txt' })).toBe(false);
@@ -101,13 +101,13 @@ describe('tool-gating (block direct brain writes)', () => {
 
 describe('git lifecycle (Phase 6)', () => {
   it('save() initializes a repo and commits; idempotent when clean', () => {
-    const brain = process.env.VTFKB_DIR!;
+    const brain = process.env.VFKB_DIR!;
     addEntry('fact', 'committable fact', { role: 'human' });
-    const r = save('vtfkb: test commit', 'human', brain);
+    const r = save('vfkb: test commit', 'human', brain);
     expect(r.committed).toBe(true);
     expect(existsSync(join(brain, '.git'))).toBe(true);
     const log = execFileSync('git', ['log', '--oneline'], { cwd: brain, encoding: 'utf8' });
-    expect(log).toContain('vtfkb: test commit');
+    expect(log).toContain('vfkb: test commit');
     const tracked = execFileSync('git', ['ls-files'], { cwd: brain, encoding: 'utf8' });
     expect(tracked).toContain('entries.jsonl');
     // nothing new → no-op

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// vtfkb MCP server — the cross-harness PULL baseline (D5a / ADR-0015). A tight set
+// vfkb MCP server — the cross-harness PULL baseline (D5a / ADR-0015). A tight set
 // of scoped tools over the same engine the auto-layer faces use. Uses the OFFICIAL
 // @modelcontextprotocol/sdk (verified contract — not a hand-rolled JSON-RPC). The
 // engine stays zero-dep; this face opts into the SDK.
@@ -75,14 +75,14 @@ function tags(csv?: string): string[] | undefined {
 }
 // In the fleet, who wrote an entry must be stamped by the HARNESS, not self-reported
 // by the model (VERIFIED = observed, not asserted — applied to provenance). When the
-// pod sets VTFKB_ROLE, it is authoritative and overrides any model-supplied `role`.
+// pod sets VFKB_ROLE, it is authoritative and overrides any model-supplied `role`.
 // Outside the fleet (no env), the tool param / per-tool default applies as before.
 function envRole(): z.infer<typeof ROLE> | undefined {
-  const p = ROLE.safeParse(process.env.VTFKB_ROLE);
+  const p = ROLE.safeParse(process.env.VFKB_ROLE);
   return p.success ? p.data : undefined;
 }
 
-const server = new McpServer({ name: 'vtfkb', version: '0.0.0-spike0' });
+const server = new McpServer({ name: 'vfkb', version: '0.0.0-spike0' });
 
 server.registerTool(
   'kb_search',
@@ -171,7 +171,7 @@ server.registerTool(
       'context spine + the live Constitution/Map/decisions (always current).',
     inputSchema: {},
   },
-  async () => text(renderContext(process.env.VTFKB_PROJECT || 'spike')),
+  async () => text(renderContext(process.env.VFKB_PROJECT || 'spike')),
 );
 
 server.registerTool(
@@ -232,17 +232,17 @@ server.registerTool(
       'Session-continuity resume (ADR-0020): the prior session’s derived digest (what was added/superseded/injected/captured — recomputed from the brain, so never stale) + the live knowledge bundle. Pull this to see where the last session left off.',
     inputSchema: {},
   },
-  async () => text(renderResume(process.env.VTFKB_PROJECT || 'spike')),
+  async () => text(renderResume(process.env.VFKB_PROJECT || 'spike')),
 );
 
 async function main(): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
   // stdout is the protocol channel — never write to it. Log to stderr.
-  process.stderr.write(`vtfkb MCP server up (brain: ${process.env.VTFKB_DIR ?? '~/.vtfkb'})\n`);
+  process.stderr.write(`vfkb MCP server up (brain: ${process.env.VFKB_DIR ?? '~/.vfkb'})\n`);
 }
 
 main().catch((err) => {
-  process.stderr.write(`vtfkb MCP fatal: ${err}\n`);
+  process.stderr.write(`vfkb MCP fatal: ${err}\n`);
   process.exit(1);
 });

@@ -15,7 +15,7 @@
 
 ## Context
 
-vtfkb's vision (FEATURES §3.7) promises every project **one context document** — *"the `CLAUDE.md` every
+vfkb's vision (FEATURES §3.7) promises every project **one context document** — *"the `CLAUDE.md` every
 project should have, except the factory writes and maintains it"* — loaded by **`kb_context`**, that orients
 any agent instantly: the job-to-be-done, architecture, tech profile, conventions, the load-bearing decisions,
 and links into `docs/`. It is *"what turns a generic model with a repo into an agent that already understands
@@ -47,11 +47,11 @@ deserve an operator decision before code.
 ## Decision (RECOMMENDED — pending operator answers to the open questions)
 
 > **RESOLVED 2026-06-28:** the operator approved the recommended shape ("proceed"). All five open
-> questions below were answered as recommended (hybrid; `<brain>/context.md`; on-demand; `vtfkb context init`
+> questions below were answered as recommended (hybrid; `<brain>/context.md`; on-demand; `vfkb context init`
 > scaffold + deferred brownfield inference; one ADR). The accepted decision is **[ADR-0025](../adr/ADR-0025-project-context-doc-and-kb-context.md)** and is shipped. The text below is preserved as the original proposal.
 
 Build the project context doc as an **assembled artifact**: a hand-authored **narrative spine** stitched with
-**derived sections** that vtfkb already owns, exposed through a new **`kb_context`** read.
+**derived sections** that vfkb already owns, exposed through a new **`kb_context`** read.
 
 1. **Assembled, not a hand-maintained monolith (hybrid).** `kb_context` returns:
    - **Authored spine** (hand-written, evolves): job-to-be-done, architecture overview, tech profile,
@@ -61,15 +61,15 @@ Build the project context doc as an **assembled artifact**: a hand-authored **na
      ([ADR-0006](../adr/ADR-0006-context-map.md)), the current **load-bearing decisions** (established/
      constitutional), and **`docs/` links** (from entry refs). FEATURES §3.7's own list spans both kinds; the
      derivable half self-maintains, so only the spine is hand-kept.
-2. **Storage = an authored Markdown file in the self-hosted design brain** (`.vtfkb/CONTEXT.md`,
+2. **Storage = an authored Markdown file in the self-hosted design brain** (`.vfkb/CONTEXT.md`,
    [ADR-0019](../adr/ADR-0019-self-hosted-design-brain.md)) — **no new entry type** (consistent with
    ADR-0008/0010). The spine is **editable / last-write-wins** (orientation evolves, like vision patterns); the
    never-rewrite Brake governs *distilled* entries, not the authored doc.
-3. **Surface = `kb_context` MCP tool (+ CLI `vtfkb context`), ON-DEMAND.** It is the agent's deliberate "first
+3. **Surface = `kb_context` MCP tool (+ CLI `vfkb context`), ON-DEMAND.** It is the agent's deliberate "first
    read," not a session-start auto-inject — the full doc would blow the 10k Tier-A budget
    ([ADR-0015](../adr/ADR-0015-cross-harness-auto-layer.md)). Session start stays the compact **map + resume**;
    `kb_context` is the deeper pull when an agent onboards to the project.
-4. **Seeded at onboarding (D-O8), architect-maintained.** A `vtfkb context init` scaffolds the spine
+4. **Seeded at onboarding (D-O8), architect-maintained.** A `vfkb context init` scaffolds the spine
    (greenfield *declares* job/taste; brownfield scaffolds headers + auto-fills the derived sections); the
    architect keeps the spine current.
 5. **Scenario-first ([ADR-0023](../adr/ADR-0023-scenario-contract-first.md)):** `kb-context-first-read` — an
@@ -82,13 +82,13 @@ Build the project context doc as an **assembled artifact**: a hand-authored **na
 - **Q1 — Assembled-hybrid vs purely-authored?** Recommend **hybrid** (spine + derived) so the load-bearing
   decisions/constitution/map never drift from a hand-copy. Alternative: a single fully-authored doc (simpler,
   but goes stale — the exact failure mode RFC-005 fought for continuity).
-- **Q2 — Storage of the spine?** Recommend **`.vtfkb/CONTEXT.md`** (ADR-0019 self-host, git-tracked).
+- **Q2 — Storage of the spine?** Recommend **`.vfkb/CONTEXT.md`** (ADR-0019 self-host, git-tracked).
   Alternative: a singleton entry / tagged section-entries (keeps it in the JSONL store + index, but fights
   ADR-0010's "no new type" and the never-rewrite Brake).
 - **Q3 — On-demand only, or also session-start inject?** Recommend **on-demand** (budget-safe; map+resume stay
   the always-on orientation). Alternative: inject a *summary* of the doc at session start (richer cold-start,
   but eats the 10k budget and overlaps the map).
-- **Q4 — Onboarding/maintenance:** is `vtfkb context init` + architect-maintained-Markdown the right seam, and
+- **Q4 — Onboarding/maintenance:** is `vfkb context init` + architect-maintained-Markdown the right seam, and
   how much brownfield **inference** is in scope for v1 (headers-only vs infer architecture/tech-profile from
   the repo)?
 - **Q5 — ADR shape:** accept this as **one ADR** (context-doc + `kb_context`), or split (context-doc artifact

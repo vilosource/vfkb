@@ -1,14 +1,16 @@
-# vtfkb — VFSF per-project knowledge substrate
+# vfkb — ViloForge KnowledgeBase
 
-Greenfield TypeScript reimplementation of a per-project knowledge memory for the
-ViloForge software factory. **One engine, two harness faces** (Claude Code hooks +
+**ViloForge KnowledgeBase (vfkb)** — the per-project knowledge substrate for the
+ViloForge software factory; the memory engine that [ViloForge WorkBench (vfwb)](https://github.com/vilosource/vfwb)
+and the agent fleet ground against. Greenfield TypeScript reimplementation of a
+per-project knowledge memory. **One engine, two harness faces** (Claude Code hooks +
 Pi in-process extension) over an append-only JSONL brain. **Zero runtime
 dependencies** (pure Node stdlib) — drops into any node container with no install.
 
 Design + decisions live in [`docs/`](docs/): [`DESIGN.md`](docs/DESIGN.md),
 [`FEATURES.md`](docs/FEATURES.md), [`IMPLEMENTATION-PLAN.md`](docs/IMPLEMENTATION-PLAN.md),
 and the ADR log [`docs/adr/` (ADR-0001…0015)](docs/adr/). Ecosystem-level and
-cross-project context (e.g. the ingest↔vtfkb design) remains in
+cross-project context (e.g. the ingest↔vfkb design) remains in
 [`vilosource/viloforge-research` → `ViloForge-PRD/`](https://github.com/vilosource/viloforge-research/tree/develop/ViloForge-PRD).
 
 ## Status
@@ -50,36 +52,36 @@ npm test           # vitest: 95 unit/integration/protocol tests
 ## pi MCP capability (bridge extension)
 
 pi ships **no MCP** by design ("build an extension that adds MCP support"). `src/pi-mcp-bridge.ts`
-is that extension: it reads a **Claude-compatible `mcpServers` config** (`VTFKB_MCP_CONFIG`),
+is that extension: it reads a **Claude-compatible `mcpServers` config** (`VFKB_MCP_CONFIG`),
 connects to each stdio MCP server with the official SDK, lists their tools, and registers
 each as a native pi tool named **`mcp__<server>__<tool>`** (same naming Claude Code uses).
 It connects **per call** (open→call→close) so no child process lingers to block `pi -p` exit.
 
 ```
 cat > mcp.json <<'JSON'
-{ "mcpServers": { "vtfkb": { "command": "node", "args": ["dist/mcp-server.js"],
-                             "env": { "VTFKB_DIR": "/path/to/brain" } } } }
+{ "mcpServers": { "vfkb": { "command": "node", "args": ["dist/mcp-server.js"],
+                             "env": { "VFKB_DIR": "/path/to/brain" } } } }
 JSON
-VTFKB_MCP_CONFIG=$PWD/mcp.json pi -p -e dist/pi-mcp-bridge.js \
+VFKB_MCP_CONFIG=$PWD/mcp.json pi -p -e dist/pi-mcp-bridge.js \
   --provider deepseek --model deepseek-v4-pro "Use kb_search to find X; reply only the value"
 ```
-Verified: a real pi/DeepSeek-V4 agent calls `mcp__vtfkb__kb_search` against the vtfkb MCP
+Verified: a real pi/DeepSeek-V4 agent calls `mcp__vfkb__kb_search` against the vfkb MCP
 server and retrieves brain-only data. This puts pi on par with Claude Code for MCP pull.
 
 ## Proving the purpose (comprehensive L4 scenario harness)
 
-Unit tests prove the modules are correct; the L4 harness proves vtfkb fulfils its
+Unit tests prove the modules are correct; the L4 harness proves vfkb fulfils its
 **purpose** — that a real agent behaves *better because of it*. Every scenario drives
 a real agent (**DeepSeek-V4 via `pi` by default**; `claude` for the MCP/parity ones),
 asserts on **observable effects** (the agent's output or the brain's state — never
 self-report), and **contrasts against a baseline** so the win is shown to be *caused*
-by vtfkb:
+by vfkb:
 - `naive` = a mykb-v1-style flat, load-order, unfiltered memory (surfaces stale);
 - `none` = no memory at all;
-- `ungated` / `no-mcp` = the same harness without vtfkb's guardrail / tools.
+- `ungated` / `no-mcp` = the same harness without vfkb's guardrail / tools.
 
 Live + costs tokens + nondeterministic → NOT part of `npm test`. Override the agent
-with `VTFKB_L4_MODEL` / `VTFKB_L4_PROVIDER`.
+with `VFKB_L4_MODEL` / `VFKB_L4_PROVIDER`.
 
 ```
 node scenarios/l4-purpose.mjs            # all (run in batches if your runner has a wall-clock cap)
@@ -109,8 +111,8 @@ Every run **records each model's behavior** to `scenarios/records/<provider>__<m
 identical suite against another model and compare:
 
 ```
-VTFKB_L4_MODEL=deepseek-v4-pro   node scenarios/l4-purpose.mjs          # baseline record
-VTFKB_L4_MODEL=deepseek-v4-flash node scenarios/l4-purpose.mjs <subset> # another model
+VFKB_L4_MODEL=deepseek-v4-pro   node scenarios/l4-purpose.mjs          # baseline record
+VFKB_L4_MODEL=deepseek-v4-flash node scenarios/l4-purpose.mjs <subset> # another model
 node scenarios/compare.mjs                                              # cross-model report card
 ```
 
@@ -128,14 +130,14 @@ the brain dir name in its answer). So every `claude` run now **denies all filesy
 exec tools** (`--disallowedTools …`) — that is the fix that stops the leak — and also
 uses `--strict-mcp-config` + an empty MCP config to disable the user's global MCP
 servers (Atlassian/Gmail/Calendar/etc.) so the test can't touch real services and has
-no out-of-band knowledge. The MCP variant keeps only `mcp__vtfkb__*`, so it is *forced*
+no out-of-band knowledge. The MCP variant keeps only `mcp__vfkb__*`, so it is *forced*
 to answer via `kb_search`. Archive-zone exclusion is **table-stakes** (any memory drops
 it) and is omitted from L4 (unit-tested instead).
 
 ## Try the auto-layer (against a throwaway brain)
 
 ```
-export VTFKB_DIR=/tmp/vtfkb && rm -rf "$VTFKB_DIR"
+export VFKB_DIR=/tmp/vfkb && rm -rf "$VFKB_DIR"
 node dist/cli.js add fact "the canary token is BANANA-42." --role human
 # Claude Code:
 claude -p "what is the canary token? reply with only the token" --settings spike/settings.json

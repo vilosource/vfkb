@@ -37,5 +37,5 @@ export function isBrainWrite(
 }
 
 export const GATING_REASON =
-  'vtfkb: edit the brain via the engine/CLI/MCP, not by writing files directly ' +
+  'vfkb: edit the brain via the engine/CLI/MCP, not by writing files directly ' +
   '(keeps the index, freshness, and no-secrets invariants).';

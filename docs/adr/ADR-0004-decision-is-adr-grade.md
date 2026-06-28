@@ -1,4 +1,4 @@
-# ADR-0004: `decision` is a first-class, ADR-grade entry type in vtfkb
+# ADR-0004: `decision` is a first-class, ADR-grade entry type in vfkb
 
 - **Status:** Accepted
 - **Date:** 2026-06-01

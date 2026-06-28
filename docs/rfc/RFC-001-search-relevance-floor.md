@@ -37,7 +37,7 @@ confident wrong answer.
 (default **minimum 20%**, settable to **"No Restriction"**) precisely to drop chunks
 below a relevance score before they reach the LLM, and its docs name a too-low threshold
 as "likely the cause" of hallucinated answers. Same intent; different scoring basis
-(their normalized cosine `0–1` vs vtfkb's unnormalized term-overlap **count**) — so the
+(their normalized cosine `0–1` vs vfkb's unnormalized term-overlap **count**) — so the
 *value* `0.2` is not portable, only the *mechanism*.
 
 ## Decision
@@ -84,7 +84,7 @@ reporting is [RFC-002](RFC-002-honest-no-match-contract.md).
 
 - **Status quo (`score > 0` only).** Rejected — the surfacing failure is real and
   observed; one matched common term is too low a bar at brain scale.
-- **Port AnythingLLM's 20% cosine threshold directly.** Rejected — vtfkb's Stage-1 score
+- **Port AnythingLLM's 20% cosine threshold directly.** Rejected — vfkb's Stage-1 score
   is an unnormalized term-overlap count, not cosine; `0.2` is meaningless against it. The
   *mechanism* transfers, the *number* does not.
 - **Lower the `limit` instead.** Rejected — `limit` controls quantity, not quality; a

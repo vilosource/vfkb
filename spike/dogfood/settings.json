@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "VTFKB_DIR=/brain VTFKB_PROJECT=vtfkb-dogfood node /opt/vtfkb/dist/cli.js hook session-start"
+            "command": "VFKB_DIR=/brain VFKB_PROJECT=vfkb-dogfood node /opt/vfkb/dist/cli.js hook session-start"
           }
         ]
       }
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "VTFKB_DIR=/brain node /opt/vtfkb/dist/cli.js hook pre-tool-use"
+            "command": "VFKB_DIR=/brain node /opt/vfkb/dist/cli.js hook pre-tool-use"
           }
         ]
       }
@@ -27,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "VTFKB_DIR=/brain node /opt/vtfkb/dist/cli.js hook post-tool-use"
+            "command": "VFKB_DIR=/brain node /opt/vfkb/dist/cli.js hook post-tool-use"
           }
         ]
       }

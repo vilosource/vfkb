@@ -4,9 +4,9 @@
 #
 # Same brain (~/.devops-kb/brain), same infra toolchain + ~/.azure access, same posture
 # (read-only runs free; every mutation prompts — here via the infra-guard pi extension,
-# since pi has no native tool-approval). vtfkb is wired as three pi extensions:
+# since pi has no native tool-approval). vfkb is wired as three pi extensions:
 #   pi-extension.js    inject (session-start + per-turn delta) + capture + brain-write gate + git save
-#   pi-mcp-bridge.js   the vtfkb MCP tools (kb_search/kb_map/kb_get/kb_list/kb_add/…) as native pi tools
+#   pi-mcp-bridge.js   the vfkb MCP tools (kb_search/kb_map/kb_get/kb_list/kb_add/…) as native pi tools
 #   infra-guard.mjs    the mutation gate (ctx.ui.confirm; fail-safe block with no UI)
 #
 # Auth: reuses your host Copilot auth (~/.pi/agent/auth.json) — pi re-exchanges the
@@ -14,16 +14,16 @@
 # Provider/endpoint are resolved natively by pi (business plan -> api.business.githubcopilot.com).
 #
 # Usage:  devops-kb-pi [--build] [extra pi args...]
-#   --build            rebuild the image first (after a vtfkb change)
+#   --build            rebuild the image first (after a vfkb change)
 #   DEVOPS_KB_HOME     persistent state dir   (default ~/.devops-kb)
 #   DEVOPS_KB_MODEL    pin a model            (default: claude-haiku-4.5 via github-copilot)
-#   VTFKB_REPO         vtfkb checkout         (default ~/GitHub/vtfkb)
+#   VFKB_REPO         vfkb checkout         (default ~/GitHub/vfkb)
 set -euo pipefail
 STATE="${DEVOPS_KB_HOME:-$HOME/.devops-kb}"
 BRAIN="$STATE/brain"
 PICFG="$STATE/pi-agent"           # synthetic, writable ~/.pi/agent for the container
 GITLAB="$HOME/.devops-kb-GitLab"
-REPO="${VTFKB_REPO:-$HOME/GitHub/vtfkb}"
+REPO="${VFKB_REPO:-$HOME/GitHub/vfkb}"
 MODEL="${DEVOPS_KB_MODEL:-claude-haiku-4.5}"
 mkdir -p "$BRAIN" "$GITLAB" "$PICFG"; chmod 777 "$BRAIN" "$GITLAB" 2>/dev/null || true
 
@@ -72,7 +72,7 @@ fi
 
 echo "[devops-kb-pi] brain: $BRAIN   repos: $GITLAB -> /gitlab   az: ~/.azure (live)   model: github-copilot/$MODEL"
 exec docker run --rm -it --user "$(id -u):$(id -g)" -e HOME=/work \
-  -e VTFKB_DIR=/brain -e VTFKB_PROJECT=devops-kb -e VTFKB_MCP_CONFIG=/opt/vtfkb/mcp-config.json \
+  -e VFKB_DIR=/brain -e VFKB_PROJECT=devops-kb -e VFKB_MCP_CONFIG=/opt/vfkb/mcp-config.json \
   -e GIT_SSH_COMMAND="$GIT_SSH" \
   -v "$BRAIN":/brain \
   -v "$GITLAB":/gitlab \
@@ -83,8 +83,8 @@ exec docker run --rm -it --user "$(id -u):$(id -g)" -e HOME=/work \
   -w /gitlab \
   devops-kb \
   pi --provider github-copilot --model "$MODEL" \
-     -e /opt/vtfkb/dist/pi-extension.js \
-     -e /opt/vtfkb/dist/pi-mcp-bridge.js \
-     -e /opt/vtfkb/infra-guard.mjs \
-     --append-system-prompt /opt/vtfkb/operating-rules.md \
+     -e /opt/vfkb/dist/pi-extension.js \
+     -e /opt/vfkb/dist/pi-mcp-bridge.js \
+     -e /opt/vfkb/infra-guard.mjs \
+     --append-system-prompt /opt/vfkb/operating-rules.md \
      "$@"

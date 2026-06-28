@@ -11,7 +11,7 @@
 // Load like any pi extension:  pi -e spike/devops-kb/infra-guard.mjs
 // It registers a `tool_call` handler that gates the built-in `bash` tool only
 // (mutations land through bash: terraform apply, az writes, kubectl mutations, ssh…);
-// the vtfkb pi-extension separately gates brain-file writes. They compose.
+// the vfkb pi-extension separately gates brain-file writes. They compose.
 
 // Hard mutation / destructive patterns anywhere in the (possibly compound) command.
 const DANGER = [

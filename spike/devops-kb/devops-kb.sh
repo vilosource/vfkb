@@ -5,15 +5,15 @@
 # mutation prompts (the bash-guard PreToolUse hook + no --dangerously-skip-permissions).
 #
 # Usage:  devops-kb [--build] [extra claude args...]
-#   --build            rebuild the image first (after a vtfkb change)
+#   --build            rebuild the image first (after a vfkb change)
 #   DEVOPS_KB_HOME     persistent state dir   (default ~/.devops-kb)
 #   DEVOPS_KB_MODEL    pin a model            (default: CLI default model)
-#   VTFKB_REPO         vtfkb checkout         (default ~/GitHub/vtfkb)
+#   VFKB_REPO         vfkb checkout         (default ~/GitHub/vfkb)
 set -euo pipefail
 STATE="${DEVOPS_KB_HOME:-$HOME/.devops-kb}"
 BRAIN="$STATE/brain"; SYNTH="$STATE/claude.json"
 GITLAB="$HOME/.devops-kb-GitLab"
-REPO="${VTFKB_REPO:-$HOME/GitHub/vtfkb}"
+REPO="${VFKB_REPO:-$HOME/GitHub/vfkb}"
 mkdir -p "$BRAIN" "$GITLAB"; chmod 777 "$BRAIN" "$GITLAB" 2>/dev/null || true
 
 if [ "${1:-}" = "--build" ]; then
@@ -64,6 +64,6 @@ exec docker run --rm -it --user "$(id -u):$(id -g)" -e HOME=/work \
   -w /gitlab \
   devops-kb \
   claude --strict-mcp-config \
-         --mcp-config /opt/vtfkb/mcp-config.json \
-         --settings  /opt/vtfkb/settings.json \
+         --mcp-config /opt/vfkb/mcp-config.json \
+         --settings  /opt/vfkb/settings.json \
          "${MODEL_ARGS[@]}" "$@"

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 function freshBrain() {
-  process.env.VTFKB_DIR = mkdtempSync(join(tmpdir(), 'vtfkb-curator-'));
+  process.env.VFKB_DIR = mkdtempSync(join(tmpdir(), 'vfkb-curator-'));
 }
 
 import { addEntry, readAll } from '../src/engine.js';

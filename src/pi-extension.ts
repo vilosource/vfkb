@@ -1,4 +1,4 @@
-// vtfkb Pi face — the in-process TS extension (ADR-0015 cross-harness auto-layer).
+// vfkb Pi face — the in-process TS extension (ADR-0015 cross-harness auto-layer).
 // One engine, two faces: this is the Pi side; src/cli.ts + hooks are the Claude
 // Code side. Same engine.ts underneath (LSP — every tier calls the same code).
 //
@@ -32,7 +32,7 @@ import type {
 } from './pi-types.js';
 
 function project(): string {
-  return process.env.VTFKB_PROJECT || 'spike';
+  return process.env.VFKB_PROJECT || 'spike';
 }
 
 // Reduce a pi tool result (AgentToolResult-ish: { content:[{text}], details } | string |
@@ -128,7 +128,7 @@ export default function (pi: ExtensionAPI): void {
   pi.on('session_shutdown', async () => {
     session.save();
     try {
-      save('vtfkb: session changes', 'agent');
+      save('vfkb: session changes', 'agent');
     } catch {
       /* non-git brain or git unavailable → skip */
     }

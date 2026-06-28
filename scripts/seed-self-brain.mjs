@@ -1,24 +1,24 @@
-// seed-self-brain — bootstrap vtfkb's OWN per-project brain (RFC-004 / ADR-0019).
+// seed-self-brain — bootstrap vfkb's OWN per-project brain (RFC-004 / ADR-0019).
 //
-// vtfkb dogfoods its own per-project tier: a committed `.vtfkb/` brain holding
+// vfkb dogfoods its own per-project tier: a committed `.vfkb/` brain holding
 //   (a) a `link` entry per ADR/RFC (auto-discovered) — markdown stays SoR, the brain
 //       links to repo-relative paths, never copies content (D1 constraint 4); and
-//   (b) curated vtfkb-NATIVE knowledge (facts/gotchas/patterns) that today lives only
+//   (b) curated vfkb-NATIVE knowledge (facts/gotchas/patterns) that today lives only
 //       in kb journals/handoffs and has no agent-consumable home.
 //
-// One-time bootstrap. The committed `.vtfkb/entries.jsonl` is the source-of-truth from
+// One-time bootstrap. The committed `.vfkb/entries.jsonl` is the source-of-truth from
 // here on (nanoid ids + timestamps are generated once); re-running is guarded. New
 // ADRs/RFCs get a link entry added going forward, not a full reseed.
 //
-//   VTFKB_DIR="$PWD/.vtfkb" node scripts/seed-self-brain.mjs [--force]
+//   VFKB_DIR="$PWD/.vfkb" node scripts/seed-self-brain.mjs [--force]
 import { addEntry } from '../dist/engine.js';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
-const BRAIN = process.env.VTFKB_DIR;
-if (!BRAIN) { console.error('set VTFKB_DIR to the repo .vtfkb dir'); process.exit(1); }
+const BRAIN = process.env.VFKB_DIR;
+if (!BRAIN) { console.error('set VFKB_DIR to the repo .vfkb dir'); process.exit(1); }
 
 const entriesFile = join(BRAIN, 'entries.jsonl');
 if (existsSync(entriesFile) && readFileSync(entriesFile, 'utf8').trim() && !process.argv.includes('--force')) {
@@ -41,28 +41,28 @@ for (const [dir, kind] of [['docs/adr', 'adr'], ['docs/rfc', 'rfc']]) {
   const abs = join(REPO, dir);
   for (const f of readdirSync(abs).filter((f) => /^(ADR|RFC)-\d+.*\.md$/.test(f)).sort()) {
     const id = f.match(/^((ADR|RFC)-\d+)/)[1];
-    add('link', `${id} — ${title(join(abs, f))} → ${dir}/${f}`, { tags: [kind, 'vtfkb-design'] });
+    add('link', `${id} — ${title(join(abs, f))} → ${dir}/${f}`, { tags: [kind, 'vfkb-design'] });
   }
 }
 
-// (b) vtfkb-native knowledge — curated operating lessons (the kind an agent working ON
-//     vtfkb needs and cannot get from the substrate today). Distilled from the corpus.
+// (b) vfkb-native knowledge — curated operating lessons (the kind an agent working ON
+//     vfkb needs and cannot get from the substrate today). Distilled from the corpus.
 const FACTS = [
-  ['The per-project brain is SINGLE-HOMED and git-committed at `<main-repo>/.vtfkb` (DESIGN D2c). ' +
-   'Commit `.vtfkb/entries.jsonl` (append-only, merge=union — the SoR); the derived index ' +
+  ['The per-project brain is SINGLE-HOMED and git-committed at `<main-repo>/.vfkb` (DESIGN D2c). ' +
+   'Commit `.vfkb/entries.jsonl` (append-only, merge=union — the SoR); the derived index ' +
    '(`index-meta.json`, `.sessions/`) is gitignored and rebuilt on read, never committed (ADR-0014).',
-   ['storage', 'vtfkb-design']],
+   ['storage', 'vfkb-design']],
   ['Source-of-truth split: markdown ADRs in `docs/adr/` are the authoritative DECISION record ' +
    '(ADR-0001); the brain holds a `link` entry per ADR/RFC pointing at the repo-relative path and ' +
    'NEVER copies decision content (D1 constraint 4 / RFC-004). So there is no dual-SoR drift.',
-   ['decisions', 'vtfkb-design']],
+   ['decisions', 'vfkb-design']],
   ['Build output `dist/` is gitignored; `npm test` runs `tsc` via pretest, so tests rebuild first. ' +
    'Never `docker build` expecting a committed `dist/` — rebuild before any image build.',
    ['build', 'gotcha-ish']],
   ['Decision identity = nanoid (canonical, merge-safe); the human `ADR-NNNN` ordinal is stamped by ' +
    'the engine sole-writer at merge-to-main (ADR-0009). An RFC is a `decision` in `proposed` status ' +
    '(ADR-0007), promoted to an ADR on acceptance — no separate RFC entry type.',
-   ['decisions', 'vtfkb-design']],
+   ['decisions', 'vfkb-design']],
 ];
 const GOTCHAS = [
   ['v1 retrieval bug: `query()` reused the INJECTION reranker for explicit SEARCH, discarding ' +
@@ -89,7 +89,7 @@ const PATTERNS = [
    'tool-gating) is unit-tested deterministically (`gating.ts:isBrainWrite` + `guardrails.test.ts`), ' +
    'not left to the probabilistic L4 harness. A full paid L4 rerun is deferred as low-value when every ' +
    'behavior is unit-tested at HEAD.', ['testing', 'process']],
-  ['Tier-B auto-capture SKIPS vtfkb\'s own `kb_*` / `mcp__vtfkb__*` tool calls (commit 31f4266) to ' +
+  ['Tier-B auto-capture SKIPS vfkb\'s own `kb_*` / `mcp__vfkb__*` tool calls (commit 31f4266) to ' +
    'avoid corpus self-pollution — the substrate must not record its own reads/writes as knowledge.',
    ['engine']],
 ];

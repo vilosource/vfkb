@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 function freshBrain() {
-  process.env.VTFKB_DIR = mkdtempSync(join(tmpdir(), 'vtfkb-distiller-'));
+  process.env.VFKB_DIR = mkdtempSync(join(tmpdir(), 'vfkb-distiller-'));
 }
 
 import { addEntry, captureToolCall, readAll, deriveTrust } from '../src/engine.js';
@@ -72,10 +72,10 @@ describe('auto-distill write side — M2b (ADR-0021 pt 1 / containment)', () => 
     expect(tally(candId).helpful).toBeGreaterThanOrEqual(1); // signal recorded instead
   });
 
-  it('keeps the self-tool skip — own kb_*/vtfkb captures never distil', () => {
+  it('keeps the self-tool skip — own kb_*/vfkb captures never distil', () => {
     // capture skips these at write time; assert distiller surfaces nothing either way.
     captureToolCall({ tool_name: 'kb_search', tool_input: { text: 'x' }, tool_result: { isError: true, error: 'boom' } });
-    captureToolCall({ tool_name: 'mcp__vtfkb__kb_add', tool_input: {}, tool_result: { isError: true, error: 'boom' } });
+    captureToolCall({ tool_name: 'mcp__vfkb__kb_add', tool_input: {}, tool_result: { isError: true, error: 'boom' } });
     expect(distillCandidates()).toHaveLength(0);
   });
 });

@@ -1,9 +1,9 @@
 {
   "mcpServers": {
-    "vtfkb": {
+    "vfkb": {
       "command": "node",
-      "args": ["/home/jasonvi/GitHub/vtfkb/dist/mcp-server.js"],
-      "env": { "VTFKB_DIR": "/tmp/vtfkb-mcp-live" }
+      "args": ["/home/jasonvi/GitHub/vfkb/dist/mcp-server.js"],
+      "env": { "VFKB_DIR": "/tmp/vfkb-mcp-live" }
     }
   }
 }

@@ -4,14 +4,14 @@
   "provider": "claude-code",
   "slug": "claude-code__claude-haiku-4-5",
   "generated": "2026-06-03T17:13:27.066Z",
-  "vtfkb_sha": "ebc6daf",
+  "vfkb_sha": "ebc6daf",
   "scenarios": {
     "stale-supersession": {
       "dim": "exclude:supersession",
       "demonstrated": true,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "corrected",
           "prompt": "What hostname must I use to connect to the prod database right now? Reply with ONLY the hostname.",
@@ -31,7 +31,7 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "current",
           "prompt": "What is the CURRENT API base host? Reply with ONLY the host.",
@@ -51,7 +51,7 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "active",
           "prompt": "Which auth library should a new module use? Reply with ONLY the library name.",
@@ -71,7 +71,7 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "current",
           "prompt": "What is the metrics endpoint path? Reply with ONLY the path.",
@@ -91,7 +91,7 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "corrected",
           "prompt": "What is the current canary cohort id? Reply with ONLY the id.",
@@ -111,7 +111,7 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "policy",
           "prompt": "We are scaffolding a new internal HTTP service. Which TCP port should it listen on? Reply with ONLY the port number.",
@@ -131,7 +131,7 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "port✓ prefix✓",
           "prompt": "For a new internal service, state the listen port and the required log-line prefix. Reply exactly as: PORT=<n> PREFIX=<p>",
@@ -151,7 +151,7 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "project-cmd",
           "prompt": "What is the exact command to deploy our app? Reply with ONLY the command.",
@@ -171,7 +171,7 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "checks-body",
           "prompt": "How do I reliably tell whether our service's database is up, using the health endpoint? Be specific about exactly what to check.",
@@ -191,7 +191,7 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "house-format",
           "prompt": "Print the single line our CLI should output for error code 42. Output only that line.",
@@ -211,7 +211,7 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "decision",
           "prompt": "Which message queue should a new service use? Reply with ONLY the product name.",
@@ -231,7 +231,7 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "delivered(labelled)",
           "prompt": "What is our staging bucket path? Reply with ONLY the path.",
@@ -251,7 +251,7 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "host✓ port✓",
           "prompt": "Give the full host:port to reach the billing service. Reply with ONLY host:port.",
@@ -271,7 +271,7 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "latest-in-chain",
           "prompt": "What is the current release channel? Reply with ONLY the channel id.",
@@ -291,7 +291,7 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "link delivered",
           "prompt": "What is the URL of our deploy runbook? Reply with ONLY the URL.",
@@ -311,7 +311,7 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "house-prefix",
           "prompt": "Name the module that should hold our shared date helpers. Reply with ONLY the module name.",
@@ -337,7 +337,7 @@
           "output": ""
         },
         {
-          "label": "claude:recall:vtfkb",
+          "label": "claude:recall:vfkb",
           "pass": true,
           "detail": "recalled",
           "output": "BUILD-SIGIL-44Q"

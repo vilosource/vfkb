@@ -11,7 +11,7 @@ ASDLC separates two kinds of control: **Context Gates** ("the Brakes" —
 **Agent Constitution** ("the Driver" — *probabilistic* steering in the context
 window → persistent directives the agent should honor). It also gives a precedence
 hierarchy: **Constitution (rules/must-nots) → Product Vision (taste) → Specs
-(contracts).** vtfkb needs a model for the must-honor rules. ("Guardrails" is
+(contracts).** vfkb needs a model for the must-honor rules. ("Guardrails" is
 deprecated precisely for conflating the Brakes and the Driver.)
 
 ## Decision
@@ -22,7 +22,7 @@ deprecated precisely for conflating the Brakes and the Driver.)
   constitutional decisions, rendered into the `NEVER/ASK/ALWAYS` Judgment
   Boundaries of the injected AGENTS.md, and **always auto-injected** (never
   filtered by ADR-0005, being current/established) as the "Driver."
-- **Vocabulary (adopt across VFSF):** Constitution = the Driver (vtfkb,
+- **Vocabulary (adopt across VFSF):** Constitution = the Driver (vfkb,
   probabilistic); Context Gates = the Brakes (vafi judge/CI, deterministic).
   **Retire "guardrails."**
 - **No new entry type.** (Product Vision / taste is a *separate* concern — not this

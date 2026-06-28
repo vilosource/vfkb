@@ -1,10 +1,10 @@
-# RFC-005: Session continuity = a derived, append-only knowledge-continuity record (vtfkb's half of the vtf/vtfkb seam) — not a hand-written handoff slot
+# RFC-005: Session continuity = a derived, append-only knowledge-continuity record (vfkb's half of the vtf/vfkb seam) — not a hand-written handoff slot
 
 - **Status:** Accepted → [ADR-0020](../adr/ADR-0020-session-continuity-record.md)
 - **Date:** 2026-06-25
 - **Deciders:** operator + Claude (accepted; build sequenced in the H4 roadmap)
 - **Refines (on acceptance):** applies [D1](../DESIGN.md) (content-vs-work-state scope split;
-  vtfkb owns *knowledge handover*, vtf owns *work-state handover*) and extends
+  vfkb owns *knowledge handover*, vtf owns *work-state handover*) and extends
   [ADR-0015](../adr/ADR-0015-cross-harness-auto-layer.md) Tier A (session-start injection) +
   `SessionState`. Composes with [D7b](../DESIGN.md) auto-distill (the future ACE write side).
   Bounded by [ADR-0005](../adr/ADR-0005-injection-filters-stale.md) (don't surface stale),
@@ -13,14 +13,14 @@
 
 ## Context
 
-vtfkb's lineage solves session continuity *manually*: in mykb you run `kb work handoff "…"`
+vfkb's lineage solves session continuity *manually*: in mykb you run `kb work handoff "…"`
 and the next session reads a `## Resume` block. That single hand-written slot has three
 failure modes, and **this project hit all the damage of one in this very session**:
 
 - **Forgotten** — a session ends with no handoff written (mykb explicitly warns "no handoff
   written" on `work stop`).
 - **Stale** — it is a *single overwritten slot*; forget to update it and it actively lies.
-  **Observed 2026-06-25:** vtfkb's workspace "Active" line claimed the L4 cross-model eval
+  **Observed 2026-06-25:** vfkb's workspace "Active" line claimed the L4 cross-model eval
   was "16/22 in-progress, C4 remains" — but the records showed it **complete** (5 records,
   22 scenarios each, 2026-06-03). A stale prose slot outlived the truth and had to be
   ground-truthed away before any work could proceed.
@@ -28,34 +28,34 @@ failure modes, and **this project hit all the damage of one in this very session
   happened (which commits landed, which tests passed, what knowledge was added).
 
 The instinct is to add a richer "handoff tier." That instinct is subtly wrong, and the fix
-is already latent in vtfkb's own design.
+is already latent in vfkb's own design.
 
-**Continuity is not one tier — it is the vtf/vtfkb seam.** [D1](../DESIGN.md) splits any
-artifact by *content vs lifecycle*: durable **knowledge** → vtfkb; **work-state** → vtf
-(vtaskforge). The D1 ownership table is explicit — vtfkb holds *"distilled **knowledge
+**Continuity is not one tier — it is the vtf/vfkb seam.** [D1](../DESIGN.md) splits any
+artifact by *content vs lifecycle*: durable **knowledge** → vfkb; **work-state** → vtf
+(vtaskforge). The D1 ownership table is explicit — vfkb holds *"distilled **knowledge
 handover**,"* vtf holds *"**work-state handover**."* mykb conflates them because it is one
 tool with workspaces. So a well-designed continuity model is **two records, not one**:
 
 - *"I'm on step 3 of task X; next is Y; blocked on Z"* = **work-state** = vtf's Task/Session
-  lifecycle. **Not vtfkb's to own** (and references stay one-way vtfkb→vtf — D1 constraint 1).
+  lifecycle. **Not vfkb's to own** (and references stay one-way vfkb→vtf — D1 constraint 1).
 - *"While doing this I learned gotcha G; decided D; added/used/superseded these entries"* =
-  **durable knowledge** = vtfkb's, and is exactly what [D7b](../DESIGN.md) auto-distill
+  **durable knowledge** = vfkb's, and is exactly what [D7b](../DESIGN.md) auto-distill
   produces.
 
-vtfkb already holds the seed of its half: `SessionState` (`src/session.ts`) is keyed by
+vfkb already holds the seed of its half: `SessionState` (`src/session.ts`) is keyed by
 `KB_SESSION_ID` (the mykb L4 scar — a single global pointer let concurrent sessions clobber
 each other), persisted at `<brain>/.sessions/<id>.json`, surviving restart — but today it
 carries only `{ injectedIds, turnCount }`.
 
 ## Decision
 
-vtfkb builds **its half** of session continuity: a *derived, append-only knowledge-continuity
+vfkb builds **its half** of session continuity: a *derived, append-only knowledge-continuity
 record* plus a session-start "resume" render. It does **not** build a work-state tracker.
 
 1. **Own the seam explicitly; build only the knowledge half (in-repo, no vtf needed).** The
-   work-state half stays vtf's (parked under H2). vtfkb's record references vtf work-state by
+   work-state half stays vtf's (parked under H2). vfkb's record references vtf work-state by
    string only, one-way ([D1 constraint 1](../DESIGN.md)). This keeps the active frontier
-   (H4, in-repo) honest and stops a work-state tracker leaking into vtfkb.
+   (H4, in-repo) honest and stops a work-state tracker leaking into vfkb.
 
 2. **Derived, not dictated.** The continuity record is *computed from ground truth* —
    the entries added / used (injected or pulled) / superseded this session, the Tier-B
@@ -104,7 +104,7 @@ record* plus a session-start "resume" render. It does **not** build a work-state
   The exact bug that opened this session would not have survived a derived record.
 - **+** Reuses what exists: `SessionState` + `KB_SESSION_ID` isolation + Tier-A injection +
   the zones/provenance envelope. No new storage model, no native dep, no vtf dependency.
-- **+** Keeps the D1 seam clean: vtfkb stays a *knowledge* product; work-state stays vtf's.
+- **+** Keeps the D1 seam clean: vfkb stays a *knowledge* product; work-state stays vtf's.
   When vtf is wired (H2), the resume render simply joins in the work-state pointer.
 - **+** Encodes verified-vs-asserted into the artifact — a faithful-reporting backstop.
 - **−** A per-session record log grows under `.sessions/`; needs a retention/compaction policy
@@ -114,15 +114,15 @@ record* plus a session-start "resume" render. It does **not** build a work-state
   of entries added/used/superseded are fully engine-internal; external signals are optional
   enrichment, clearly labelled asserted-by-caller.
 - **Neutral:** the work-state tracker, vtf wiring, and the full ACE write side are all out of
-  scope here — this decides the seam and builds vtfkb's knowledge half only.
+  scope here — this decides the seam and builds vfkb's knowledge half only.
 
 ## Alternatives Considered
 
 - **Port mykb's manual `kb work handoff` slot as-is.** Rejected — reproduces all three
   failures (forgotten / stale / low-fidelity); the stale-L4 incident is the live proof.
-- **Build a full work-state/task tracker inside vtfkb.** Rejected — violates
-  [D1](../DESIGN.md) (work-state is vtf's), breaks the one-way vtfkb→vtf reference direction,
-  and couples vtfkb to a product it is meant to stay agnostic of.
+- **Build a full work-state/task tracker inside vfkb.** Rejected — violates
+  [D1](../DESIGN.md) (work-state is vtf's), breaks the one-way vfkb→vtf reference direction,
+  and couples vfkb to a product it is meant to stay agnostic of.
 - **One overwritten "latest handoff" entry.** Rejected — re-introduces the clobber failure
   and erases the trajectory; the `KB_SESSION_ID` isolation work (mykb L4) exists precisely to
   stop single-slot clobbering.
@@ -137,14 +137,14 @@ record* plus a session-start "resume" render. It does **not** build a work-state
 
 ## Related
 
-[D1](../DESIGN.md) (content-vs-work-state seam; vtfkb=knowledge handover, vtf=work-state
+[D1](../DESIGN.md) (content-vs-work-state seam; vfkb=knowledge handover, vtf=work-state
 handover; one-way reference), [D7b](../DESIGN.md) (auto-distill — the ACE write side this
 composes with), [ADR-0015](../adr/ADR-0015-cross-harness-auto-layer.md) (Tier A session-start
 injection; Tier C `SessionState` dedup), [ADR-0005](../adr/ADR-0005-injection-filters-stale.md)
 (the resume render must exclude stale / label unverified),
 [ADR-0014](../adr/ADR-0014-index-freshness.md) (session state is derived, not committed),
 [ADR-0007](../adr/ADR-0007-rfc-is-proposed-decision.md) (this RFC's status model),
-[ADR-0019](../adr/ADR-0019-self-hosted-design-brain.md) (vtfkb's own brain — the first place a
+[ADR-0019](../adr/ADR-0019-self-hosted-design-brain.md) (vfkb's own brain — the first place a
 self-hosted resume render would be exercised). Code: `src/session.ts` (`SessionState`,
 `KB_SESSION_ID`, `<brain>/.sessions/`), `src/engine.ts` (`renderContextBundle` Tier-A,
 `renderContextDelta`, `captureToolCall`). Evidence: the 2026-06-25 stale-L4 workspace-state

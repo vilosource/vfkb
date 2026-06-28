@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// vtfkb thin CLI — the face the Claude Code hooks call (ADR-0015 Tier A/B).
+// vfkb thin CLI — the face the Claude Code hooks call (ADR-0015 Tier A/B).
 // `hook session-start` / `hook post-tool-use` carry the harness JSON contract.
 
 import {
@@ -102,7 +102,7 @@ async function main() {
       process.stdout.write(`${created ? 'created' : 'exists'}\t${path}\n`);
       return;
     }
-    const project = (sub && !sub.startsWith('--') ? sub : undefined) || process.env.VTFKB_PROJECT || 'spike';
+    const project = (sub && !sub.startsWith('--') ? sub : undefined) || process.env.VFKB_PROJECT || 'spike';
     process.stdout.write(renderContext(project));
     return;
   }
@@ -110,7 +110,7 @@ async function main() {
   // resume [project]: the session-continuity render (ADR-0020) — prior-session
   // digest (derived) + the live knowledge bundle. The MCP-pull-floor / CLI face.
   if (cmd === 'resume') {
-    const project = (sub && !sub.startsWith('--') ? sub : undefined) || process.env.VTFKB_PROJECT || 'spike';
+    const project = (sub && !sub.startsWith('--') ? sub : undefined) || process.env.VFKB_PROJECT || 'spike';
     process.stdout.write(renderResume(project, SessionState.load()) + '\n');
     return;
   }
@@ -131,7 +131,7 @@ async function main() {
       } else if (sub === 'signal') {
         const kind = rest[1];
         if (kind !== 'helpful' && kind !== 'harmful') {
-          process.stderr.write('usage: vtfkb curate signal <id> <helpful|harmful>\n');
+          process.stderr.write('usage: vfkb curate signal <id> <helpful|harmful>\n');
           process.exit(1);
         }
         recordSignal(rest[0], kind, 'operator');
@@ -154,7 +154,7 @@ async function main() {
         process.stdout.write(`merged ${rest[0]} -> ${rest[1]} (loser archived)\n`);
       } else {
         process.stderr.write(
-          'usage: vtfkb curate <dups|promote <id>|promote-auto <id>|archive <id>|merge <loser> <winner>|signal <id> <helpful|harmful>>\n',
+          'usage: vfkb curate <dups|promote <id>|promote-auto <id>|archive <id>|merge <loser> <winner>|signal <id> <helpful|harmful>>\n',
         );
         process.exit(1);
       }
@@ -191,7 +191,7 @@ async function main() {
     const session = SessionState.load();
     const note = cleanText([sub, ...rest].filter((a) => a !== undefined));
     if (!note) {
-      process.stderr.write('usage: vtfkb resume-note <text>\n');
+      process.stderr.write('usage: vfkb resume-note <text>\n');
       process.exit(1);
     }
     session.setNote(note);
@@ -225,7 +225,7 @@ async function main() {
     return;
   }
 
-  // search/query: vtfkb search <text> [--type t] [--tag a,b] [--zone z] [--status s]
+  // search/query: vfkb search <text> [--type t] [--tag a,b] [--zone z] [--status s]
   //               [--role r] [--verified] [--limit N] [--stale] [--superseded]
   if (cmd === 'search' || cmd === 'query') {
     const args = [sub, ...rest].filter((a) => a !== undefined);
@@ -267,7 +267,7 @@ async function main() {
   if (cmd === 'hook') {
     if (sub === 'session-start') {
       await readStdin(); // payload not needed for the bundle
-      const project = process.env.VTFKB_PROJECT || 'spike';
+      const project = process.env.VFKB_PROJECT || 'spike';
       // --naive = the mykb-v1-style flat dump (L4 contrast baseline only); --limit N truncates it.
       const lim = flag(rest, 'limit');
       // The Tier-A payload is the RESUME render (ADR-0020): prior-session digest +
@@ -346,7 +346,7 @@ async function main() {
   }
 
   process.stderr.write(
-    'usage: vtfkb <add|list|search|query|map|context|context init|resume|resume-note|curate|distill|save|context-block|' +
+    'usage: vfkb <add|list|search|query|map|context|context init|resume|resume-note|curate|distill|save|context-block|' +
       'hook session-start|hook pre-tool-use|hook post-tool-use>\n',
   );
   process.exit(1);

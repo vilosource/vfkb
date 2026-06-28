@@ -17,8 +17,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 # Claude Code — PINNED to the host version for digest-stable behavior.
 RUN npm install -g @anthropic-ai/claude-code@2.1.195
 
-# vtfkb substrate: built artifact + its one prod dep. NO native build.
-WORKDIR /opt/vtfkb
+# vfkb substrate: built artifact + its one prod dep. NO native build.
+WORKDIR /opt/vfkb
 COPY dist/ ./dist/
 COPY package.json ./
 RUN npm install --omit=dev
@@ -32,5 +32,5 @@ RUN mkdir -p /work/.claude /brain && chmod -R 0777 /work /brain
 # subscription credential lives in the mounted /work/.claude/.credentials.json, separate).
 RUN echo '{}' > /work/.claude.json && chmod 0666 /work/.claude.json
 
-ENV HOME=/work VTFKB_DIR=/brain VTFKB_PROJECT=l4
+ENV HOME=/work VFKB_DIR=/brain VFKB_PROJECT=l4
 WORKDIR /brain

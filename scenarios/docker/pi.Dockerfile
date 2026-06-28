@@ -6,20 +6,20 @@
 # The container is the sandbox: no host FS, no host creds, no host ~/.pi or global MCP.
 # The only secret it sees is DEEPSEEK_TOKEN (the model API key), injected at run time.
 #
-# Reproducibility: pi is pinned; the vtfkb substrate is the BUILT dist baked in (the same
+# Reproducibility: pi is pinned; the vfkb substrate is the BUILT dist baked in (the same
 # pi-extension.js / pi-mcp-bridge.js / mcp-server.js the host harness loads via `-e`).
 FROM node:20-slim
 
 # Single runtime dep of the MCP server/bridge (@modelcontextprotocol/sdk); git is handy
-# for any in-container CLI that probes a repo. No build toolchain — vtfkb has no native dep.
+# for any in-container CLI that probes a repo. No build toolchain — vfkb has no native dep.
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates git \
     && rm -rf /var/lib/apt/lists/*
 
 # pi (the deepseek-driving agent) — PINNED to the host version for digest-stable behavior.
 RUN npm install -g @mariozechner/pi-coding-agent@0.73.1
 
-# vtfkb substrate: built artifact + its one prod dep. NO native build.
-WORKDIR /opt/vtfkb
+# vfkb substrate: built artifact + its one prod dep. NO native build.
+WORKDIR /opt/vfkb
 COPY dist/ ./dist/
 COPY package.json ./
 RUN npm install --omit=dev
@@ -35,5 +35,5 @@ COPY scenarios/docker/models.json /work/.pi/agent/models.json
 # the host-bind-mounted /brain so cross-session scenarios carry state across containers.
 RUN mkdir -p /work/.pi /brain && chmod -R 0777 /work /brain
 
-ENV HOME=/work VTFKB_DIR=/brain VTFKB_PROJECT=l4
+ENV HOME=/work VFKB_DIR=/brain VFKB_PROJECT=l4
 WORKDIR /brain

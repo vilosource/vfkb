@@ -1,8 +1,8 @@
-# vtfkb — Design
+# vfkb — Design
 
 > **STATUS: IN-DESIGN (2026-05-31; revised 2026-06-01).** Focused design for the
-> vtfkb knowledge substrate (foundation #3 of the VFSF Ingest Cycle). Builds on the
-> provisional brainstorm [`vfsf-ingest-and-vtfkb-DESIGN.md`](vfsf-ingest-and-vtfkb-DESIGN.md).
+> vfkb knowledge substrate (foundation #3 of the VFSF Ingest Cycle). Builds on the
+> provisional brainstorm [`vfsf-ingest-and-vfkb-DESIGN.md`](vfsf-ingest-and-vfkb-DESIGN.md).
 > Decisions are recorded in §5 as they lock. Roadmap: `vtaskforge/docs/ROADMAP.md`.
 >
 > **2026-06-01 revision (operator):** D6a reversed **Python → TypeScript** and a
@@ -13,12 +13,12 @@
 
 ---
 
-## 1. What vtfkb is
+## 1. What vfkb is
 
 The shared, multi-agent **knowledge-of-record** for the ViloForge Software
 Factory. A **TypeScript** product — realistically an **evolution of mykb** rather
 than a from-scratch rewrite (D6a; mykb is the proven base). Two
-deployment modes: **per-project** (repo-local `.vtfkb/`) and **global** (central
+deployment modes: **per-project** (repo-local `.vfkb/`) and **global** (central
 cross-project tier). Agents (architect, PM, executor, judge) read it via a `kb`
 engine; humans read it *through* an agent. Git is the synchronization substrate.
 
@@ -59,7 +59,7 @@ Grounded against real mykb source (`src/core/types.ts`, `store.ts`, `db.ts`,
 
 ## 3. Design question set & attack order (hardest/most-gating first)
 
-1. **Scope boundary** — what vtfkb owns vs vtf vs bridge/repo. *(decision D1)*
+1. **Scope boundary** — what vfkb owns vs vtf vs bridge/repo. *(decision D1)*
 2. **Structural model & topology** — per-project brain shape + global tier + how
    mykb's "area" concept maps; resolves brainstorm fork #1 (git-repo vs API).
    *(D2)*
@@ -77,36 +77,36 @@ Grounded against real mykb source (`src/core/types.ts`, `store.ts`, `db.ts`,
 - Global-tier transport: shared **git brain repo** vs **vtf-served API** (→ D2).
 - Project-context shape: typed entries (leaning) vs single requirements doc (→ D3).
 - Fully-onboarded project schema field-by-field (the #1↔#2 contract).
-- `.vtfkb/` dir name. (Language resolved: TypeScript — D6a.)
+- `.vfkb/` dir name. (Language resolved: TypeScript — D6a.)
 - Whether architect-to-`main` design writes get a lightweight review gate (→ D4).
 
 ## 5. Decisions (locked)
 
-### D1 — Scope boundary (vtfkb ↔ vtf ↔ runtime ↔ repo) — LOCKED 2026-05-31
+### D1 — Scope boundary (vfkb ↔ vtf ↔ runtime ↔ repo) — LOCKED 2026-05-31
 
 **Guiding principle — content vs lifecycle:** any artifact with both a durable
--knowledge aspect and a workflow-state aspect splits — **content → vtfkb,
+-knowledge aspect and a workflow-state aspect splits — **content → vfkb,
 state → vtf.**
 
 | Owner | Holds |
 |---|---|
-| **vtfkb** (knowledge) | facts · decisions · gotchas · patterns · links; the first-class **project context doc**; **links/index to `docs/`** (the docs themselves are repo files); distilled **requirements content**; judge-**learned knowledge**; distilled **knowledge handover**; (global) cross-project knowledge |
+| **vfkb** (knowledge) | facts · decisions · gotchas · patterns · links; the first-class **project context doc**; **links/index to `docs/`** (the docs themselves are repo files); distilled **requirements content**; judge-**learned knowledge**; distilled **knowledge handover**; (global) cross-project knowledge |
 | **vtf** (work-state) | Project · Workplan · Milestone · Task · Review · Event · Note · **Idea** + their lifecycle; **SDD specs**; `ProjectVariable` + secret refs (C.3); `AgentLock` · `SessionRecord`; **work-state handover** |
 | **bridge / runtime** | raw **conversation transcripts** (Pi JSONL); materialized `.vafi/context.md` (ephemeral) |
-| **repo** | the **code** (and physically hosts `.vtfkb/` + `docs/`) |
+| **repo** | the **code** (and physically hosts `.vfkb/` + `docs/`) |
 
 **Constraints (locked):**
-1. **Reference direction is one-way: vtfkb → vtf** (string refs, no FK). vtf
-   **never** references a vtfkb entry id — keeps vtf product-agnostic.
+1. **Reference direction is one-way: vfkb → vtf** (string refs, no FK). vtf
+   **never** references a vfkb entry id — keeps vtf product-agnostic.
 2. **No secrets in the brain.** It is git-committed (low-trust). Knowledge +
    secret *references* only; secrets stay in vtf `ProjectVariable`/Vault. (Needs
    a write-time lint guardrail — D-later.)
-3. **Knowledge audit = git history** (role-attributed commits). vtfkb does NOT
+3. **Knowledge audit = git history** (role-attributed commits). vfkb does NOT
    copy vtf's `Event` model.
 4. **`docs/` integrate via the `link` primitive** (extended to repo-relative
-   paths). vtfkb owns the *links/index*, not the file content.
-5. **Excluded from vtfkb:** raw conversation transcripts (bridge/vtf own them).
-   vtfkb stores only the *distilled* knowledge extracted from a conversation.
+   paths). vfkb owns the *links/index*, not the file content.
+5. **Excluded from vfkb:** raw conversation transcripts (bridge/vtf own them).
+   vfkb stores only the *distilled* knowledge extracted from a conversation.
 
 **Deferred from D1:** global-tier-vs-Viloforge-KB-Product-#4 (→ D2);
 multi-repo brain location (→ #1 schema / D2); provenance/verification + `incoming`
@@ -117,14 +117,14 @@ zone (→ D3); tombstone × `merge=union` (→ D4); context-doc ≈ `CLAUDE.md` 
 **One product family, one engine, one format** (JSONL + SQLite/FTS5 + git), two
 scopes via two storage adapters (local-fs / remote-API):
 
-- **D2a — Global tier = "Viloforge KB" (Product #4)**, the *same* vtfkb
+- **D2a — Global tier = "Viloforge KB" (Product #4)**, the *same* vfkb
   engine/format. Not a separate KB.
 - **D2b — Transport (corrects brainstorm "vtf-served"):** per-project brain is
-  **git-repo-local** (no service); the global tier is **vtfkb-served** (vtfkb is
+  **git-repo-local** (no service); the global tier is **vfkb-served** (vfkb is
   its own product — vtf does not serve knowledge): a **git repo = system-of-record
   + a thin index/search service exposing REST + MCP (agents) + web UI (humans)**.
 - **D2c — 1:1 project ↔ main repo; the brain is SINGLE-HOMED** in the main repo
-  (`<main-repo>/.vtfkb`). Projects MAY span multiple code repos, but there is
+  (`<main-repo>/.vfkb`). Projects MAY span multiple code repos, but there is
   exactly ONE brain, always in the main repo; secondary repos use it. **No
   per-repo brains.** (Decouples brain from code location.)
 - **D2d — Access asymmetry:** project knowledge read **locally** (from the
@@ -155,8 +155,8 @@ repo (→ D6).
   string, no FK** (per D1); `related`/`supersedes` are intra-brain links.
 - **D3c — Keep mykb's 5 types** (`fact·decision·gotcha·pattern·link`).
   **Requirements are work-DEFINITION, not knowledge** → vtf/ingest (#2) side
-  (the one-way-ref test proves it: a vtfkb `requirement` would force vtf→vtfkb
-  refs). vtfkb captures the durable *residue* (domain facts, decisions+why,
+  (the one-way-ref test proves it: a vfkb `requirement` would force vtf→vfkb
+  refs). vfkb captures the durable *residue* (domain facts, decisions+why,
   gotchas, patterns). **`handover` is emergent** (task-ref'd entries + the
   context doc), not a type.
   **REFINED 2026-06-01 (still 5 types — sub-roles via status/flag/tag, NOT new
@@ -243,12 +243,12 @@ repo (→ D6).
   in-process codebase** — which is exactly what makes mykb's integration deep;
   Python or Go would force the extension to shell out and lose that. The original
   "Python = platform stack alignment / no Node in pods" reasoning was outweighed:
-  vtfkb is a separate product/repo (need not match the Django orchestration
+  vfkb is a separate product/repo (need not match the Django orchestration
   stack), and "no Node" argued against TS without favoring Python over Go anyway.
   TS keeps the door open to **evolving mykb** rather than rewriting it (see note).
 - **D6b — Two wiring sites:** architect pod (register kb MCP in `pi_config.py`;
-  `MYKB_DIR → <cloned main-repo>/.vtfkb`) and controller VM (executor/judge;
-  `MYKB_DIR → <workdir>/.vtfkb`; secondary-repo tasks also fetch the main-repo
+  `MYKB_DIR → <cloned main-repo>/.vfkb`) and controller VM (executor/judge;
+  `MYKB_DIR → <workdir>/.vfkb`; secondary-repo tasks also fetch the main-repo
   brain).
 - **D6c — Write creds reuse existing repo creds** (architect SSH keys; controller
   clone/push). No new cred system.
@@ -262,7 +262,7 @@ repo (→ D6).
 **Must-have, on par with mykb's signature capability.** MCP (D5a) is pull-only;
 the value that makes mykb feel like memory is *push*: relevant knowledge appears
 without the agent asking, and signals are captured without an explicit "save."
-vtfkb must do the same. Because this hooks each harness's agent loop, it is
+vfkb must do the same. Because this hooks each harness's agent loop, it is
 **inherently per-harness, sharing one engine:**
 
 - **D7a — Auto context-injection.** At session start / per turn, score the
@@ -300,7 +300,7 @@ vtfkb must do the same. Because this hooks each harness's agent loop, it is
 ## 6. Status
 
 Core decisions LOCKED: **D1–D5 (2026-05-31); D6 revised + D7 added (2026-06-01);
-ADR-0004…0010 accepted (2026-06-01, from the ASDLC mine).** The vtfkb model,
+ADR-0004…0010 accepted (2026-06-01, from the ASDLC mine).** The vfkb model,
 topology, schema, write/concurrency, read, runtime (**TypeScript**, layered), and
 the **automatic per-harness context/capture** layer are nailed down for **v1
 (per-project tier)**. **Deferred / next:** the fully-onboarded **project schema**
@@ -310,19 +310,19 @@ Table** layers (ADR-0006, global-tier); D7b auto-distill capture depth; a distin
 RFC/constitution type only if the marker model proves insufficient (ADR-0007/0008).
 
 **"New product vs evolve mykb" — RESOLVED (2026-06-01, [ADR-0002](adr/ADR-0002-greenfield-reimplementation.md)).**
-vtfkb is a **greenfield TypeScript reimplementation** with **mykb as a studied
-spike** (reference/oracle only, zero code inheritance) — the OSB→mykb→vtfkb
+vfkb is a **greenfield TypeScript reimplementation** with **mykb as a studied
+spike** (reference/oracle only, zero code inheritance) — the OSB→mykb→vfkb
 lineage applied: carry the *lessons*, not the code. Not fork, not evolve-in-place.
 The **"Lessons from mykb (the spike)"** record now lives in §2 of the
 [IMPLEMENTATION-PLAN](IMPLEMENTATION-PLAN.md) (per major choice: what mykb
-did, what it taught, what vtfkb does differently). That plan (2026-06-01) sequences
+did, what it taught, what vfkb does differently). That plan (2026-06-01) sequences
 the gated v1 build and surfaced five gating decisions **D-A…D-E** (envelope
 richness, two-stage rerank, native-dep policy, index-freshness trigger, Claude Code
 auto-layer feasibility) — **all now locked as ADR-0011…0015 (2026-06-03)**; the
 pre-implementation gate is cleared and Phase 0 is next.
 
 **Decision record:** the authoritative, immutable decisions now live in
-[`vtfkb-adr/`](adr/) (ADR format, per ADR-0001). The `Dn` decisions above are
+[`vfkb-adr/`](adr/) (ADR format, per ADR-0001). The `Dn` decisions above are
 the narrative form; where an ADR refines or supersedes one, **the ADR wins.**
 Reconciliation map (2026-06-01 ASDLC-mine wave):
 

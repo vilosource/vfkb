@@ -1,6 +1,6 @@
-# vtfkb — The Shared Memory That Makes an AI Software Factory Compound
+# vfkb — The Shared Memory That Makes an AI Software Factory Compound
 
-> **A product brief.** What vtfkb is, the problem it solves, and the features that
+> **A product brief.** What vfkb is, the problem it solves, and the features that
 > make it worth building. Companion to the engineering design
 > [`DESIGN.md`](DESIGN.md) (decisions D1–D7 + ADR-0011…0015 locked, 2026-06-03).
 >
@@ -40,11 +40,11 @@ That creates three compounding failures as you try to run the fleet at scale:
   and judge — so the human is the bottleneck, and an unattended fleet starves.
 
 You can buy a better model. You cannot buy *your project's accumulated judgment.*
-**vtfkb is where that judgment lives** — a shared, durable, multi-agent memory so
+**vfkb is where that judgment lives** — a shared, durable, multi-agent memory so
 every agent in the factory is smarter than a generic one, and gets smarter every
 time the factory runs.
 
-> **One line:** *vtfkb turns one-shot agents into a team with a memory.*
+> **One line:** *vfkb turns one-shot agents into a team with a memory.*
 
 ---
 
@@ -72,14 +72,14 @@ time the factory runs.
 
 ### 3.0 Memory that shows up on its own (the signature capability)
 The difference between "a knowledge base you can query" and "an agent that
-remembers" is **who initiates**. vtfkb does both, but this is the one that makes
+remembers" is **who initiates**. vfkb does both, but this is the one that makes
 it feel like memory:
 - **Automatic context-injection.** At session start the agent is handed the
   project context doc; as the conversation moves, relevant facts/decisions/gotchas
   are **scored and injected into the agent's context without it asking.** The
   agent doesn't have to *remember to look it up* — the right knowledge is already
   in front of it.
-- **Passive capture.** vtfkb observes the agent's inputs and tool activity to know
+- **Passive capture.** vfkb observes the agent's inputs and tool activity to know
   what's relevant (and, over time, to harvest lessons) — no explicit "save this"
   ceremony on the hot path.
 
@@ -91,7 +91,7 @@ not traded away for a pull-only API. *(Design: D7; the cross-harness query
 baseline is D5a/§3.8.)*
 
 ### 3.1 Knowledge lives in the repo (git-native)
-The brain is a directory (`.vtfkb/`) committed inside the project's main repo —
+The brain is a directory (`.vfkb/`) committed inside the project's main repo —
 append-only JSONL logs plus a rebuildable search index. That single choice buys a
 lot: knowledge is **versioned**, **diffable**, **reviewable in a PR**, and
 **travels with the code**. There is no separate database to provision, back up,
@@ -100,7 +100,7 @@ D2 — git is the system of record; JSONL + SQLite/FTS, deterministic rebuild.)*
 
 ### 3.2 Knowledge that stays true to the code (causal consistency)
 Because the brain is *in* the repo, it follows the same branch-and-merge flow as
-the code — and vtfkb leans into that:
+the code — and vfkb leans into that:
 - The **architect** writes design-level knowledge to `main` directly (it's
   human-gated in the planning chat, and cheap to revise).
 - **Executors and judges** write what they *discover while building* onto the
@@ -114,7 +114,7 @@ wiki. *(Design: §5 origin-split writes, D4.)*
 
 ### 3.3 Every memory knows who made it (multi-agent attribution)
 mykb — the proven single-user predecessor — assumed one author. A factory has
-several specialized agents plus humans, so vtfkb stamps every entry with an
+several specialized agents plus humans, so vfkb stamps every entry with an
 **author role** (`architect | pm | executor | judge | human | init`). That turns
 attribution into leverage: a judge's verified decision can outrank an executor's
 unverified hunch; you can audit "what did the architect actually decide here";
@@ -131,7 +131,7 @@ D3b, D1.)*
 
 ### 3.5 Many agents writing at once — and never colliding (concurrency)
 A fleet means N agents on N branches all appending knowledge simultaneously.
-vtfkb makes that a non-problem: the logs are **append-only** and marked
+vfkb makes that a non-problem: the logs are **append-only** and marked
 `merge=union`, so concurrent appends from any number of branches **merge without
 conflict**; the index dedups by ID on rebuild. The rare destructive edits are
 mediated through the architect. The 95% case — agents appending what they learn —
@@ -140,7 +140,7 @@ is conflict-free *by construction*, not by locking. *(Design: §5.1, D4c.)*
 ### 3.6 Trust as a gradient, not a bottleneck (the trust model)
 The hardest question for a shared agent memory is *"how do you keep it from
 filling with confident nonsense?"* The wrong answer is a curation queue — it
-stalls the fleet. vtfkb's answer:
+stalls the fleet. vfkb's answer:
 - **Writes land immediately**, in the active set, **labeled** with their author
   and a status that defaults to **`unverified`** for agents. Nothing waits.
 - **Readers get the trust signal** and weigh it; an agent can ask for
@@ -164,7 +164,7 @@ with a repo" into "an agent that already understands your system." *(Design: D1,
 project-onboarding-schema D-O8.)*
 
 ### 3.8 Agents just ask; humans ask an agent (MCP query surface)
-On top of the automatic layer (§3.0), vtfkb exposes an **MCP tool surface** (9 tools) —
+On top of the automatic layer (§3.0), vfkb exposes an **MCP tool surface** (9 tools) —
 `kb_search`, `kb_list`, `kb_get`, `kb_map`, `kb_context`, `kb_add`, `kb_supersede`,
 `kb_transition`, `kb_resume`. MCP is the **one interface every harness in the
 fleet speaks** (the architect runs on Pi, executors/judges on Claude Code), so
@@ -176,7 +176,7 @@ D5a, D5d.)*
 
 ### 3.9 One search across project and org (unified query)
 Knowledge worth keeping isn't all project-local — some is org-wide ("how we do
-auth," "our Postgres conventions"). vtfkb resolves both in **one query**: a single
+auth," "our Postgres conventions"). vfkb resolves both in **one query**: a single
 `kb_search` hits the local project brain *and* the global tier and returns **one
 ranked list, each result labeled with its scope and trust** (project-first, then
 global). The caller never has to know where knowledge lives. *(Design: D5b, D2d.)*
@@ -191,7 +191,7 @@ the org's canon, and the org's canon is something a human deliberately curated.
 designed-now-built-later — D2g.)*
 
 ### 3.11 Secrets stay out, by design (safety)
-Because the brain is git-committed and therefore low-trust, vtfkb treats secrets
+Because the brain is git-committed and therefore low-trust, vfkb treats secrets
 as a hard boundary: a **write-time lint** on the `add` path blocks high-entropy /
 known-token material. The brain holds knowledge and secret *references* only;
 real secrets stay in the work-tracker's variable store / Vault. Safety is a
@@ -199,7 +199,7 @@ property of the front door, not a policy you hope everyone remembers. *(Design: 
 constraint #2, D6e.)*
 
 ### 3.12 Runs anywhere the factory runs (backend-agnostic)
-vtfkb is a **TypeScript engine** — MCP server + thin CLI + per-harness auto-layer
+vfkb is a **TypeScript engine** — MCP server + thin CLI + per-harness auto-layer
 — baked into the agent image, pointed at the repo-local brain. That's it. Any
 execution backend that can clone a repo and run it gets full knowledge access — a
 Kubernetes pod today, a bare VM under the cloud-native redesign tomorrow.
@@ -226,7 +226,7 @@ brainstorm §10.)*
 - The **next task** ("charge endpoint") branches from the new `main` and
   **inherits both the ledger code and the gotcha.** The mistake is never repeated.
 
-Without vtfkb, step 2's lesson dies with the task and step 4 re-learns it the
+Without vfkb, step 2's lesson dies with the task and step 4 re-learns it the
 hard way. *That* difference — repeated across thousands of tasks — is the product:
 **a factory whose output quality compounds instead of resetting to generic every
 time.** *(Design: ingest brainstorm §6, verified mechanics.)*
@@ -237,7 +237,7 @@ time.** *(Design: ingest brainstorm §6, verified mechanics.)*
 
 mykb proved the kernel — JSONL + SQLite + git, the five entry types
 (facts/decisions/gotchas/patterns/links), search and relevance, **and the
-automatic Pi context-injection/capture layer**. vtfkb **carries that proven core
+automatic Pi context-injection/capture layer**. vfkb **carries that proven core
 faithfully** and adds the things a *factory* needs that a single-user tool
 doesn't: **role attribution**, **branch-aware writes wired to vtf tasks**, a
 **cross-harness MCP surface**, and a **second harness adapter (Claude Code hooks)**
@@ -248,7 +248,7 @@ codebase. Staying in TS also means the realistic path is to **evolve mykb**, not
 rewrite it from scratch: the kernel, the Pi extension, and the scorer come for
 free. This isn't a rewrite for its own sake — it's the proven idea, re-aimed at a
 team of agents instead of one human. *(Design: ingest brainstorm §4.5,
-vtfkb-DESIGN §2 + D6a.)*
+vfkb-DESIGN §2 + D6a.)*
 
 ---
 
@@ -259,7 +259,7 @@ vtfkb-DESIGN §2 + D6a.)*
   context/capture layer** (D7) are settled (D1–D7), plus the project-onboarding
   contract that seeds the brain. Open for the IMPLEMENTATION-PLAN: **evolve mykb
   vs greenfield TS** (leaning evolve).
-- **Build: not started.** vtfkb is the **foundation** of the VFSF Ingest Cycle
-  (`vtfkb → project-init → ingest-engine`); the next artifact is its
+- **Build: not started.** vfkb is the **foundation** of the VFSF Ingest Cycle
+  (`vfkb → project-init → ingest-engine`); the next artifact is its
   IMPLEMENTATION-PLAN. Everything in this brief is buildable from the locked
   design — that's the point of presenting it now.

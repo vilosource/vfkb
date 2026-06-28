@@ -6,15 +6,15 @@ Vault, observability, DR orchestration). You have real tooling and real access.
 
 ## Your knowledge store (devops-kb)
 
-This session is wired to **devops-kb** — a vtfkb knowledge store seeded with this
-infrastructure's facts, decisions, gotchas, and patterns (MCP server `vtfkb` +
+This session is wired to **devops-kb** — a vfkb knowledge store seeded with this
+infrastructure's facts, decisions, gotchas, and patterns (MCP server `vfkb` +
 session hooks). It is your operating memory.
 
-- **Recall before you act.** Before touching any area, use the `vtfkb` tools
+- **Recall before you act.** Before touching any area, use the `vfkb` tools
   (search / query / map) to pull what's already known — especially **gotchas**, which
   encode traps already paid for. Relevant knowledge is injected at session start.
 - **Capture what you learn.** Record durable facts, decisions (with the *why*),
-  gotchas, and patterns through the `vtfkb` tools — not by editing files. The engine
+  gotchas, and patterns through the `vfkb` tools — not by editing files. The engine
   is the sole writer and enforces the no-secrets invariant. Never put a secret,
   token, key, or password into the store.
 

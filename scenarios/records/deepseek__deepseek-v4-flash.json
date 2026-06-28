@@ -3,14 +3,14 @@
   "provider": "deepseek",
   "slug": "deepseek__deepseek-v4-flash",
   "generated": "2026-06-03T16:14:07.107Z",
-  "vtfkb_sha": "743657c",
+  "vfkb_sha": "743657c",
   "scenarios": {
     "stale-supersession": {
       "dim": "exclude:supersession",
       "demonstrated": true,
       "rows": [
         {
-          "label": "pi:vtfkb",
+          "label": "pi:vfkb",
           "pass": true,
           "detail": "corrected",
           "prompt": "What hostname must I use to connect to the prod database right now? Reply with ONLY the hostname.",
@@ -30,7 +30,7 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "pi:vtfkb",
+          "label": "pi:vfkb",
           "pass": true,
           "detail": "policy",
           "prompt": "We are scaffolding a new internal HTTP service. Which TCP port should it listen on? Reply with ONLY the port number.",
@@ -50,7 +50,7 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "pi:vtfkb",
+          "label": "pi:vfkb",
           "pass": true,
           "detail": "port✓ prefix✓",
           "prompt": "For a new internal service, state the listen port and the required log-line prefix. Reply exactly as: PORT=<n> PREFIX=<p>",
@@ -70,7 +70,7 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "pi:vtfkb",
+          "label": "pi:vfkb",
           "pass": true,
           "detail": "project-cmd",
           "prompt": "What is the exact command to deploy our app? Reply with ONLY the command.",
@@ -90,7 +90,7 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "pi:vtfkb",
+          "label": "pi:vfkb",
           "pass": true,
           "detail": "checks-body",
           "prompt": "How do I reliably tell whether our service's database is up, using the health endpoint? Be specific about exactly what to check.",
@@ -110,7 +110,7 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "pi:vtfkb",
+          "label": "pi:vfkb",
           "pass": true,
           "detail": "house-format",
           "prompt": "Print the single line our CLI should output for error code 42. Output only that line.",
@@ -130,7 +130,7 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "pi:vtfkb",
+          "label": "pi:vfkb",
           "pass": true,
           "detail": "host✓ port✓",
           "prompt": "Give the full host:port to reach the billing service. Reply with ONLY host:port.",
@@ -150,7 +150,7 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "pi:vtfkb",
+          "label": "pi:vfkb",
           "pass": true,
           "detail": "latest-in-chain",
           "prompt": "What is the current release channel? Reply with ONLY the channel id.",
@@ -170,7 +170,7 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "pi:vtfkb",
+          "label": "pi:vfkb",
           "pass": true,
           "detail": "current",
           "prompt": "What is the CURRENT API base host? Reply with ONLY the host.",
@@ -190,7 +190,7 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "pi:vtfkb",
+          "label": "pi:vfkb",
           "pass": true,
           "detail": "active",
           "prompt": "Which auth library should a new module use? Reply with ONLY the library name.",
@@ -210,7 +210,7 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "pi:vtfkb",
+          "label": "pi:vfkb",
           "pass": true,
           "detail": "current",
           "prompt": "What is the metrics endpoint path? Reply with ONLY the path.",
@@ -230,7 +230,7 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "pi:vtfkb",
+          "label": "pi:vfkb",
           "pass": true,
           "detail": "corrected",
           "prompt": "What is the current canary cohort id? Reply with ONLY the id.",
@@ -250,7 +250,7 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "pi:vtfkb",
+          "label": "pi:vfkb",
           "pass": true,
           "detail": "decision",
           "prompt": "Which message queue should a new service use? Reply with ONLY the product name.",
@@ -270,7 +270,7 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "pi:vtfkb",
+          "label": "pi:vfkb",
           "pass": true,
           "detail": "delivered(labelled)",
           "prompt": "What is our staging bucket path? Reply with ONLY the path.",
@@ -290,7 +290,7 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "pi:vtfkb",
+          "label": "pi:vfkb",
           "pass": true,
           "detail": "link delivered",
           "prompt": "What is the URL of our deploy runbook? Reply with ONLY the URL.",
@@ -310,7 +310,7 @@
       "demonstrated": true,
       "rows": [
         {
-          "label": "pi:vtfkb",
+          "label": "pi:vfkb",
           "pass": true,
           "detail": "house-prefix",
           "prompt": "Name the module that should hold our shared date helpers. Reply with ONLY the module name.",
@@ -336,7 +336,7 @@
           "output": ""
         },
         {
-          "label": "pi:recall:vtfkb",
+          "label": "pi:recall:vfkb",
           "pass": true,
           "detail": "recalled",
           "output": "BUILD-SIGIL-44Q"

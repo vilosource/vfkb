@@ -1,11 +1,11 @@
 // devops-kb seed builder — bulk-migrate the chosen mykb infra areas into a fresh
-// vtfkb brain (the devops-kb store). Lossless 1:1 for facts/decisions/gotchas/patterns.
+// vfkb brain (the devops-kb store). Lossless 1:1 for facts/decisions/gotchas/patterns.
 //
 // Run on the HOST (the brain is just a directory; the container only matters at runtime):
-//   VTFKB_DIR=~/.devops-kb/brain node spike/devops-kb/migrate-seed.mjs [--force]
+//   VFKB_DIR=~/.devops-kb/brain node spike/devops-kb/migrate-seed.mjs [--force]
 //
-// Mapping (mykb -> vtfkb):
-//   area            -> a tag (vtfkb has no areas; one flat brain per project)
+// Mapping (mykb -> vfkb):
+//   area            -> a tag (vfkb has no areas; one flat brain per project)
 //   tags[]          -> merged tags
 //   role            -> 'human' (authoritative; YOUR curated knowledge -> operator trust)
 //   provenance.status -> preserved (an unverified mykb fact stays unverified)
@@ -18,11 +18,11 @@ import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const MYKB = process.env.MYKB_DIR || join(process.env.HOME, '.mykb');
-const BRAIN = process.env.VTFKB_DIR;
-if (!BRAIN) { console.error('set VTFKB_DIR to the devops-kb brain dir'); process.exit(1); }
+const BRAIN = process.env.VFKB_DIR;
+if (!BRAIN) { console.error('set VFKB_DIR to the devops-kb brain dir'); process.exit(1); }
 
 // Default = the Optiscan infra spine (og-devops bootstrap). Override per-instance with
-// VTFKB_SEED_AREAS="area1,area2,..." (e.g. the viloforge ecosystem for vf-devops).
+// VFKB_SEED_AREAS="area1,area2,..." (e.g. the viloforge ecosystem for vf-devops).
 const DEFAULT_AREAS = [
   // core spine
   'azure-tenant', 'networking', 'identity', 'vault', 'backup',
@@ -32,8 +32,8 @@ const DEFAULT_AREAS = [
   'sonarqube', 'mediawiki', 'observability', 'ssl-automation',
   'event-grid', 'event-router',
 ];
-const AREAS = process.env.VTFKB_SEED_AREAS
-  ? process.env.VTFKB_SEED_AREAS.split(',').map((s) => s.trim()).filter(Boolean)
+const AREAS = process.env.VFKB_SEED_AREAS
+  ? process.env.VFKB_SEED_AREAS.split(',').map((s) => s.trim()).filter(Boolean)
   : DEFAULT_AREAS;
 const FILE_TYPE = { 'facts.jsonl': 'fact', 'decisions.jsonl': 'decision', 'gotchas.jsonl': 'gotcha', 'patterns.jsonl': 'pattern' };
 const PROV_OK = new Set(['verified', 'unverified', 'stale', 'expired']);

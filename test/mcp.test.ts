@@ -20,13 +20,13 @@ function callText(r: unknown): string {
 }
 
 beforeAll(async () => {
-  brain = mkdtempSync(join(tmpdir(), 'vtfkb-mcp-'));
+  brain = mkdtempSync(join(tmpdir(), 'vfkb-mcp-'));
   transport = new StdioClientTransport({
     command: process.execPath, // node
     args: [serverPath],
-    env: { ...process.env, VTFKB_DIR: brain },
+    env: { ...process.env, VFKB_DIR: brain },
   });
-  client = new Client({ name: 'vtfkb-test-client', version: '0.0.0' });
+  client = new Client({ name: 'vfkb-test-client', version: '0.0.0' });
   await client.connect(transport);
 }, 30_000);
 
@@ -54,14 +54,14 @@ describe('tools/call round-trips through the real engine', () => {
   it('kb_add -> kb_search -> kb_get', async () => {
     const add = await client.callTool({
       name: 'kb_add',
-      arguments: { type: 'decision', text: 'adopt vtfkb MCP', status: 'accepted', constitutional: true },
+      arguments: { type: 'decision', text: 'adopt vfkb MCP', status: 'accepted', constitutional: true },
     });
     const addText = callText(add);
-    expect(addText).toMatch(/added .* adopt vtfkb MCP/);
+    expect(addText).toMatch(/added .* adopt vfkb MCP/);
     const id = addText.split(' ')[1];
 
-    const search = await client.callTool({ name: 'kb_search', arguments: { text: 'vtfkb' } });
-    expect(callText(search)).toContain('adopt vtfkb MCP');
+    const search = await client.callTool({ name: 'kb_search', arguments: { text: 'vfkb' } });
+    expect(callText(search)).toContain('adopt vfkb MCP');
 
     const get = await client.callTool({ name: 'kb_get', arguments: { id } });
     const parsed = JSON.parse(callText(get));
@@ -106,19 +106,19 @@ describe('tools/call round-trips through the real engine', () => {
 });
 
 // H2a §3.1 — in the fleet the harness (not the model) must stamp who wrote an entry.
-// VTFKB_ROLE, set per-pod by the harness, is the authoritative author.role.
-describe('VTFKB_ROLE harness-stamped attribution', () => {
+// VFKB_ROLE, set per-pod by the harness, is the authoritative author.role.
+describe('VFKB_ROLE harness-stamped attribution', () => {
   let c: Client;
   let t: StdioClientTransport;
 
   beforeAll(async () => {
-    const b = mkdtempSync(join(tmpdir(), 'vtfkb-role-'));
+    const b = mkdtempSync(join(tmpdir(), 'vfkb-role-'));
     t = new StdioClientTransport({
       command: process.execPath,
       args: [serverPath],
-      env: { ...process.env, VTFKB_DIR: b, VTFKB_ROLE: 'judge' },
+      env: { ...process.env, VFKB_DIR: b, VFKB_ROLE: 'judge' },
     });
-    c = new Client({ name: 'vtfkb-role-client', version: '0.0.0' });
+    c = new Client({ name: 'vfkb-role-client', version: '0.0.0' });
     await c.connect(t);
   }, 30_000);
 
@@ -126,7 +126,7 @@ describe('VTFKB_ROLE harness-stamped attribution', () => {
     await c?.close();
   });
 
-  it('stamps author.role from VTFKB_ROLE when the model omits role', async () => {
+  it('stamps author.role from VFKB_ROLE when the model omits role', async () => {
     const add = await c.callTool({ name: 'kb_add', arguments: { type: 'fact', text: 'role-from-env fact' } });
     const id = callText(add).split(' ')[1];
     const get = await c.callTool({ name: 'kb_get', arguments: { id } });
