@@ -12,7 +12,7 @@
 
 ## Context
 
-vtfkb's knowledge gets in two ways today: **explicit writes** (`kb_add`) and **Tier-B passive
+vfkb's knowledge gets in two ways today: **explicit writes** (`kb_add`) and **Tier-B passive
 capture**, which currently logs only a dumb `"Tool X invoked"` `fact` into `incoming`
 (`engine.captureToolCall`). As the fleet's write volume grows, two problems bite — the ones D7b and
 [STATUS-AND-ROADMAP §3](../STATUS-AND-ROADMAP.md) name:
@@ -48,7 +48,7 @@ Two cooperating halves over the existing engine, both **non-destructive** and **
    write `established`/operator trust. A bad distillation therefore sits in `incoming`, is clearly
    trust-labelled, and is governed by [ADR-0005](../adr/ADR-0005-injection-filters-stale.md) (injected
    only if eligible, always labelled). The trusted set is never polluted by machine extraction.
-3. **No self-pollution** — auto-distill keeps the existing skip of vtfkb's own `kb_*`/`mcp__vtfkb__*`
+3. **No self-pollution** — auto-distill keeps the existing skip of vfkb's own `kb_*`/`mcp__vfkb__*`
    tool calls (commit `31f4266`).
 
 ### B. The ACE curator — the maintenance side (deltas + counters, never rewrites)

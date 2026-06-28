@@ -1,4 +1,4 @@
-# vtfkb — H4 Development Roadmap (the active, in-repo frontier)
+# vfkb — H4 Development Roadmap (the active, in-repo frontier)
 
 > **Type:** sequenced build plan for the H4 "robustness & quality" frontier. **Created:** 2026-06-25.
 > **Re-ratified:** 2026-06-27 (added Track 5 dockerized L4 substrate + Track 4 Track-1 L4 coverage; ADR-0022).
@@ -25,9 +25,9 @@ frontier is EXHAUSTED.** Beyond that:
 | Area | State |
 |---|---|
 | Search hardening | **[done]** relevance-primary (ADR-0016) + relevance floor (ADR-0017) + honest no-match (ADR-0018) |
-| Self-hosted design-brain | **[done]** ADR-0019 — vtfkb dogfoods its own `.vtfkb/` (committed SoR + ADR/RFC link-index) |
+| Self-hosted design-brain | **[done]** ADR-0019 — vfkb dogfoods its own `.vfkb/` (committed SoR + ADR/RFC link-index) |
 | L4 cross-model eval | **[done, v1-only]** 5 harness/model records, 22 scenarios each (deepseek-v4-pro 22/22; 2 known divergences: `tool-gating`, `capture-recall`) — but the 22 **predate Track 1**: M1–M3 have **no** L4 coverage (audit 2026-06-27) → **Track 4** |
-| L4 methodology | **[Track 5 done 2026-06-27]** ADR-0022 — dockerized pi (`vtfkb-l4-pi:dev`, 22/22) + claude (`vtfkb-l4-claude:dev`, 21/22 via Max-subscription OAuth) substrates both reproduce host baselines at N=3, no divergences → **Track 4** next |
+| L4 methodology | **[Track 5 done 2026-06-27]** ADR-0022 — dockerized pi (`vfkb-l4-pi:dev`, 22/22) + claude (`vfkb-l4-claude:dev`, 21/22 via Max-subscription OAuth) substrates both reproduce host baselines at N=3, no divergences → **Track 4** next |
 | Track-1 L4 coverage | **[6 core done 2026-06-27]** all 6 Track-1 scenarios ✅ (pi 28/28, claude 27/28); exposed+fixed a pi resume gap, logged pi live-capture + corroborated-promotion-trust-render findings. **Track 4b COMPLETE:** role-precedence ✅, D-i `verified-only-filter` ✅, D-iii `promotion-relabel` ✅ (ADR-0024), D-iv `live-capture-result` ✅ (pi 3/3; claude external-blocked), D-ii `kb-context-first-read` ✅ (pi/claude 3/3, ADR-0025). **In-repo H4 frontier exhausted.** |
 | Dogfood smoke | **[done]** check 6 hardened — deterministic `tools/list` preflight (6a) + bounded LLM retry (6b) |
 | **Session continuity** | **[DONE]** ADR-0020 / RFC-005 — M1 (`ff61215`) + M3 (resume digest folds distilled lessons, trust-labelled, derived) |
@@ -89,7 +89,7 @@ Three facts drive the sequence:
 Append-only per-session record (`SessionState` extended) + derived digest (added/superseded
 re-derived from the brain window; injected/captured/turns from the record; note/signals labelled
 ASSERTED) + the Tier-A **resume render** + `resume`/`resume-note` CLI + `kb_resume` MCP tool (8 tools).
-- ✅ Dogfooded on vtfkb's own brain (ADR-0019); ✅ resume obeys ADR-0005 + the 10k budget.
+- ✅ Dogfooded on vfkb's own brain (ADR-0019); ✅ resume obeys ADR-0005 + the 10k budget.
 - ✅ Gate met: `test/resume.test.ts` proves the digest **cannot go stale** (a mutated brain
   re-derives a different digest from the SAME record) — the deterministic P2 backstop. **69/69 green.**
 
@@ -103,7 +103,7 @@ supersede/transition-only.
 - ✅ Gate met: **the structural Brake** (`test/curator.test.ts`) asserts every op leaves entry text
   **byte-identical** — any in-place rewrite fails the build (L12 can't sneak in via prose). Plus a
   **retrieval-quality regression** (a dedup pass keeps the answer surfacing, drops only the duplicate).
-  CLI `curate`; dogfooded on vtfkb's own brain. **76/76 green.**
+  CLI `curate`; dogfooded on vfkb's own brain. **76/76 green.**
 
 **M2b. Distiller write-side + counters — `[DONE]`** (`src/distiller.ts`, `src/counters.ts`, +`promoteIfCorroborated`)
 The deterministic `Distiller` (a captured **failure** → a candidate gotcha written **only** to
@@ -114,7 +114,7 @@ counter signal on the existing candidate instead of duplicating it.
 - *Gate — MET:* distiller writes only to `incoming`/unverified/agent (a deterministic **containment Brake**,
   `test/distiller.test.ts`); counters never mutate an entry (append-only test — entry text+`updated` byte-stable);
   promotion needs ≥`PROMOTION_THRESHOLD` net corroborating signals (`promoteIfCorroborated` refuses below it —
-  "auto-distill alone cannot mint trusted knowledge"); 84/84 green; dogfooded on `.vtfkb` (clean no-op, no
+  "auto-distill alone cannot mint trusted knowledge"); 84/84 green; dogfooded on `.vfkb` (clean no-op, no
   pollution) + full loop proven in a temp brain. The build trigger was the operator go-ahead (2026-06-25).
 - *Sub-decisions settled (2026-06-25):* **(a) counter storage = operational/gitignored** at
   `<brain>/.signals/counters.jsonl`, mirroring `.sessions` — the durable effect (promotion) lands in the
@@ -133,7 +133,7 @@ record (`lastAt`) so freshly-distilled lessons fall inside `[startedAt, lastAt]`
 - *Gate — MET:* the digest surfaces distilled `incoming` lessons trust-labelled; the M1 "cannot go
   stale" property still holds — the section is **derived** from the live brain, so a lesson later
   promoted (zone≠incoming) or archived drops out on the next render (anti-stale test). 87/87 green;
-  dogfooded — full capture→distill→next-session-resume loop in a temp brain; the real `.vtfkb` honestly
+  dogfooded — full capture→distill→next-session-resume loop in a temp brain; the real `.vfkb` honestly
   omits the section (no distilled lessons there).
 
 ### Track 2 — Search robustness (embeddings)  *(parallel, evidence-gated)*
@@ -155,7 +155,7 @@ new ADR superseding the Tier-C clause) only when they are fixed.* No work until 
 ### Track 5 — L4 methodology: dockerized harnesses  *(COMPLETE — T5a ✅ + T5b ✅, 2026-06-27)*  ([ADR-0022](adr/ADR-0022-l4-evaluation-methodology.md))
 
 Re-platform the L4 harness onto **pinned, self-contained containers** (operator decision 2026-06-27:
-self-contained docker images, not the `vfa` orchestrator). The contrast methodology (`vtfkb` vs
+self-contained docker images, not the `vfa` orchestrator). The contrast methodology (`vfkb` vs
 `naive`/`none`) and the observable-effects rule are **unchanged**; this changes only *where* the agent runs.
 Builds before Track 4 so the new cross-session scenarios get a reproducible, sandboxed home and the existing
 22 are re-recorded cleanly. Two slices:
@@ -169,7 +169,7 @@ so the agent's writes persist to the host mount; cross-session via threaded `KB_
 with **image digest + per-scenario trial pass-rate**; `compare.mjs` renders pass-rate. Dockerized runs record
 to a distinct `__docker` slug so the host baseline is never clobbered. `PI_MODE=host` remains an escape hatch.
 - *Gate (deterministic backstop, P2) — **MET**:* all **22 scenarios reproduced in-container** on
-  `vtfkb-l4-pi:dev` (digest `sha256:09f2ff94…`) at N=3, **22/22 demonstrated**, matching the known-good host
+  `vfkb-l4-pi:dev` (digest `sha256:09f2ff94…`) at N=3, **22/22 demonstrated**, matching the known-good host
   pi record (deepseek-v4-pro 22/22) with **no divergences** (only `tool-gating` at 2/3, genuine model
   flakiness the trials absorb). The gate caught a real port bug — `tool-gating` embedded the *host* brain path
   in its prompt; fixed via `agentBrain()` to use the container `/brain`. Write-through proven: `capture-recall`
@@ -178,9 +178,9 @@ to a distinct `__docker` slug so the host baseline is never clobbered. `PI_MODE=
 
 **T5b. claude-code image — `[done 2026-06-27]`**
 `scenarios/docker/claude.Dockerfile` (node:20-slim + pinned `@anthropic-ai/claude-code` 2.1.195 + baked
-`dist`) → `vtfkb-l4-claude:dev`. The claude harness `run()` ported to `docker run` (mirrors the pi port:
+`dist`) → `vfkb-l4-claude:dev`. The claude harness `run()` ported to `docker run` (mirrors the pi port:
 uid-matched `/brain` mount, container-path `claudeSettings`/`mcpConfig`, `__docker` slug, N=3, `agentBrain()`
-for `tool-gating`; `VTFKB_L4_CLAUDE_MODE=host` escape hatch).
+for `tool-gating`; `VFKB_L4_CLAUDE_MODE=host` escape hatch).
 - *Auth — RESOLVED (operator decision 2026-06-27):* use the **Claude Code Max subscription OAuth**, not an
   `ANTHROPIC_API_KEY` (none set on this host). The harness mounts a **per-run throwaway copy** of
   `~/.claude/.credentials.json`'s `claudeAiOauth` block at `/work/.claude` (`mcpOAuth` dropped — privacy;
@@ -192,7 +192,7 @@ for `tool-gating`; `VTFKB_L4_CLAUDE_MODE=host` escape hatch).
 - *No-leak check — PASSED:* deterministic filesystem probe of the container (observed, not asserted): no host
   home, no host `~/.pi`/`~/.azure`, `~/.claude.json` `mcpServers` empty, mounted credential carries only
   `claudeAiOauth`.
-- *Gate — MET:* `vtfkb-l4-claude:dev` (digest `sha256:b65b9204…`) reproduced the host baseline **exactly at
+- *Gate — MET:* `vfkb-l4-claude:dev` (digest `sha256:b65b9204…`) reproduced the host baseline **exactly at
   N=3 — 21/22 demonstrated**, with `tool-gating` the sole non-demonstration on *both* substrates (the
   documented haiku model divergence, not a substrate effect); `compare.mjs` reports **no divergences**. The
   gate surfaced a real substrate effect — the multi-step MCP scenarios (kb_map→kb_search) exceeded the host
@@ -202,7 +202,7 @@ for `tool-gating`; `VTFKB_L4_CLAUDE_MODE=host` escape hatch).
 ### Track 4 — L4 coverage for Track 1  *(6 core scenarios ✅ COMPLETE 2026-06-27; Track 4b partials remain)*  (ADR-0020 / ADR-0021)
 
 The agent-level **purpose-demonstration** the audit found missing: prove a real agent behaves better
-*because of* Track 1. Each scenario keeps the `vtfkb`-vs-baseline contrast and asserts on observable effects.
+*because of* Track 1. Each scenario keeps the `vfkb`-vs-baseline contrast and asserts on observable effects.
 **Scope note:** the curator never-rewrite Brake + append-only counters are *structural invariants* — they
 stay **deterministic unit tests** (ADR-0021 §5; principle #4); L4 only exercises agent-observable behavior.
 
@@ -210,7 +210,7 @@ stay **deterministic unit tests** (ADR-0021 §5; principle #4); L4 only exercise
 live bundle at session start, *not* the resume render — so ADR-0020 pt 5 (the Resume render as the Tier-A
 session-start injection) was **undelivered on the pi harness** (the claude `hook session-start` already did
 it). Fixed: `pi-extension` `before_agent_start` now injects `renderResume` (parity). Full pi re-validation
-after the change: **23/23 at N=3** on the rebuilt image (`vtfkb-l4-pi:dev` `sha256:bdd2dfd2…`) — no
+after the change: **23/23 at N=3** on the rebuilt image (`vfkb-l4-pi:dev` `sha256:bdd2dfd2…`) — no
 regression. This is Track 4 doing its job: a purpose-demonstration scenario exposed a real delivery gap.
 
 | Scenario | Asserts (ADR) | Shape | Status |
@@ -232,11 +232,11 @@ at the **deterministic gate** (net ≥2 promotes; <2 refused) rather than as a (
 so the elevation is agent-visible — otherwise corroborated promotion has no agent-observable effect.
 
 - *Gate:* each scenario `demonstrated` on ≥2/3 trials on **both** images (pi + claude — auth is wired);
-  recorded into `scenarios/records/__docker`. Dogfood the continuity scenarios against vtfkb's own brain
+  recorded into `scenarios/records/__docker`. Dogfood the continuity scenarios against vfkb's own brain
   shape (ADR-0019). `continuity-resume` met it: **pi 3/3, claude 3/3** (records carry image digest + N=3).
 - *Harness additions for cross-session (2026-06-27):* `KB_SESSION_ID` is now threaded into the **claude**
   docker run (was pi-only) so `SessionState` persists a record across containers; a scenario sets a prior
-  session's note host-side via `vtfkb resume-note` (`KB_SESSION_ID=s1`), and seeds a captured tool failure
+  session's note host-side via `vfkb resume-note` (`KB_SESSION_ID=s1`), and seeds a captured tool failure
   via the real `hook post-tool-use` CLI (harness-agnostic capture seam).
 - *Finding (2026-06-27, surfaced by `auto-distill-recall`):* the **pi live extension** captures tool calls at
   the `tool_call` event — *before* execution, so **without the result** → every live pi capture is classified
@@ -254,7 +254,7 @@ the mechanism exists) — which immediately split them into one delivered + two 
 |---|---|---|---|
 | `role-precedence` | §3.3 attribution-as-precedence | `rerank`/`withinTierScore` weights operator-trust +3, verified +1 → **delivered** | **✅ pi 3/3, claude 3/3** |
 | `verified-only-filter` | §3.6 trust gradient | `kb_search` had no provenance-`verified` filter → **now built** (`verified` param on `kb_search` + `--verified` CLI + `verifiedOnly` in the engine, filters `provenance.status === 'verified'`); RED-first confirmed on both harnesses, then green | **✅ D-i DONE: pi 2/3, claude 2/3** |
-| `kb-context-first-read` | §3.7 context doc | was unbuilt → **now built** (D-ii/ADR-0025): `kb_context` MCP tool + CLI `vtfkb context` return an assembled doc = authored spine (`<brain>/context.md`) + derived Constitution/Map/decisions; on-demand | **✅ D-ii DONE: pi 3/3, claude 3/3** |
+| `kb-context-first-read` | §3.7 context doc | was unbuilt → **now built** (D-ii/ADR-0025): `kb_context` MCP tool + CLI `vfkb context` return an assembled doc = authored spine (`<brain>/context.md`) + derived Constitution/Map/decisions; on-demand | **✅ D-ii DONE: pi 3/3, claude 3/3** |
 | `promotion-relabel` | §3.6 + ADR-0021 §4 | corroborated promotion was zone-only → **now built** (D-iii/ADR-0024): `promoteIfCorroborated` re-stamps `provenance.status='verified'` (agent-observable via D-i's verified filter); distiller drops "(unverified)" from new text | **✅ D-iii DONE: pi 2/3, claude 2/3** |
 | `live-capture-result` | ADR-0021 capture | pi captured at `tool_call` (no result) → couldn't auto-distill a LIVE failure → **now built** (D-iv): `pi.on('tool_execution_end')` captures WITH result+isError; `hook post-tool-use` reads claude's `tool_response` | **✅ D-iv DONE: pi 3/3** (claude failure-capture external-blocked — gated to pi) |
 
@@ -294,7 +294,7 @@ to T5b per SOP, not gating T5a.
 which conflicted with the bare order. Resolved: an **explicit operator go-ahead** is a valid trigger
 (the same escape hatch S1 carries), and the operator gave it — so M2 builds now, non-speculatively.
 
-**This order is a standing authorization, not a menu.** For in-repo vtfkb development, this roadmap
+**This order is a standing authorization, not a menu.** For in-repo vfkb development, this roadmap
 *is* the decision — proceed through it in order **without per-step approval**. Do **not** ask "what's
 next" or "M1 or M2"; the next action is whatever this section names. The decision points are the
 **gates** listed per milestone in §3 (and the explicit triggers for S1/P1) — those, not "what's
@@ -306,12 +306,12 @@ next," are where judgment is applied.
 3. a **blocker or new fork appears** that this roadmap does not already decide.
 
 In all three cases the response is the same: **update this roadmap and re-ratify it**, then continue
-— never leave the next step to an ad-hoc question. (Scope: in-repo `vtfkb` only; vafi/vtaskforge
+— never leave the next step to an ad-hoc question. (Scope: in-repo `vfkb` only; vafi/vtaskforge
 work stays out-of-scope/HITL per H2.)
 
 ### ▶ Current action — **NONE: Track 4b complete, in-repo H4 frontier EXHAUSTED** (was D-ii, shipped 2026-06-28)
 **Track 1 complete** (M1–M3; now 95/95). **Track 5 complete** (2026-06-27): both dockerized substrates reproduce
-their host baselines at N=3 (T5a pi `vtfkb-l4-pi:dev` 22/22; T5b claude `vtfkb-l4-claude:dev` 21/22 via
+their host baselines at N=3 (T5a pi `vfkb-l4-pi:dev` 22/22; T5b claude `vfkb-l4-claude:dev` 21/22 via
 Max-subscription OAuth, no API key). **Track 4 core COMPLETE** (2026-06-27) — all 6 Track-1 scenarios, pi
 28/28, claude 27/28 (`tool-gating` the known haiku divergence):
 - `continuity-resume` (pi 3/3, claude 3/3) — surfaced + fixed a real ADR-0020 delivery gap (pi wasn't
@@ -358,9 +358,9 @@ order — §5 P8/roadmap-as-authority). Built scenario-first, lower priority tha
 - **D-ii — `✅ DONE` (2026-06-28, ADR-0025 ← RFC-007, operator-approved)** the context-doc + `kb_context`
   feature (FEATURES §3.7 / D-O8). At the autonomy ceiling the RFC was drafted and brought back; the operator
   approved the recommended shape ("proceed"). Built as an **assembled** artifact: an authored Markdown spine
-  (`<brain>/context.md`, editable, `vtfkb context init` scaffolds it) STITCHED with derived sections vtfkb
+  (`<brain>/context.md`, editable, `vfkb context init` scaffolds it) STITCHED with derived sections vfkb
   already owns (Constitution, Map, load-bearing decisions, links) so the high-churn half never drifts. Read
-  **on-demand** via the `kb_context` MCP tool (+ CLI `vtfkb context`) — NOT auto-injected (session-start keeps
+  **on-demand** via the `kb_context` MCP tool (+ CLI `vfkb context`) — NOT auto-injected (session-start keeps
   the budget-bounded map+resume). No new entry type. Scenario-first: `kb-context-first-read` run RED before the
   tool existed, then green — **pi 3/3, claude 3/3**. +3 unit tests + mcp tool-set test updated (95/95).
 
@@ -390,7 +390,7 @@ The two still-gated tracks are unchanged and NOT built on spec:
 regression. **M2b** = deterministic distiller (failure→candidate gotcha, `incoming`-only containment Brake)
 + append-only counter stream (aggregated at read) + corroborated promotion (`promoteIfCorroborated`);
 capture now retains a bounded ok/error outcome. **M3** = the resume digest folds the session's auto-distilled
-`incoming` lessons in, trust-labelled + derived (anti-stale holds). All dogfooded on vtfkb's own brain; each
+`incoming` lessons in, trust-labelled + derived (anti-stale holds). All dogfooded on vfkb's own brain; each
 behind an accepted ADR (0020 / 0021).
 
 ---
@@ -403,7 +403,7 @@ These are the invariants every item above must honour — they are *why* the pla
    decides the *shape*; the build is mechanical once accepted ("runbook complete before execute").
 2. **Evidence-gated, never speculative.** Gated items (S1) stay gated until real evidence or an
    explicit ask. Deciding the shape early ≠ building early.
-3. **Dogfood each enhancement on vtfkb's own brain** (ADR-0019) before claiming it works.
+3. **Dogfood each enhancement on vfkb's own brain** (ADR-0019) before claiming it works.
 4. **Deterministic backstop > probabilistic gate** (P2). Every probabilistic check (LLM, L4) gets a
    deterministic unit/wire-level backstop; that backstop is the real gate.
 5. **Derived-not-dictated; deltas-not-rewrites; no native dep on the hot path.** The three standing

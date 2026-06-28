@@ -1,4 +1,4 @@
-// vtfkb engine facade. The storage kernel lives in storage.ts (append-only JSONL,
+// vfkb engine facade. The storage kernel lives in storage.ts (append-only JSONL,
 // tombstones, LWW, content-hash freshness — ADR-0013/0014) and the read index in
 // index-store.ts. This module is: schema defaults, the injection FILTER (ADR-0005),
 // the tiered Heuristic reranker (ADR-0012), the budgeted render (ADR-0015), capture.
@@ -212,12 +212,12 @@ export function renderContextMap(map: ContextMap = buildContextMap()): string {
     (d.deprecated ? ` · ${d.deprecated} deprecated` : '');
   const tags = map.topTags.length ? map.topTags.map((t) => `${t.tag}(${t.n})`).join(' ') : '(none)';
   return (
-    `<vtfkb-map>\n` +
+    `<vfkb-map>\n` +
     `${map.total} entries · ${types} · zones: established ${map.byZone.established}/incoming ${map.byZone.incoming}\n` +
     `${decLine}\n` +
     `top tags: ${tags}\n` +
     `pull more: search <terms> · filter by type/tag/status/author\n` +
-    `</vtfkb-map>`
+    `</vfkb-map>`
   );
 }
 
@@ -383,8 +383,8 @@ export function renderContextBundle(project = 'spike', budget = SESSION_BUDGET_C
   const today = nowIso().slice(0, 10);
   const superseded = supersededIds(all);
   const injectable = rerank(all.filter((e) => isInjectable(e, today, superseded)));
-  const header = `<vtfkb-context project="${project}">\n`;
-  const footer = `\n</vtfkb-context>`;
+  const header = `<vfkb-context project="${project}">\n`;
+  const footer = `\n</vfkb-context>`;
   let body = '';
 
   // Constitution always leads (ADR-0008): accepted, constitutional, non-superseded
@@ -423,7 +423,7 @@ export function renderContextBundle(project = 'spike', budget = SESSION_BUDGET_C
 // --- Project context document (D-ii / ADR-0025 ← RFC-007): the agent's first read.
 // An ASSEMBLED artifact: the AUTHORED narrative spine (<brain>/context.md — job-to-be-done,
 // architecture, tech profile, conventions, Vision/Taste per ADR-0010) STITCHED with DERIVED
-// sections vtfkb already owns (Constitution ADR-0008, Context Map ADR-0006, load-bearing
+// sections vfkb already owns (Constitution ADR-0008, Context Map ADR-0006, load-bearing
 // decisions, links). The derived half is rendered live so it never drifts into a stale
 // hand-copy (the RFC-005 anti-drift lesson). Read ON-DEMAND via kb_context — NOT auto-injected
 // (session-start keeps the budget-bounded map+resume; ADR-0015). No new entry type.
@@ -464,7 +464,7 @@ export function renderContext(project = 'spike'): string {
     out.push('<!-- authored spine (architect-maintained) -->', spine, '');
   } else {
     out.push(
-      '_(no authored context spine yet — run `vtfkb context init` to scaffold `context.md`. The derived sections below are always current.)_',
+      '_(no authored context spine yet — run `vfkb context init` to scaffold `context.md`. The derived sections below are always current.)_',
       '',
     );
   }
@@ -539,12 +539,12 @@ export interface ToolEvent {
   call_id?: string;
 }
 
-// vtfkb's own knowledge tools (bare `kb_*` or harness-namespaced `mcp__vtfkb__*`).
+// vfkb's own knowledge tools (bare `kb_*` or harness-namespaced `mcp__vfkb__*`).
 // Capturing an agent reading/writing its own brain is self-pollution — the noise
 // then gets re-surfaced by search/injection. Never capture these.
 function isOwnKnowledgeTool(name: string): boolean {
   const n = name.toLowerCase();
-  return n.startsWith('kb_') || n.includes('vtfkb');
+  return n.startsWith('kb_') || n.includes('vfkb');
 }
 
 // Bounded outcome classification (M2b, ADR-0021 sub-decision b). We retain a MINIMAL,
@@ -619,12 +619,12 @@ export function renderContextDelta(session: SessionState, project = 'spike'): st
   if (fresh.length === 0) return '';
   session.markInjected(fresh.map((e) => e.id));
   const lines = fresh.map((e) => `- [${e.type} ${trustGlyph(e)}] ${e.text}`).join('\n');
-  return `<vtfkb-context-delta project="${project}">\n${lines}\n</vtfkb-context-delta>`;
+  return `<vfkb-context-delta project="${project}">\n${lines}\n</vfkb-context-delta>`;
 }
 
 // =========================================================================
-// Session continuity (ADR-0020 / RFC-005) — vtfkb's knowledge half of the
-// vtf/vtfkb seam. The resume DIGEST is DERIVED from a session record's signals
+// Session continuity (ADR-0020 / RFC-005) — vfkb's knowledge half of the
+// vtf/vfkb seam. The resume DIGEST is DERIVED from a session record's signals
 // against the LIVE brain at render time, never a stored prose blob — so it
 // cannot go stale (the failure that opened this work). The "Resume" view is a
 // Tier-A render: the prior-session digest + the live knowledge bundle, both
@@ -694,7 +694,7 @@ export function renderResume(project = 'spike', session: SessionState = SessionS
   const digest = prior
     ? renderResumeDigest(prior, all)
     : '## Resume\n- (first recorded session — no prior continuity)';
-  const head = `<vtfkb-resume project="${project}">\n${digest}\n</vtfkb-resume>`;
+  const head = `<vfkb-resume project="${project}">\n${digest}\n</vfkb-resume>`;
   const bundle = renderContextBundle(project, Math.max(0, SESSION_BUDGET_CHARS - head.length - 1));
   return `${head}\n${bundle}`;
 }

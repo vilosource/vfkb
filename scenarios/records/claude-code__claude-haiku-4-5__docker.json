@@ -4,7 +4,7 @@
   "provider": "claude-code",
   "slug": "claude-code__claude-haiku-4-5__docker",
   "generated": "2026-06-28T04:28:38.839Z",
-  "vtfkb_sha": "afe9dac",
+  "vfkb_sha": "afe9dac",
   "scenarios": {
     "stale-supersession": {
       "dim": "exclude:supersession",
@@ -13,7 +13,7 @@
       "passRate": 1,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "corrected",
           "prompt": "What hostname must I use to connect to the prod database right now? Reply with ONLY the hostname.",
@@ -35,7 +35,7 @@
       "passRate": 1,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "current",
           "prompt": "What is the CURRENT API base host? Reply with ONLY the host.",
@@ -57,7 +57,7 @@
       "passRate": 1,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "active",
           "prompt": "Which auth library should a new module use? Reply with ONLY the library name.",
@@ -79,7 +79,7 @@
       "passRate": 1,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "current",
           "prompt": "What is the metrics endpoint path? Reply with ONLY the path.",
@@ -101,7 +101,7 @@
       "passRate": 1,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "corrected",
           "prompt": "What is the current canary cohort id? Reply with ONLY the id.",
@@ -123,7 +123,7 @@
       "passRate": 1,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "policy",
           "prompt": "We are scaffolding a new internal HTTP service. Which TCP port should it listen on? Reply with ONLY the port number.",
@@ -145,7 +145,7 @@
       "passRate": 1,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "port✓ prefix✓",
           "prompt": "For a new internal service, state the listen port and the required log-line prefix. Reply exactly as: PORT=<n> PREFIX=<p>",
@@ -167,7 +167,7 @@
       "passRate": 1,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "project-cmd",
           "prompt": "What is the exact command to deploy our app? Reply with ONLY the command.",
@@ -189,7 +189,7 @@
       "passRate": 1,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "checks-body",
           "prompt": "How do I reliably tell whether our service's database is up, using the health endpoint? Be specific about exactly what to check.",
@@ -211,7 +211,7 @@
       "passRate": 1,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "house-format",
           "prompt": "Print the single line our CLI should output for error code 42. Output only that line.",
@@ -233,7 +233,7 @@
       "passRate": 1,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "decision",
           "prompt": "Which message queue should a new service use? Reply with ONLY the product name.",
@@ -255,7 +255,7 @@
       "passRate": 1,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "delivered(labelled)",
           "prompt": "What is our staging bucket path? Reply with ONLY the path.",
@@ -277,7 +277,7 @@
       "passRate": 1,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "host✓ port✓",
           "prompt": "Give the full host:port to reach the billing service. Reply with ONLY host:port.",
@@ -299,7 +299,7 @@
       "passRate": 1,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "latest-in-chain",
           "prompt": "What is the current release channel? Reply with ONLY the channel id.",
@@ -321,7 +321,7 @@
       "passRate": 1,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "link delivered",
           "prompt": "What is the URL of our deploy runbook? Reply with ONLY the URL.",
@@ -343,7 +343,7 @@
       "passRate": 1,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "house-prefix",
           "prompt": "Name the module that should hold our shared date helpers. Reply with ONLY the module name.",
@@ -371,7 +371,7 @@
           "output": ""
         },
         {
-          "label": "claude:recall:vtfkb",
+          "label": "claude:recall:vfkb",
           "pass": true,
           "detail": "recalled",
           "output": "BUILD-SIGIL-44Q"
@@ -485,7 +485,7 @@
       "passRate": 1,
       "rows": [
         {
-          "label": "claude:resume:vtfkb",
+          "label": "claude:resume:vfkb",
           "pass": true,
           "detail": "resumed next-task",
           "output": "Finish wiring the token-refresh path in module auth_zx9q before the cutover."
@@ -505,7 +505,7 @@
       "passRate": 1,
       "rows": [
         {
-          "label": "claude:resume:vtfkb",
+          "label": "claude:resume:vfkb",
           "pass": true,
           "detail": "corrected",
           "output": "cluster-green-9p"
@@ -551,7 +551,7 @@
           "output": ""
         },
         {
-          "label": "claude:recall:vtfkb",
+          "label": "claude:recall:vfkb",
           "pass": true,
           "detail": "recalled lesson",
           "output": "`/etc/probe_qz8x.cfg`"
@@ -611,7 +611,7 @@
       "passRate": 1,
       "rows": [
         {
-          "label": "claude:vtfkb",
+          "label": "claude:vfkb",
           "pass": true,
           "detail": "authoritative",
           "prompt": "What is the authoritative default deploy region per our recorded decisions? Reply with ONLY the region id.",
@@ -662,7 +662,7 @@
           "label": "claude:not-promoted",
           "pass": true,
           "detail": "stays unverified (excluded)",
-          "output": "I have the tool schema loaded. Now I'll invoke mcp__vtfkb__kb_search with text=\"probe_qz8x\" and verified=true.\n\nNONE"
+          "output": "I have the tool schema loaded. Now I'll invoke mcp__vfkb__kb_search with text=\"probe_qz8x\" and verified=true.\n\nNONE"
         }
       ]
     },
@@ -688,6 +688,6 @@
     }
   },
   "trials_n": 3,
-  "image": "vtfkb-l4-claude:dev",
+  "image": "vfkb-l4-claude:dev",
   "image_digest": "sha256:0c662ab075559f3f58f6db7130706eee1fcd1da46728fb7eed8cf4c8eb9788d7"
 }

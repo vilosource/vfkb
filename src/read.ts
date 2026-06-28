@@ -1,4 +1,4 @@
-// vtfkb read layer (Phase 3). Filtered/searched retrieval — the D5c filters
+// vfkb read layer (Phase 3). Filtered/searched retrieval — the D5c filters
 // (status/zone/type/tags/author.role) over the storage kernel, with the ADR-0012
 // tiered reranker applied. Consumed by the CLI and (Phase 4) the MCP read tools.
 

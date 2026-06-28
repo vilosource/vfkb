@@ -8,17 +8,17 @@
 
 mykb compiled `better-sqlite3` (a **native** module) in-container; IMPL-PLAN L6
 records this as real deployment pain, and notes pi-mem demonstrated a **no-native-
-dep** memory in ~460 LOC. vtfkb's engine must bake into **four** agent images
+dep** memory in ~460 LOC. vfkb's engine must bake into **four** agent images
 (`vafi-developer:{claude,agy,pi,gemini}`), and the **deployment/loading path is
-vtfkb's #1 risk** (mykb's single hardest lesson; Phase 0 owns it). JSONL is the
+vfkb's #1 risk** (mykb's single hardest lesson; Phase 0 owns it). JSONL is the
 source of truth; SQLite/FTS5 was only ever the *disposable mirror*.
 
-Why SQLite was load-bearing for mykb but is **not** for vtfkb v1:
+Why SQLite was load-bearing for mykb but is **not** for vfkb v1:
 
 - mykb is invoked **process-per-CLI-call** over a multi-area, potentially large
   single-user brain → a persistent SQLite cache avoided rebuilding an index every
   invocation.
-- vtfkb's hot paths are **long-lived processes**: the Pi auto-layer is an
+- vfkb's hot paths are **long-lived processes**: the Pi auto-layer is an
   **in-process TS extension**; the Claude Code path is a **long-lived MCP server**.
   Both hold the index in memory across calls → there is no per-call rebuild cost to
   amortize. Only the thin debug CLI is process-per-call, and it is not a hot path.

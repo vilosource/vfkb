@@ -9,7 +9,7 @@
 An RFC ("we should consider X") is a **pre-decision** proposal with a comment
 period; an ADR ("we decided X") is post-decision. One RFC may spawn several ADRs.
 The ASDLC framework treats RFC and ADR as distinct artifacts. The question: does
-vtfkb need a distinct RFC entry type? ADR-0004 gave `decision` a **status
+vfkb need a distinct RFC entry type? ADR-0004 gave `decision` a **status
 lifecycle including `proposed`**, which changes the answer.
 
 ## Decision

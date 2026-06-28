@@ -68,7 +68,7 @@ function errorCaptures(capturedIds?: string[], all: KnowledgeEntry[] = readAll()
       e.type === 'fact' &&
       e.tags.includes('capture:error') &&
       e.provenance.origin?.kind === 'tool_call' &&
-      !/^kb_|vtfkb/i.test(toolOf(e)) &&
+      !/^kb_|vfkb/i.test(toolOf(e)) &&
       (!idSet || idSet.has(e.id)),
   );
 }

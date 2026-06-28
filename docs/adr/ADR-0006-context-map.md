@@ -6,7 +6,7 @@
 
 ## Context
 
-vtfkb has `kb_search` (pull — you must know what to search for) and the project
+vfkb has `kb_search` (pull — you must know what to search for) and the project
 **context doc** (D-O8 — a readable *narrative*). It lacks a **navigational index**
 that tells an agent *what knowledge exists and where* before fetching — the ASDLC
 *Context Map* (Index/Topology + Glossary + Routing Table), whose purpose is to

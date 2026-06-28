@@ -15,7 +15,7 @@
 
 ## Context
 
-Knowledge enters vtfkb via explicit `kb_add` and dumb Tier-B capture (`"Tool X invoked"` →
+Knowledge enters vfkb via explicit `kb_add` and dumb Tier-B capture (`"Tool X invoked"` →
 `incoming`). As fleet write-volume grows, lessons go uncaptured and the brain drifts (dupes/stale).
 This is the **riskiest H4 item**: a memory that writes/edits itself can *delete or corrupt* good
 knowledge. mykb already hit the trap ([L12](../IMPLEMENTATION-PLAN.md)) — its curator **rewrote whole

@@ -1,13 +1,13 @@
-# ADR-0002: vtfkb is a greenfield reimplementation; mykb is a studied spike
+# ADR-0002: vfkb is a greenfield reimplementation; mykb is a studied spike
 
 - **Status:** Accepted
 - **Date:** 2026-06-01
 - **Deciders:** operator + Claude
-- **Supersedes:** the "leaning evolve mykb" note in `vtfkb-DESIGN.md` §6/D6a
+- **Supersedes:** the "leaning evolve mykb" note in `vfkb-DESIGN.md` §6/D6a
 
 ## Context
 
-vtfkb will be built in TypeScript (ADR-0003), which makes literal reuse of mykb's
+vfkb will be built in TypeScript (ADR-0003), which makes literal reuse of mykb's
 TypeScript codebase *possible* — so the real question surfaced: **evolve/fork
 mykb, or reimplement clean?**
 
@@ -19,22 +19,22 @@ Those are precisely the assumptions a multi-agent, per-project factory memory
 should *not* inherit — and the only reliable way to not inherit them is to not
 start from that code.
 
-The operator's framing: the lineage **OSB → mykb → vtfkb** is generational. mykb
-did not fork OSB; it absorbed OSB's lessons and rebuilt better. vtfkb does the same
+The operator's framing: the lineage **OSB → mykb → vfkb** is generational. mykb
+did not fork OSB; it absorbed OSB's lessons and rebuilt better. vfkb does the same
 to mykb. mykb is best understood as a **spike** whose value is the knowledge it
 produced — one that happens to still run in production and can serve as a live
 oracle.
 
 ## Decision
 
-Reimplement vtfkb **greenfield in TypeScript**, treating mykb as a **reference /
+Reimplement vfkb **greenfield in TypeScript**, treating mykb as a **reference /
 oracle only — zero code inheritance, zero coupling to mykb's roadmap.** Harvest
 mykb's *lessons* (kernel shape: JSONL + SQLite/FTS; the scorer's relevance model;
 the prompt-cache injection lesson; the trust model; FTS quirks) but write the
 implementation fresh, to current engineering standards and the current
-understanding of agentic memory. vtfkb's design carries a **"Lessons from mykb
+understanding of agentic memory. vfkb's design carries a **"Lessons from mykb
 (the spike)"** record: per major choice — what mykb did, what it taught, what
-vtfkb does differently and why.
+vfkb does differently and why.
 
 ## Consequences
 
@@ -54,7 +54,7 @@ vtfkb does differently and why.
 
 ## Alternatives Considered
 
-- **Fork mykb into vtfkb and diverge** — rejected: inherits the old assumptions
+- **Fork mykb into vfkb and diverge** — rejected: inherits the old assumptions
   and pays drift cost forever (every kernel fix lands twice).
 - **Extend mykb in place / one codebase, two modes** — rejected: couples a
   personal tool to the factory's constraints and release cadence; bakes the

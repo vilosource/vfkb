@@ -47,7 +47,7 @@ This ADR amends ADR-0012. Three points:
    term, the Stage-1 relevance score is the **primary** sort key and the Heuristic
    comparator (type/trust/recency) is only the **tiebreak** among equally-relevant
    entries. Without a text term (listing + the injection bundle), the pure Heuristic
-   order stands. *Already implemented and tested* (vtfkb `2acad3e`); this ADR records
+   order stands. *Already implemented and tested* (vfkb `2acad3e`); this ADR records
    the decision the live turn forced. The ADR-0005 injection filter (hard gate) is
    unchanged.
 
@@ -115,4 +115,4 @@ unchanged), [ADR-0011](ADR-0011-envelope-richness.md) (envelope: derived
 trust/validity feeding the Heuristic), [ADR-0013](ADR-0013-no-hard-native-dep.md)
 (no hard native dep — constrains any embedding backend),
 [ADR-0015](ADR-0015-cross-harness-auto-layer.md) (the injection path).
-Evidence: vtfkb commits `2acad3e`, `f28f107`; devops-kb live turn 2026-06-06.
+Evidence: vfkb commits `2acad3e`, `f28f107`; devops-kb live turn 2026-06-06.

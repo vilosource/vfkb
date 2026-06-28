@@ -17,7 +17,7 @@ echo "== 3. SessionStart hook JSON =="
 echo '{}' | node dist/cli.js hook session-start | node -e 'const d=JSON.parse(require("fs").readFileSync(0,"utf8")); if(!d.hookSpecificOutput.additionalContext.includes("DOCKER-OK")) throw new Error("no inject"); console.log("PASS: valid hookSpecificOutput JSON carrying the bundle")'
 
 echo "== 4. Pi extension module loads (default export = function) =="
-node --input-type=module -e 'import ext from "/vtfkb/dist/pi-extension.js"; if(typeof ext!=="function") throw new Error("pi extension default export is not a function"); console.log("PASS: pi-extension.js loaded; default export is a function")'
+node --input-type=module -e 'import ext from "/vfkb/dist/pi-extension.js"; if(typeof ext!=="function") throw new Error("pi extension default export is not a function"); console.log("PASS: pi-extension.js loaded; default export is a function")'
 
 echo "== 5. Tier-B capture path =="
 echo '{"tool_name":"Bash","tool_input":{"command":"echo in-container"},"tool_use_id":"c9"}' | node dist/cli.js hook post-tool-use >/dev/null

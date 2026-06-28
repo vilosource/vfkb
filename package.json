@@ -1,7 +1,7 @@
 {
-  "name": "@vilosource/vtfkb",
+  "name": "@vilosource/vfkb",
   "version": "0.1.0",
-  "description": "vtfkb — VFSF per-project knowledge substrate. Greenfield TS (ADR-0001..0019).",
+  "description": "ViloForge KnowledgeBase (vfkb) — per-project knowledge substrate for the ViloForge software factory. Greenfield TypeScript.",
   "type": "module",
   "main": "dist/engine.js",
   "exports": {
@@ -11,15 +11,15 @@
     "./package.json": "./package.json"
   },
   "bin": {
-    "vtfkb": "dist/cli.js",
-    "vtfkb-mcp": "dist/mcp-server.js"
+    "vfkb": "dist/cli.js",
+    "vfkb-mcp": "dist/mcp-server.js"
   },
   "files": [
     "dist"
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/vilosource/vtfkb.git"
+    "url": "git+https://github.com/vilosource/vfkb.git"
   },
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"

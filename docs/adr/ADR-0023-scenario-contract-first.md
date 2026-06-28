@@ -14,7 +14,7 @@
 
 ## Context
 
-vtfkb's features split into two kinds. **Structural invariants** (the curator never-rewrite Brake,
+vfkb's features split into two kinds. **Structural invariants** (the curator never-rewrite Brake,
 append-only counters, supersession exclusion) are proved by **deterministic unit tests** — that is already
 their contract, and ADR-0022 #7 keeps them there. **Agent-observable behaviour** (a real agent behaves
 better *because of* a feature) is what the **L4 purpose-demonstration** scenarios exist to prove.
@@ -44,7 +44,7 @@ Definition of Done, authored as a contract and run RED before (or alongside) imp
 
 1. **Name the contract in the ADR/RFC.** A feature spec for agent-observable behaviour must state, up front,
    the scenario that would prove it: *what does a real agent observably do differently because of this, and
-   what is the `vtfkb`-vs-baseline contrast?* If that question has no answer, that is a **design finding before
+   what is the `vfkb`-vs-baseline contrast?* If that question has no answer, that is a **design finding before
    any code** (corroborated-promotion is the proof: the answer was "nothing observable" — which is the
    relabel-on-promotion decision, surfaced at design time instead of after shipping).
 2. **Write the scenario and run it RED first.** A red run proves the scenario exercises the *real* path and —

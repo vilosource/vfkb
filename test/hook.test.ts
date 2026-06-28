@@ -11,7 +11,7 @@ const CLI = resolve(__dirname, '../dist/cli.js');
 function runHook(brain: string, payload: object): void {
   execFileSync('node', [CLI, 'hook', 'post-tool-use'], {
     input: JSON.stringify(payload),
-    env: { ...process.env, VTFKB_DIR: brain },
+    env: { ...process.env, VFKB_DIR: brain },
   });
 }
 function captured(brain: string): Record<string, unknown> | undefined {
@@ -30,7 +30,7 @@ describe('post-tool-use hook — live result capture (D-iv)', () => {
     // Claude Code's PostToolUse payload carries the result under `tool_response` (verified
     // 2026-06-27), NOT `tool_result`. Without the fallback this records as capture:ok and the
     // distiller never fires on a real claude failure.
-    const b = mkdtempSync(join(tmpdir(), 'vtfkb-hook-'));
+    const b = mkdtempSync(join(tmpdir(), 'vfkb-hook-'));
     runHook(b, {
       tool_name: 'Bash',
       tool_input: { command: 'cat /nope' },
@@ -43,7 +43,7 @@ describe('post-tool-use hook — live result capture (D-iv)', () => {
   });
 
   it('still honors `tool_result` with precedence (host-side synthetic seam)', () => {
-    const b = mkdtempSync(join(tmpdir(), 'vtfkb-hook-'));
+    const b = mkdtempSync(join(tmpdir(), 'vfkb-hook-'));
     runHook(b, {
       tool_name: 'Bash',
       tool_input: { command: 'x' },

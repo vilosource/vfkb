@@ -13,13 +13,13 @@
   [ADR-0013](ADR-0013-no-hard-native-dep.md) (no native dep on the hot path), and
   [ADR-0015](ADR-0015-cross-harness-auto-layer.md) (the Tier-A/B/C surfaces a scenario exercises). The
   features under test are [ADR-0020](ADR-0020-session-continuity-record.md) /
-  [ADR-0021](ADR-0021-auto-distill-and-curator.md); first dogfood target is vtfkb's own brain
+  [ADR-0021](ADR-0021-auto-distill-and-curator.md); first dogfood target is vfkb's own brain
   ([ADR-0019](ADR-0019-self-hosted-design-brain.md)).
 
 ## Context
 
-The L4 harness proves vtfkb fulfils its **purpose** — a real agent behaves better *because of* vtfkb —
-by running each scenario as a black-box contrast (`vtfkb` vs a `naive`/`none` baseline) and asserting on
+The L4 harness proves vfkb fulfils its **purpose** — a real agent behaves better *because of* vfkb —
+by running each scenario as a black-box contrast (`vfkb` vs a `naive`/`none` baseline) and asserting on
 observable effects, never self-report. That design is sound and is preserved here.
 
 But the harness drives **host-installed** `claude` and `pi` against unpinned models, using the operator's
@@ -49,7 +49,7 @@ The L4 harness runs each agent inside a **pinned, self-contained container**; th
 
 1. **Self-contained images, not an external orchestrator.** A `scenarios/docker/` holds one Dockerfile per
    harness — `pi.Dockerfile` (node + `pi` + `DEEPSEEK_TOKEN`) and `claude.Dockerfile`
-   (node + `@anthropic-ai/claude-code`). vtfkb stays self-contained and CI-portable. (Rejected: delegating
+   (node + `@anthropic-ai/claude-code`). vfkb stays self-contained and CI-portable. (Rejected: delegating
    to the `vfa`/vf-agents orchestrator — see Alternatives.)
 2. **Brain mounted, uid-matched.** The per-scenario brain is bind-mounted; the container runs
    `--user $(id -u):$(id -g)` with `HOME` set so the agent's writes (`entries.jsonl`, `.sessions/<id>.json`)
@@ -104,16 +104,16 @@ The L4 harness runs each agent inside a **pinned, self-contained container**; th
   from running natively. Accepted — it is the cost of reproducibility.
 - **−** The claude-code image adds an auth dependency (API key + metered cost) distinct from the operator's
   subscription. Mitigated by building the pi image first and gating the claude image on auth.
-- **Neutral:** scenario semantics, the `vtfkb`/`naive`/`none` contrast, and the observable-effects rule are
+- **Neutral:** scenario semantics, the `vfkb`/`naive`/`none` contrast, and the observable-effects rule are
   unchanged; this ADR governs *where* the agent runs, not *what* is asserted.
 
 ## Alternatives Considered
 
 - **Keep the host harness, just add Track-1 scenarios.** Rejected — the new scenarios are cross-session and
   would inherit every reproducibility/leak weakness, then need re-porting.
-- **Delegate to the `vfa`/vf-agents orchestrator (mykb's kb-spike path).** Rejected for vtfkb — proven and
+- **Delegate to the `vfa`/vf-agents orchestrator (mykb's kb-spike path).** Rejected for vfkb — proven and
   fast, but its "claude-code" path is the z.ai GLM backend (**not** real Anthropic Claude, low fidelity to
-  how executors run), and it couples vtfkb's tests to the vf-agents stack. We borrow its *patterns*
+  how executors run), and it couples vfkb's tests to the vf-agents stack. We borrow its *patterns*
   (per-experiment build capture, `KB_SESSION_ID` threading, specimen protection, commit-every-step audit)
   without the dependency.
 - **z.ai/GLM proxy for the "claude" harness.** Rejected as the default — avoids an Anthropic key but tests a

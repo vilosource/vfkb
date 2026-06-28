@@ -18,7 +18,7 @@ loaded by **`kb_context`**, that orients any agent instantly (job-to-be-done, ar
 conventions, load-bearing decisions, links). [ADR-0010](ADR-0010-product-vision.md) already *assumed* this doc
 exists (it places the Vision/Taste narrative as "a section of the authored project context doc"), and
 [ADR-0006](ADR-0006-context-map.md) treats it as an authored artifact separate from the derived Map. But it was
-never built: vtfkb shipped entry-bundle injection + resume + the derived Map/Constitution — *the pile of
+never built: vfkb shipped entry-bundle injection + resume + the derived Map/Constitution — *the pile of
 entries and the map of what exists, but never the prose that frames them*. The `kb-context-first-read` scenario
 was RED for exactly this. RFC-007 raised the design at the D-ii autonomy ceiling; the operator approved the
 recommended shape ("proceed", 2026-06-28).
@@ -39,10 +39,10 @@ The project context doc is an **assembled artifact** read on demand via **`kb_co
    freely **editable** (architect-maintained; the never-rewrite Brake governs *entries* only). **No new entry
    type** (consistent with ADR-0008/0010). Committable with the self-hosted design brain
    ([ADR-0019](ADR-0019-self-hosted-design-brain.md)).
-3. **Surface = `kb_context` MCP tool + CLI `vtfkb context` [project], ON-DEMAND (Q3).** It is the agent's
+3. **Surface = `kb_context` MCP tool + CLI `vfkb context` [project], ON-DEMAND (Q3).** It is the agent's
    deliberate first read, **not** auto-injected — session-start keeps the budget-bounded map+resume
    ([ADR-0015](ADR-0015-cross-harness-auto-layer.md)); the full doc would blow the 10k Tier-A budget.
-4. **Seeded via `vtfkb context init` (Q4):** scaffolds the authored spine if absent (idempotent — never
+4. **Seeded via `vfkb context init` (Q4):** scaffolds the authored spine if absent (idempotent — never
    overwrites). v1 ships the scaffold + derived-section auto-fill; deep brownfield inference (architecture/
    tech-profile from the repo) is **deferred**.
 5. **One ADR (Q5)** covers the context-doc artifact + `kb_context`; the broader onboarding-schema D-O8 stays a
@@ -81,5 +81,5 @@ run RED before the tool existed, green after.
 [ADR-0008](ADR-0008-constitution-tier.md) (the sections it stitches), [ADR-0019](ADR-0019-self-hosted-design-brain.md)
 (spine home), [ADR-0015](ADR-0015-cross-harness-auto-layer.md) (budget), [ADR-0023](ADR-0023-scenario-contract-first.md)
 (method). Code: `renderContext` + `initContextSpine` (engine), `contextSpinePath`/`readContextSpine`/`writeContextSpine`
-(storage), `kb_context` (mcp-server), `vtfkb context`/`context init` (cli). Scenario: `kb-context-first-read`.
+(storage), `kb_context` (mcp-server), `vfkb context`/`context init` (cli). Scenario: `kb-context-first-read`.
 Roadmap: [H4-DEVELOPMENT-ROADMAP](../H4-DEVELOPMENT-ROADMAP.md) §4 D-ii.

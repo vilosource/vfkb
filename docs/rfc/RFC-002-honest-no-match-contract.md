@@ -31,7 +31,7 @@ recorded entry" and then answers from model priors as if that were recorded know
 **External corroboration.** AnythingLLM's **Query mode** answers *only* from documents and
 returns an explicit refusal ("no relevant documentation") on zero hits, versus **Chat
 mode** which blends model knowledge with documents. The explicit refusal is what keeps the
-agent honest about provenance. vtfkb is push-injection rather than chat — but its **MCP
+agent honest about provenance. vfkb is push-injection rather than chat — but its **MCP
 pull tools are precisely a query-mode surface**, and they currently lack query mode's
 honest-refusal contract.
 
@@ -59,7 +59,7 @@ honest-refusal contract.
    does **not** synthesise a natural-language "no recorded entry" string — it returns the
    structured outcome; the contract tells the agent how to interpret it. This keeps the
    guard **deterministic** (a reporting contract), not a probabilistic behavioural gate —
-   consistent with vtfkb's "deterministic backstop over probabilistic gate" principle.
+   consistent with vfkb's "deterministic backstop over probabilistic gate" principle.
 
 ## Consequences
 

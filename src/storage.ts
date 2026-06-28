@@ -1,4 +1,4 @@
-// vtfkb storage kernel (Phase 1). Append-only JSONL = source of truth (ADR-0013).
+// vfkb storage kernel (Phase 1). Append-only JSONL = source of truth (ADR-0013).
 // Pure Node stdlib, ZERO runtime deps. Records are entries OR tombstones; the
 // live set is *materialized* by last-write-wins on `updated` (merge=union-safe:
 // concatenating two branches' JSONL and re-materializing is order-independent).
@@ -21,7 +21,7 @@ export function isTombstone(r: StoredRecord): r is Tombstone {
 }
 
 export function brainDir(): string {
-  return process.env.VTFKB_DIR || join(homedir(), '.vtfkb');
+  return process.env.VFKB_DIR || join(homedir(), '.vfkb');
 }
 function recordsFile(): string {
   return join(brainDir(), 'entries.jsonl');

@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "VTFKB_DIR=/brain VTFKB_PROJECT=devops-kb node /opt/vtfkb/dist/cli.js hook session-start"
+            "command": "VFKB_DIR=/brain VFKB_PROJECT=devops-kb node /opt/vfkb/dist/cli.js hook session-start"
           }
         ]
       }
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node /opt/vtfkb/bash-guard.mjs"
+            "command": "node /opt/vfkb/bash-guard.mjs"
           }
         ]
       },
@@ -25,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "VTFKB_DIR=/brain node /opt/vtfkb/dist/cli.js hook pre-tool-use"
+            "command": "VFKB_DIR=/brain node /opt/vfkb/dist/cli.js hook pre-tool-use"
           }
         ]
       }
@@ -36,13 +36,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "VTFKB_DIR=/brain VTFKB_PROJECT=devops-kb node /opt/vtfkb/dist/cli.js hook post-tool-use"
+            "command": "VFKB_DIR=/brain VFKB_PROJECT=devops-kb node /opt/vfkb/dist/cli.js hook post-tool-use"
           }
         ]
       }
     ]
   },
   "permissions": {
-    "allow": ["Read", "Grep", "Glob", "Edit", "Write", "MultiEdit", "mcp__vtfkb"]
+    "allow": ["Read", "Grep", "Glob", "Edit", "Write", "MultiEdit", "mcp__vfkb"]
   }
 }

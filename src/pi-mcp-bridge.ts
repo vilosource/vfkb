@@ -1,4 +1,4 @@
-// vtfkb pi MCP bridge — gives pi genuine MCP capability (on par with Claude Code).
+// vfkb pi MCP bridge — gives pi genuine MCP capability (on par with Claude Code).
 //
 // pi ships NO MCP by design (its README: "build an extension that adds MCP support").
 // This is that extension: it reads a Claude-compatible mcpServers config, connects to
@@ -6,9 +6,9 @@
 // their tools, and registers each as a native pi tool named `mcp__<server>__<tool>`
 // (matching Claude Code's naming) that proxies to the server.
 //
-// Config (env VTFKB_MCP_CONFIG = path to JSON), Claude-compatible:
-//   { "mcpServers": { "vtfkb": { "command": "node", "args": ["…/dist/mcp-server.js"],
-//                                 "env": { "VTFKB_DIR": "…" } } } }
+// Config (env VFKB_MCP_CONFIG = path to JSON), Claude-compatible:
+//   { "mcpServers": { "vfkb": { "command": "node", "args": ["…/dist/mcp-server.js"],
+//                                 "env": { "VFKB_DIR": "…" } } } }
 //
 // Load it like any pi extension:  pi -e dist/pi-mcp-bridge.js
 //
@@ -36,7 +36,7 @@ async function connect(spec: ServerSpec): Promise<Client> {
     args: spec.args ?? [],
     env: { ...(process.env as Record<string, string>), ...(spec.env ?? {}) },
   });
-  const client = new Client({ name: 'vtfkb-pi-bridge', version: '0.0.0' });
+  const client = new Client({ name: 'vfkb-pi-bridge', version: '0.0.0' });
   await client.connect(transport);
   return client;
 }
@@ -50,7 +50,7 @@ function toContent(r: { content?: Array<{ type?: string; text?: string }> }): To
 }
 
 function readConfig(): Record<string, ServerSpec> {
-  const p = process.env.VTFKB_MCP_CONFIG;
+  const p = process.env.VFKB_MCP_CONFIG;
   if (!p || !existsSync(p)) return {};
   try {
     return (JSON.parse(readFileSync(p, 'utf8')).mcpServers ?? {}) as Record<string, ServerSpec>;
@@ -88,9 +88,9 @@ async function discover(): Promise<ToolDefinition[]> {
           },
         });
       }
-      process.stderr.write(`vtfkb-pi-bridge: bridged '${name}' (${tools.length} tools)\n`);
+      process.stderr.write(`vfkb-pi-bridge: bridged '${name}' (${tools.length} tools)\n`);
     } catch (e) {
-      process.stderr.write(`vtfkb-pi-bridge: failed to bridge '${name}': ${(e as Error).message}\n`);
+      process.stderr.write(`vfkb-pi-bridge: failed to bridge '${name}': ${(e as Error).message}\n`);
     } finally {
       await client?.close().catch(() => {}); // close the discovery connection
     }

@@ -8,7 +8,7 @@
 
 mykb keyed index staleness on file **mtime**; IMPL-PLAN L8 records that **git ops
 rewrite mtimes** (clone, checkout, pull, worktree) → mtime is an unreliable
-freshness signal, a rebuild-reliability risk. vtfkb's brain is git-committed and
+freshness signal, a rebuild-reliability risk. vfkb's brain is git-committed and
 multi-harness: an in-memory index (ADR-0013) in one long-lived process (Pi
 extension or MCP server) can be invalidated underneath it by a `git pull`, by
 another harness's writer, or by the CLI. mykb L11 adds the invariant: **index regen

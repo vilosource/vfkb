@@ -10,7 +10,7 @@ ASDLC's guidance hierarchy is **Constitution (rules/must) → Product Vision
 (taste/should) → Specs (contracts).** *Product Vision* (Actual Humans · Point of
 View · Taste References · Voice & Language · **Decision Heuristics**) transmits a
 product's *taste* to agents, preventing generic output. ADR-0008 modelled the
-Constitution tier; the Vision (middle) tier was left open. We need a vtfkb model
+Constitution tier; the Vision (middle) tier was left open. We need a vfkb model
 consistent with the session's discipline (lean on existing primitives; no type
 proliferation — D3c; "earn their place").
 
@@ -41,7 +41,7 @@ Model Product Vision with existing primitives, **no new entry type and no separa
   have — no new type, no new artifact.
 - **+** Heuristics are **editable** (taste evolves), which is the right lifecycle —
   and distinct from the immutable Constitution (ADR-0008) and decisions (ADR-0004).
-- **+** Completes the Constitution→Vision→Specs hierarchy in vtfkb terms.
+- **+** Completes the Constitution→Vision→Specs hierarchy in vfkb terms.
 - **−** Relies on **tag discipline** (`vision`/`heuristic`) to mark which patterns
   are injected as tie-breakers; the engine must honour that tag in D7 selection.
 

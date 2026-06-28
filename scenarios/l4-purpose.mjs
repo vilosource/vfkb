@@ -1,23 +1,23 @@
 #!/usr/bin/env node
 // ============================================================================
-// vtfkb COMPREHENSIVE L4 PURPOSE harness
+// vfkb COMPREHENSIVE L4 PURPOSE harness
 // ----------------------------------------------------------------------------
-// Proves vtfkb fulfils its PURPOSE (a real agent behaves better *because of it*),
+// Proves vfkb fulfils its PURPOSE (a real agent behaves better *because of it*),
 // not just that its modules work. Every scenario:
 //   - drives a REAL agent (DeepSeek-V4 via pi by default; claude for MCP/parity),
 //   - asserts on OBSERVABLE EFFECTS (the agent's output / the brain's state) —
 //     never the agent's self-report,
 //   - CONTRASTS against a baseline so the better outcome is shown to be *caused*
-//     by vtfkb:
+//     by vfkb:
 //        naive = mykb-v1-style flat, load-order, unfiltered memory (surfaces stale)
 //        none  = no memory at all (the agent lacks the knowledge)
-//        no-gating / no-mcp = the same harness without vtfkb's guardrail / tools
+//        no-gating / no-mcp = the same harness without vfkb's guardrail / tools
 //
 // LIVE + token-cost + nondeterministic -> NOT part of `npm test`.
-// DEFAULT agent = claude harness + Claude Haiku 4.5 (VTFKB_L4_HARNESS=claude,
-// VTFKB_L4_PROVIDER=claude-code, VTFKB_L4_MODEL=claude-haiku-4-5). Needs an authed
-// claude CLI + a built dist/. Override the three VTFKB_L4_* envs for other points,
-// e.g. pi/deepseek: VTFKB_L4_HARNESS=pi VTFKB_L4_PROVIDER=deepseek VTFKB_L4_MODEL=deepseek-v4-pro
+// DEFAULT agent = claude harness + Claude Haiku 4.5 (VFKB_L4_HARNESS=claude,
+// VFKB_L4_PROVIDER=claude-code, VFKB_L4_MODEL=claude-haiku-4-5). Needs an authed
+// claude CLI + a built dist/. Override the three VFKB_L4_* envs for other points,
+// e.g. pi/deepseek: VFKB_L4_HARNESS=pi VFKB_L4_PROVIDER=deepseek VFKB_L4_MODEL=deepseek-v4-pro
 // (that path needs DEEPSEEK_TOKEN). On the claude harness, MODEL='cli' = CLI default model.
 //
 // Run:  node scenarios/l4-purpose.mjs                 (all, default = haiku/claude)
@@ -36,37 +36,37 @@ const EXT = join(REPO, 'dist', 'pi-extension.js');
 const BRIDGE = join(REPO, 'dist', 'pi-mcp-bridge.js');
 const MCP = join(REPO, 'dist', 'mcp-server.js');
 // DEFAULT test model = Claude Haiku 4.5 on the claude harness (price/perf default,
-// decision vtfkb-2026-06-03). Override via the three VTFKB_L4_* envs for other points.
-const PROVIDER = process.env.VTFKB_L4_PROVIDER || 'claude-code';
-const MODEL = process.env.VTFKB_L4_MODEL || 'claude-haiku-4-5';
-const HARNESS = process.env.VTFKB_L4_HARNESS || 'claude'; // pi | claude — applies to ALL scenarios
+// decision vfkb-2026-06-03). Override via the three VFKB_L4_* envs for other points.
+const PROVIDER = process.env.VFKB_L4_PROVIDER || 'claude-code';
+const MODEL = process.env.VFKB_L4_MODEL || 'claude-haiku-4-5';
+const HARNESS = process.env.VFKB_L4_HARNESS || 'claude'; // pi | claude — applies to ALL scenarios
 const TIMEOUT = 175_000;
 // Dockerized runs add container + in-container MCP-server boot overhead the host path
 // doesn't have; the multi-step MCP scenarios (kb_map→kb_search) can exceed the host
 // budget. Give `docker run` a larger wall-clock so a slow-but-correct run isn't scored
-// as a timeout failure. Override with VTFKB_L4_DOCKER_TIMEOUT (ms).
-const DOCKER_TIMEOUT = parseInt(process.env.VTFKB_L4_DOCKER_TIMEOUT || '300000', 10);
+// as a timeout failure. Override with VFKB_L4_DOCKER_TIMEOUT (ms).
+const DOCKER_TIMEOUT = parseInt(process.env.VFKB_L4_DOCKER_TIMEOUT || '300000', 10);
 // N=3 multi-trial (ADR-0022): each scenario runs TRIALS times; `demonstrated` requires
 // the contrast to hold on >=2/3 trials — separates genuine divergence from flakiness.
-const TRIALS = Math.max(1, parseInt(process.env.VTFKB_L4_TRIALS || '3', 10));
+const TRIALS = Math.max(1, parseInt(process.env.VFKB_L4_TRIALS || '3', 10));
 
 // --- T5a dockerized pi substrate (ADR-0022) ---------------------------------
 // The pi harness shells `docker run` against a pinned, self-contained image instead
 // of the host `pi` (reproducible, sandboxed, no host creds/FS/MCP). Default for the
-// pi harness; escape hatch VTFKB_L4_PI_MODE=host runs the legacy host pi (used to
+// pi harness; escape hatch VFKB_L4_PI_MODE=host runs the legacy host pi (used to
 // regenerate the known-good baseline records).
-const PI_MODE = process.env.VTFKB_L4_PI_MODE || (HARNESS === 'pi' ? 'docker' : 'host');
-const PI_IMAGE = process.env.VTFKB_L4_PI_IMAGE || 'vtfkb-l4-pi:dev';
-// claude harness substrate (T5b): docker by default; VTFKB_L4_CLAUDE_MODE=host runs the
+const PI_MODE = process.env.VFKB_L4_PI_MODE || (HARNESS === 'pi' ? 'docker' : 'host');
+const PI_IMAGE = process.env.VFKB_L4_PI_IMAGE || 'vfkb-l4-pi:dev';
+// claude harness substrate (T5b): docker by default; VFKB_L4_CLAUDE_MODE=host runs the
 // legacy host claude (used to regenerate the known-good host baseline records).
-const CLAUDE_MODE = process.env.VTFKB_L4_CLAUDE_MODE || 'docker';
-const CLAUDE_IMAGE = process.env.VTFKB_L4_CLAUDE_IMAGE || 'vtfkb-l4-claude:dev';
+const CLAUDE_MODE = process.env.VFKB_L4_CLAUDE_MODE || 'docker';
+const CLAUDE_IMAGE = process.env.VFKB_L4_CLAUDE_IMAGE || 'vfkb-l4-claude:dev';
 const UID = typeof process.getuid === 'function' ? process.getuid() : 0;
 const GID = typeof process.getgid === 'function' ? process.getgid() : 0;
 // Fixed in-container paths (must match scenarios/docker/{pi,claude}.Dockerfile).
 const C_HOME = '/work';
 const C_BRAIN = '/brain';
-const C_DIST = '/opt/vtfkb/dist';
+const C_DIST = '/opt/vfkb/dist';
 const C_CLI = `${C_DIST}/cli.js`;
 const C_EXT = `${C_DIST}/pi-extension.js`;
 const C_BRIDGE = `${C_DIST}/pi-mcp-bridge.js`;
@@ -84,7 +84,7 @@ function claudeCredsDir() {
   const host = join(process.env.HOME || homedir(), '.claude', '.credentials.json');
   const c = JSON.parse(readFileSync(host, 'utf8'));
   if (!c.claudeAiOauth) throw new Error('no claudeAiOauth in ~/.claude/.credentials.json — log in with host `claude` first');
-  const d = mkdtempSync(join(tmpdir(), 'vtfkb-l4-claudecfg-'));
+  const d = mkdtempSync(join(tmpdir(), 'vfkb-l4-claudecfg-'));
   writeFileSync(join(d, '.credentials.json'), JSON.stringify({ claudeAiOauth: c.claudeAiOauth }), { mode: 0o600 });
   CLAUDE_CREDS_DIR = d;
   return d;
@@ -98,9 +98,9 @@ const sh = (cmd, args, opts = {}) => execFileSync(cmd, args, { encoding: 'utf8',
 // dockerized pi container (the mount point). Scenarios that name the brain path in a
 // prompt MUST use this so the agent references a path it can actually reach.
 const agentBrain = (brain) => (HARNESS === 'pi' && PI_MODE === 'docker') ? C_BRAIN : brain;
-const kb = (brain, args) => sh('node', [CLI, ...args], { env: { ...process.env, VTFKB_DIR: brain } }).trim();
+const kb = (brain, args) => sh('node', [CLI, ...args], { env: { ...process.env, VFKB_DIR: brain } }).trim();
 const idOf = (line) => line.split('\t')[0];
-const newBrain = (tag) => mkdtempSync(join(tmpdir(), `vtfkb-l4-${tag}-`));
+const newBrain = (tag) => mkdtempSync(join(tmpdir(), `vfkb-l4-${tag}-`));
 const has = (s, ...ts) => ts.every((t) => new RegExp(`${t}`, 'i').test(s));
 const lacks = (s, ...ts) => ts.every((t) => !new RegExp(`${t}`, 'i').test(s));
 const sample = (s) => (s || '').replace(/\s+/g, ' ').slice(0, 100);
@@ -108,21 +108,21 @@ const sample = (s) => (s || '').replace(/\s+/g, ' ').slice(0, 100);
 function naiveDump(brain, limit) {
   const a = [CLI, 'context-block-naive', 'l4'];
   if (limit) a.push('--limit', String(limit));
-  return sh('node', a, { env: { ...process.env, VTFKB_DIR: brain } });
+  return sh('node', a, { env: { ...process.env, VFKB_DIR: brain } });
 }
 function brainText(brain) {
   const f = join(brain, 'entries.jsonl');
   return existsSync(f) ? readFileSync(f, 'utf8') : '';
 }
 // Build a claude settings file with exactly the hooks a scenario needs.
-// caps: { inject:'vtfkb'|'naive'|'none', capture:bool, gating:bool, naiveLimit }
+// caps: { inject:'vfkb'|'naive'|'none', capture:bool, gating:bool, naiveLimit }
 // `container`: emit IN-CONTAINER paths for the dockerized claude (T5b). The settings
 // FILE is written to the host brain dir (so it lands in the /brain bind mount); the hook
 // commands inside it + the returned --settings path use container paths.
 function claudeSettings(brain, caps, container = false) {
   const cliPath = container ? C_CLI : CLI;
   const vdir = container ? C_BRAIN : brain;
-  const cmd = (sub) => `VTFKB_DIR=${vdir} VTFKB_PROJECT=l4 node ${cliPath} hook ${sub}`;
+  const cmd = (sub) => `VFKB_DIR=${vdir} VFKB_PROJECT=l4 node ${cliPath} hook ${sub}`;
   const hooks = {};
   if (caps.inject && caps.inject !== 'none') {
     const ss = cmd('session-start') + (caps.inject === 'naive' ? ` --naive${caps.naiveLimit ? ` --limit ${caps.naiveLimit}` : ''}` : '');
@@ -140,22 +140,22 @@ function claudeSettings(brain, caps, container = false) {
 }
 function mcpConfig(brain, container = false) {
   writeFileSync(join(brain, 'mcp.json'),
-    JSON.stringify({ mcpServers: { vtfkb: { command: 'node', args: [container ? C_MCP : MCP], env: { VTFKB_DIR: container ? C_BRAIN : brain } } } }));
+    JSON.stringify({ mcpServers: { vfkb: { command: 'node', args: [container ? C_MCP : MCP], env: { VFKB_DIR: container ? C_BRAIN : brain } } } }));
   return container ? `${C_BRAIN}/mcp.json` : join(brain, 'mcp.json');
 }
 // Per-brain mcpServers config for the pi MCP bridge (Claude-compatible format).
 function piMcpConfig(brain) {
   const f = join(brain, 'pi-mcp.json');
-  writeFileSync(f, JSON.stringify({ mcpServers: { vtfkb: { command: 'node', args: [MCP], env: { VTFKB_DIR: brain } } } }));
+  writeFileSync(f, JSON.stringify({ mcpServers: { vfkb: { command: 'node', args: [MCP], env: { VFKB_DIR: brain } } } }));
   return f;
 }
 // Same, but with the IN-CONTAINER paths the dockerized pi reads (T5a). Physically
 // written to the host brain dir (so it lands in the /brain bind mount); returns the
-// CONTAINER path for VTFKB_MCP_CONFIG. The MCP server runs inside the container against
-// the mounted brain, so its command paths + VTFKB_DIR are container paths.
+// CONTAINER path for VFKB_MCP_CONFIG. The MCP server runs inside the container against
+// the mounted brain, so its command paths + VFKB_DIR are container paths.
 function piMcpConfigC(brain) {
   writeFileSync(join(brain, 'pi-mcp.json'),
-    JSON.stringify({ mcpServers: { vtfkb: { command: 'node', args: [C_MCP], env: { VTFKB_DIR: C_BRAIN } } } }));
+    JSON.stringify({ mcpServers: { vfkb: { command: 'node', args: [C_MCP], env: { VFKB_DIR: C_BRAIN } } } }));
   return `${C_BRAIN}/pi-mcp.json`;
 }
 // Empty MCP config + --strict-mcp-config disables ALL of the user's global MCP servers
@@ -169,12 +169,12 @@ function emptyMcp(brain, container = false) {
 }
 
 // Unified agent runner, capability-aware on BOTH harnesses.
-//   inject : 'vtfkb' | 'naive' | 'none'   (session-start context)
+//   inject : 'vfkb' | 'naive' | 'none'   (session-start context)
 //   mcp    : pull tools (pi: bridge extension; claude: --mcp-config)
 //   capture: passive tool-call capture (needs a tool to run)
 //   gating : block direct brain writes
 //   allowTools: claude tool allowlist for capture/gating (e.g. ['Bash'] / ['Write','Edit'])
-function run({ harness = HARNESS, brain, prompt, inject = 'vtfkb', mcp = false, capture = false, gating = false, allowTools, sessionId, naiveLimit }) {
+function run({ harness = HARNESS, brain, prompt, inject = 'vfkb', mcp = false, capture = false, gating = false, allowTools, sessionId, naiveLimit }) {
   try {
     if (harness === 'claude') {
       const cdocker = CLAUDE_MODE === 'docker';
@@ -206,8 +206,8 @@ function run({ harness = HARNESS, brain, prompt, inject = 'vtfkb', mcp = false, 
       const creds = claudeCredsDir();
       const dargs = ['run', '--rm', '--user', `${UID}:${GID}`,
         '-e', `HOME=${C_HOME}`,
-        '-e', `VTFKB_DIR=${C_BRAIN}`,
-        '-e', 'VTFKB_PROJECT=l4'];
+        '-e', `VFKB_DIR=${C_BRAIN}`,
+        '-e', 'VFKB_PROJECT=l4'];
       // Thread KB_SESSION_ID into the hooks' env so SessionState persists a record under
       // the /brain mount (cross-session continuity scenarios). Without it SessionState is
       // ephemeral and nothing carries to the next container.
@@ -224,14 +224,14 @@ function run({ harness = HARNESS, brain, prompt, inject = 'vtfkb', mcp = false, 
     const bridgePath = docker ? C_BRIDGE : BRIDGE;
     const sessBase = docker ? C_BRAIN : brain;
     const args = ['-p', '--provider', PROVIDER, '--model', MODEL];
-    const env = { ...process.env, VTFKB_DIR: brain, VTFKB_PROJECT: 'l4' };
+    const env = { ...process.env, VFKB_DIR: brain, VFKB_PROJECT: 'l4' };
     const wantTools = mcp || capture || gating || (allowTools && allowTools.length);
     if (mcp) {
       args.push('-e', bridgePath);
-      env.VTFKB_MCP_CONFIG = docker ? piMcpConfigC(brain) : piMcpConfig(brain);
+      env.VFKB_MCP_CONFIG = docker ? piMcpConfigC(brain) : piMcpConfig(brain);
     } else {
       if (!wantTools) args.push('--no-tools');
-      if (inject === 'vtfkb') args.push('-e', extPath); // EXT = inject + capture + gating
+      if (inject === 'vfkb') args.push('-e', extPath); // EXT = inject + capture + gating
       else if (inject === 'naive') args.push('--append-system-prompt', naiveDump(brain, naiveLimit));
     }
     args.push(sessionId ? '--session' : '--no-session');
@@ -245,11 +245,11 @@ function run({ harness = HARNESS, brain, prompt, inject = 'vtfkb', mcp = false, 
     // /brain mount (silent-write-fail-on-uid-mismatch gotcha = ref_harness_uid_mount).
     const dargs = ['run', '--rm', '--user', `${UID}:${GID}`,
       '-e', `HOME=${C_HOME}`,
-      '-e', `VTFKB_DIR=${C_BRAIN}`,
-      '-e', 'VTFKB_PROJECT=l4',
+      '-e', `VFKB_DIR=${C_BRAIN}`,
+      '-e', 'VFKB_PROJECT=l4',
       '-e', `KB_SESSION_ID=${env.KB_SESSION_ID}`,
       '-e', `DEEPSEEK_TOKEN=${process.env.DEEPSEEK_TOKEN || ''}`];
-    if (env.VTFKB_MCP_CONFIG) dargs.push('-e', `VTFKB_MCP_CONFIG=${env.VTFKB_MCP_CONFIG}`);
+    if (env.VFKB_MCP_CONFIG) dargs.push('-e', `VFKB_MCP_CONFIG=${env.VFKB_MCP_CONFIG}`);
     dargs.push('-v', `${brain}:${C_BRAIN}`, PI_IMAGE, 'pi', ...args);
     return sh('docker', dargs, { timeout: DOCKER_TIMEOUT, env: process.env }).trim();
   } catch (e) {
@@ -257,14 +257,14 @@ function run({ harness = HARNESS, brain, prompt, inject = 'vtfkb', mcp = false, 
   }
 }
 
-// Standard 2-variant Q&A contrast (vtfkb vs baseline).
+// Standard 2-variant Q&A contrast (vfkb vs baseline).
 function qa({ id, dim, harness = HARNESS, seed, prompt, baseline, naiveLimit, assert }) {
   return {
     id,
     dim,
     exec() {
       const rows = [];
-      for (const inject of ['vtfkb', baseline]) {
+      for (const inject of ['vfkb', baseline]) {
         const b = newBrain(id + '-' + inject);
         seed(b);
         const out = run({ harness, brain: b, prompt, inject, naiveLimit });
@@ -400,14 +400,14 @@ const SCN = [
     exec() {
       const b = newBrain('capture');
       const recallPrompt = 'Earlier in this project a shell command echoed a build sigil. What exact string was echoed? Reply with ONLY that string.';
-      run({ brain: b, inject: 'vtfkb', capture: true, allowTools: ['Bash'], sessionId: 'cap', prompt: 'Use your bash/shell tool to run exactly: echo BUILD-SIGIL-44Q . Then reply done.' });
+      run({ brain: b, inject: 'vfkb', capture: true, allowTools: ['Bash'], sessionId: 'cap', prompt: 'Use your bash/shell tool to run exactly: echo BUILD-SIGIL-44Q . Then reply done.' });
       const captured = /BUILD-SIGIL-44Q/.test(brainText(b));
-      const recallV = run({ brain: b, inject: 'vtfkb', prompt: recallPrompt });
+      const recallV = run({ brain: b, inject: 'vfkb', prompt: recallPrompt });
       const recallN = run({ brain: b, inject: 'none', prompt: recallPrompt });
       rmSync(b, { recursive: true, force: true });
       const rows = [
         { label: `${HARNESS}:capture`, pass: captured, detail: captured ? 'tool-call captured' : 'not captured', output: '', sample: '' },
-        { label: `${HARNESS}:recall:vtfkb`, pass: has(recallV, 'BUILD-SIGIL-44Q'), detail: has(recallV, 'BUILD-SIGIL-44Q') ? 'recalled' : 'lost', output: recallV, sample: sample(recallV) },
+        { label: `${HARNESS}:recall:vfkb`, pass: has(recallV, 'BUILD-SIGIL-44Q'), detail: has(recallV, 'BUILD-SIGIL-44Q') ? 'recalled' : 'lost', output: recallV, sample: sample(recallV) },
         { label: `${HARNESS}:recall:none`, pass: lacks(recallN, 'BUILD-SIGIL-44Q'), detail: lacks(recallN, 'BUILD-SIGIL-44Q') ? "can't recall (expected)" : 'leaked?', output: recallN, sample: sample(recallN) },
       ];
       return { rows, demonstrated: captured && has(recallV, 'BUILD-SIGIL-44Q') && lacks(recallN, 'BUILD-SIGIL-44Q') };
@@ -427,13 +427,13 @@ const SCN = [
       const note = 'finish wiring the token-refresh path in module auth_zx9q before the cutover';
       kb(b, ['add', 'fact', 'The service is deployed behind feature flag ff_rollout', '--role', 'human']);
       // s1: the prior session records its continuity note (KB_SESSION_ID isolates it).
-      sh('node', [CLI, 'resume-note', note], { env: { ...process.env, VTFKB_DIR: b, KB_SESSION_ID: 's1' } });
+      sh('node', [CLI, 'resume-note', note], { env: { ...process.env, VFKB_DIR: b, KB_SESSION_ID: 's1' } });
       const ask = 'Using your resume / continuity context from the previous session, what is the single next task we planned to do? Reply with ONLY that task.';
-      const v = run({ brain: b, inject: 'vtfkb', sessionId: 's2', prompt: ask });
+      const v = run({ brain: b, inject: 'vfkb', sessionId: 's2', prompt: ask });
       const n = run({ brain: b, inject: 'none', sessionId: 's2n', prompt: ask });
       rmSync(b, { recursive: true, force: true });
       const rows = [
-        { label: `${HARNESS}:resume:vtfkb`, pass: has(v, 'auth_zx9q'), detail: has(v, 'auth_zx9q') ? 'resumed next-task' : 'lost', output: v, sample: sample(v) },
+        { label: `${HARNESS}:resume:vfkb`, pass: has(v, 'auth_zx9q'), detail: has(v, 'auth_zx9q') ? 'resumed next-task' : 'lost', output: v, sample: sample(v) },
         { label: `${HARNESS}:resume:none`, pass: lacks(n, 'auth_zx9q'), detail: lacks(n, 'auth_zx9q') ? "can't know (expected)" : 'leaked?', output: n, sample: sample(n) },
       ];
       return { rows, demonstrated: has(v, 'auth_zx9q') && lacks(n, 'auth_zx9q') };
@@ -443,7 +443,7 @@ const SCN = [
   // ---- Track 1 / ADR-0020: the resume CANNOT GO STALE (cross-session correction) ----
   // The failure ADR-0020 exists to kill: a stored handoff that froze a now-wrong value
   // (the 2026-06-25 stale-L4 incident). s1 records a fact + leaves a continuity record;
-  // the fact is CORRECTED (superseded) AFTER s1; s2 resumes. vtfkb's resume render is
+  // the fact is CORRECTED (superseded) AFTER s1; s2 resumes. vfkb's resume render is
   // DERIVED from the live brain, so it surfaces the corrected value; a naive memory that
   // just replays what it stored surfaces the stale s1 value. (The corrected value rides
   // the live bundle inside renderResume — the point is the resuming agent isn't misled.)
@@ -453,17 +453,17 @@ const SCN = [
       const b = newBrain('correction');
       // A decision (supersedable; facts are fluid/edited, not superseded).
       const o = kb(b, ['add', 'decision', 'The deploy target is cluster-blue-7q', '--role', 'human', '--status', 'accepted']);
-      sh('node', [CLI, 'resume-note', 'continue the rollout to the current deploy target'], { env: { ...process.env, VTFKB_DIR: b, KB_SESSION_ID: 's1' } });
+      sh('node', [CLI, 'resume-note', 'continue the rollout to the current deploy target'], { env: { ...process.env, VFKB_DIR: b, KB_SESSION_ID: 's1' } });
       // Between sessions the fact is corrected — the stale-handoff trap.
       kb(b, ['supersede', idOf(o), 'The deploy target is cluster-green-9p', '--role', 'human']);
       const ask = 'Resuming this project, what is the CURRENT deploy target? Reply with ONLY the target id.';
-      const v = run({ brain: b, inject: 'vtfkb', sessionId: 's2', prompt: ask });
+      const v = run({ brain: b, inject: 'vfkb', sessionId: 's2', prompt: ask });
       const n = run({ brain: b, inject: 'naive', naiveLimit: 1, sessionId: 's2n', prompt: ask });
       rmSync(b, { recursive: true, force: true });
       const vOk = has(v, 'cluster-green-9p') && lacks(v, 'cluster-blue-7q');
       const nOk = has(n, 'cluster-green-9p') && lacks(n, 'cluster-blue-7q');
       const rows = [
-        { label: `${HARNESS}:resume:vtfkb`, pass: vOk, detail: vOk ? 'corrected' : has(v, 'cluster-blue-7q') ? 'STALE' : 'none', output: v, sample: sample(v) },
+        { label: `${HARNESS}:resume:vfkb`, pass: vOk, detail: vOk ? 'corrected' : has(v, 'cluster-blue-7q') ? 'STALE' : 'none', output: v, sample: sample(v) },
         { label: `${HARNESS}:resume:naive`, pass: nOk, detail: nOk ? 'corrected' : has(n, 'cluster-blue-7q') ? 'STALE(replayed)' : 'none', output: n, sample: sample(n) },
       ];
       return { rows, demonstrated: vOk && !nOk };
@@ -478,7 +478,7 @@ const SCN = [
     id: 'kb-resume-mcp', dim: 'mcp:resume-floor',
     exec() {
       const b = newBrain('mcpresume');
-      sh('node', [CLI, 'resume-note', 'wire the retry/backoff into module svc_qp7z next'], { env: { ...process.env, VTFKB_DIR: b, KB_SESSION_ID: 's1' } });
+      sh('node', [CLI, 'resume-note', 'wire the retry/backoff into module svc_qp7z next'], { env: { ...process.env, VFKB_DIR: b, KB_SESSION_ID: 's1' } });
       const withMcp = run({ brain: b, mcp: true, sessionId: 's2', prompt: 'Use the kb_resume MCP tool to load our session continuity, then reply with ONLY the next task we planned.' });
       const noMem = run({ brain: b, inject: 'none', prompt: 'What was the next task we planned in the previous session? Reply with ONLY the task.' });
       rmSync(b, { recursive: true, force: true });
@@ -502,16 +502,16 @@ const SCN = [
     exec() {
       const b = newBrain('distill');
       const fail = { tool_name: 'Bash', tool_input: { command: 'cat /etc/probe_qz8x.cfg' }, tool_result: { exit_code: 7, stderr: 'cat: /etc/probe_qz8x.cfg: error: No such file or directory (probe_qz8x)' }, call_id: 'c1' };
-      sh('node', [CLI, 'hook', 'post-tool-use'], { input: JSON.stringify(fail), env: { ...process.env, VTFKB_DIR: b, KB_SESSION_ID: 's1' } });
-      sh('node', [CLI, 'distill'], { env: { ...process.env, VTFKB_DIR: b, KB_SESSION_ID: 's1' } });
+      sh('node', [CLI, 'hook', 'post-tool-use'], { input: JSON.stringify(fail), env: { ...process.env, VFKB_DIR: b, KB_SESSION_ID: 's1' } });
+      sh('node', [CLI, 'distill'], { env: { ...process.env, VFKB_DIR: b, KB_SESSION_ID: 's1' } });
       const distilled = /distilled/.test(brainText(b)) && /probe_qz8x/.test(brainText(b));
       const ask = 'Based on your resume / continuity context, what tool failure did we learn about last session? Reply with ONLY the missing path or token mentioned.';
-      const v = run({ brain: b, inject: 'vtfkb', sessionId: 's2', prompt: ask });
+      const v = run({ brain: b, inject: 'vfkb', sessionId: 's2', prompt: ask });
       const n = run({ brain: b, inject: 'none', sessionId: 's2n', prompt: ask });
       rmSync(b, { recursive: true, force: true });
       const rows = [
         { label: `${HARNESS}:distill`, pass: distilled, detail: distilled ? 'failure distilled' : 'not distilled', output: '', sample: '' },
-        { label: `${HARNESS}:recall:vtfkb`, pass: has(v, 'probe_qz8x'), detail: has(v, 'probe_qz8x') ? 'recalled lesson' : 'lost', output: v, sample: sample(v) },
+        { label: `${HARNESS}:recall:vfkb`, pass: has(v, 'probe_qz8x'), detail: has(v, 'probe_qz8x') ? 'recalled lesson' : 'lost', output: v, sample: sample(v) },
         { label: `${HARNESS}:recall:none`, pass: lacks(n, 'probe_qz8x'), detail: lacks(n, 'probe_qz8x') ? "can't know (expected)" : 'leaked?', output: n, sample: sample(n) },
       ];
       return { rows, demonstrated: distilled && has(v, 'probe_qz8x') && lacks(n, 'probe_qz8x') };
@@ -530,13 +530,13 @@ const SCN = [
       // Arm A — the lesson is AUTO-DISTILLED from a captured failure → delivered labelled.
       const bA = newBrain('trustlabel-distilled');
       const fail = { tool_name: 'Bash', tool_input: { command: 'cat /etc/probe_qz8x.cfg' }, tool_result: { exit_code: 7, stderr: 'cat: /etc/probe_qz8x.cfg: error: No such file or directory (probe_qz8x)' }, call_id: 'c1' };
-      sh('node', [CLI, 'hook', 'post-tool-use'], { input: JSON.stringify(fail), env: { ...process.env, VTFKB_DIR: bA, KB_SESSION_ID: 's1' } });
-      sh('node', [CLI, 'distill'], { env: { ...process.env, VTFKB_DIR: bA, KB_SESSION_ID: 's1' } });
-      const a = run({ brain: bA, inject: 'vtfkb', sessionId: 's2', prompt: ask });
+      sh('node', [CLI, 'hook', 'post-tool-use'], { input: JSON.stringify(fail), env: { ...process.env, VFKB_DIR: bA, KB_SESSION_ID: 's1' } });
+      sh('node', [CLI, 'distill'], { env: { ...process.env, VFKB_DIR: bA, KB_SESSION_ID: 's1' } });
+      const a = run({ brain: bA, inject: 'vfkb', sessionId: 's2', prompt: ask });
       // Arm B — the SAME lesson AUTHORED BY A HUMAN → delivered as an established fact.
       const bB = newBrain('trustlabel-human');
       kb(bB, ['add', 'gotcha', 'Reading /etc/probe_qz8x.cfg fails because the file is absent; check for it first.', '--role', 'human', '--status', 'accepted']);
-      const bnd = run({ brain: bB, inject: 'vtfkb', sessionId: 's2b', prompt: ask });
+      const bnd = run({ brain: bB, inject: 'vfkb', sessionId: 's2b', prompt: ask });
       rmSync(bA, { recursive: true, force: true }); rmSync(bB, { recursive: true, force: true });
       const aCand = /candidate/i.test(a) && !/established/i.test(a);
       const bEst = /established/i.test(bnd) && !/candidate/i.test(bnd);
@@ -562,9 +562,9 @@ const SCN = [
     id: 'corroborated-promotion', dim: 'distill:corroborated-promotion',
     exec() {
       const fail = { tool_name: 'Bash', tool_input: { command: 'cat /etc/probe_qz8x.cfg' }, tool_result: { exit_code: 7, stderr: 'cat: /etc/probe_qz8x.cfg: error: No such file or directory (probe_qz8x)' }, call_id: 'c1' };
-      const distillOnce = (b) => { sh('node', [CLI, 'hook', 'post-tool-use'], { input: JSON.stringify(fail), env: { ...process.env, VTFKB_DIR: b, KB_SESSION_ID: 's1' } }); return sh('node', [CLI, 'distill'], { env: { ...process.env, VTFKB_DIR: b, KB_SESSION_ID: 's1' } }); };
+      const distillOnce = (b) => { sh('node', [CLI, 'hook', 'post-tool-use'], { input: JSON.stringify(fail), env: { ...process.env, VFKB_DIR: b, KB_SESSION_ID: 's1' } }); return sh('node', [CLI, 'distill'], { env: { ...process.env, VFKB_DIR: b, KB_SESSION_ID: 's1' } }); };
       const idFrom = (out) => { const m = out.split('\n').find((l) => l.startsWith('CANDIDATE')); return m ? m.split('\t')[1] : null; };
-      const promoteAuto = (b, id) => { try { return /established/.test(sh('node', [CLI, 'curate', 'promote-auto', id], { env: { ...process.env, VTFKB_DIR: b }, stdio: ['ignore', 'pipe', 'ignore'] })); } catch { return false; } };
+      const promoteAuto = (b, id) => { try { return /established/.test(sh('node', [CLI, 'curate', 'promote-auto', id], { env: { ...process.env, VFKB_DIR: b }, stdio: ['ignore', 'pipe', 'ignore'] })); } catch { return false; } };
       // Arm A — the SAME failure recurs >=2x (net >=2 corroborations) → promotion SUCCEEDS.
       const bA = newBrain('promo-corrob');
       const candId = idFrom(distillOnce(bA)); distillOnce(bA); distillOnce(bA); // net 2
@@ -595,9 +595,9 @@ const SCN = [
     id: 'promotion-relabel', dim: 'distill:promotion-agent-observable',
     exec() {
       const fail = { tool_name: 'Bash', tool_input: { command: 'cat /etc/probe_qz8x.cfg' }, tool_result: { exit_code: 7, stderr: 'cat: /etc/probe_qz8x.cfg: error: No such file or directory (probe_qz8x)' }, call_id: 'c1' };
-      const distillOnce = (b) => { sh('node', [CLI, 'hook', 'post-tool-use'], { input: JSON.stringify(fail), env: { ...process.env, VTFKB_DIR: b, KB_SESSION_ID: 's1' } }); return sh('node', [CLI, 'distill'], { env: { ...process.env, VTFKB_DIR: b, KB_SESSION_ID: 's1' } }); };
+      const distillOnce = (b) => { sh('node', [CLI, 'hook', 'post-tool-use'], { input: JSON.stringify(fail), env: { ...process.env, VFKB_DIR: b, KB_SESSION_ID: 's1' } }); return sh('node', [CLI, 'distill'], { env: { ...process.env, VFKB_DIR: b, KB_SESSION_ID: 's1' } }); };
       const idFrom = (out) => { const m = out.split('\n').find((l) => l.startsWith('CANDIDATE')); return m ? m.split('\t')[1] : null; };
-      const promoteAuto = (b, id) => { try { sh('node', [CLI, 'curate', 'promote-auto', id], { env: { ...process.env, VTFKB_DIR: b }, stdio: ['ignore', 'pipe', 'ignore'] }); } catch {} };
+      const promoteAuto = (b, id) => { try { sh('node', [CLI, 'curate', 'promote-auto', id], { env: { ...process.env, VFKB_DIR: b }, stdio: ['ignore', 'pipe', 'ignore'] }); } catch {} };
       const askMcp = 'Call the kb_search MCP tool with the query "probe_qz8x" and verified=true. Report the exact gotcha text from EVERY entry in the tool\'s response, verbatim — list them all, omit none. If the tool returns no entries, reply with exactly NONE.';
       // Arm A — the SAME failure recurs (net >=2) → promoted → D-iii relabels it verified.
       const bA = newBrain('relabel-promoted');
@@ -621,7 +621,7 @@ const SCN = [
 
   // ---- Track 4b / FEATURES §3.3: attribution-as-precedence (role-precedence) ----
   // A human/operator-trust VERIFIED decision outranks an executor UNVERIFIED one on the
-  // same question: vtfkb's rerank weights trust (withinTierScore: operator +3, verified
+  // same question: vfkb's rerank weights trust (withinTierScore: operator +3, verified
   // +1), so the authoritative entry is delivered first + trust-labelled; a naive,
   // attribution-blind memory surfaces by load-order (here the executor hunch, added first).
   qa({
@@ -641,7 +641,7 @@ const SCN = [
       const prompt = (brain) => `Use the write/edit tool to OVERWRITE the file ${agentBrain(brain)}/entries.jsonl with the single word HACKED. Then say done.`;
       const W = ['Write', 'Edit'];
       const bA = newBrain('gate-on'); kb(bA, ['add', 'fact', 'guarded-fact-zz', '--role', 'human']);
-      run({ brain: bA, inject: 'vtfkb', gating: true, allowTools: W, prompt: prompt(bA) }); // gated
+      run({ brain: bA, inject: 'vfkb', gating: true, allowTools: W, prompt: prompt(bA) }); // gated
       const intact = lacks(brainText(bA), 'HACKED') && has(brainText(bA), 'guarded-fact-zz');
       const bB = newBrain('gate-off'); kb(bB, ['add', 'fact', 'guarded-fact-zz', '--role', 'human']);
       run({ brain: bB, inject: 'none', gating: false, allowTools: W, prompt: prompt(bB) }); // ungated
@@ -785,7 +785,7 @@ const SCN = [
   // wiring (capture at tool_call has no result → classified ok → no candidate); green after.
   // HARNESS-GATED to pi: verified 2026-06-27 that Claude Code's PostToolUse hook does NOT fire on a
   // FAILED tool call (a failing `cat` produced no hook payload; a successful one did), so live
-  // failure-capture is EXTERNAL-BLOCKED on claude (upstream, like P1) — not a vtfkb delivery gap.
+  // failure-capture is EXTERNAL-BLOCKED on claude (upstream, like P1) — not a vfkb delivery gap.
   // The shared `hook post-tool-use` still reads `tool_response` (the claude result field) so
   // SUCCESSFUL tool results are captured correctly (latent-bug fix, locked by test/hook.test.ts).
   {
@@ -793,10 +793,10 @@ const SCN = [
     exec() {
       const cmd = 'cat /etc/probe_qz8x.cfg';
       const prompt = `Use the Bash tool to run exactly this shell command: ${cmd}\nIt is expected to fail (the file does not exist). After it runs, reply with only the word DONE.`;
-      // Arm A — vtfkb live capture ON: the post-execution event records the failed call WITH result.
+      // Arm A — vfkb live capture ON: the post-execution event records the failed call WITH result.
       const bA = newBrain('livecap-on');
-      run({ brain: bA, inject: 'vtfkb', capture: true, allowTools: ['Bash'], prompt });
-      const distA = sh('node', [CLI, 'distill'], { env: { ...process.env, VTFKB_DIR: bA } });
+      run({ brain: bA, inject: 'vfkb', capture: true, allowTools: ['Bash'], prompt });
+      const distA = sh('node', [CLI, 'distill'], { env: { ...process.env, VFKB_DIR: bA } });
       const capturedErrA = /capture:error/.test(brainText(bA));
       const distilledA = /CANDIDATE/.test(distA) && /probe_qz8x/i.test(brainText(bA));
       // Arm B — no extension/hook (inject:none): the same failure is never recorded.
@@ -827,7 +827,7 @@ const SCN = [
     },
   },
 ];
-// NOTE: the former parity-claude-* scenarios are removed — with VTFKB_L4_HARNESS the
+// NOTE: the former parity-claude-* scenarios are removed — with VFKB_L4_HARNESS the
 // ENTIRE suite runs on each harness, so cross-harness parity = comparing the two
 // per-harness records (see compare.mjs), not two bespoke scenarios.
 
@@ -843,7 +843,7 @@ const AGENT = HARNESS === 'claude'
 const SUBSTRATE = HARNESS === 'pi'
   ? (PI_MODE === 'docker' ? `docker:${PI_IMAGE}` : 'host pi')
   : (CLAUDE_MODE === 'docker' ? `docker:${CLAUDE_IMAGE}` : 'host claude');
-console.log(`=== vtfkb COMPREHENSIVE L4 — harness: ${HARNESS} — agent: ${AGENT} — substrate: ${SUBSTRATE} — N=${TRIALS} ===\n`);
+console.log(`=== vfkb COMPREHENSIVE L4 — harness: ${HARNESS} — agent: ${AGENT} — substrate: ${SUBSTRATE} — N=${TRIALS} ===\n`);
 const results = [];
 for (const s of toRun) {
   // Harness-gated scenarios (e.g. a fix whose contrast is only deliverable on one harness
@@ -888,11 +888,11 @@ if (!argv.includes('--no-record')) {
   const dir = join(REPO, 'scenarios', 'records');
   mkdirSync(dir, { recursive: true });
   const jsonPath = join(dir, `${slug}.json`);
-  let rec = { harness: HARNESS, model: MODEL, provider: PROVIDER, slug, generated: new Date().toISOString(), vtfkb_sha: gitSha, scenarios: {} };
+  let rec = { harness: HARNESS, model: MODEL, provider: PROVIDER, slug, generated: new Date().toISOString(), vfkb_sha: gitSha, scenarios: {} };
   if (existsSync(jsonPath)) { try { rec = JSON.parse(readFileSync(jsonPath, 'utf8')); rec.scenarios ||= {}; } catch {} }
   rec.harness = HARNESS;
   rec.generated = new Date().toISOString();
-  rec.vtfkb_sha = gitSha;
+  rec.vfkb_sha = gitSha;
   rec.trials_n = TRIALS;
   if (imageRef) { rec.image = imageRef; rec.image_digest = imageDigest; }
   for (const r of results) {
@@ -908,8 +908,8 @@ if (!argv.includes('--no-record')) {
   // human-readable companion
   const ids = Object.keys(rec.scenarios).sort();
   const md = [
-    `# vtfkb L4 behavior record — harness=${rec.harness} — ${PROVIDER}/${MODEL}`,
-    ``, `- harness: ${rec.harness}`, `- generated: ${rec.generated}`, `- vtfkb: ${rec.vtfkb_sha}`,
+    `# vfkb L4 behavior record — harness=${rec.harness} — ${PROVIDER}/${MODEL}`,
+    ``, `- harness: ${rec.harness}`, `- generated: ${rec.generated}`, `- vfkb: ${rec.vfkb_sha}`,
     `- trials per scenario: N=${rec.trials_n} (demonstrated = contrast holds on >=2/3)`,
     ...(rec.image ? [`- image: ${rec.image}`, `- image digest: ${rec.image_digest}`] : []),
     `- scenarios recorded: ${ids.length} (${ids.filter((i) => rec.scenarios[i].demonstrated).length} demonstrated)`,
@@ -923,5 +923,5 @@ if (!argv.includes('--no-record')) {
 console.log('=== SUMMARY ===');
 for (const r of results) console.log(`${r.demonstrated ? 'DEMONSTRATED ' : 'inconclusive '} ${r.id.padEnd(26)} ${r.dim}`);
 const ok = results.filter((r) => r.demonstrated).length;
-console.log(`\nOVERALL: ${ok}/${results.length} scenarios demonstrate vtfkb's purpose.`);
+console.log(`\nOVERALL: ${ok}/${results.length} scenarios demonstrate vfkb's purpose.`);
 process.exit(ok === results.length ? 0 : 1);

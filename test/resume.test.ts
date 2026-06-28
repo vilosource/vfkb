@@ -3,9 +3,9 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-// Each test gets a throwaway brain; engine reads VTFKB_DIR lazily per call.
+// Each test gets a throwaway brain; engine reads VFKB_DIR lazily per call.
 function freshBrain() {
-  process.env.VTFKB_DIR = mkdtempSync(join(tmpdir(), 'vtfkb-resume-'));
+  process.env.VFKB_DIR = mkdtempSync(join(tmpdir(), 'vfkb-resume-'));
   delete process.env.KB_SESSION_ID;
 }
 
@@ -77,14 +77,14 @@ describe('M1 session-continuity resume (ADR-0020)', () => {
     expect(SessionState.records().length).toBe(2); // two distinct records, not one clobbered slot
 
     addEntry('decision', 'a live decision', { role: 'human', status: 'accepted' });
-    const out = renderResume('vtfkb-test', cur);
-    expect(out).toContain('<vtfkb-resume project="vtfkb-test">');
+    const out = renderResume('vfkb-test', cur);
+    expect(out).toContain('<vfkb-resume project="vfkb-test">');
     expect(out).toMatch(/2 injected/); // from s-prev's record, not the current session
-    expect(out).toContain('<vtfkb-context'); // the live derived knowledge bundle follows
+    expect(out).toContain('<vfkb-context'); // the live derived knowledge bundle follows
   });
 
   it('the first ever session has no prior continuity (honest, not fabricated)', () => {
-    const out = renderResume('vtfkb-test', SessionState.load());
+    const out = renderResume('vfkb-test', SessionState.load());
     expect(out).toContain('first recorded session — no prior continuity');
   });
 });

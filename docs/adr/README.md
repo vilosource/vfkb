@@ -1,6 +1,6 @@
-# vtfkb — Architecture Decision Records
+# vfkb — Architecture Decision Records
 
-Immutable records of significant vtfkb architecture decisions, in
+Immutable records of significant vfkb architecture decisions, in
 [Nygard ADR format](https://asdlc.io/concepts/architecture-decision-record/)
 (Title/ID · Status · Context · Decision · Consequences · Alternatives Considered).
 
@@ -11,16 +11,16 @@ Immutable records of significant vtfkb architecture decisions, in
   changed), `Amended by ADR-XXXX`. The only permitted edit to a decided ADR is this
   one-line status pointer.
 - Status lifecycle: `Proposed → Accepted → Amended by ADR-XXXX | Deprecated | Superseded by ADR-XXXX`.
-- This log is the **authoritative decision record**; `vtfkb-DESIGN.md` is the
+- This log is the **authoritative decision record**; `vfkb-DESIGN.md` is the
   narrative that points into it. The narrative's locked `Dn`/`D-On` decisions
   migrate here over time.
 
 | ID | Title | Status |
 |---|---|---|
-| [ADR-0001](ADR-0001-record-decisions-as-adrs.md) | Record vtfkb architecture decisions as immutable ADRs | Accepted |
-| [ADR-0002](ADR-0002-greenfield-reimplementation.md) | vtfkb is a greenfield reimplementation; mykb is a studied spike | Accepted |
+| [ADR-0001](ADR-0001-record-decisions-as-adrs.md) | Record vfkb architecture decisions as immutable ADRs | Accepted |
+| [ADR-0002](ADR-0002-greenfield-reimplementation.md) | vfkb is a greenfield reimplementation; mykb is a studied spike | Accepted |
 | [ADR-0003](ADR-0003-language-typescript.md) | Implementation language = TypeScript | Accepted |
-| [ADR-0004](ADR-0004-decision-is-adr-grade.md) | `decision` is a first-class, ADR-grade entry type in vtfkb | Accepted |
+| [ADR-0004](ADR-0004-decision-is-adr-grade.md) | `decision` is a first-class, ADR-grade entry type in vfkb | Accepted |
 | [ADR-0005](ADR-0005-injection-filters-stale.md) | Auto-injection filters known-stale entries; injects unverified (labeled) | Accepted |
 | [ADR-0006](ADR-0006-context-map.md) | Context Map — a derived navigational artifact (v1 = Index/Topology) | Accepted |
 | [ADR-0007](ADR-0007-rfc-is-proposed-decision.md) | RFCs are `proposed` decisions, not a new entry type | Accepted |
@@ -35,10 +35,11 @@ Immutable records of significant vtfkb architecture decisions, in
 | [ADR-0016](ADR-0016-search-ranking-and-embedding-revisit.md) | Explicit search is relevance-primary; EmbeddingReranker un-deferred to Planned-pending-verification (amends ADR-0012) | Accepted (Amended by ADR-0017, ADR-0018) |
 | [ADR-0017](ADR-0017-search-relevance-floor.md) | Explicit search applies a relative relevance floor (distinct query-term ratio; default 1/3); amends ADR-0016 | Accepted |
 | [ADR-0018](ADR-0018-honest-no-match-contract.md) | Search reports a cause-distinguished honest no-match (empty_topic/no_match/all_filtered); amends ADR-0016 | Accepted |
-| [ADR-0019](ADR-0019-self-hosted-design-brain.md) | vtfkb self-hosts its own design-brain (commit `.vtfkb/`; ADRs link-not-copy); applies D2c + D1.4 to vtfkb's repo | Accepted |
-| [ADR-0020](ADR-0020-session-continuity-record.md) | Session continuity = a derived, append-only knowledge-continuity record (vtfkb's half of the vtf/vtfkb seam) | Accepted (build sequenced) |
+| [ADR-0019](ADR-0019-self-hosted-design-brain.md) | vfkb self-hosts its own design-brain (commit `.vfkb/`; ADRs link-not-copy); applies D2c + D1.4 to vfkb's repo | Accepted |
+| [ADR-0020](ADR-0020-session-continuity-record.md) | Session continuity = a derived, append-only knowledge-continuity record (vfkb's half of the vtf/vfkb seam) | Accepted (build sequenced) |
 | [ADR-0021](ADR-0021-auto-distill-and-curator.md) | Auto-distill + ACE curator — capture distils to `incoming`; curation is deltas + counters, never rewrites | Accepted (Amended by ADR-0024) |
 | [ADR-0022](ADR-0022-l4-evaluation-methodology.md) | L4 evaluation methodology = dockerized, reproducible, contrast-based, multi-trial, dual-harness (self-contained images) | Accepted (build sequenced) |
 | [ADR-0023](ADR-0023-scenario-contract-first.md) | Agent-observable features are scenario-contract-first — the L4 scenario is the DoD, run RED before implementation (invariants stay unit tests) | Accepted |
 | [ADR-0024](ADR-0024-relabel-trust-on-promotion.md) | Corroborated promotion re-stamps provenance verified (trust elevation is agent-observable); distiller stops baking "(unverified)" into text | Accepted |
 | [ADR-0025](ADR-0025-project-context-doc-and-kb-context.md) | The project context doc + `kb_context` — an assembled "agent's first read" (authored spine + derived Constitution/Map/decisions), read on demand | Accepted |
+| [ADR-0026](ADR-0026-rebrand-to-vfkb.md) | Rebrand vtfkb → vfkb (ViloForge KnowledgeBase) — full hard rename (identity/env/dirs/repo) to align the VF-family with vfwb | Accepted |

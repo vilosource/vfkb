@@ -5,10 +5,10 @@ import { join } from 'node:path';
 
 // Each test gets a throwaway brain dir.
 function freshBrain() {
-  process.env.VTFKB_DIR = mkdtempSync(join(tmpdir(), 'vtfkb-test-'));
+  process.env.VFKB_DIR = mkdtempSync(join(tmpdir(), 'vfkb-test-'));
 }
 
-// Import AFTER env is settable; engine reads VTFKB_DIR lazily per call.
+// Import AFTER env is settable; engine reads VFKB_DIR lazily per call.
 import {
   addEntry,
   captureToolCall,
@@ -96,11 +96,11 @@ describe('rerank — ADR-0012 heuristic soft sort', () => {
 });
 
 describe('renderContextBundle — ADR-0015 Tier-A budget', () => {
-  it('wraps in <vtfkb-context> and respects the 10k char budget', () => {
+  it('wraps in <vfkb-context> and respects the 10k char budget', () => {
     for (let i = 0; i < 500; i++) addEntry('fact', `padding fact number ${i} `.repeat(10), { role: 'human' });
     const block = renderContextBundle('demo');
-    expect(block.startsWith('<vtfkb-context project="demo">')).toBe(true);
-    expect(block.endsWith('</vtfkb-context>')).toBe(true);
+    expect(block.startsWith('<vfkb-context project="demo">')).toBe(true);
+    expect(block.endsWith('</vfkb-context>')).toBe(true);
     expect(block.length).toBeLessThanOrEqual(SESSION_BUDGET_CHARS);
   });
   it('omits expired entries from the rendered block', () => {

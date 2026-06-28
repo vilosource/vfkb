@@ -5,7 +5,7 @@
 // the human remains the backstop, so the default for anything uncertain is "ask".
 //
 // Contract: reads the PreToolUse hook JSON on stdin, emits hookSpecificOutput with
-// permissionDecision allow|ask (same shape vtfkb's brain-write gate uses).
+// permissionDecision allow|ask (same shape vfkb's brain-write gate uses).
 import { readFileSync } from 'node:fs';
 
 function emit(decision, reason) {

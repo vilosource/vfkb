@@ -24,7 +24,7 @@ export interface SaveResult {
 
 // Commit all brain changes. `role` attributes the commit (author.role, D4a).
 // Returns committed:false when there is nothing to commit (idempotent).
-export function save(message = 'vtfkb: update', role = 'engine', brain = brainDir()): SaveResult {
+export function save(message = 'vfkb: update', role = 'engine', brain = brainDir()): SaveResult {
   ensureRepo(brain);
   git(['add', '-A'], brain);
   const status = git(['status', '--porcelain'], brain).trim();
@@ -32,9 +32,9 @@ export function save(message = 'vtfkb: update', role = 'engine', brain = brainDi
   git(
     [
       '-c',
-      `user.name=vtfkb (${role})`,
+      `user.name=vfkb (${role})`,
       '-c',
-      'user.email=vtfkb@vilosource.local',
+      'user.email=vfkb@vilosource.local',
       'commit',
       '-q',
       '-m',
@@ -46,7 +46,7 @@ export function save(message = 'vtfkb: update', role = 'engine', brain = brainDi
 }
 
 export function saveAndPush(
-  message = 'vtfkb: update',
+  message = 'vfkb: update',
   role = 'engine',
   brain = brainDir(),
 ): SaveResult {

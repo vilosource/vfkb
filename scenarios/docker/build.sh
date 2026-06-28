@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Build the T5a pi-coding L4 harness image (ADR-0022).
-# Rebuilds the vtfkb dist first (the image bakes it), then docker-builds from the repo
+# Rebuilds the vfkb dist first (the image bakes it), then docker-builds from the repo
 # root so `COPY dist/` and `COPY scenarios/docker/models.json` resolve.
 #
-#   scenarios/docker/build.sh            # build + tag vtfkb-l4-pi:dev
-#   VTFKB_L4_PI_IMAGE=foo:bar  ...       # override the tag
+#   scenarios/docker/build.sh            # build + tag vfkb-l4-pi:dev
+#   VFKB_L4_PI_IMAGE=foo:bar  ...       # override the tag
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-IMAGE="${VTFKB_L4_PI_IMAGE:-vtfkb-l4-pi:dev}"
+IMAGE="${VFKB_L4_PI_IMAGE:-vfkb-l4-pi:dev}"
 
 cd "$REPO"
 echo "==> building dist (the image bakes the built substrate)"

@@ -25,7 +25,7 @@ weak match into a confident wrong answer.
 
 External corroboration: AnythingLLM ships a **Document Similarity Threshold** (default min
 20%, settable to "No Restriction") to drop chunks below a relevance score. Same mechanism;
-its score is normalized cosine `0–1`, so the *value* 0.2 does not port to vtfkb's
+its score is normalized cosine `0–1`, so the *value* 0.2 does not port to vfkb's
 term-overlap count — only the *idea* of a floor.
 
 ## Decision
@@ -72,7 +72,7 @@ query-term coverage** (not the raw repeat-counting `score`, and not a cosine fra
   brain scale; the surfacing failure is observed.
 - **Floor on the raw `score`.** Rejected — `score` counts repeats, so it rewards a long
   entry hammering one common term; distinct-term coverage is what distinguishes signal.
-- **Port AnythingLLM's 20% cosine threshold.** Rejected — vtfkb's score is unnormalized
+- **Port AnythingLLM's 20% cosine threshold.** Rejected — vfkb's score is unnormalized
   term-overlap, not cosine; the number is meaningless here. Mechanism transfers, value does
   not.
 - **Lower the `limit` instead.** Rejected — `limit` controls quantity, not quality.

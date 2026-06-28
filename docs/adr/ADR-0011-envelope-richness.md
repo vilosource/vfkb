@@ -6,14 +6,14 @@
 
 ## Context
 
-vtfkb is a greenfield reimplementation with mykb as the studied spike (ADR-0002).
+vfkb is a greenfield reimplementation with mykb as the studied spike (ADR-0002).
 mykb's own retrospective names **retrofitting the entry envelope its #1 v2 debt**
 (`envelope-v2-DESIGN.md`): it had to add bi-temporal validity, a trust level, and
 structured provenance after the fact. The implementation plan (§3 D-A) flags
 deciding the envelope shape *now* as the way to avoid re-incurring that debt.
 
-But the envelope-v2 delta is **narrower for vtfkb than it was for mykb**, because
-vtfkb's schema v1 already carries more than mykb's v1 did:
+But the envelope-v2 delta is **narrower for vfkb than it was for mykb**, because
+vfkb's schema v1 already carries more than mykb's v1 did:
 
 - `author{role: architect|pm|executor|judge|human|init, id}` (D3a) — structured
   authorship (mykb had only free-text `provenance.source`).
@@ -23,13 +23,13 @@ vtfkb's schema v1 already carries more than mykb's v1 did:
 
 Mapping mykb's three envelope-v2 enrichments against that:
 
-| envelope-v2 enrichment | vtfkb v1 already has | genuine gap |
+| envelope-v2 enrichment | vfkb v1 already has | genuine gap |
 |---|---|---|
 | bi-temporal **validity window** | only `refs.supersedes` | **yes** — no `valid_from`/`valid_until` |
 | **trust level** (operator/agent/import) | `author.role` (6 roles) + `provenance.status` | **no** — derivable, finer-grained |
 | structured **provenance origin** | `refs.commit/files` (work-state linkage) | **partial** — `tool_call`/`message` capture surfaces absent |
 
-vtfkb's premises sharpen two of these: as an **ingest substrate** its thesis is
+vfkb's premises sharpen two of these: as an **ingest substrate** its thesis is
 *re-verifiable* provenance (commit+sha+path+line from ingest, tool_call from passive
 capture D7b), and as the memory **feeding agents** a stale fact that still injects is
 the core failure mode (the Stark-FQDN incident; the recurring snapshot≠history bug).
@@ -83,9 +83,9 @@ consumption (schema-now / consume-later, mirroring mykb's own migration order).
 
 - **Full mykb parity (explicit `trust` field, wire validity+trust gating fully in
   v1).** Rejected: an explicit `trust` enum is redundant with — and can drift from
-  — vtfkb's richer `author.role`; fully wiring bi-temporal audit queries over-builds
+  — vfkb's richer `author.role`; fully wiring bi-temporal audit queries over-builds
   the query layer before there is data to justify it (mykb's own phasing wisdom).
 - **Minimal — add only `valid_until`, defer `origin` and trust entirely.** Rejected:
   re-incurs the structured-origin retrofit debt mykb proved costly, and under-serves
-  vtfkb's re-verifiable-provenance ingest thesis (the `tool_call`/`commit` origin is
+  vfkb's re-verifiable-provenance ingest thesis (the `tool_call`/`commit` origin is
   the point, not an extra).

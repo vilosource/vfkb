@@ -1,4 +1,4 @@
-# vtfkb — Phase 0 Spike Report (cross-harness auto-layer)
+# vfkb — Phase 0 Spike Report (cross-harness auto-layer)
 
 > **Date:** 2026-06-03 · **Status:** **Phase 0 essentially COMPLETE.** The core gate
 > is MET, LIVE, on BOTH harnesses (engine-injected fact appears *and is used* in
@@ -12,8 +12,8 @@
 
 ## What Phase 0 had to de-risk
 
-Per [`vtfkb-IMPLEMENTATION-PLAN.md`](../../viloforge-research/ViloForge-PRD/vtfkb-IMPLEMENTATION-PLAN.md)
-§5 + [ADR-0015](../../viloforge-research/ViloForge-PRD/vtfkb-adr/ADR-0015-cross-harness-auto-layer.md):
+Per [`vfkb-IMPLEMENTATION-PLAN.md`](../../viloforge-research/ViloForge-PRD/vfkb-IMPLEMENTATION-PLAN.md)
+§5 + [ADR-0015](../../viloforge-research/ViloForge-PRD/vfkb-adr/ADR-0015-cross-harness-auto-layer.md):
 prove the *path* (engine → harness → model), not the logic, and settle the three
 things the hook docs don't: **attention** (does an injected fact actually get *used*),
 **budget fit** (10k-char `additionalContext` cap), and **cache cost**.
@@ -24,13 +24,13 @@ is captured; the bundle fits the cap.
 ## What was built (this increment)
 
 A minimal but real engine + Claude Code face, **zero runtime dependencies** (pure
-Node stdlib — demonstrates [ADR-0013](../../viloforge-research/ViloForge-PRD/vtfkb-adr/ADR-0013-no-hard-native-dep.md)):
+Node stdlib — demonstrates [ADR-0013](../../viloforge-research/ViloForge-PRD/vfkb-adr/ADR-0013-no-hard-native-dep.md)):
 
-- `src/types.ts` — the [ADR-0011](../../viloforge-research/ViloForge-PRD/vtfkb-adr/ADR-0011-envelope-richness.md)
+- `src/types.ts` — the [ADR-0011](../../viloforge-research/ViloForge-PRD/vfkb-adr/ADR-0011-envelope-richness.md)
   envelope (validity window + structured `provenance.origin`; trust **derived**).
 - `src/engine.ts` — pure-JS JSONL storage (source of truth), `deriveTrust`, the
-  [ADR-0005](../../viloforge-research/ViloForge-PRD/vtfkb-adr/ADR-0005-injection-filters-stale.md)+ADR-0011
-  injection **filter** (hard gate), the [ADR-0012](../../viloforge-research/ViloForge-PRD/vtfkb-adr/ADR-0012-two-stage-retrieval.md)
+  [ADR-0005](../../viloforge-research/ViloForge-PRD/vfkb-adr/ADR-0005-injection-filters-stale.md)+ADR-0011
+  injection **filter** (hard gate), the [ADR-0012](../../viloforge-research/ViloForge-PRD/vfkb-adr/ADR-0012-two-stage-retrieval.md)
   **tiered Heuristic reranker** (soft sort), the ADR-0015 10k-budgeted Tier-A bundle,
   and Tier-B tool-call capture.
 - `src/cli.ts` — the thin face the Claude Code hooks call; `hook session-start` /
@@ -51,7 +51,7 @@ realized as one codebase with two thin adapters.
 |---|---|---|
 | **Unit gate** | `vitest run` (11 tests: derive-trust, filter, tiered rerank, budget, capture) | ✅ 11/11 |
 | **Zero-native-dep load** | engine runs on pure Node stdlib, no `npm` runtime deps | ✅ (ADR-0013 demonstrated) |
-| **Tier-A render** | `cli context-block` → tiered, trust-labelled `<vtfkb-context>` block | ✅ pattern-before-fact, `[type ✓operator/⚠agent]` labels |
+| **Tier-A render** | `cli context-block` → tiered, trust-labelled `<vfkb-context>` block | ✅ pattern-before-fact, `[type ✓operator/⚠agent]` labels |
 | **Stale exclusion (Stark-FQDN class)** | seed an expired fact (`valid_until` past) | ✅ omitted from the block |
 | **Budget fit (10k cap)** | block length measured; 500-entry padding test | ✅ ≤ 10,000 chars |
 | **SessionStart hook contract** | pipe documented stdin → assert `hookSpecificOutput` JSON | ✅ valid JSON, carries the bundle |
@@ -67,11 +67,11 @@ realized as one codebase with two thin adapters.
 
 ```
 $ cd /tmp && claude -p "What is the Phase-0 canary token? Reply with ONLY the token value." \
-      --settings ~/GitHub/vtfkb/spike/settings.json
+      --settings ~/GitHub/vfkb/spike/settings.json
 BANANA-42
 ```
 
-`BANANA-42` was seeded only into the vtfkb brain and injected via the SessionStart
+`BANANA-42` was seeded only into the vfkb brain and injected via the SessionStart
 hook. The model could not have produced it otherwise → the injection reached the
 model **and was attended to**. This is the hardest unknown ADR-0015 named, on a real
 harness.
@@ -101,13 +101,13 @@ realized as one engine + two thin faces. **The core Phase-0 gate is met.**
 ## Reproduce
 
 ```
-cd ~/GitHub/vtfkb && npm install && npm run build && npm test
+cd ~/GitHub/vfkb && npm install && npm run build && npm test
 # live attention test:
-export VTFKB_DIR=/tmp/vtfkb-spike-brain && rm -rf "$VTFKB_DIR"
+export VFKB_DIR=/tmp/vfkb-spike-brain && rm -rf "$VFKB_DIR"
 node dist/cli.js add fact "The Phase-0 canary token is BANANA-42." --role human
 cd /tmp && claude -p "What is the Phase-0 canary token? Reply with ONLY the token value." \
-      --settings ~/GitHub/vtfkb/spike/settings.json          # -> BANANA-42
+      --settings ~/GitHub/vfkb/spike/settings.json          # -> BANANA-42
 # same test, Pi harness:
-cd /tmp && VTFKB_DIR=/tmp/vtfkb-spike-brain pi -p -e ~/GitHub/vtfkb/dist/pi-extension.js \
+cd /tmp && VFKB_DIR=/tmp/vfkb-spike-brain pi -p -e ~/GitHub/vfkb/dist/pi-extension.js \
       --no-tools "What is the Phase-0 canary token? Reply with ONLY the token value."   # -> BANANA-42
 ```

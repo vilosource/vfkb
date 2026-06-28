@@ -51,7 +51,7 @@ never worse than MCP-pull on any tier.
    `Pre/PostToolUse` equivalents, Claude Code `PostToolUse` (reliable, full payload).
    Feeds D7b. **High confidence.**
 3. **Tier C — per-turn signal-driven delta injection: Pi-only in v1.** Claude Code's
-   `UserPromptSubmit` is documented-unreliable + cache-inefficient → vtfkb does **not**
+   `UserPromptSubmit` is documented-unreliable + cache-inefficient → vfkb does **not**
    build a per-turn *push* on Claude Code. There, dynamic mid-session need degrades to
    **MCP-pull** (the agent calls `kb_search`/`kb_map` when it needs more). The Pi
    extension keeps per-turn push (its in-process `context` hook is reliable).

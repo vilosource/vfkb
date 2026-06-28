@@ -1,6 +1,6 @@
-# devops-kb — tooled Azure-ops container with the vtfkb knowledge substrate.
+# devops-kb — tooled Azure-ops container with the vfkb knowledge substrate.
 # A clean-room Claude Code session (isolated from mykb) that carries real infra
-# tooling + access and a seeded devops-kb brain. node:20-slim base (the claude + vtfkb
+# tooling + access and a seeded devops-kb brain. node:20-slim base (the claude + vfkb
 # faces are node); infra toolchain layered on top.
 FROM node:20-slim
 
@@ -40,8 +40,8 @@ RUN python3 -m venv /opt/ansible \
 RUN npm install -g @anthropic-ai/claude-code@2.1.162 \
                    @mariozechner/pi-coding-agent@0.73.1
 
-# vtfkb substrate: built artifact + the single runtime dep (@modelcontextprotocol/sdk).
-WORKDIR /opt/vtfkb
+# vfkb substrate: built artifact + the single runtime dep (@modelcontextprotocol/sdk).
+WORKDIR /opt/vfkb
 COPY dist/ ./dist/
 COPY package.json ./
 RUN npm install --omit=dev
@@ -49,7 +49,7 @@ RUN npm install --omit=dev
 # Clean-room config (devops-kb; ZERO mykb).
 #   Claude face: settings.json (hooks) + bash-guard.mjs + /work/CLAUDE.md (operating rules)
 #   pi face:     infra-guard.mjs (mutation gate) + operating-rules.md (--append-system-prompt)
-#   shared:      mcp-config.json (the vtfkb MCP server; pi reads it via VTFKB_MCP_CONFIG)
+#   shared:      mcp-config.json (the vfkb MCP server; pi reads it via VFKB_MCP_CONFIG)
 COPY spike/devops-kb/mcp-config.json spike/devops-kb/settings.json spike/devops-kb/bash-guard.mjs \
      spike/devops-kb/infra-guard.mjs spike/devops-kb/operating-rules.md ./
 COPY spike/devops-kb/CLAUDE.md /work/CLAUDE.md
@@ -61,5 +61,5 @@ COPY spike/devops-kb/gitconfig /work/.gitconfig
 # Mounts land at: /work/.azure, /work/.claude, /brain (seeded), /gitlab (repos).
 RUN mkdir -p /work/.claude /work/.azure /brain /gitlab && chmod -R 0777 /work /brain /gitlab
 
-ENV HOME=/work VTFKB_DIR=/brain VTFKB_PROJECT=devops-kb
+ENV HOME=/work VFKB_DIR=/brain VFKB_PROJECT=devops-kb
 WORKDIR /gitlab

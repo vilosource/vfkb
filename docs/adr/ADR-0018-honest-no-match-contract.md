@@ -28,7 +28,7 @@ Collapsing all three to `[]` is exactly what lets an agent say "no recorded entr
 then answer from model priors as if that were recorded knowledge.
 
 External corroboration: AnythingLLM's **Query mode** answers only from documents and
-returns an explicit refusal on zero hits (vs Chat mode, which blends). vtfkb's MCP pull
+returns an explicit refusal on zero hits (vs Chat mode, which blends). vfkb's MCP pull
 tools are that same query-mode surface and lacked the honest-refusal contract.
 
 ## Decision
@@ -52,7 +52,7 @@ tools are that same query-mode surface and lacked the honest-refusal contract.
    instead of silence.
 5. **Engine returns structured truth; the face speaks it.** The engine emits the
    structured diagnosis; the MCP/CLI face renders the words and the contract. A
-   deterministic reporting contract, not a behavioural gate (vtfkb's "deterministic
+   deterministic reporting contract, not a behavioural gate (vfkb's "deterministic
    backstop over probabilistic gate").
 
 *Implemented and tested* (this commit): `src/read.ts` (`queryExplained`, `SearchDiagnosis`,

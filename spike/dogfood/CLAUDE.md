@@ -1,21 +1,21 @@
-# vtfkb — working context
+# vfkb — working context
 
-You are working in the **vtfkb** repository: a knowledge substrate for LLM coding
+You are working in the **vfkb** repository: a knowledge substrate for LLM coding
 agents. It captures, indexes, and serves project knowledge (facts, decisions,
 gotchas, patterns) across sessions. Faces: a CLI, Claude Code hooks, and an MCP
 server.
 
 ## Your knowledge tool
 
-This session is wired to a **vtfkb** knowledge store (MCP server `vtfkb` + session
+This session is wired to a **vfkb** knowledge store (MCP server `vfkb` + session
 hooks). Treat it as your project memory:
 
-- **Recall before you act.** Use the `vtfkb` MCP tools (search / query / map) to
+- **Recall before you act.** Use the `vfkb` MCP tools (search / query / map) to
   pull what's already known about the area you're touching. Relevant knowledge is
   also injected at session start.
 - **Capture what you learn.** When you discover a durable fact, make a decision
   (record the *why*), hit a gotcha, or establish a pattern, add it through the
-  `vtfkb` tools — not by editing files directly. The engine is the sole writer; it
+  `vfkb` tools — not by editing files directly. The engine is the sole writer; it
   keeps the index, freshness, and no-secrets invariants.
 - Direct writes into the knowledge store are blocked by design. Editing code in
   this repo is normal and unrestricted.

@@ -1,9 +1,9 @@
-# vtfkb — Implementation Plan (v1, per-project tier)
+# vfkb — Implementation Plan (v1, per-project tier)
 
 > **STATUS: HISTORICAL — v1 DELIVERED (Phases 0–6, shipped 2026-06-25).** This is the
 > build plan as authored (2026-06-01; §3 gate cleared 2026-06-03); all phases were
 > delivered. For live state see [STATUS-AND-ROADMAP.md](STATUS-AND-ROADMAP.md) and
-> [H4-DEVELOPMENT-ROADMAP.md](H4-DEVELOPMENT-ROADMAP.md). Build sequence for vtfkb v1,
+> [H4-DEVELOPMENT-ROADMAP.md](H4-DEVELOPMENT-ROADMAP.md). Build sequence for vfkb v1,
 > implementing the locked design ([`DESIGN.md`](DESIGN.md) D1–D7) and decisions
 > [`adr/`](adr/) **ADR-0001…0015**. Greenfield **TypeScript**, **mykb as a studied
 > spike** (ADR-0002) — zero code inheritance.
@@ -23,7 +23,7 @@
   run side-by-side to validate against, never a code source.
 - **Process (a direct mykb lesson):** mykb's v1 retro found **parallel build agents
   corrupted shared state** (a test file committed to develop, revert + conflicts).
-  → vtfkb builds in **strict sequential phases** (or true git-worktree isolation),
+  → vfkb builds in **strict sequential phases** (or true git-worktree isolation),
   each with a **gate script** that must be green before the next.
 - **Testing pyramid** (mykb-proven shape): broad TS unit/integration base (per
   module, temp-brain isolated) → thin integration band → a small, high-signal **L4
@@ -37,9 +37,9 @@
 
 ## 2. Lessons from mykb (the spike) — the record ADR-0002 promised
 
-Per major choice: what mykb did → what it taught → what vtfkb does differently.
+Per major choice: what mykb did → what it taught → what vfkb does differently.
 
-| # | mykb did | Taught | vtfkb does |
+| # | mykb did | Taught | vfkb does |
 |---|---|---|---|
 | L1 | Entry had only `created`/`updated`; free-text provenance | Retrofitting temporal/trust was the **biggest v2 debt** | **Rich envelope from schema v1** — but *which* richness is a decision (§3, D-A) |
 | L2 | Single-stage **area** word-overlap scoring; entries dumped in **load order** | Core retrieval-quality decay; "lost in the middle" | **Entry-level relevance, signal threaded through to selection** (rerank — §3, D-B) |
@@ -50,7 +50,7 @@ Per major choice: what mykb did → what it taught → what vtfkb does different
 | L7 | Pi type stubs hand-written, **wrong** (`before_agent_start` params; `event.tool`) | Re-deriving harness contracts burned time; the `context` bug silently dropped injection for weeks | **Validate harness type stubs against the real harness; copy working spike patterns verbatim** |
 | L8 | mtime-based index staleness | **git ops rewrite mtimes** → rebuild reliability risk | **Content-hash / explicit rebuild trigger**, not mtime (§3, D-D) |
 | L9 | Auto-area-creation | **Area sprawl** (typos become permanent areas) | Per-project brain is **flat** (D2e) — sidesteps it; tag governance noted |
-| **L10** | **Explicit non-decision: NO MCP server** (hooks + CLI + file exports only — kills an OWASP class) | Right for a **single-user, single-harness** tool | **vtfkb DIVERGES: MCP *is* adopted** (D5a) — because the fleet is **multi-harness** (Pi + Claude Code) and MCP is the only common surface. The OWASP memory-poisoning concern mykb raised is instead mitigated by **tool-gating (D7c) + no-secrets lint (D6e) + trust gradient (D3d) + the injection filter (ADR-0005)**. *This is the one place vtfkb deliberately does not follow mykb's lesson; the multi-harness premise changes the calculus.* |
+| **L10** | **Explicit non-decision: NO MCP server** (hooks + CLI + file exports only — kills an OWASP class) | Right for a **single-user, single-harness** tool | **vfkb DIVERGES: MCP *is* adopted** (D5a) — because the fleet is **multi-harness** (Pi + Claude Code) and MCP is the only common surface. The OWASP memory-poisoning concern mykb raised is instead mitigated by **tool-gating (D7c) + no-secrets lint (D6e) + trust gradient (D3d) + the injection filter (ADR-0005)**. *This is the one place vfkb deliberately does not follow mykb's lesson; the multi-harness premise changes the calculus.* |
 | L11 | Manifest not regenerated on auto-create → empty Tier-1 | Index regen must be a **guaranteed side-effect** of any area-mutating write | Engine (sole writer, D4a) owns manifest/index regen invariantly |
 | L12 | Curator rewrote whole entries | Move to **ACE deltas** (counters, patches) | Curation deferred; when built, **deltas not rewrites** (§7) |
 
@@ -207,13 +207,13 @@ may land in D-A, the backend does not); distinct RFC/constitution *types*
    under the real origin-split write flow (D4b).
 4. **Index freshness across git ops** (D-D) — content-hash beats mtime.
 5. **Cross-provider injection behaviour** — mykb only validated on z.ai/GLM; verify
-   `<vtfkb-context>` lands on the production models (Claude, Pi's models).
+   `<vfkb-context>` lands on the production models (Claude, Pi's models).
 
 ---
 
 ## 9. Critical path & first step
 
-vtfkb is the **critical path** for the whole Ingest Cycle (onboarding #2 and ingest
+vfkb is the **critical path** for the whole Ingest Cycle (onboarding #2 and ingest
 #3 both depend on it). The Phase-1/3/5-gating decisions **D-A…D-E are now locked**
 (ADR-0011…0015, 2026-06-03) → the pre-implementation gate is cleared. **First step:**
 the **narrowed Phase 0 spike** (deployment + the ADR-0015 attention/cache/budget
