@@ -54,6 +54,23 @@ So prefer the **`mcp__vfkb__*` tools** in-session; the CLI (below) is the equiva
 - Ergonomic shortcut (optional): `alias vfkb='VFKB_DIR=.vfkb node ~/VFKB/vfkb/dist/cli.js'`, or
   `npm link` for a global `vfkb` / `vfkb-mcp`.
 
+## Capturing decisions (standing rule — do this, don't defer)
+
+vfkb is the project's memory, so **decisions must land in it**. There is **no automatic decision
+capture** (the `PostToolUse` hook records tool calls, not conceptual choices, and is off here), so
+this is a **deliberate discipline**:
+
+- **When a load-bearing decision is made in a session, record it immediately** — prefer the MCP tool
+  `mcp__vfkb__kb_add` with `type=decision`, the decision text, `why=<rationale>`, `role=human`
+  (CLI equivalent: `vfkb add decision "…" --why "…" --role human`). Don't batch it to "later."
+- **Architectural / standard-setting decisions also get an ADR** — `docs/adr/` (Nygard format,
+  immutable, ADR-0001) — and link it into the brain (`kb_add type=link → docs/adr/ADR-XXXX-….md`).
+  The ADR is the deterministic backstop; the `decision` entry makes it recallable via `kb_search`.
+- **Before committing / ending a session:** check no decision went unrecorded, leave a `resume-note`
+  for "what's next," then `git add .vfkb && git commit`.
+- This is a **prose rule with no Brake** (vfkb's own lesson: an LLM may skip it). The reliable safety
+  net is the committed ADR for anything significant; treat the `kb_add` capture as the habit.
+
 ## Build / test / run
 
 - `npm run build` → `tsc` → `dist/` (no native modules). `pretest` runs `tsc` first.
