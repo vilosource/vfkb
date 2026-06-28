@@ -1,9 +1,12 @@
 # vtfkb — Implementation Plan (v1, per-project tier)
 
-> **STATUS: PLAN (2026-06-01; §3 gate cleared 2026-06-03).** Build sequence for
-> vtfkb v1, implementing the locked design ([`vtfkb-DESIGN.md`](vtfkb-DESIGN.md)
-> D1–D7) and decisions [`vtfkb-adr/`](vtfkb-adr/) **ADR-0001…0015**. Greenfield
-> **TypeScript**, **mykb as a studied spike** (ADR-0002) — zero code inheritance.
+> **STATUS: HISTORICAL — v1 DELIVERED (Phases 0–6, shipped 2026-06-25).** This is the
+> build plan as authored (2026-06-01; §3 gate cleared 2026-06-03); all phases were
+> delivered. For live state see [STATUS-AND-ROADMAP.md](STATUS-AND-ROADMAP.md) and
+> [H4-DEVELOPMENT-ROADMAP.md](H4-DEVELOPMENT-ROADMAP.md). Build sequence for vtfkb v1,
+> implementing the locked design ([`DESIGN.md`](DESIGN.md) D1–D7) and decisions
+> [`adr/`](adr/) **ADR-0001…0015**. Greenfield **TypeScript**, **mykb as a studied
+> spike** (ADR-0002) — zero code inheritance.
 > Design-first: §3's five gating decisions (D-A…D-E) are now **all locked** as
 > ADR-0011…0015 → **the pre-implementation gate is cleared; Phase 0 is next.**
 > Grounded against the live mykb repo (`~/GitHub/mykb` @ develop) and a verified
@@ -66,29 +69,29 @@ The lessons exposed five decision-grade questions. All are now **locked as ADRs*
 best solution" + a verified Claude Code hook-surface check for D-E). Per ADR-0001
 the ADRs are the authoritative record; the summaries below point into them.
 
-- **D-A — Entry envelope richness (gated Phase 1) → [ADR-0011](vtfkb-adr/ADR-0011-envelope-richness.md).**
+- **D-A — Entry envelope richness (gated Phase 1) → [ADR-0011](adr/ADR-0011-envelope-richness.md).**
   **LOCKED:** adopt the two *genuine* gaps — bi-temporal **validity window**
   (`valid_from`/`valid_until`, `recorded_invalid_at` stored-not-consumed) +
   structured **`provenance.origin`** union (commit/message/tool_call/manual);
   **derive** trust from `author.role`+`provenance.status` (no new field;
   `superseded_by` stays as `refs.supersedes`). v1 wires `valid_until` exclusion into
   ADR-0005 + commit/tool_call origin capture; defers audit queries + embeddings.
-- **D-B — Retrieval: two-stage rerank (gated Phase 3) → [ADR-0012](vtfkb-adr/ADR-0012-two-stage-retrieval.md).**
+- **D-B — Retrieval: two-stage rerank (gated Phase 3) → [ADR-0012](adr/ADR-0012-two-stage-retrieval.md).**
   **LOCKED:** pluggable `EntryReranker` pipeline; ship Noop + **Heuristic (default)**;
   Stage-1 BM25 candidate-narrowing built but **pass-through at the flat/small
   per-project scale** (activates above a `candidate_k` threshold); Embedding reranker
   stubbed/deferred. Reranker = soft sort; ADR-0005 filter = hard gate (no duplicated
   exclusion).
-- **D-C — Storage runtime: native-dep policy (gated Phase 1) → [ADR-0013](vtfkb-adr/ADR-0013-no-hard-native-dep.md).**
+- **D-C — Storage runtime: native-dep policy (gated Phase 1) → [ADR-0013](adr/ADR-0013-no-hard-native-dep.md).**
   **LOCKED:** **no hard native dependency.** Pluggable `Index`; v1 default = pure-JS
   in-memory (JSONL-scan + BM25), rebuilt in long-lived processes; `better-sqlite3`
   FTS5 is an **optional auto-detected backend**, graceful-degrade if absent. JSONL
   stays source of truth. Kills the four-image native-compile pain.
-- **D-D — Index freshness trigger (gated Phase 1) → [ADR-0014](vtfkb-adr/ADR-0014-index-freshness.md).**
+- **D-D — Index freshness trigger (gated Phase 1) → [ADR-0014](adr/ADR-0014-index-freshness.md).**
   **LOCKED:** **content-derived token + explicit rebuild, never mtime.** Regen is a
   guaranteed side-effect of every engine write (sole-writer, L11); readers compare
   the token and **rebuild-on-doubt** (cheap per ADR-0013).
-- **D-E — Claude Code auto-layer feasibility (gated Phase 5) → [ADR-0015](vtfkb-adr/ADR-0015-cross-harness-auto-layer.md).**
+- **D-E — Claude Code auto-layer feasibility (gated Phase 5) → [ADR-0015](adr/ADR-0015-cross-harness-auto-layer.md).**
   **LOCKED (evidence-based, hook surface verified 2026-06-03):** tiered parity —
   **Tier A** session-start injection (full parity, `SessionStart.additionalContext`,
   stable+cached); **Tier B** passive capture (full parity, `PostToolUse` reliable);

@@ -14,7 +14,7 @@
 
 ## 1. Where we are (status snapshot, 2026-06-28)
 
-`main` is green (**95/95** unit, @ `6b69d1d`). v1 (per-project tier) is shipped; **M1 (session-continuity
+`main` is green (**95/95** unit, @ `0e75823`). v1 (per-project tier) is shipped; **M1 (session-continuity
 Phase A)** (`ff61215`); **RFC-006 → ADR-0021**; **M2a (curator safety, `ee45289`) + M2b (distiller +
 counters + corroborated promotion)**; **M3 (session-continuity Phase B)** — the resume digest folds the
 auto-distilled `incoming` lessons in, trust-labelled and derived. **Track 1 (memory that carries itself) is

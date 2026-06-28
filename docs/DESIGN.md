@@ -161,12 +161,12 @@ repo (→ D6).
   context doc), not a type.
   **REFINED 2026-06-01 (still 5 types — sub-roles via status/flag/tag, NOT new
   types):** the `decision` type gains a status lifecycle + is ADR-grade
-  ([ADR-0004](vtfkb-adr/ADR-0004-decision-is-adr-grade.md)); an **RFC** = a
-  `proposed` decision ([ADR-0007](vtfkb-adr/ADR-0007-rfc-is-proposed-decision.md));
+  ([ADR-0004](adr/ADR-0004-decision-is-adr-grade.md)); an **RFC** = a
+  `proposed` decision ([ADR-0007](adr/ADR-0007-rfc-is-proposed-decision.md));
   a **constitutional rule** = a `constitutional`-flagged decision
-  ([ADR-0008](vtfkb-adr/ADR-0008-constitution-tier.md)); **Product Vision
+  ([ADR-0008](adr/ADR-0008-constitution-tier.md)); **Product Vision
   heuristics** = `vision`-tagged `pattern`s
-  ([ADR-0010](vtfkb-adr/ADR-0010-product-vision.md)).
+  ([ADR-0010](adr/ADR-0010-product-vision.md)).
 - **D3d — Trust model = GRADIENT, not a write-gate.** Writes land in `active`
   **immediately, labeled** (`author` + `provenance.status`; agent default
   **`unverified`**) — no curation queue. Reads return the trust signal; consuming
@@ -178,7 +178,7 @@ repo (→ D6).
   mykb + the verification-first discipline.
 - **D3e — Per-type status semantics — PARTIALLY RESOLVED 2026-06-01.** The
   **decision family** now has explicit lifecycle semantics (`proposed → accepted →
-  deprecated | superseded`) per [ADR-0004](vtfkb-adr/ADR-0004-decision-is-adr-grade.md);
+  deprecated | superseded`) per [ADR-0004](adr/ADR-0004-decision-is-adr-grade.md);
   the **fluid types** keep mykb's uniform empirical `verified/unverified` status.
   Remaining nuance refined later.
 
@@ -195,12 +195,12 @@ repo (→ D6).
 - **D4c — Concurrency:** `.gitattributes *.jsonl merge=union` (appends never
   conflict) · **tombstone-wins** on rebuild regardless of merge order · push race →
   pull-rebase-retry. Deletes/edits **architect-mediated**; executors only append.
-  **Update semantics are now per-family (REFINED by [ADR-0004](vtfkb-adr/ADR-0004-decision-is-adr-grade.md)):**
+  **Update semantics are now per-family (REFINED by [ADR-0004](adr/ADR-0004-decision-is-adr-grade.md)):**
   the **decision family** (`decision`/RFC/constitutional) is **immutable —
   supersede-only** (never `last-write-wins`); the **fluid types**
   (`fact`/`gotcha`/`pattern`/`link`) keep **append-newer-version, last-write-wins
   by `updated`**. The engine stamps the human ADR ordinal at merge-to-`main`
-  ([ADR-0009](vtfkb-adr/ADR-0009-decision-identity-and-numbering.md)).
+  ([ADR-0009](adr/ADR-0009-decision-identity-and-numbering.md)).
 - **D4d — Commit granularity:** batch **per logical operation** (not per entry);
   engine owns granularity.
 - **D4e — No review gate on local writes.** Architect writes are gated by the
@@ -213,11 +213,14 @@ repo (→ D6).
 - **D5a — MCP is the portable cross-harness query/write baseline (not the whole
   interface).** The fleet is **multi-harness** (FACTUAL: architect = Pi pod;
   executor/judge = Claude Code CLI subprocess — `vafi/src/controller/invoker.py`),
-  and MCP is the one surface both speak. Tools mirror mykb: `kb_search` ·
-  `kb_match` · `kb_context` (load the project context doc) · `kb_load` · `kb_add` ·
-  `kb_get` · `kb_verify` · `kb_supersede` · `kb_promote` · `kb_list` · **`kb_map`**
-  (the derived Context Map — Index/Topology — per
-  [ADR-0006](vtfkb-adr/ADR-0006-context-map.md)). Thin CLI wraps the same engine
+  and MCP is the one surface both speak. **As shipped, the 9 tools are:** `kb_search`
+  (filter incl. `verified` trust) · `kb_list` · `kb_get` · `kb_map` (the derived
+  Context Map — Index/Topology, [ADR-0006](adr/ADR-0006-context-map.md)) · `kb_context`
+  (the assembled project context doc, [ADR-0025](adr/ADR-0025-project-context-doc-and-kb-context.md)) ·
+  `kb_add` · `kb_supersede` · `kb_transition` (decision-status lifecycle) · `kb_resume`
+  (session continuity, [ADR-0020](adr/ADR-0020-session-continuity-record.md)). (The
+  early design sketched mykb-mirrored names — `kb_match`/`kb_load`/`kb_verify`/`kb_promote`
+  — finalized to the above at implementation.) Thin CLI wraps the same engine
   (humans/scripts/debug). **But MCP is pull-only** — it cannot inject context or
   observe the conversation; the high-value *automatic* layer is **D7**, additive on
   top of this baseline.
@@ -272,13 +275,13 @@ vtfkb must do the same. Because this hooks each harness's agent loop, it is
   conversation cache** every fire — a real cost; FACTUAL from mykb
   `journal-auto-inject-DESIGN.md`).
   **What is injected (REFINED 2026-06-01):** the session-start block is the derived
-  **Context Map** (Index/Topology, [ADR-0006](vtfkb-adr/ADR-0006-context-map.md))
+  **Context Map** (Index/Topology, [ADR-0006](adr/ADR-0006-context-map.md))
   + the **Agent Constitution** (always-on, derived from `constitutional` decisions,
-  [ADR-0008](vtfkb-adr/ADR-0008-constitution-tier.md)) + `vision`/`heuristic`
-  patterns ([ADR-0010](vtfkb-adr/ADR-0010-product-vision.md)). The injector
+  [ADR-0008](adr/ADR-0008-constitution-tier.md)) + `vision`/`heuristic`
+  patterns ([ADR-0010](adr/ADR-0010-product-vision.md)). The injector
   **MUST exclude known-stale entries** (status `superseded`/`deprecated`,
   `zone=archive`) and **injects `unverified` entries trust-labelled**, never
-  filtered for being unverified ([ADR-0005](vtfkb-adr/ADR-0005-injection-filters-stale.md)).
+  filtered for being unverified ([ADR-0005](adr/ADR-0005-injection-filters-stale.md)).
 - **D7b — Passive signal capture.** Observe user input + tool calls/results to
   drive relevance scoring (mykb's `input`/`tool_call`/`tool_result` hooks). Future:
   auto-distill capture (low-confidence → `incoming` zone, D3d) — v1 may keep
@@ -306,12 +309,12 @@ the **automatic per-harness context/capture** layer are nailed down for **v1
 Table** layers (ADR-0006, global-tier); D7b auto-distill capture depth; a distinct
 RFC/constitution type only if the marker model proves insufficient (ADR-0007/0008).
 
-**"New product vs evolve mykb" — RESOLVED (2026-06-01, [ADR-0002](vtfkb-adr/ADR-0002-greenfield-reimplementation.md)).**
+**"New product vs evolve mykb" — RESOLVED (2026-06-01, [ADR-0002](adr/ADR-0002-greenfield-reimplementation.md)).**
 vtfkb is a **greenfield TypeScript reimplementation** with **mykb as a studied
 spike** (reference/oracle only, zero code inheritance) — the OSB→mykb→vtfkb
 lineage applied: carry the *lessons*, not the code. Not fork, not evolve-in-place.
 The **"Lessons from mykb (the spike)"** record now lives in §2 of the
-[IMPLEMENTATION-PLAN](vtfkb-IMPLEMENTATION-PLAN.md) (per major choice: what mykb
+[IMPLEMENTATION-PLAN](IMPLEMENTATION-PLAN.md) (per major choice: what mykb
 did, what it taught, what vtfkb does differently). That plan (2026-06-01) sequences
 the gated v1 build and surfaced five gating decisions **D-A…D-E** (envelope
 richness, two-stage rerank, native-dep policy, index-freshness trigger, Claude Code
@@ -319,24 +322,24 @@ auto-layer feasibility) — **all now locked as ADR-0011…0015 (2026-06-03)**; 
 pre-implementation gate is cleared and Phase 0 is next.
 
 **Decision record:** the authoritative, immutable decisions now live in
-[`vtfkb-adr/`](vtfkb-adr/) (ADR format, per ADR-0001). The `Dn` decisions above are
+[`vtfkb-adr/`](adr/) (ADR format, per ADR-0001). The `Dn` decisions above are
 the narrative form; where an ADR refines or supersedes one, **the ADR wins.**
 Reconciliation map (2026-06-01 ASDLC-mine wave):
 
 | ADR | Refines / supersedes |
 |---|---|
-| [ADR-0002](vtfkb-adr/ADR-0002-greenfield-reimplementation.md) greenfield reimpl | §1 "new product", the evolve-vs-greenfield note |
-| [ADR-0003](vtfkb-adr/ADR-0003-language-typescript.md) TypeScript | D6a |
-| [ADR-0004](vtfkb-adr/ADR-0004-decision-is-adr-grade.md) ADR-grade decision | D3c, D3e, **D4c** (decision family immutable) |
-| [ADR-0005](vtfkb-adr/ADR-0005-injection-filters-stale.md) injection filter | D7a, D5c |
-| [ADR-0006](vtfkb-adr/ADR-0006-context-map.md) Context Map | D5a (`kb_map`), D7a |
-| [ADR-0007](vtfkb-adr/ADR-0007-rfc-is-proposed-decision.md) RFC = proposed decision | D3c |
-| [ADR-0008](vtfkb-adr/ADR-0008-constitution-tier.md) Constitution tier | D3c, D7a |
-| [ADR-0009](vtfkb-adr/ADR-0009-decision-identity-and-numbering.md) nanoid + ordinal-at-merge | D3b, D4a/D4c |
-| [ADR-0010](vtfkb-adr/ADR-0010-product-vision.md) Product Vision | D3c, D7a, D-O8 (onboarding) |
-| [ADR-0011](vtfkb-adr/ADR-0011-envelope-richness.md) envelope richness (D-A) | **D3a/D3b** (adds `validity` + `provenance.origin`; trust derived from `author`+`provenance.status`) |
-| [ADR-0012](vtfkb-adr/ADR-0012-two-stage-retrieval.md) two-stage retrieval (D-B) | D5a, D7a (Heuristic reranker default; soft sort vs ADR-0005 hard filter) |
-| [ADR-0013](vtfkb-adr/ADR-0013-no-hard-native-dep.md) no hard native dep (D-C) | D6a (pluggable `Index`; pure-JS in-memory default, SQLite/FTS5 optional) |
-| [ADR-0014](vtfkb-adr/ADR-0014-index-freshness.md) index freshness (D-D) | D4a (content-derived token + explicit rebuild, never mtime) |
-| [ADR-0015](vtfkb-adr/ADR-0015-cross-harness-auto-layer.md) cross-harness auto-layer (D-E) | **D7/D7a/D7b/D7c** (tiered parity; Tier C per-turn push Pi-only; 10k-char session-start budget) |
+| [ADR-0002](adr/ADR-0002-greenfield-reimplementation.md) greenfield reimpl | §1 "new product", the evolve-vs-greenfield note |
+| [ADR-0003](adr/ADR-0003-language-typescript.md) TypeScript | D6a |
+| [ADR-0004](adr/ADR-0004-decision-is-adr-grade.md) ADR-grade decision | D3c, D3e, **D4c** (decision family immutable) |
+| [ADR-0005](adr/ADR-0005-injection-filters-stale.md) injection filter | D7a, D5c |
+| [ADR-0006](adr/ADR-0006-context-map.md) Context Map | D5a (`kb_map`), D7a |
+| [ADR-0007](adr/ADR-0007-rfc-is-proposed-decision.md) RFC = proposed decision | D3c |
+| [ADR-0008](adr/ADR-0008-constitution-tier.md) Constitution tier | D3c, D7a |
+| [ADR-0009](adr/ADR-0009-decision-identity-and-numbering.md) nanoid + ordinal-at-merge | D3b, D4a/D4c |
+| [ADR-0010](adr/ADR-0010-product-vision.md) Product Vision | D3c, D7a, D-O8 (onboarding) |
+| [ADR-0011](adr/ADR-0011-envelope-richness.md) envelope richness (D-A) | **D3a/D3b** (adds `validity` + `provenance.origin`; trust derived from `author`+`provenance.status`) |
+| [ADR-0012](adr/ADR-0012-two-stage-retrieval.md) two-stage retrieval (D-B) | D5a, D7a (Heuristic reranker default; soft sort vs ADR-0005 hard filter) |
+| [ADR-0013](adr/ADR-0013-no-hard-native-dep.md) no hard native dep (D-C) | D6a (pluggable `Index`; pure-JS in-memory default, SQLite/FTS5 optional) |
+| [ADR-0014](adr/ADR-0014-index-freshness.md) index freshness (D-D) | D4a (content-derived token + explicit rebuild, never mtime) |
+| [ADR-0015](adr/ADR-0015-cross-harness-auto-layer.md) cross-harness auto-layer (D-E) | **D7/D7a/D7b/D7c** (tiered parity; Tier C per-turn push Pi-only; 10k-char session-start budget) |
 </content>
