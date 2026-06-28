@@ -1,6 +1,6 @@
 # RFC-007: The project context doc + `kb_context` — an assembled "agent's first read" (authored narrative spine + derived sections)
 
-- **Status:** Proposed — **awaiting operator review** (D-ii autonomy ceiling; no code until accepted)
+- **Status:** Accepted → [ADR-0025](../adr/ADR-0025-project-context-doc-and-kb-context.md) (operator approved the recommended shape 2026-06-28)
 - **Date:** 2026-06-27
 - **Deciders:** operator + Claude (proposal; the operator decides the open questions below)
 - **Refines (on acceptance):** realises [FEATURES](../FEATURES.md) §3.7 (the project context doc) and the

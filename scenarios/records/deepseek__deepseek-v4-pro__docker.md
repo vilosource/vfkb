@@ -1,12 +1,12 @@
 # vtfkb L4 behavior record — harness=pi — deepseek/deepseek-v4-pro
 
 - harness: pi
-- generated: 2026-06-27T18:08:56.192Z
-- vtfkb: 6883a41
+- generated: 2026-06-28T04:25:15.291Z
+- vtfkb: afe9dac
 - trials per scenario: N=3 (demonstrated = contrast holds on >=2/3)
 - image: vtfkb-l4-pi:dev
-- image digest: sha256:1c74317b08738d53e4b67981c564feaad562a00f2a83f929a227fcadbbc803a9
-- scenarios recorded: 32 (32 demonstrated)
+- image digest: sha256:d7a353b256481c8589ead5eabd1fceb0166ec8329df54885fdcd0328c85de271
+- scenarios recorded: 33 (33 demonstrated)
 
 | scenario | dimension | demonstrated | trials | rows (label=verdict) |
 |---|---|---|---|---|
@@ -21,6 +21,7 @@
 | deprecated-excluded | exclude:status | YES | 3/3 | pi:vtfkb=PASS, pi:naive=fail |
 | distill-trust-label | distill:trust-gradient | YES | 3/3 | pi:distilled=PASS, pi:human-fact=PASS |
 | gotcha-guidance | deliver:gotcha | YES | 3/3 | pi:vtfkb=PASS, pi:none=fail |
+| kb-context-first-read | mcp:context-doc-orientation | YES | 3/3 | pi:kb_context=PASS, pi:no-mem=PASS |
 | kb-resume-mcp | mcp:resume-floor | YES | 3/3 | pi:mcp=PASS, pi:no-mcp=PASS |
 | knowledge-delivery | deliver:fact | YES | 3/3 | pi:vtfkb=PASS, pi:none=fail |
 | link-delivery | deliver:link | YES | 3/3 | pi:vtfkb=PASS, pi:none=fail |

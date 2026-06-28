@@ -11,6 +11,7 @@ import {
   addEntry,
   deriveTrust,
   readAll,
+  renderContext,
   renderContextMap,
   renderResume,
   supersede,
@@ -158,6 +159,19 @@ server.registerTool(
     inputSchema: {},
   },
   async () => text(renderContextMap()),
+);
+
+server.registerTool(
+  'kb_context',
+  {
+    description:
+      "The project context document — the agent's first read. Orients you to the project: " +
+      'its job-to-be-done, architecture, tech profile, conventions, the load-bearing decisions, ' +
+      'and links. Read this BEFORE acting on an unfamiliar project. Assembled from the authored ' +
+      'context spine + the live Constitution/Map/decisions (always current).',
+    inputSchema: {},
+  },
+  async () => text(renderContext(process.env.VTFKB_PROJECT || 'spike')),
 );
 
 server.registerTool(

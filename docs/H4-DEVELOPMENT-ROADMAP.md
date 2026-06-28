@@ -26,7 +26,7 @@ M2b (distiller + counters + corroborated promotion) shipped**; **M3 (session-con
 | Self-hosted design-brain | **[done]** ADR-0019 — vtfkb dogfoods its own `.vtfkb/` (committed SoR + ADR/RFC link-index) |
 | L4 cross-model eval | **[done, v1-only]** 5 harness/model records, 22 scenarios each (deepseek-v4-pro 22/22; 2 known divergences: `tool-gating`, `capture-recall`) — but the 22 **predate Track 1**: M1–M3 have **no** L4 coverage (audit 2026-06-27) → **Track 4** |
 | L4 methodology | **[Track 5 done 2026-06-27]** ADR-0022 — dockerized pi (`vtfkb-l4-pi:dev`, 22/22) + claude (`vtfkb-l4-claude:dev`, 21/22 via Max-subscription OAuth) substrates both reproduce host baselines at N=3, no divergences → **Track 4** next |
-| Track-1 L4 coverage | **[6 core done 2026-06-27]** all 6 Track-1 scenarios ✅ (pi 28/28, claude 27/28); exposed+fixed a pi resume gap, logged pi live-capture + corroborated-promotion-trust-render findings. **Track 4b:** role-precedence ✅, D-i `verified-only-filter` ✅, D-iii `promotion-relabel` ✅ (ADR-0024), D-iv `live-capture-result` ✅ (pi 3/3; claude failure-capture external-blocked); D-ii context-doc = autonomy ceiling (RFC + pause) |
+| Track-1 L4 coverage | **[6 core done 2026-06-27]** all 6 Track-1 scenarios ✅ (pi 28/28, claude 27/28); exposed+fixed a pi resume gap, logged pi live-capture + corroborated-promotion-trust-render findings. **Track 4b COMPLETE:** role-precedence ✅, D-i `verified-only-filter` ✅, D-iii `promotion-relabel` ✅ (ADR-0024), D-iv `live-capture-result` ✅ (pi 3/3; claude external-blocked), D-ii `kb-context-first-read` ✅ (pi/claude 3/3, ADR-0025). **In-repo H4 frontier exhausted.** |
 | Dogfood smoke | **[done]** check 6 hardened — deterministic `tools/list` preflight (6a) + bounded LLM retry (6b) |
 | **Session continuity** | **[DONE]** ADR-0020 / RFC-005 — M1 (`ff61215`) + M3 (resume digest folds distilled lessons, trust-labelled, derived) |
 | Auto-distill / ACE curator | **[DONE]** RFC-006 → ADR-0021 — curator + never-rewrite Brake (`ee45289`, M2a) + distiller + counters + corroborated promotion (M2b) |
@@ -252,7 +252,7 @@ the mechanism exists) — which immediately split them into one delivered + two 
 |---|---|---|---|
 | `role-precedence` | §3.3 attribution-as-precedence | `rerank`/`withinTierScore` weights operator-trust +3, verified +1 → **delivered** | **✅ pi 3/3, claude 3/3** |
 | `verified-only-filter` | §3.6 trust gradient | `kb_search` had no provenance-`verified` filter → **now built** (`verified` param on `kb_search` + `--verified` CLI + `verifiedOnly` in the engine, filters `provenance.status === 'verified'`); RED-first confirmed on both harnesses, then green | **✅ D-i DONE: pi 2/3, claude 2/3** |
-| `kb-context-first-read` | §3.7 context doc | **no `kb_context` MCP tool** and no authored context-document feature (only the entry-bundle injection exists) → unbuilt | **🔴 GAP — needs a feature (context-doc + `kb_context`), likely its own RFC/ADR (D-ii, ceiling)** |
+| `kb-context-first-read` | §3.7 context doc | was unbuilt → **now built** (D-ii/ADR-0025): `kb_context` MCP tool + CLI `vtfkb context` return an assembled doc = authored spine (`<brain>/context.md`) + derived Constitution/Map/decisions; on-demand | **✅ D-ii DONE: pi 3/3, claude 3/3** |
 | `promotion-relabel` | §3.6 + ADR-0021 §4 | corroborated promotion was zone-only → **now built** (D-iii/ADR-0024): `promoteIfCorroborated` re-stamps `provenance.status='verified'` (agent-observable via D-i's verified filter); distiller drops "(unverified)" from new text | **✅ D-iii DONE: pi 2/3, claude 2/3** |
 | `live-capture-result` | ADR-0021 capture | pi captured at `tool_call` (no result) → couldn't auto-distill a LIVE failure → **now built** (D-iv): `pi.on('tool_execution_end')` captures WITH result+isError; `hook post-tool-use` reads claude's `tool_response` | **✅ D-iv DONE: pi 3/3** (claude failure-capture external-blocked — gated to pi) |
 
@@ -267,12 +267,13 @@ for §3.6; the context-doc is a larger feature). Not Track-1-blocking.
 
 **Order (re-ratified 2026-06-27):**
 `M1 ✅ → RFC-006 ✅ → M2a ✅ → M2b ✅ → M3 ✅` (**Track 1 complete**)
-`→ ADR-0022 ✅ → T5a ✅ → T5b ✅ → Track 4 (6 core ✅) → ADR-0023 ✅ → Track 4b (role-precedence ✅ → D-i verified-filter ✅ → D-iii relabel-on-promotion ✅ → D-iv pi-capture-results ✅ → **D-ii context-doc (autonomy CEILING — RFC + pause)**)`.
-**D-i, D-iii, D-iv are DONE** (2026-06-27): D-i `verified`-filter green (pi/claude 2/3); D-iii
-relabel-on-promotion green (`promotion-relabel` pi/claude 2/3, ADR-0024); D-iv pi live tool-result capture
-green (`live-capture-result` pi 3/3; claude live-failure-capture EXTERNAL-BLOCKED — see finding). The **active
-build is now D-ii — the autonomy CEILING** (context-doc + `kb_context`): draft an RFC and PAUSE for operator
-review before any code. The remaining gaps are sequenced by cost/dependency (small
+`→ ADR-0022 ✅ → T5a ✅ → T5b ✅ → Track 4 (6 core ✅) → ADR-0023 ✅ → Track 4b (role-precedence ✅ → D-i verified-filter ✅ → D-iii relabel-on-promotion ✅ → D-iv pi-capture-results ✅ → D-ii context-doc ✅ ADR-0025)`. **Track 4b COMPLETE — the in-repo H4 frontier is EXHAUSTED.**
+**Track 4b is COMPLETE** — D-i `verified`-filter (pi/claude 2/3, 2026-06-27); D-iii relabel-on-promotion
+(`promotion-relabel` pi/claude 2/3, ADR-0024, 2026-06-27); D-iv pi live tool-result capture
+(`live-capture-result` pi 3/3, 2026-06-27; claude failure-capture EXTERNAL-BLOCKED); **D-ii context-doc +
+`kb_context` (ADR-0025 ← RFC-007, operator-approved 2026-06-28; `kb-context-first-read` pi 3/3)**. **The
+in-repo H4 frontier is now EXHAUSTED** — S1/P1 stay gated (triggers below), H2/H3 parked. The remaining gaps
+were sequenced by cost/dependency (small
 finding-closers first; D-ii is RFC-gated and last); each is built scenario-first (ADR-0023). Track 4's 6 core
 scenarios are complete (pi 28/28, claude 27/28). **S1** (embedding reranker) and
 **P1** (Claude Code per-turn push) remain the two **gated/blocked** tracks — built only if their triggers
@@ -306,7 +307,7 @@ In all three cases the response is the same: **update this roadmap and re-ratify
 — never leave the next step to an ad-hoc question. (Scope: in-repo `vtfkb` only; vafi/vtaskforge
 work stays out-of-scope/HITL per H2.)
 
-### ▶ Current action — **Track 4b / D-ii: context-doc + `kb_context` (AUTONOMY CEILING — RFC + pause)** (scenario-first, ADR-0023) — *lower priority*
+### ▶ Current action — **NONE: Track 4b complete, in-repo H4 frontier EXHAUSTED** (was D-ii, shipped 2026-06-28)
 **Track 1 complete** (M1–M3; 87/87). **Track 5 complete** (2026-06-27): both dockerized substrates reproduce
 their host baselines at N=3 (T5a pi `vtfkb-l4-pi:dev` 22/22; T5b claude `vtfkb-l4-claude:dev` 21/22 via
 Max-subscription OAuth, no API key). **Track 4 core COMPLETE** (2026-06-27) — all 6 Track-1 scenarios, pi
@@ -352,11 +353,14 @@ order — §5 P8/roadmap-as-authority). Built scenario-first, lower priority tha
   *failure*-capture is undeliverable on the claude harness. `live-capture-result` is therefore **harness-gated
   to pi** (skipped on claude; the gate is a runner feature). The `tool_response` fix still delivers live
   capture of *successful* tool results on claude.
-- **D-ii — `[active]`, AUTONOMY CEILING** build the context-doc + `kb_context` feature (FEATURES §3.7 / D-O8).
-  Genuinely new feature with real design choices (where the doc is authored, stored, seeded, rendered; authored
-  vs assembled-from-derived; inject-vs-on-demand). **Procedure: draft the RFC, then PAUSE for operator review
-  before any code** — this is the *one* designed stop in the autonomous run. (NB: STATUS §2 over-claims this as
-  shipped — it is not; corrected there.)
+- **D-ii — `✅ DONE` (2026-06-28, ADR-0025 ← RFC-007, operator-approved)** the context-doc + `kb_context`
+  feature (FEATURES §3.7 / D-O8). At the autonomy ceiling the RFC was drafted and brought back; the operator
+  approved the recommended shape ("proceed"). Built as an **assembled** artifact: an authored Markdown spine
+  (`<brain>/context.md`, editable, `vtfkb context init` scaffolds it) STITCHED with derived sections vtfkb
+  already owns (Constitution, Map, load-bearing decisions, links) so the high-churn half never drifts. Read
+  **on-demand** via the `kb_context` MCP tool (+ CLI `vtfkb context`) — NOT auto-injected (session-start keeps
+  the budget-bounded map+resume). No new entry type. Scenario-first: `kb-context-first-read` run RED before the
+  tool existed, then green — **pi 3/3, claude 3/3**. +3 unit tests + mcp tool-set test updated (95/95).
 
 **Findings logged this run (2026-06-27, in-repo Track-4b):**
 1. **claude PostToolUse no-fire-on-failure** (above) — external-blocked; live failure-capture is pi-only.

@@ -6,10 +6,12 @@ import {
   addEntry,
   captureToolCall,
   readAll,
+  renderContext,
   renderContextBundle,
   renderContextMap,
   renderNaiveDump,
   renderResume,
+  initContextSpine,
   supersede,
   deriveTrust,
 } from './engine.js';
@@ -88,6 +90,20 @@ async function main() {
 
   if (cmd === 'map') {
     process.stdout.write(renderContextMap() + '\n');
+    return;
+  }
+
+  // context [project] | context init: the project context doc (D-ii / ADR-0025) — the
+  // assembled "agent's first read" (authored spine + derived Constitution/Map/decisions).
+  // `init` scaffolds the authored spine (<brain>/context.md) if absent.
+  if (cmd === 'context') {
+    if (sub === 'init') {
+      const { created, path } = initContextSpine();
+      process.stdout.write(`${created ? 'created' : 'exists'}\t${path}\n`);
+      return;
+    }
+    const project = (sub && !sub.startsWith('--') ? sub : undefined) || process.env.VTFKB_PROJECT || 'spike';
+    process.stdout.write(renderContext(project));
     return;
   }
 
@@ -330,7 +346,7 @@ async function main() {
   }
 
   process.stderr.write(
-    'usage: vtfkb <add|list|search|query|map|resume|resume-note|curate|distill|save|context-block|' +
+    'usage: vtfkb <add|list|search|query|map|context|context init|resume|resume-note|curate|distill|save|context-block|' +
       'hook session-start|hook pre-tool-use|hook post-tool-use>\n',
   );
   process.exit(1);

@@ -738,6 +738,42 @@ const SCN = [
     },
   },
 
+  // ---- Track 4b / D-ii: the project context doc — the agent's first read (kb_context) ----
+  // FEATURES §3.7 / ADR-0025 (← RFC-007): every project has ONE context document, an ASSEMBLED
+  // artifact = an authored narrative spine (<brain>/context.md — job-to-be-done, conventions,
+  // architecture, Vision/Taste) stitched with derived sections (Constitution, Map, decisions),
+  // read via the kb_context MCP tool. It orients an agent instantly — the CLAUDE.md the factory
+  // maintains. Contrast: with kb_context the agent reads the authored orientation; with no memory
+  // it cannot know the project's declared codename. Scenario-first (ADR-0023): RED before the tool
+  // exists (kb_context is not registered → the agent can't read the doc → fails), green after.
+  {
+    id: 'kb-context-first-read', dim: 'mcp:context-doc-orientation',
+    exec() {
+      const b = newBrain('ctxdoc');
+      // Seed the AUTHORED context spine — a plain Markdown file in the brain (NOT an entry),
+      // with an unguessable codename the model cannot know from priors.
+      writeFileSync(join(b, 'context.md'), [
+        '# Project Context',
+        '',
+        '## Job-to-be-done',
+        'This project, codename ZephyrLedger-qx7k, reconciles double-entry ledgers for tax filings.',
+        '',
+        '## Conventions',
+        'All money amounts are stored as integer minor units (never floats).',
+      ].join('\n'));
+      const withCtx = run({ brain: b, mcp: true, prompt: "Call the kb_context MCP tool to read this project's context document, then answer: what is this project's codename? Reply with ONLY the codename." });
+      const noMem = run({ brain: b, inject: 'none', prompt: "What is this project's codename? Reply with ONLY the codename." });
+      rmSync(b, { recursive: true, force: true });
+      const aOk = has(withCtx, 'ZephyrLedger-qx7k');
+      const bOk = lacks(noMem, 'ZephyrLedger-qx7k');
+      const rows = [
+        { label: `${HARNESS}:kb_context`, pass: aOk, detail: aOk ? 'oriented via context doc' : 'did not read the doc', output: withCtx, sample: sample(withCtx) },
+        { label: `${HARNESS}:no-mem`, pass: bOk, detail: bOk ? "can't know (baseline)" : 'leaked?', output: noMem, sample: sample(noMem) },
+      ];
+      return { rows, demonstrated: aOk && bOk };
+    },
+  },
+
   // ---- Track 4b / D-iv: pi captures tool RESULTS live → a real failure auto-distills ----
   // The 2026-06-27 finding: pi's live extension captured at tool_call (invocation, NO result),
   // so a live pi session could never record a capture:error and therefore never auto-distill a

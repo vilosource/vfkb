@@ -1,12 +1,12 @@
 # vtfkb L4 behavior record — harness=claude — claude-code/claude-haiku-4-5
 
 - harness: claude
-- generated: 2026-06-27T18:26:28.750Z
-- vtfkb: 6883a41
+- generated: 2026-06-28T04:28:38.839Z
+- vtfkb: afe9dac
 - trials per scenario: N=3 (demonstrated = contrast holds on >=2/3)
 - image: vtfkb-l4-claude:dev
-- image digest: sha256:9cb2afda47322209ac795631c63ba64763a1e2a2b4ea811ba81508854b049172
-- scenarios recorded: 31 (30 demonstrated)
+- image digest: sha256:0c662ab075559f3f58f6db7130706eee1fcd1da46728fb7eed8cf4c8eb9788d7
+- scenarios recorded: 32 (31 demonstrated)
 
 | scenario | dimension | demonstrated | trials | rows (label=verdict) |
 |---|---|---|---|---|
@@ -21,6 +21,7 @@
 | deprecated-excluded | exclude:status | YES | 3/3 | claude:vtfkb=PASS, claude:naive=fail |
 | distill-trust-label | distill:trust-gradient | YES | 3/3 | claude:distilled=PASS, claude:human-fact=PASS |
 | gotcha-guidance | deliver:gotcha | YES | 3/3 | claude:vtfkb=PASS, claude:none=fail |
+| kb-context-first-read | mcp:context-doc-orientation | YES | 3/3 | claude:kb_context=PASS, claude:no-mem=PASS |
 | kb-resume-mcp | mcp:resume-floor | YES | 2/3 | claude:mcp=fail, claude:no-mcp=PASS |
 | knowledge-delivery | deliver:fact | YES | 3/3 | claude:vtfkb=PASS, claude:none=fail |
 | link-delivery | deliver:link | YES | 3/3 | claude:vtfkb=PASS, claude:none=fail |

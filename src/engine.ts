@@ -5,7 +5,14 @@
 // Pure Node stdlib, ZERO runtime deps.
 
 import { randomBytes } from 'node:crypto';
-import { appendRecord, materialize, readRecords } from './storage.js';
+import {
+  appendRecord,
+  materialize,
+  readRecords,
+  contextSpinePath,
+  readContextSpine,
+  writeContextSpine,
+} from './storage.js';
 import { selectIndex } from './index-store.js';
 import { assertNoSecrets } from './secrets.js';
 import { tally } from './counters.js';
@@ -411,6 +418,90 @@ export function renderContextBundle(project = 'spike', budget = SESSION_BUDGET_C
     if (header.length + body.length + note.length + footer.length <= budget) body += note;
   }
   return header + body + footer;
+}
+
+// --- Project context document (D-ii / ADR-0025 ← RFC-007): the agent's first read.
+// An ASSEMBLED artifact: the AUTHORED narrative spine (<brain>/context.md — job-to-be-done,
+// architecture, tech profile, conventions, Vision/Taste per ADR-0010) STITCHED with DERIVED
+// sections vtfkb already owns (Constitution ADR-0008, Context Map ADR-0006, load-bearing
+// decisions, links). The derived half is rendered live so it never drifts into a stale
+// hand-copy (the RFC-005 anti-drift lesson). Read ON-DEMAND via kb_context — NOT auto-injected
+// (session-start keeps the budget-bounded map+resume; ADR-0015). No new entry type.
+const CONTEXT_SPINE_SCAFFOLD = `# Project Context
+
+## Job-to-be-done
+<what this project is — the job it does for its users>
+
+## Architecture
+<the shape of the system: key components and how they fit>
+
+## Tech profile
+<languages, frameworks, runtimes, datastores>
+
+## Conventions
+<load-bearing conventions an agent must follow>
+
+## Vision / Taste
+<the taste/voice this project holds to (ADR-0010)>
+`;
+
+// Scaffold the authored spine if absent (onboarding D-O8). Idempotent: never overwrites
+// an existing spine.
+export function initContextSpine(): { created: boolean; path: string } {
+  const p = contextSpinePath();
+  if (readContextSpine() !== null) return { created: false, path: p };
+  writeContextSpine(CONTEXT_SPINE_SCAFFOLD);
+  return { created: true, path: p };
+}
+
+export function renderContext(project = 'spike'): string {
+  const all = readAll();
+  const sup = supersededIds(all);
+  const out: string[] = [`# ${project} — project context`, ''];
+
+  const spine = readContextSpine();
+  if (spine) {
+    out.push('<!-- authored spine (architect-maintained) -->', spine, '');
+  } else {
+    out.push(
+      '_(no authored context spine yet — run `vtfkb context init` to scaffold `context.md`. The derived sections below are always current.)_',
+      '',
+    );
+  }
+
+  // Derived sections — stitched live from the brain so they never drift from a hand-copy.
+  const constitution = deriveConstitution();
+  if (constitution.length > 0) {
+    out.push('## Constitution (derived — always applies)');
+    for (const c of constitution) {
+      const n = typeof c.adr_no === 'number' ? `ADR-${String(c.adr_no).padStart(4, '0')} ` : '';
+      out.push(`- [${n}constitutional] ${c.text}`);
+    }
+    out.push('');
+  }
+
+  out.push('## Map (derived)', renderContextMap(), '');
+
+  const decisions = all.filter(
+    (e) => e.type === 'decision' && !e.constitutional && effectiveStatus(e, sup) === 'accepted',
+  );
+  if (decisions.length > 0) {
+    out.push('## Load-bearing decisions (derived)');
+    for (const d of decisions) {
+      const n = typeof d.adr_no === 'number' ? `ADR-${String(d.adr_no).padStart(4, '0')} ` : '';
+      out.push(`- [${n}decision] ${d.text}`);
+    }
+    out.push('');
+  }
+
+  const links = all.filter((e) => e.type === 'link' && isInjectable(e, undefined, sup));
+  if (links.length > 0) {
+    out.push('## Links & docs (derived)');
+    for (const l of links) out.push(`- ${l.text}`);
+    out.push('');
+  }
+
+  return out.join('\n').trim() + '\n';
 }
 
 // --- Naive flat dump (NOT used in production). Represents a mykb-v1-style memory:

@@ -56,11 +56,11 @@ comes from context; context is what vtfkb supplies. vtfkb is the front-half leve
 | Index | pure-JS in-memory default; SQLite/FTS5 optional, graceful-degrade (ADR-0013); content-hash freshness, never mtime (ADR-0014) |
 | Decision family | immutable, supersede-only; ADR ordinal stamped at merge-to-`main` (ADR-0004/0009) |
 | Read/retrieval | two-stage; **relevance-primary** + light stemming (ADR-0016) + distinct-term **relevance floor** (ADR-0017) + cause-distinguished **honest no-match** (ADR-0018) |
-| MCP server | 8 scoped tools (`kb_add`/`kb_get`/`kb_list`/`kb_map`/`kb_search`/`kb_supersede`/`kb_transition`/`kb_resume`) — the cross-harness pull baseline (deterministic `tools/list` backstop) |
+| MCP server | 9 scoped tools (`kb_add`/`kb_get`/`kb_list`/`kb_map`/`kb_context`/`kb_search`/`kb_supersede`/`kb_transition`/`kb_resume`) — the cross-harness pull baseline (deterministic `tools/list` backstop) |
 | Auto-layer faces | Pi in-process extension **and** Claude Code hooks; session-start injection (Tier A, 10k budget, ADR-0015) |
 | Guardrails | no-secrets write-time lint; Bash mutation tool-gating |
 | Session continuity | append-only per-session record + derived **resume render** (`resume`/`resume-note` CLI + `kb_resume`); auto-distill → trust-labelled lessons in the digest (ADR-0020/0021) |
-| ~~Project context doc~~ | **NOT shipped** (corrected 2026-06-27): only the injected entries-bundle (`context-block` = `renderContextBundle`) + resume render exist. The authored per-project **context document** + a `kb_context` tool (FEATURES §3.7 / D-O8) are **unbuilt** → Track-4b **D-ii** |
+| Project context doc | **SHIPPED 2026-06-28** (Track-4b D-ii / ADR-0025 ← RFC-007): the assembled per-project **context document** — authored spine (`<brain>/context.md`) + derived Constitution/Map/decisions — read on demand via the `kb_context` MCP tool + CLI `vtfkb context` (FEATURES §3.7 / D-O8). `kb-context-first-read` pi/claude 3/3 |
 | Self-hosted design-brain | vtfkb dogfoods its own per-project tier — committed `.vtfkb/` (ADR-0019): ADR/RFC link-index + native gotchas/patterns |
 
 ### Acceptance (L4)
