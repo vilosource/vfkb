@@ -1,0 +1,3825 @@
+{
+  "version": "1.0.0",
+  "gitCommitHash": "5cd8d53535960a0340292dde169b1f5c0379cca1",
+  "generatedAt": "2026-06-28T14:29:31.803Z",
+  "files": {
+    ".claude/settings.json": {
+      "filePath": ".claude/settings.json",
+      "contentHash": "98625cc56098d4d25e2614ea08c604363fd26a4f20ebce86c913822ed71cd318",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 26,
+      "hasStructuralAnalysis": true
+    },
+    ".dockerignore": {
+      "filePath": ".dockerignore",
+      "contentHash": "225a80283a0a9a97e75a85155faa27ac759b006d95f79724c77ea7d428a35299",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 6,
+      "hasStructuralAnalysis": false
+    },
+    ".mcp.json": {
+      "filePath": ".mcp.json",
+      "contentHash": "5d40633088aee8ed2549aebe1d3a5c45053baecc787ab7c712a438bc4949bebe",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 13,
+      "hasStructuralAnalysis": true
+    },
+    ".understand-anything/.understandignore": {
+      "filePath": ".understand-anything/.understandignore",
+      "contentHash": "56f45da7af900c36e8b7fbad6a2465bd237f57a61db1b3d5e16efaa2e881090f",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 42,
+      "hasStructuralAnalysis": false
+    },
+    ".vfkb/entries.jsonl": {
+      "filePath": ".vfkb/entries.jsonl",
+      "contentHash": "a120b011b0580f053b0720d16b2875770e1e4589d6f1def11b0a90feffa66984",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 46,
+      "hasStructuralAnalysis": false
+    },
+    "CLAUDE.md": {
+      "filePath": "CLAUDE.md",
+      "contentHash": "bb7747efded7ce4e340e6ea6e10f3a97cc091f9b7b4f8db7da157b694d76adbe",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 160,
+      "hasStructuralAnalysis": true
+    },
+    "docs/adr/ADR-0001-record-decisions-as-adrs.md": {
+      "filePath": "docs/adr/ADR-0001-record-decisions-as-adrs.md",
+      "contentHash": "211c5c0fcfff98a4163f223d5fc14bc39d27bd5ebc295acaaf06c1e8ef3b1d14",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 53,
+      "hasStructuralAnalysis": true
+    },
+    "docs/adr/ADR-0002-greenfield-reimplementation.md": {
+      "filePath": "docs/adr/ADR-0002-greenfield-reimplementation.md",
+      "contentHash": "7afcf7072bf318e1eb5f80babc61dd2efb71e100e044fa9efbaa860250350296",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 64,
+      "hasStructuralAnalysis": true
+    },
+    "docs/adr/ADR-0003-language-typescript.md": {
+      "filePath": "docs/adr/ADR-0003-language-typescript.md",
+      "contentHash": "2637e28919adb1a03ac61caf68d5b002ba6c624777644e1ef5e635a5f8aca3b8",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 54,
+      "hasStructuralAnalysis": true
+    },
+    "docs/adr/ADR-0004-decision-is-adr-grade.md": {
+      "filePath": "docs/adr/ADR-0004-decision-is-adr-grade.md",
+      "contentHash": "0e6c2331c93965ccba3f9a942ddfcdbe1a961e4a2d7727e35e7fb166e05afbfd",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 58,
+      "hasStructuralAnalysis": true
+    },
+    "docs/adr/ADR-0005-injection-filters-stale.md": {
+      "filePath": "docs/adr/ADR-0005-injection-filters-stale.md",
+      "contentHash": "8d9eef009bbc08741a0ff5f2f6c9ea94dafbe5f82bd3afdda69ffae87538878a",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 46,
+      "hasStructuralAnalysis": true
+    },
+    "docs/adr/ADR-0006-context-map.md": {
+      "filePath": "docs/adr/ADR-0006-context-map.md",
+      "contentHash": "ef0141ffb9381304992e28d939a69d7524972a998c746eddabb7981e5fb1f94e",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 48,
+      "hasStructuralAnalysis": true
+    },
+    "docs/adr/ADR-0007-rfc-is-proposed-decision.md": {
+      "filePath": "docs/adr/ADR-0007-rfc-is-proposed-decision.md",
+      "contentHash": "76a4ff6cc4d22d7bee5f03a0ea54200b70d521219ce96ea186781c040d1214fe",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 42,
+      "hasStructuralAnalysis": true
+    },
+    "docs/adr/ADR-0008-constitution-tier.md": {
+      "filePath": "docs/adr/ADR-0008-constitution-tier.md",
+      "contentHash": "f502ea4d71d57e92411bcc63080d602502879b4a170a6ccbeef878d3e42914a4",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 45,
+      "hasStructuralAnalysis": true
+    },
+    "docs/adr/ADR-0009-decision-identity-and-numbering.md": {
+      "filePath": "docs/adr/ADR-0009-decision-identity-and-numbering.md",
+      "contentHash": "13430b773f8793dd8704211c866a05e3a0dee306e8cab8bfc5e348b2ade1eddf",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 43,
+      "hasStructuralAnalysis": true
+    },
+    "docs/adr/ADR-0010-product-vision.md": {
+      "filePath": "docs/adr/ADR-0010-product-vision.md",
+      "contentHash": "e34c3c294a4ed55240f3c27a33b3be6ad3d92af031cbaa6ed39a038e47864bbd",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 62,
+      "hasStructuralAnalysis": true
+    },
+    "docs/adr/ADR-0011-envelope-richness.md": {
+      "filePath": "docs/adr/ADR-0011-envelope-richness.md",
+      "contentHash": "cbd3f0a4bd9c2b9d5a1005f50fd35979627a1b8851e932180fc4ce735fc2ce0b",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 92,
+      "hasStructuralAnalysis": true
+    },
+    "docs/adr/ADR-0012-two-stage-retrieval.md": {
+      "filePath": "docs/adr/ADR-0012-two-stage-retrieval.md",
+      "contentHash": "24a1003f82f63c9f20281c9892073e7b544c0ad79e551a4fa954bdd766be128b",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 85,
+      "hasStructuralAnalysis": true
+    },
+    "docs/adr/ADR-0013-no-hard-native-dep.md": {
+      "filePath": "docs/adr/ADR-0013-no-hard-native-dep.md",
+      "contentHash": "7ef00791b7bf001f699d66733d1063e3f3069a6ac5e57d65f67b2be54d6e6382",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 78,
+      "hasStructuralAnalysis": true
+    },
+    "docs/adr/ADR-0014-index-freshness.md": {
+      "filePath": "docs/adr/ADR-0014-index-freshness.md",
+      "contentHash": "5d08f6f2f74b991336887a3d18efbcc5a5cbd631dbbe48866365538a816ae8fc",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 66,
+      "hasStructuralAnalysis": true
+    },
+    "docs/adr/ADR-0015-cross-harness-auto-layer.md": {
+      "filePath": "docs/adr/ADR-0015-cross-harness-auto-layer.md",
+      "contentHash": "3e19cbad5f77e6945a87e361454369fe68689087e360fc8922696a4d087cd108",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 103,
+      "hasStructuralAnalysis": true
+    },
+    "docs/adr/ADR-0016-search-ranking-and-embedding-revisit.md": {
+      "filePath": "docs/adr/ADR-0016-search-ranking-and-embedding-revisit.md",
+      "contentHash": "6d2f2e5e2858364f06caf6b832c3c10ec9c67468661081612d53156d7117553b",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 119,
+      "hasStructuralAnalysis": true
+    },
+    "docs/adr/ADR-0017-search-relevance-floor.md": {
+      "filePath": "docs/adr/ADR-0017-search-relevance-floor.md",
+      "contentHash": "6cc7a9eac4ef6b68199e850298651592f24ce1e24215eca892a22c8ed00f739c",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 89,
+      "hasStructuralAnalysis": true
+    },
+    "docs/adr/ADR-0018-honest-no-match-contract.md": {
+      "filePath": "docs/adr/ADR-0018-honest-no-match-contract.md",
+      "contentHash": "6f2ab318ab5e1c211e84aa729245bac6529d00f783fa9c6d0910c3873205d88b",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 99,
+      "hasStructuralAnalysis": true
+    },
+    "docs/adr/ADR-0019-self-hosted-design-brain.md": {
+      "filePath": "docs/adr/ADR-0019-self-hosted-design-brain.md",
+      "contentHash": "b999731a94c9f81bd037a4e2399c33c0966e675823c8af959f1890d95ec25e33",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 94,
+      "hasStructuralAnalysis": true
+    },
+    "docs/adr/ADR-0020-session-continuity-record.md": {
+      "filePath": "docs/adr/ADR-0020-session-continuity-record.md",
+      "contentHash": "96bc01e131469a365e7bb1b6f77d2409a91c898cdd79fd6a2f25564b9fd4d77b",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 87,
+      "hasStructuralAnalysis": true
+    },
+    "docs/adr/ADR-0021-auto-distill-and-curator.md": {
+      "filePath": "docs/adr/ADR-0021-auto-distill-and-curator.md",
+      "contentHash": "47854aedbc4aa893be080da7b28dc7a3374c545ba1bad5ce2a6f558fb731284a",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 84,
+      "hasStructuralAnalysis": true
+    },
+    "docs/adr/ADR-0022-l4-evaluation-methodology.md": {
+      "filePath": "docs/adr/ADR-0022-l4-evaluation-methodology.md",
+      "contentHash": "d4d5f59a8507e93f85e4c57e3ffa8acc92fa4897b97602c5baaded6abbe97302",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 135,
+      "hasStructuralAnalysis": true
+    },
+    "docs/adr/ADR-0023-scenario-contract-first.md": {
+      "filePath": "docs/adr/ADR-0023-scenario-contract-first.md",
+      "contentHash": "f6d06165f73dde302bfd3995e907da98988f7d4cf65b93c1b836f5c389fa87eb",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 97,
+      "hasStructuralAnalysis": true
+    },
+    "docs/adr/ADR-0024-relabel-trust-on-promotion.md": {
+      "filePath": "docs/adr/ADR-0024-relabel-trust-on-promotion.md",
+      "contentHash": "d54e4ad83394541131333759750b57066f51f59aa86acfb24086181196aa46a2",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 81,
+      "hasStructuralAnalysis": true
+    },
+    "docs/adr/ADR-0025-project-context-doc-and-kb-context.md": {
+      "filePath": "docs/adr/ADR-0025-project-context-doc-and-kb-context.md",
+      "contentHash": "e8e98d3622750f402985619cf8c720d81e85cce40e0ded63d0a232292a31b3b3",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 86,
+      "hasStructuralAnalysis": true
+    },
+    "docs/adr/ADR-0026-rebrand-to-vfkb.md": {
+      "filePath": "docs/adr/ADR-0026-rebrand-to-vfkb.md",
+      "contentHash": "f0570cb2174f035d9a4d1fdaf0e328827e1a21c882fff97008f83182fed86823",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 69,
+      "hasStructuralAnalysis": true
+    },
+    "docs/adr/README.md": {
+      "filePath": "docs/adr/README.md",
+      "contentHash": "27e4148ef4509d470b6db7bd08ddad59b7f6836b6f56a4ff97d8f2151d0e0288",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 46,
+      "hasStructuralAnalysis": true
+    },
+    "docs/DESIGN.md": {
+      "filePath": "docs/DESIGN.md",
+      "contentHash": "075e2a6c2683f587cb50a62d82a27cf3699b07b6fcd5f05ff6ab3e1196733535",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 346,
+      "hasStructuralAnalysis": true
+    },
+    "docs/FEATURES.md": {
+      "filePath": "docs/FEATURES.md",
+      "contentHash": "192b8a14540f0d274547850c24d1e9a104b6d15e89927c76e4d3f43cbffb6bd7",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 266,
+      "hasStructuralAnalysis": true
+    },
+    "docs/H2a-fleet-wiring-PLAN.md": {
+      "filePath": "docs/H2a-fleet-wiring-PLAN.md",
+      "contentHash": "c33bb2e75428a80ff35ed892c0001bb5ab72ef00dfdc25793312ae1f548d356b",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 122,
+      "hasStructuralAnalysis": true
+    },
+    "docs/H4-DEVELOPMENT-ROADMAP.md": {
+      "filePath": "docs/H4-DEVELOPMENT-ROADMAP.md",
+      "contentHash": "061e75969e261a49633bfe128172a2ab96a1e3341d86b67f0109e089eea9a401",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 437,
+      "hasStructuralAnalysis": true
+    },
+    "docs/IMPLEMENTATION-PLAN.md": {
+      "filePath": "docs/IMPLEMENTATION-PLAN.md",
+      "contentHash": "049e360e77c55a454f059905bf62151e7bd04754a83fc6fd6e9f3632f260f7df",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 222,
+      "hasStructuralAnalysis": true
+    },
+    "docs/rfc/README.md": {
+      "filePath": "docs/rfc/README.md",
+      "contentHash": "5652397ef6699b25c348ce8bbac7039375ab22f748f8e48b00efdf4a19eb56b0",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 43,
+      "hasStructuralAnalysis": true
+    },
+    "docs/rfc/RFC-001-search-relevance-floor.md": {
+      "filePath": "docs/rfc/RFC-001-search-relevance-floor.md",
+      "contentHash": "0f6578cdc41ddd36a533ac5b831ef9aa0dd6d04e20ff0e13978ff7dbe79b6c14",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 106,
+      "hasStructuralAnalysis": true
+    },
+    "docs/rfc/RFC-002-honest-no-match-contract.md": {
+      "filePath": "docs/rfc/RFC-002-honest-no-match-contract.md",
+      "contentHash": "6206808f567ab85b6050c4261186ea9e65264046ff2931a951462151c24442d8",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 99,
+      "hasStructuralAnalysis": true
+    },
+    "docs/rfc/RFC-003-embedding-accuracy-mode.md": {
+      "filePath": "docs/rfc/RFC-003-embedding-accuracy-mode.md",
+      "contentHash": "bd48a37a20c4a56a1b1da01593e33bd86fd0ba657af1d4b4bfba16bbcb98df2d",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 104,
+      "hasStructuralAnalysis": true
+    },
+    "docs/rfc/RFC-004-self-hosted-design-brain.md": {
+      "filePath": "docs/rfc/RFC-004-self-hosted-design-brain.md",
+      "contentHash": "a3892db1166327fcc6821f9a52930bc7cd6e640177fb336bf527327efe0c48ff",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 143,
+      "hasStructuralAnalysis": true
+    },
+    "docs/rfc/RFC-005-session-continuity-record.md": {
+      "filePath": "docs/rfc/RFC-005-session-continuity-record.md",
+      "contentHash": "077a74e926bd5da37b6ed9a81d1384955d4dca6bc532f9b03ae401592f89e7cb",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 152,
+      "hasStructuralAnalysis": true
+    },
+    "docs/rfc/RFC-006-auto-distill-and-curator.md": {
+      "filePath": "docs/rfc/RFC-006-auto-distill-and-curator.md",
+      "contentHash": "e17aaa66b0e2a4b0bb6eb6bcf192655bafe39b98e53761b9c000547dc175d332",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 120,
+      "hasStructuralAnalysis": true
+    },
+    "docs/rfc/RFC-007-project-context-doc-and-kb-context.md": {
+      "filePath": "docs/rfc/RFC-007-project-context-doc-and-kb-context.md",
+      "contentHash": "1d466b44a3c7b667e04cf9de3d7abb3547f3a4594d410ca5c9d2310a17f4374d",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 126,
+      "hasStructuralAnalysis": true
+    },
+    "docs/STATUS-AND-ROADMAP.md": {
+      "filePath": "docs/STATUS-AND-ROADMAP.md",
+      "contentHash": "1649bd36bf6b970ced58ac745d1ce8788c66d747b91eba456298b706d248d9a1",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 285,
+      "hasStructuralAnalysis": true
+    },
+    "package.json": {
+      "filePath": "package.json",
+      "contentHash": "5ac5a15d2f941b8faffb6930f61beb9a06cea15962001a274b8c0b5417f7be93",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 47,
+      "hasStructuralAnalysis": true
+    },
+    "README.md": {
+      "filePath": "README.md",
+      "contentHash": "db85e17d09f280f452973dcd62d778151d1cea297f46a4678012e6cc0633df70",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 147,
+      "hasStructuralAnalysis": true
+    },
+    "scenarios/compare.mjs": {
+      "filePath": "scenarios/compare.mjs",
+      "contentHash": "77d3e9dc56710b29f65e9c9ddbcf563b99d7cfa721d32f13d20a662b15bc025e",
+      "functions": [
+        {
+          "name": "loadRecord",
+          "params": [
+            "ref"
+          ],
+          "exported": false,
+          "lineCount": 5
+        },
+        {
+          "name": "demoOf",
+          "params": [
+            "rec",
+            "id"
+          ],
+          "exported": false,
+          "lineCount": 1
+        },
+        {
+          "name": "renderCell",
+          "params": [
+            "rec",
+            "id"
+          ],
+          "exported": false,
+          "lineCount": 6
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "readFileSync",
+            "readdirSync",
+            "existsSync"
+          ]
+        },
+        {
+          "source": "node:path",
+          "specifiers": [
+            "join",
+            "resolve"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 63,
+      "hasStructuralAnalysis": true
+    },
+    "scenarios/docker/build.sh": {
+      "filePath": "scenarios/docker/build.sh",
+      "contentHash": "c819f6ede503c9392a3e64b0f55219938a6ac849f1fc6b32f1224f6aa5ee3738",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 22,
+      "hasStructuralAnalysis": true
+    },
+    "scenarios/docker/claude.Dockerfile": {
+      "filePath": "scenarios/docker/claude.Dockerfile",
+      "contentHash": "6924ebfaee5b1ca69eccb66a800d0ad5ba5136993a4a6a7024fd3d3d1b339adc",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 37,
+      "hasStructuralAnalysis": false
+    },
+    "scenarios/docker/models.json": {
+      "filePath": "scenarios/docker/models.json",
+      "contentHash": "dcb4625981e2beb56858b458cb5bbe0a6cc54f5cd3c459a10bcae5aaf67de5ae",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 26,
+      "hasStructuralAnalysis": true
+    },
+    "scenarios/docker/pi.Dockerfile": {
+      "filePath": "scenarios/docker/pi.Dockerfile",
+      "contentHash": "66e4ae173e8c116d7040d346534e846b707df319c5bcccff58640bd345a69aa0",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 40,
+      "hasStructuralAnalysis": false
+    },
+    "scenarios/l4-purpose.mjs": {
+      "filePath": "scenarios/l4-purpose.mjs",
+      "contentHash": "ae11ae5351ba5e677cad5c0a8413a10f1b450dfc34c338b808e260ed47b92b40",
+      "functions": [
+        {
+          "name": "claudeCredsDir",
+          "params": [],
+          "exported": false,
+          "lineCount": 10
+        },
+        {
+          "name": "sh",
+          "params": [
+            "cmd",
+            "args"
+          ],
+          "exported": false,
+          "lineCount": 1
+        },
+        {
+          "name": "agentBrain",
+          "params": [
+            "brain"
+          ],
+          "exported": false,
+          "lineCount": 1
+        },
+        {
+          "name": "kb",
+          "params": [
+            "brain",
+            "args"
+          ],
+          "exported": false,
+          "lineCount": 1
+        },
+        {
+          "name": "idOf",
+          "params": [
+            "line"
+          ],
+          "exported": false,
+          "lineCount": 1
+        },
+        {
+          "name": "newBrain",
+          "params": [
+            "tag"
+          ],
+          "exported": false,
+          "lineCount": 1
+        },
+        {
+          "name": "has",
+          "params": [
+            "s",
+            "...ts"
+          ],
+          "exported": false,
+          "lineCount": 1
+        },
+        {
+          "name": "lacks",
+          "params": [
+            "s",
+            "...ts"
+          ],
+          "exported": false,
+          "lineCount": 1
+        },
+        {
+          "name": "sample",
+          "params": [
+            "s"
+          ],
+          "exported": false,
+          "lineCount": 1
+        },
+        {
+          "name": "naiveDump",
+          "params": [
+            "brain",
+            "limit"
+          ],
+          "exported": false,
+          "lineCount": 5
+        },
+        {
+          "name": "brainText",
+          "params": [
+            "brain"
+          ],
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "claudeSettings",
+          "params": [
+            "brain",
+            "caps"
+          ],
+          "exported": false,
+          "lineCount": 19
+        },
+        {
+          "name": "mcpConfig",
+          "params": [
+            "brain"
+          ],
+          "exported": false,
+          "lineCount": 5
+        },
+        {
+          "name": "piMcpConfig",
+          "params": [
+            "brain"
+          ],
+          "exported": false,
+          "lineCount": 5
+        },
+        {
+          "name": "piMcpConfigC",
+          "params": [
+            "brain"
+          ],
+          "exported": false,
+          "lineCount": 5
+        },
+        {
+          "name": "emptyMcp",
+          "params": [
+            "brain"
+          ],
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "run",
+          "params": [],
+          "exported": false,
+          "lineCount": 82
+        },
+        {
+          "name": "qa",
+          "params": [],
+          "exported": false,
+          "lineCount": 18
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "node:child_process",
+          "specifiers": [
+            "execFileSync"
+          ]
+        },
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "mkdtempSync",
+            "rmSync",
+            "writeFileSync",
+            "readFileSync",
+            "existsSync",
+            "mkdirSync"
+          ]
+        },
+        {
+          "source": "node:os",
+          "specifiers": [
+            "tmpdir",
+            "homedir"
+          ]
+        },
+        {
+          "source": "node:path",
+          "specifiers": [
+            "join",
+            "resolve"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 928,
+      "hasStructuralAnalysis": true
+    },
+    "scenarios/records/claude-code__claude-haiku-4-5__docker.json": {
+      "filePath": "scenarios/records/claude-code__claude-haiku-4-5__docker.json",
+      "contentHash": "e2250d9c307dcf5409b4bc7880b48be3fb5bbba6f556266f5347b2b07e97c01f",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 693,
+      "hasStructuralAnalysis": true
+    },
+    "scenarios/records/claude-code__claude-haiku-4-5__docker.md": {
+      "filePath": "scenarios/records/claude-code__claude-haiku-4-5__docker.md",
+      "contentHash": "5c3895a374704e5e7874cefe3261f00f77b5be3fbc4dcba587799cc73c9077b1",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 45,
+      "hasStructuralAnalysis": true
+    },
+    "scenarios/records/claude-code__claude-haiku-4-5.json": {
+      "filePath": "scenarios/records/claude-code__claude-haiku-4-5.json",
+      "contentHash": "f2f3421eee68394103f530dd8496eff91fa31ff6bbd68f292d8093cd7c5502ee",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 438,
+      "hasStructuralAnalysis": true
+    },
+    "scenarios/records/claude-code__claude-haiku-4-5.md": {
+      "filePath": "scenarios/records/claude-code__claude-haiku-4-5.md",
+      "contentHash": "7cc4a19f93a8bacdffe6a51c95320597138840766507f4169e34f8b40f328fd5",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 32,
+      "hasStructuralAnalysis": true
+    },
+    "scenarios/records/claude-code__cli.json": {
+      "filePath": "scenarios/records/claude-code__cli.json",
+      "contentHash": "1b95e51539d33e24a429faabed2d411788ec027d52d159dce8e54712c8df0729",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 438,
+      "hasStructuralAnalysis": true
+    },
+    "scenarios/records/claude-code__cli.md": {
+      "filePath": "scenarios/records/claude-code__cli.md",
+      "contentHash": "616f833f3bf47b6cdbdebe634e12d5301ff28f1c53025ac635a401c7f54ecd62",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 32,
+      "hasStructuralAnalysis": true
+    },
+    "scenarios/records/deepseek__deepseek-v4-flash.json": {
+      "filePath": "scenarios/records/deepseek__deepseek-v4-flash.json",
+      "contentHash": "00678dcde2654090b1b2a5dd45d0fef35844e1b232dda192e5507ead8c37df1c",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 438,
+      "hasStructuralAnalysis": true
+    },
+    "scenarios/records/deepseek__deepseek-v4-flash.md": {
+      "filePath": "scenarios/records/deepseek__deepseek-v4-flash.md",
+      "contentHash": "594c26ad56dff420f348081749c5ce03a7c106ef22db58c30bb7b417b0253bbe",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 32,
+      "hasStructuralAnalysis": true
+    },
+    "scenarios/records/deepseek__deepseek-v4-pro__docker.json": {
+      "filePath": "scenarios/records/deepseek__deepseek-v4-pro__docker.json",
+      "contentHash": "a263303db461ccd85c99d4fd81555ebc389cce8904c41a702d076a1d1db1caf1",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 713,
+      "hasStructuralAnalysis": true
+    },
+    "scenarios/records/deepseek__deepseek-v4-pro__docker.md": {
+      "filePath": "scenarios/records/deepseek__deepseek-v4-pro__docker.md",
+      "contentHash": "2a89c04f80dba4cd4a37a0acc721653f05d51bd7989baf793888bb69640e0d00",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 46,
+      "hasStructuralAnalysis": true
+    },
+    "scenarios/records/deepseek__deepseek-v4-pro.json": {
+      "filePath": "scenarios/records/deepseek__deepseek-v4-pro.json",
+      "contentHash": "bb36753590ac7b968c16d25dc30560ad9a82b8afbea0603ea4c86e48f1910ce1",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 429,
+      "hasStructuralAnalysis": true
+    },
+    "scenarios/records/deepseek__deepseek-v4-pro.md": {
+      "filePath": "scenarios/records/deepseek__deepseek-v4-pro.md",
+      "contentHash": "064fa8d7555725eaa9bc7e63fc40f8483851c652f0391dffc50c41c56634fe4f",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 33,
+      "hasStructuralAnalysis": true
+    },
+    "scenarios/records/github-copilot__claude-sonnet-4.6.json": {
+      "filePath": "scenarios/records/github-copilot__claude-sonnet-4.6.json",
+      "contentHash": "6e628097c470a585e0fa267253082c7c5b115e56bb9ee86b0c9757390f368ea8",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 438,
+      "hasStructuralAnalysis": true
+    },
+    "scenarios/records/github-copilot__claude-sonnet-4.6.md": {
+      "filePath": "scenarios/records/github-copilot__claude-sonnet-4.6.md",
+      "contentHash": "d654f1a645d2d2c1ae9965b6a2fdff3864902682076e83ae3df569ee497caff6",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 32,
+      "hasStructuralAnalysis": true
+    },
+    "scripts/seed-self-brain.mjs": {
+      "filePath": "scripts/seed-self-brain.mjs",
+      "contentHash": "5b526b3cfa61bbfe5ef87878580a1ffc84e2fe7f602c312c8d2e2c660244c6fe",
+      "functions": [
+        {
+          "name": "add",
+          "params": [
+            "type",
+            "text",
+            "opts"
+          ],
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "title",
+          "params": [
+            "file"
+          ],
+          "exported": false,
+          "lineCount": 4
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "../dist/engine.js",
+          "specifiers": [
+            "addEntry"
+          ]
+        },
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "readFileSync",
+            "existsSync",
+            "readdirSync"
+          ]
+        },
+        {
+          "source": "node:path",
+          "specifiers": [
+            "join",
+            "dirname"
+          ]
+        },
+        {
+          "source": "node:url",
+          "specifiers": [
+            "fileURLToPath"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 101,
+      "hasStructuralAnalysis": true
+    },
+    "spike/container-smoke.sh": {
+      "filePath": "spike/container-smoke.sh",
+      "contentHash": "8491f40d28118bd336c89cb1477a8c29971b8049b111f6a4010d09a81a1131ee",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 27,
+      "hasStructuralAnalysis": true
+    },
+    "spike/devops-kb/bash-guard.mjs": {
+      "filePath": "spike/devops-kb/bash-guard.mjs",
+      "contentHash": "fbd43e5b61d8682ebec367b20b4294077ac2ca9121f2f628480687e96bf971a8",
+      "functions": [
+        {
+          "name": "emit",
+          "params": [
+            "decision",
+            "reason"
+          ],
+          "exported": false,
+          "lineCount": 6
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "readFileSync"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 55,
+      "hasStructuralAnalysis": true
+    },
+    "spike/devops-kb/CLAUDE.md": {
+      "filePath": "spike/devops-kb/CLAUDE.md",
+      "contentHash": "a174dd9a41686391dfcd69d7af3bcfc57f6c745754e28285daeddc4805b71b2f",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 43,
+      "hasStructuralAnalysis": true
+    },
+    "spike/devops-kb/devops-kb-pi.sh": {
+      "filePath": "spike/devops-kb/devops-kb-pi.sh",
+      "contentHash": "7713e325c58b3a753a8ef2e4283a888b418b5a731c4fcbcc52bbfe333f8d7570",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 91,
+      "hasStructuralAnalysis": true
+    },
+    "spike/devops-kb/devops-kb.sh": {
+      "filePath": "spike/devops-kb/devops-kb.sh",
+      "contentHash": "701ed37ee5a717beced8b468c06e060e1c74cc447943d66a588f25481ca0880b",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 70,
+      "hasStructuralAnalysis": true
+    },
+    "spike/devops-kb/Dockerfile": {
+      "filePath": "spike/devops-kb/Dockerfile",
+      "contentHash": "c3556e6ca64f40e35754bbe27f10fb4510b8c04847ad2b5048c0c56cec01422a",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 66,
+      "hasStructuralAnalysis": true
+    },
+    "spike/devops-kb/gitconfig": {
+      "filePath": "spike/devops-kb/gitconfig",
+      "contentHash": "ebddba3e3eca5cedb308f9c3109023383579c349294987fda03e49d7ed8b4174",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 10,
+      "hasStructuralAnalysis": false
+    },
+    "spike/devops-kb/infra-guard.mjs": {
+      "filePath": "spike/devops-kb/infra-guard.mjs",
+      "contentHash": "9b12ebb17f1e0e15520f9f8466866b47c0e6fe8596e145b60c78c5f28832d405",
+      "functions": [
+        {
+          "name": "classify",
+          "params": [
+            "cmd"
+          ],
+          "exported": true,
+          "lineCount": 6
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": [
+        "classify"
+      ],
+      "totalLines": 71,
+      "hasStructuralAnalysis": true
+    },
+    "spike/devops-kb/mcp-config.json": {
+      "filePath": "spike/devops-kb/mcp-config.json",
+      "contentHash": "f13330e6029d3bdecd3c75d1d8db48d5fa95fd9e0ac5cebb2b4bc75c8459d07d",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 10,
+      "hasStructuralAnalysis": true
+    },
+    "spike/devops-kb/migrate-seed.mjs": {
+      "filePath": "spike/devops-kb/migrate-seed.mjs",
+      "contentHash": "6b7bdd96099ed281dcb61515d8e9cf646726902c609a37de108a7387e366406c",
+      "functions": [
+        {
+          "name": "gotchaText",
+          "params": [
+            "o"
+          ],
+          "exported": false,
+          "lineCount": 6
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "../../dist/engine.js",
+          "specifiers": [
+            "addEntry"
+          ]
+        },
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "readFileSync",
+            "existsSync",
+            "readdirSync"
+          ]
+        },
+        {
+          "source": "node:path",
+          "specifiers": [
+            "join"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 98,
+      "hasStructuralAnalysis": true
+    },
+    "spike/devops-kb/operating-rules.md": {
+      "filePath": "spike/devops-kb/operating-rules.md",
+      "contentHash": "da259a92955f3445f0a38a28ce7a95e7b8bac4c5cacf0da9654bd33c7e400648",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 68,
+      "hasStructuralAnalysis": true
+    },
+    "spike/devops-kb/settings.json": {
+      "filePath": "spike/devops-kb/settings.json",
+      "contentHash": "01ad3e431708330e47a5577c8029ec01393781b03e69662a1aa184a7639cc508",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 49,
+      "hasStructuralAnalysis": true
+    },
+    "spike/Dockerfile": {
+      "filePath": "spike/Dockerfile",
+      "contentHash": "6507761871bc1690a677df341c32c8800a9092ae9cd4140bfaf7cbb96f20cd63",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 14,
+      "hasStructuralAnalysis": true
+    },
+    "spike/dogfood-smoke.sh": {
+      "filePath": "spike/dogfood-smoke.sh",
+      "contentHash": "5b5566c58974a99b18f90a78bf71e5aca118cfd1223b6969471f17af9fd8b05a",
+      "functions": [
+        {
+          "name": "ok",
+          "params": [],
+          "exported": false,
+          "lineCount": 1
+        },
+        {
+          "name": "no",
+          "params": [],
+          "exported": false,
+          "lineCount": 1
+        },
+        {
+          "name": "drun",
+          "params": [],
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "claude_p",
+          "params": [],
+          "exported": false,
+          "lineCount": 2
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 77,
+      "hasStructuralAnalysis": true
+    },
+    "spike/dogfood.Dockerfile": {
+      "filePath": "spike/dogfood.Dockerfile",
+      "contentHash": "cce6e97f082a9ba90a7d72a26f7dc0cee654553439c8b3f2a91136eb59ccc567",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 37,
+      "hasStructuralAnalysis": false
+    },
+    "spike/dogfood/CLAUDE.md": {
+      "filePath": "spike/dogfood/CLAUDE.md",
+      "contentHash": "05e5b80fcd5339aa8bb107fa5b9fa28e6e99e5909e50679a407595b06ebfc0a1",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 30,
+      "hasStructuralAnalysis": true
+    },
+    "spike/dogfood/mcp-config.json": {
+      "filePath": "spike/dogfood/mcp-config.json",
+      "contentHash": "423a67f5596951cef314853fd2fbe8f7cb9a5dbf9834fa39be3643abee3d0c37",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 10,
+      "hasStructuralAnalysis": true
+    },
+    "spike/dogfood/README.md": {
+      "filePath": "spike/dogfood/README.md",
+      "contentHash": "d92469b79f2c447558112c5e66cd22c5c16d90eaca31fc304625eaa37bae3f08",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 50,
+      "hasStructuralAnalysis": true
+    },
+    "spike/dogfood/settings.json": {
+      "filePath": "spike/dogfood/settings.json",
+      "contentHash": "1c76c8fb1c52d885981cb1896e0cc7e55a2419948c045ffa211ce5d3b23a8a7c",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 37,
+      "hasStructuralAnalysis": true
+    },
+    "spike/mcp-config.json": {
+      "filePath": "spike/mcp-config.json",
+      "contentHash": "c6797a5cc618645a5db52296f618b943dae3d368736660eda49bfd42429ca6fc",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 10,
+      "hasStructuralAnalysis": true
+    },
+    "spike/mcp-preflight.mjs": {
+      "filePath": "spike/mcp-preflight.mjs",
+      "contentHash": "50a80d1f35bf0af051fb29f909d3cfe42f1c2a20b7170daa1dfe8cc3dc4dada1",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@modelcontextprotocol/sdk/client/index.js",
+          "specifiers": [
+            "Client"
+          ]
+        },
+        {
+          "source": "@modelcontextprotocol/sdk/client/stdio.js",
+          "specifiers": [
+            "StdioClientTransport"
+          ]
+        },
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "mkdtempSync"
+          ]
+        },
+        {
+          "source": "node:os",
+          "specifiers": [
+            "tmpdir"
+          ]
+        },
+        {
+          "source": "node:path",
+          "specifiers": [
+            "join",
+            "resolve"
+          ]
+        },
+        {
+          "source": "node:url",
+          "specifiers": [
+            "fileURLToPath"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 47,
+      "hasStructuralAnalysis": true
+    },
+    "spike/PHASE0-REPORT.md": {
+      "filePath": "spike/PHASE0-REPORT.md",
+      "contentHash": "fa17202b9e5bf485b3e6e82ec9c62a70648a9b5c75d47fcd2b796ddc50085031",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 114,
+      "hasStructuralAnalysis": true
+    },
+    "spike/settings.json": {
+      "filePath": "spike/settings.json",
+      "contentHash": "2fe6cf046deb33fed9a0920fb94efa9062d611b6be043bcbe448dd083873f10c",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 37,
+      "hasStructuralAnalysis": true
+    },
+    "spike/vtfkb-dogfood.sh": {
+      "filePath": "spike/vtfkb-dogfood.sh",
+      "contentHash": "d099a25f7536b47bb6905899b180330ffd2ccc120e8b7d8e68d13398a9ae0d1d",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 40,
+      "hasStructuralAnalysis": true
+    },
+    "src/cli.ts": {
+      "filePath": "src/cli.ts",
+      "contentHash": "e26df237a2684053cb3c436f87ce0e6bfddf608860994b4b0111526e91601765",
+      "functions": [
+        {
+          "name": "readStdin",
+          "params": [],
+          "returnType": "Promise<string>",
+          "exported": false,
+          "lineCount": 11
+        },
+        {
+          "name": "flag",
+          "params": [
+            "args",
+            "name"
+          ],
+          "returnType": "string | undefined",
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "main",
+          "params": [],
+          "exported": false,
+          "lineCount": 303
+        },
+        {
+          "name": "cleanText",
+          "params": [
+            "args"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 11
+        },
+        {
+          "name": "isFlagValue",
+          "params": [
+            "args",
+            "a"
+          ],
+          "returnType": "boolean",
+          "exported": false,
+          "lineCount": 4
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "./engine.js",
+          "specifiers": [
+            "addEntry",
+            "captureToolCall",
+            "readAll",
+            "renderContext",
+            "renderContextBundle",
+            "renderContextMap",
+            "renderNaiveDump",
+            "renderResume",
+            "initContextSpine",
+            "supersede",
+            "deriveTrust"
+          ]
+        },
+        {
+          "source": "./session.js",
+          "specifiers": [
+            "SessionState"
+          ]
+        },
+        {
+          "source": "./curator.js",
+          "specifiers": [
+            "promote",
+            "archive",
+            "mergeDuplicate",
+            "findLexicalDuplicates",
+            "promoteIfCorroborated",
+            "eligibleForPromotion"
+          ]
+        },
+        {
+          "source": "./distiller.js",
+          "specifiers": [
+            "distill"
+          ]
+        },
+        {
+          "source": "./counters.js",
+          "specifiers": [
+            "recordSignal",
+            "tally"
+          ]
+        },
+        {
+          "source": "./read.js",
+          "specifiers": [
+            "queryExplained"
+          ]
+        },
+        {
+          "source": "./gating.js",
+          "specifiers": [
+            "isBrainWrite",
+            "GATING_REASON"
+          ]
+        },
+        {
+          "source": "./git.js",
+          "specifiers": [
+            "save"
+          ]
+        },
+        {
+          "source": "./types.js",
+          "specifiers": [
+            "AuthorRole",
+            "EntryType",
+            "Zone",
+            "DecisionStatus"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 374,
+      "hasStructuralAnalysis": true
+    },
+    "src/counters.ts": {
+      "filePath": "src/counters.ts",
+      "contentHash": "616cf497cc4f3e0fcc93bfed536a8ca0c422c86d4aa58ac898ff1183572f7590",
+      "functions": [
+        {
+          "name": "signalsFile",
+          "params": [],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "recordSignal",
+          "params": [
+            "entryId",
+            "kind",
+            "source"
+          ],
+          "returnType": "CounterSignal",
+          "exported": true,
+          "lineCount": 6
+        },
+        {
+          "name": "readSignals",
+          "params": [],
+          "returnType": "CounterSignal[]",
+          "exported": true,
+          "lineCount": 8
+        },
+        {
+          "name": "tally",
+          "params": [
+            "entryId",
+            "signals"
+          ],
+          "returnType": "CounterTally",
+          "exported": true,
+          "lineCount": 10
+        },
+        {
+          "name": "tallies",
+          "params": [
+            "signals"
+          ],
+          "returnType": "Map<string, CounterTally>",
+          "exported": true,
+          "lineCount": 11
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "appendFileSync",
+            "mkdirSync",
+            "readFileSync",
+            "existsSync"
+          ]
+        },
+        {
+          "source": "node:path",
+          "specifiers": [
+            "join"
+          ]
+        },
+        {
+          "source": "./storage.js",
+          "specifiers": [
+            "brainDir"
+          ]
+        }
+      ],
+      "exports": [
+        "recordSignal",
+        "readSignals",
+        "tally",
+        "tallies"
+      ],
+      "totalLines": 77,
+      "hasStructuralAnalysis": true
+    },
+    "src/curator.ts": {
+      "filePath": "src/curator.ts",
+      "contentHash": "be2fa6c282fdbf334902da441b623e117a8a92ec1dadc253a10f070b52dc75c7",
+      "functions": [
+        {
+          "name": "get",
+          "params": [
+            "id"
+          ],
+          "returnType": "KnowledgeEntry",
+          "exported": false,
+          "lineCount": 5
+        },
+        {
+          "name": "promote",
+          "params": [
+            "id"
+          ],
+          "returnType": "KnowledgeEntry",
+          "exported": true,
+          "lineCount": 7
+        },
+        {
+          "name": "eligibleForPromotion",
+          "params": [
+            "id",
+            "threshold"
+          ],
+          "returnType": "boolean",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "promoteIfCorroborated",
+          "params": [
+            "id",
+            "threshold"
+          ],
+          "returnType": "KnowledgeEntry",
+          "exported": true,
+          "lineCount": 16
+        },
+        {
+          "name": "archive",
+          "params": [
+            "id"
+          ],
+          "returnType": "KnowledgeEntry",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "mergeDuplicate",
+          "params": [
+            "loserId",
+            "winnerId"
+          ],
+          "returnType": "KnowledgeEntry",
+          "exported": true,
+          "lineCount": 9
+        },
+        {
+          "name": "findLexicalDuplicates",
+          "params": [
+            "entries"
+          ],
+          "returnType": "DuplicatePair[]",
+          "exported": true,
+          "lineCount": 13
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "./engine.js",
+          "specifiers": [
+            "readAll",
+            "updateEntry",
+            "setProvenanceStatus",
+            "transitionDecision",
+            "isDecisionFamily"
+          ]
+        },
+        {
+          "source": "./counters.js",
+          "specifiers": [
+            "tally"
+          ]
+        },
+        {
+          "source": "./types.js",
+          "specifiers": [
+            "KnowledgeEntry"
+          ]
+        }
+      ],
+      "exports": [
+        "promote",
+        "PROMOTION_THRESHOLD",
+        "eligibleForPromotion",
+        "promoteIfCorroborated",
+        "archive",
+        "mergeDuplicate",
+        "findLexicalDuplicates"
+      ],
+      "totalLines": 102,
+      "hasStructuralAnalysis": true
+    },
+    "src/distiller.ts": {
+      "filePath": "src/distiller.ts",
+      "contentHash": "37f3f1e36c421ea42ab9450665a7ff1237ab383a1d6d8837fdfa2e3132f417c0",
+      "functions": [
+        {
+          "name": "errorClass",
+          "params": [
+            "summary"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 10
+        },
+        {
+          "name": "toolOf",
+          "params": [
+            "e"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "summaryOf",
+          "params": [
+            "e"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "signature",
+          "params": [
+            "tool",
+            "summary"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "errorCaptures",
+          "params": [
+            "capturedIds",
+            "all"
+          ],
+          "returnType": "KnowledgeEntry[]",
+          "exported": false,
+          "lineCount": 11
+        },
+        {
+          "name": "distillCandidates",
+          "params": [
+            "capturedIds",
+            "all"
+          ],
+          "returnType": "DistillCandidate[]",
+          "exported": true,
+          "lineCount": 27
+        },
+        {
+          "name": "distill",
+          "params": [
+            "capturedIds"
+          ],
+          "returnType": "DistillResult",
+          "exported": true,
+          "lineCount": 30
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "node:crypto",
+          "specifiers": [
+            "createHash"
+          ]
+        },
+        {
+          "source": "./engine.js",
+          "specifiers": [
+            "addEntry",
+            "readAll"
+          ]
+        },
+        {
+          "source": "./counters.js",
+          "specifiers": [
+            "recordSignal"
+          ]
+        },
+        {
+          "source": "./types.js",
+          "specifiers": [
+            "KnowledgeEntry",
+            "ProvenanceOrigin"
+          ]
+        }
+      ],
+      "exports": [
+        "distillCandidates",
+        "distill"
+      ],
+      "totalLines": 145,
+      "hasStructuralAnalysis": true
+    },
+    "src/engine.ts": {
+      "filePath": "src/engine.ts",
+      "contentHash": "91ab3c0d690548f16d369f2898f42807be8fcd2c912f7b801663a62d5bcc8ce9",
+      "functions": [
+        {
+          "name": "isDecisionFamily",
+          "params": [
+            "type"
+          ],
+          "returnType": "boolean",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "nowIso",
+          "params": [],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "newId",
+          "params": [],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "deriveTrust",
+          "params": [
+            "role"
+          ],
+          "returnType": "Trust",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "addEntry",
+          "params": [
+            "type",
+            "text",
+            "opts"
+          ],
+          "returnType": "KnowledgeEntry",
+          "exported": true,
+          "lineCount": 27
+        },
+        {
+          "name": "readAll",
+          "params": [],
+          "returnType": "KnowledgeEntry[]",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "updateEntry",
+          "params": [
+            "id",
+            "patch"
+          ],
+          "returnType": "KnowledgeEntry",
+          "exported": true,
+          "lineCount": 15
+        },
+        {
+          "name": "setProvenanceStatus",
+          "params": [
+            "id",
+            "status"
+          ],
+          "returnType": "KnowledgeEntry",
+          "exported": true,
+          "lineCount": 14
+        },
+        {
+          "name": "deleteEntry",
+          "params": [
+            "id"
+          ],
+          "returnType": "void",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "rebuild",
+          "params": [],
+          "returnType": "KbIndex",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "getIndex",
+          "params": [],
+          "returnType": "KbIndex",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "buildContextMap",
+          "params": [],
+          "returnType": "ContextMap",
+          "exported": true,
+          "lineCount": 28
+        },
+        {
+          "name": "renderContextMap",
+          "params": [
+            "map"
+          ],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 21
+        },
+        {
+          "name": "supersede",
+          "params": [
+            "oldId",
+            "text",
+            "opts"
+          ],
+          "returnType": "KnowledgeEntry",
+          "exported": true,
+          "lineCount": 14
+        },
+        {
+          "name": "transitionDecision",
+          "params": [
+            "id",
+            "status"
+          ],
+          "returnType": "KnowledgeEntry",
+          "exported": true,
+          "lineCount": 16
+        },
+        {
+          "name": "supersededIds",
+          "params": [
+            "entries"
+          ],
+          "returnType": "Set<string>",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "effectiveStatus",
+          "params": [
+            "e",
+            "superseded"
+          ],
+          "returnType": "KnowledgeEntry['status']",
+          "exported": true,
+          "lineCount": 7
+        },
+        {
+          "name": "stampOrdinals",
+          "params": [],
+          "returnType": "number",
+          "exported": true,
+          "lineCount": 20
+        },
+        {
+          "name": "deriveConstitution",
+          "params": [],
+          "returnType": "KnowledgeEntry[]",
+          "exported": true,
+          "lineCount": 12
+        },
+        {
+          "name": "isInjectable",
+          "params": [
+            "e",
+            "today",
+            "superseded"
+          ],
+          "returnType": "boolean",
+          "exported": true,
+          "lineCount": 12
+        },
+        {
+          "name": "withinTierScore",
+          "params": [
+            "e"
+          ],
+          "returnType": "number",
+          "exported": false,
+          "lineCount": 6
+        },
+        {
+          "name": "heuristicCompare",
+          "params": [
+            "a",
+            "b"
+          ],
+          "returnType": "number",
+          "exported": true,
+          "lineCount": 7
+        },
+        {
+          "name": "rerank",
+          "params": [
+            "entries"
+          ],
+          "returnType": "KnowledgeEntry[]",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "trustGlyph",
+          "params": [
+            "e"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 6
+        },
+        {
+          "name": "renderContextBundle",
+          "params": [
+            "project",
+            "budget"
+          ],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 41
+        },
+        {
+          "name": "initContextSpine",
+          "params": [],
+          "returnType": "{ created: boolean; path: string }",
+          "exported": true,
+          "lineCount": 6
+        },
+        {
+          "name": "renderContext",
+          "params": [
+            "project"
+          ],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 49
+        },
+        {
+          "name": "renderNaiveDump",
+          "params": [
+            "project",
+            "budget",
+            "limit"
+          ],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 22
+        },
+        {
+          "name": "isOwnKnowledgeTool",
+          "params": [
+            "name"
+          ],
+          "returnType": "boolean",
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "classifyToolOutcome",
+          "params": [
+            "result"
+          ],
+          "returnType": "{ outcome: ToolOutcome; summary: string }",
+          "exported": true,
+          "lineCount": 19
+        },
+        {
+          "name": "captureToolCall",
+          "params": [
+            "ev"
+          ],
+          "returnType": "KnowledgeEntry | null",
+          "exported": true,
+          "lineCount": 23
+        },
+        {
+          "name": "currentInjectableIds",
+          "params": [],
+          "returnType": "string[]",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "renderContextDelta",
+          "params": [
+            "session",
+            "project"
+          ],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 12
+        },
+        {
+          "name": "sessionWindow",
+          "params": [
+            "all",
+            "from",
+            "to"
+          ],
+          "exported": false,
+          "lineCount": 5
+        },
+        {
+          "name": "distilledLessons",
+          "params": [
+            "added"
+          ],
+          "returnType": "KnowledgeEntry[]",
+          "exported": false,
+          "lineCount": 5
+        },
+        {
+          "name": "renderResumeDigest",
+          "params": [
+            "rec",
+            "all"
+          ],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 29
+        },
+        {
+          "name": "renderResume",
+          "params": [
+            "project",
+            "session"
+          ],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 10
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "node:crypto",
+          "specifiers": [
+            "randomBytes"
+          ]
+        },
+        {
+          "source": "./storage.js",
+          "specifiers": [
+            "appendRecord",
+            "materialize",
+            "readRecords",
+            "contextSpinePath",
+            "readContextSpine",
+            "writeContextSpine"
+          ]
+        },
+        {
+          "source": "./index-store.js",
+          "specifiers": [
+            "selectIndex"
+          ]
+        },
+        {
+          "source": "./secrets.js",
+          "specifiers": [
+            "assertNoSecrets"
+          ]
+        },
+        {
+          "source": "./counters.js",
+          "specifiers": [
+            "tally"
+          ]
+        },
+        {
+          "source": "./session.js",
+          "specifiers": [
+            "SessionState"
+          ]
+        },
+        {
+          "source": "./session.js",
+          "specifiers": [
+            "SessionData"
+          ]
+        },
+        {
+          "source": "./index-store.js",
+          "specifiers": [
+            "KbIndex"
+          ]
+        },
+        {
+          "source": "./types.js",
+          "specifiers": [
+            "AuthorRole",
+            "EntryType",
+            "KnowledgeEntry",
+            "ProvenanceOrigin",
+            "Trust"
+          ]
+        }
+      ],
+      "exports": [
+        "brainDir",
+        "KbIndex",
+        "SESSION_BUDGET_CHARS",
+        "isDecisionFamily",
+        "deriveTrust",
+        "addEntry",
+        "readAll",
+        "updateEntry",
+        "setProvenanceStatus",
+        "deleteEntry",
+        "rebuild",
+        "getIndex",
+        "buildContextMap",
+        "renderContextMap",
+        "supersede",
+        "transitionDecision",
+        "supersededIds",
+        "effectiveStatus",
+        "stampOrdinals",
+        "deriveConstitution",
+        "isInjectable",
+        "heuristicCompare",
+        "rerank",
+        "renderContextBundle",
+        "initContextSpine",
+        "renderContext",
+        "renderNaiveDump",
+        "classifyToolOutcome",
+        "captureToolCall",
+        "currentInjectableIds",
+        "renderContextDelta",
+        "renderResumeDigest",
+        "renderResume"
+      ],
+      "totalLines": 701,
+      "hasStructuralAnalysis": true
+    },
+    "src/gating.ts": {
+      "filePath": "src/gating.ts",
+      "contentHash": "030cd922b5fd0ec89f192ad05b916ba71655dc63714bebb3519d80ed71d2cbbf",
+      "functions": [
+        {
+          "name": "extractPath",
+          "params": [
+            "input"
+          ],
+          "returnType": "string | undefined",
+          "exported": false,
+          "lineCount": 5
+        },
+        {
+          "name": "isBrainWrite",
+          "params": [
+            "toolName",
+            "input",
+            "brain"
+          ],
+          "returnType": "boolean",
+          "exported": true,
+          "lineCount": 12
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "node:path",
+          "specifiers": [
+            "resolve"
+          ]
+        },
+        {
+          "source": "./storage.js",
+          "specifiers": [
+            "brainDir"
+          ]
+        }
+      ],
+      "exports": [
+        "isBrainWrite",
+        "GATING_REASON"
+      ],
+      "totalLines": 42,
+      "hasStructuralAnalysis": true
+    },
+    "src/git.ts": {
+      "filePath": "src/git.ts",
+      "contentHash": "2344b25982544bc8ebf904d6ed411908ba64fcbcccd878110e8696d52b1f11dc",
+      "functions": [
+        {
+          "name": "git",
+          "params": [
+            "args",
+            "cwd"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "ensureRepo",
+          "params": [
+            "brain"
+          ],
+          "returnType": "void",
+          "exported": false,
+          "lineCount": 5
+        },
+        {
+          "name": "save",
+          "params": [
+            "message",
+            "role",
+            "brain"
+          ],
+          "returnType": "SaveResult",
+          "exported": true,
+          "lineCount": 20
+        },
+        {
+          "name": "saveAndPush",
+          "params": [
+            "message",
+            "role",
+            "brain"
+          ],
+          "returnType": "SaveResult",
+          "exported": true,
+          "lineCount": 11
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "node:child_process",
+          "specifiers": [
+            "execFileSync"
+          ]
+        },
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "existsSync"
+          ]
+        },
+        {
+          "source": "node:path",
+          "specifiers": [
+            "join"
+          ]
+        },
+        {
+          "source": "./storage.js",
+          "specifiers": [
+            "brainDir"
+          ]
+        }
+      ],
+      "exports": [
+        "save",
+        "saveAndPush"
+      ],
+      "totalLines": 59,
+      "hasStructuralAnalysis": true
+    },
+    "src/index-store.ts": {
+      "filePath": "src/index-store.ts",
+      "contentHash": "7393e3296e606fff9aba4c619c2ce051bf658ed6cff4f7046a531b56e5aec8b0",
+      "functions": [
+        {
+          "name": "stem",
+          "params": [
+            "t"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 6
+        },
+        {
+          "name": "tokenize",
+          "params": [
+            "s"
+          ],
+          "returnType": "string[]",
+          "exported": false,
+          "lineCount": 7
+        },
+        {
+          "name": "queryTermCount",
+          "params": [
+            "query"
+          ],
+          "returnType": "number",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "selectIndex",
+          "params": [],
+          "returnType": "KbIndex",
+          "exported": true,
+          "lineCount": 3
+        }
+      ],
+      "classes": [
+        {
+          "name": "InMemoryIndex",
+          "methods": [
+            "constructor",
+            "rebuild",
+            "ensureFresh",
+            "all",
+            "get",
+            "searchScored",
+            "search",
+            "freshnessToken"
+          ],
+          "properties": [
+            "entries",
+            "token"
+          ],
+          "exported": true,
+          "lineCount": 65
+        }
+      ],
+      "imports": [
+        {
+          "source": "./types.js",
+          "specifiers": [
+            "KnowledgeEntry"
+          ]
+        },
+        {
+          "source": "./storage.js",
+          "specifiers": [
+            "contentHash",
+            "materialize",
+            "readMeta",
+            "readRecords"
+          ]
+        }
+      ],
+      "exports": [
+        "queryTermCount",
+        "InMemoryIndex",
+        "selectIndex"
+      ],
+      "totalLines": 131,
+      "hasStructuralAnalysis": true
+    },
+    "src/mcp-server.ts": {
+      "filePath": "src/mcp-server.ts",
+      "contentHash": "d2ce280d1a40e06b9e9ae84a879818f4fba0fa8d28049a1177d805a874c22699",
+      "functions": [
+        {
+          "name": "line",
+          "params": [
+            "e"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 5
+        },
+        {
+          "name": "text",
+          "params": [
+            "s"
+          ],
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "renderNoMatch",
+          "params": [
+            "d",
+            "q"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 26
+        },
+        {
+          "name": "tags",
+          "params": [
+            "csv"
+          ],
+          "returnType": "string[] | undefined",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "envRole",
+          "params": [],
+          "returnType": "z.infer<typeof ROLE> | undefined",
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "main",
+          "params": [],
+          "returnType": "Promise<void>",
+          "exported": false,
+          "lineCount": 6
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@modelcontextprotocol/sdk/server/mcp.js",
+          "specifiers": [
+            "McpServer"
+          ]
+        },
+        {
+          "source": "@modelcontextprotocol/sdk/server/stdio.js",
+          "specifiers": [
+            "StdioServerTransport"
+          ]
+        },
+        {
+          "source": "zod",
+          "specifiers": [
+            "z"
+          ]
+        },
+        {
+          "source": "./engine.js",
+          "specifiers": [
+            "addEntry",
+            "deriveTrust",
+            "readAll",
+            "renderContext",
+            "renderContextMap",
+            "renderResume",
+            "supersede",
+            "transitionDecision"
+          ]
+        },
+        {
+          "source": "./read.js",
+          "specifiers": [
+            "query",
+            "queryExplained"
+          ]
+        },
+        {
+          "source": "./read.js",
+          "specifiers": [
+            "SearchDiagnosis"
+          ]
+        },
+        {
+          "source": "./types.js",
+          "specifiers": [
+            "KnowledgeEntry"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 249,
+      "hasStructuralAnalysis": true
+    },
+    "src/pi-extension.ts": {
+      "filePath": "src/pi-extension.ts",
+      "contentHash": "a65cf3d5fbb3c1af4f901e61c6d8482e1c59f3845c3068efc94bbbb01b6124b8",
+      "functions": [
+        {
+          "name": "project",
+          "params": [],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "resultText",
+          "params": [
+            "r"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 15
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "mkdirSync"
+          ]
+        },
+        {
+          "source": "./engine.js",
+          "specifiers": [
+            "brainDir",
+            "captureToolCall",
+            "currentInjectableIds",
+            "renderContextDelta",
+            "renderResume"
+          ]
+        },
+        {
+          "source": "./session.js",
+          "specifiers": [
+            "SessionState"
+          ]
+        },
+        {
+          "source": "./gating.js",
+          "specifiers": [
+            "isBrainWrite",
+            "GATING_REASON"
+          ]
+        },
+        {
+          "source": "./git.js",
+          "specifiers": [
+            "save"
+          ]
+        },
+        {
+          "source": "./pi-types.js",
+          "specifiers": [
+            "BeforeAgentStartEvent",
+            "BeforeAgentStartResult",
+            "ContextEvent",
+            "ContextEventResult",
+            "ExtensionAPI",
+            "ToolCallEvent",
+            "ToolExecutionStartEvent",
+            "ToolExecutionEndEvent"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 137,
+      "hasStructuralAnalysis": true
+    },
+    "src/pi-mcp-bridge.ts": {
+      "filePath": "src/pi-mcp-bridge.ts",
+      "contentHash": "f551a9e483fb2d96646efce0c7ffb69b14121f18de2aab281b21c75ca8a25593",
+      "functions": [
+        {
+          "name": "connect",
+          "params": [
+            "spec"
+          ],
+          "returnType": "Promise<Client>",
+          "exported": false,
+          "lineCount": 10
+        },
+        {
+          "name": "toContent",
+          "params": [
+            "r"
+          ],
+          "returnType": "ToolResult",
+          "exported": false,
+          "lineCount": 7
+        },
+        {
+          "name": "readConfig",
+          "params": [],
+          "returnType": "Record<string, ServerSpec>",
+          "exported": false,
+          "lineCount": 9
+        },
+        {
+          "name": "discover",
+          "params": [],
+          "returnType": "Promise<ToolDefinition[]>",
+          "exported": false,
+          "lineCount": 38
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "readFileSync",
+            "existsSync"
+          ]
+        },
+        {
+          "source": "@modelcontextprotocol/sdk/client/index.js",
+          "specifiers": [
+            "Client"
+          ]
+        },
+        {
+          "source": "@modelcontextprotocol/sdk/client/stdio.js",
+          "specifiers": [
+            "StdioClientTransport"
+          ]
+        },
+        {
+          "source": "./pi-types.js",
+          "specifiers": [
+            "ExtensionAPI",
+            "ToolDefinition",
+            "ToolResult"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 107,
+      "hasStructuralAnalysis": true
+    },
+    "src/pi-types.ts": {
+      "filePath": "src/pi-types.ts",
+      "contentHash": "7bbd02dcc4858b73a9be4516155d4e63ef1c1a888ccf74b0dfe3fb94a84d8c29",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 73,
+      "hasStructuralAnalysis": true
+    },
+    "src/read.ts": {
+      "filePath": "src/read.ts",
+      "contentHash": "e534746dd5339df89cbf92bebaa234ea633658be8611280f5b4407c0f3c95f1b",
+      "functions": [
+        {
+          "name": "arr",
+          "params": [
+            "v"
+          ],
+          "returnType": "T[] | undefined",
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "run",
+          "params": [
+            "opts"
+          ],
+          "returnType": "SearchResult",
+          "exported": false,
+          "lineCount": 83
+        },
+        {
+          "name": "query",
+          "params": [
+            "opts"
+          ],
+          "returnType": "KnowledgeEntry[]",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "queryExplained",
+          "params": [
+            "opts"
+          ],
+          "returnType": "SearchResult",
+          "exported": true,
+          "lineCount": 3
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "./types.js",
+          "specifiers": [
+            "AuthorRole",
+            "DecisionStatus",
+            "EntryType",
+            "KnowledgeEntry",
+            "Zone"
+          ]
+        },
+        {
+          "source": "./engine.js",
+          "specifiers": [
+            "effectiveStatus",
+            "heuristicCompare",
+            "isInjectable",
+            "readAll",
+            "rerank",
+            "supersededIds"
+          ]
+        },
+        {
+          "source": "./index-store.js",
+          "specifiers": [
+            "queryTermCount",
+            "selectIndex"
+          ]
+        }
+      ],
+      "exports": [
+        "DEFAULT_MIN_TERM_RATIO",
+        "query",
+        "queryExplained"
+      ],
+      "totalLines": 170,
+      "hasStructuralAnalysis": true
+    },
+    "src/secrets.ts": {
+      "filePath": "src/secrets.ts",
+      "contentHash": "3fa96513e7ec6bb92e3753c97445894cedeeb612e866afde42c565bcc20d06ab",
+      "functions": [
+        {
+          "name": "detectSecrets",
+          "params": [
+            "text"
+          ],
+          "returnType": "SecretHit[]",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "assertNoSecrets",
+          "params": [
+            "text"
+          ],
+          "returnType": "void",
+          "exported": true,
+          "lineCount": 10
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": [
+        "detectSecrets",
+        "assertNoSecrets"
+      ],
+      "totalLines": 44,
+      "hasStructuralAnalysis": true
+    },
+    "src/session.ts": {
+      "filePath": "src/session.ts",
+      "contentHash": "d684d7d39ff2b0a27562a10d9b1ff45d2da906cfd92c5268af04668ae6a8ff0f",
+      "functions": [
+        {
+          "name": "now",
+          "params": [],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 3
+        }
+      ],
+      "classes": [
+        {
+          "name": "SessionState",
+          "methods": [
+            "constructor",
+            "load",
+            "records",
+            "isInjected",
+            "markInjected",
+            "recordCaptured",
+            "capturedIds",
+            "setNote",
+            "addSignal",
+            "bumpTurn",
+            "turnCount",
+            "startedAt",
+            "save"
+          ],
+          "properties": [
+            "data",
+            "injected",
+            "captured",
+            "file",
+            "sessionId"
+          ],
+          "exported": true,
+          "lineCount": 102
+        }
+      ],
+      "imports": [
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "mkdirSync",
+            "readFileSync",
+            "writeFileSync",
+            "existsSync",
+            "readdirSync"
+          ]
+        },
+        {
+          "source": "node:path",
+          "specifiers": [
+            "join"
+          ]
+        },
+        {
+          "source": "./storage.js",
+          "specifiers": [
+            "brainDir"
+          ]
+        }
+      ],
+      "exports": [
+        "SessionState"
+      ],
+      "totalLines": 139,
+      "hasStructuralAnalysis": true
+    },
+    "src/storage.ts": {
+      "filePath": "src/storage.ts",
+      "contentHash": "44c2670363eb481ac384a860cd7474c18f83f37b2111168d1b3761ebcc48c26c",
+      "functions": [
+        {
+          "name": "isTombstone",
+          "params": [
+            "r"
+          ],
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "brainDir",
+          "params": [],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "recordsFile",
+          "params": [],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "metaFile",
+          "params": [],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "appendRecord",
+          "params": [
+            "rec"
+          ],
+          "returnType": "void",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "contextSpinePath",
+          "params": [],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "readContextSpine",
+          "params": [],
+          "returnType": "string | null",
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "writeContextSpine",
+          "params": [
+            "content"
+          ],
+          "returnType": "void",
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "readRecords",
+          "params": [],
+          "returnType": "StoredRecord[]",
+          "exported": true,
+          "lineCount": 8
+        },
+        {
+          "name": "materialize",
+          "params": [
+            "records"
+          ],
+          "returnType": "KnowledgeEntry[]",
+          "exported": true,
+          "lineCount": 10
+        },
+        {
+          "name": "contentHash",
+          "params": [
+            "entries"
+          ],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 7
+        },
+        {
+          "name": "readMeta",
+          "params": [],
+          "returnType": "IndexMeta | null",
+          "exported": true,
+          "lineCount": 9
+        },
+        {
+          "name": "writeMeta",
+          "params": [],
+          "returnType": "IndexMeta",
+          "exported": true,
+          "lineCount": 11
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "appendFileSync",
+            "mkdirSync",
+            "readFileSync",
+            "writeFileSync",
+            "existsSync"
+          ]
+        },
+        {
+          "source": "node:path",
+          "specifiers": [
+            "join"
+          ]
+        },
+        {
+          "source": "node:os",
+          "specifiers": [
+            "homedir"
+          ]
+        },
+        {
+          "source": "node:crypto",
+          "specifiers": [
+            "createHash"
+          ]
+        },
+        {
+          "source": "./types.js",
+          "specifiers": [
+            "KnowledgeEntry"
+          ]
+        }
+      ],
+      "exports": [
+        "isTombstone",
+        "brainDir",
+        "appendRecord",
+        "contextSpinePath",
+        "readContextSpine",
+        "writeContextSpine",
+        "readRecords",
+        "materialize",
+        "contentHash",
+        "readMeta",
+        "writeMeta"
+      ],
+      "totalLines": 118,
+      "hasStructuralAnalysis": true
+    },
+    "src/types.ts": {
+      "filePath": "src/types.ts",
+      "contentHash": "4196f2a325e38f7078ff06655ed821e55ed76e0b91b6af1d46f053575519000a",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 81,
+      "hasStructuralAnalysis": true
+    },
+    "test/context.test.ts": {
+      "filePath": "test/context.test.ts",
+      "contentHash": "988e478d4c8d3213b01efc36999e5d229df8b98586d1597271f3f6dc2c680c94",
+      "functions": [
+        {
+          "name": "freshBrain",
+          "params": [],
+          "exported": false,
+          "lineCount": 3
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "specifiers": [
+            "describe",
+            "it",
+            "expect",
+            "beforeEach"
+          ]
+        },
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "mkdtempSync"
+          ]
+        },
+        {
+          "source": "node:os",
+          "specifiers": [
+            "tmpdir"
+          ]
+        },
+        {
+          "source": "node:path",
+          "specifiers": [
+            "join"
+          ]
+        },
+        {
+          "source": "../src/engine.js",
+          "specifiers": [
+            "addEntry",
+            "renderContext",
+            "initContextSpine"
+          ]
+        },
+        {
+          "source": "../src/storage.js",
+          "specifiers": [
+            "writeContextSpine"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 45,
+      "hasStructuralAnalysis": true
+    },
+    "test/curator.test.ts": {
+      "filePath": "test/curator.test.ts",
+      "contentHash": "ff5fde4a9c8fc9c3adce85e5849d60f66e9bddf3cfff7d2016e93da2a707d081",
+      "functions": [
+        {
+          "name": "freshBrain",
+          "params": [],
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "byId",
+          "params": [
+            "id"
+          ],
+          "exported": false,
+          "lineCount": 1
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "specifiers": [
+            "describe",
+            "it",
+            "expect",
+            "beforeEach"
+          ]
+        },
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "mkdtempSync"
+          ]
+        },
+        {
+          "source": "node:os",
+          "specifiers": [
+            "tmpdir"
+          ]
+        },
+        {
+          "source": "node:path",
+          "specifiers": [
+            "join"
+          ]
+        },
+        {
+          "source": "../src/engine.js",
+          "specifiers": [
+            "addEntry",
+            "readAll"
+          ]
+        },
+        {
+          "source": "../src/curator.js",
+          "specifiers": [
+            "promote",
+            "archive",
+            "mergeDuplicate",
+            "findLexicalDuplicates"
+          ]
+        },
+        {
+          "source": "../src/read.js",
+          "specifiers": [
+            "query"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 93,
+      "hasStructuralAnalysis": true
+    },
+    "test/decision-family.test.ts": {
+      "filePath": "test/decision-family.test.ts",
+      "contentHash": "61ba2286c367b11e12b199c86f74156b690333b0556b47d9b7936859e766a881",
+      "functions": [
+        {
+          "name": "freshBrain",
+          "params": [],
+          "exported": false,
+          "lineCount": 3
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "specifiers": [
+            "describe",
+            "it",
+            "expect",
+            "beforeEach"
+          ]
+        },
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "mkdtempSync"
+          ]
+        },
+        {
+          "source": "node:os",
+          "specifiers": [
+            "tmpdir"
+          ]
+        },
+        {
+          "source": "node:path",
+          "specifiers": [
+            "join"
+          ]
+        },
+        {
+          "source": "../src/engine.js",
+          "specifiers": [
+            "addEntry",
+            "deriveConstitution",
+            "effectiveStatus",
+            "isInjectable",
+            "readAll",
+            "renderContextBundle",
+            "stampOrdinals",
+            "supersede",
+            "supersededIds",
+            "transitionDecision",
+            "updateEntry"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 146,
+      "hasStructuralAnalysis": true
+    },
+    "test/distiller.test.ts": {
+      "filePath": "test/distiller.test.ts",
+      "contentHash": "6c5429f10847a9826e31639ff9e9bcad61fc000eeb01c1ce8a02f28b3e371f87",
+      "functions": [
+        {
+          "name": "freshBrain",
+          "params": [],
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "byId",
+          "params": [
+            "id"
+          ],
+          "exported": false,
+          "lineCount": 1
+        },
+        {
+          "name": "captureError",
+          "params": [
+            "tool",
+            "input",
+            "error"
+          ],
+          "exported": false,
+          "lineCount": 3
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "specifiers": [
+            "describe",
+            "it",
+            "expect",
+            "beforeEach"
+          ]
+        },
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "mkdtempSync"
+          ]
+        },
+        {
+          "source": "node:os",
+          "specifiers": [
+            "tmpdir"
+          ]
+        },
+        {
+          "source": "node:path",
+          "specifiers": [
+            "join"
+          ]
+        },
+        {
+          "source": "../src/engine.js",
+          "specifiers": [
+            "addEntry",
+            "captureToolCall",
+            "readAll",
+            "deriveTrust"
+          ]
+        },
+        {
+          "source": "../src/distiller.js",
+          "specifiers": [
+            "distill",
+            "distillCandidates"
+          ]
+        },
+        {
+          "source": "../src/counters.js",
+          "specifiers": [
+            "recordSignal",
+            "tally"
+          ]
+        },
+        {
+          "source": "../src/curator.js",
+          "specifiers": [
+            "promoteIfCorroborated",
+            "eligibleForPromotion",
+            "PROMOTION_THRESHOLD"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 138,
+      "hasStructuralAnalysis": true
+    },
+    "test/engine.test.ts": {
+      "filePath": "test/engine.test.ts",
+      "contentHash": "d5856dcfac758bdcbf332279d23b0abedd6c5cb2fddf50bc170137baacee394b",
+      "functions": [
+        {
+          "name": "freshBrain",
+          "params": [],
+          "exported": false,
+          "lineCount": 3
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "specifiers": [
+            "describe",
+            "it",
+            "expect",
+            "beforeEach"
+          ]
+        },
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "mkdtempSync"
+          ]
+        },
+        {
+          "source": "node:os",
+          "specifiers": [
+            "tmpdir"
+          ]
+        },
+        {
+          "source": "node:path",
+          "specifiers": [
+            "join"
+          ]
+        },
+        {
+          "source": "../src/engine.js",
+          "specifiers": [
+            "addEntry",
+            "captureToolCall",
+            "deriveTrust",
+            "isInjectable",
+            "readAll",
+            "rerank",
+            "renderContextBundle",
+            "SESSION_BUDGET_CHARS"
+          ]
+        },
+        {
+          "source": "../src/types.js",
+          "specifiers": [
+            "KnowledgeEntry"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 128,
+      "hasStructuralAnalysis": true
+    },
+    "test/guardrails.test.ts": {
+      "filePath": "test/guardrails.test.ts",
+      "contentHash": "98973d18786f7d3e4eb2f408839774bd17f197db48567ce9ef2cb834a089a2b4",
+      "functions": [
+        {
+          "name": "freshBrain",
+          "params": [],
+          "exported": false,
+          "lineCount": 4
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "specifiers": [
+            "describe",
+            "it",
+            "expect",
+            "beforeEach"
+          ]
+        },
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "mkdtempSync",
+            "existsSync"
+          ]
+        },
+        {
+          "source": "node:child_process",
+          "specifiers": [
+            "execFileSync"
+          ]
+        },
+        {
+          "source": "node:os",
+          "specifiers": [
+            "tmpdir"
+          ]
+        },
+        {
+          "source": "node:path",
+          "specifiers": [
+            "join"
+          ]
+        },
+        {
+          "source": "../src/engine.js",
+          "specifiers": [
+            "addEntry",
+            "captureToolCall",
+            "readAll",
+            "renderContextDelta"
+          ]
+        },
+        {
+          "source": "../src/secrets.js",
+          "specifiers": [
+            "detectSecrets"
+          ]
+        },
+        {
+          "source": "../src/session.js",
+          "specifiers": [
+            "SessionState"
+          ]
+        },
+        {
+          "source": "../src/gating.js",
+          "specifiers": [
+            "isBrainWrite"
+          ]
+        },
+        {
+          "source": "../src/git.js",
+          "specifiers": [
+            "save"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 117,
+      "hasStructuralAnalysis": true
+    },
+    "test/hook.test.ts": {
+      "filePath": "test/hook.test.ts",
+      "contentHash": "3bbbaa06d446d1381e700962788c792b45a302416acd6b77998a8a6e91a27fe5",
+      "functions": [
+        {
+          "name": "runHook",
+          "params": [
+            "brain",
+            "payload"
+          ],
+          "returnType": "void",
+          "exported": false,
+          "lineCount": 6
+        },
+        {
+          "name": "captured",
+          "params": [
+            "brain"
+          ],
+          "returnType": "Record<string, unknown> | undefined",
+          "exported": false,
+          "lineCount": 10
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "specifiers": [
+            "describe",
+            "it",
+            "expect"
+          ]
+        },
+        {
+          "source": "node:child_process",
+          "specifiers": [
+            "execFileSync"
+          ]
+        },
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "mkdtempSync",
+            "readFileSync",
+            "existsSync"
+          ]
+        },
+        {
+          "source": "node:os",
+          "specifiers": [
+            "tmpdir"
+          ]
+        },
+        {
+          "source": "node:path",
+          "specifiers": [
+            "join",
+            "resolve"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 56,
+      "hasStructuralAnalysis": true
+    },
+    "test/mcp.test.ts": {
+      "filePath": "test/mcp.test.ts",
+      "contentHash": "822df1e5e66ae1756d0478207515d4589417601a1a76cb6cc6e37f337979ef77",
+      "functions": [
+        {
+          "name": "callText",
+          "params": [
+            "r"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 4
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "specifiers": [
+            "describe",
+            "it",
+            "expect",
+            "beforeAll",
+            "afterAll",
+            "beforeEach"
+          ]
+        },
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "mkdtempSync"
+          ]
+        },
+        {
+          "source": "node:os",
+          "specifiers": [
+            "tmpdir"
+          ]
+        },
+        {
+          "source": "node:path",
+          "specifiers": [
+            "join",
+            "resolve"
+          ]
+        },
+        {
+          "source": "@modelcontextprotocol/sdk/client/index.js",
+          "specifiers": [
+            "Client"
+          ]
+        },
+        {
+          "source": "@modelcontextprotocol/sdk/client/stdio.js",
+          "specifiers": [
+            "StdioClientTransport"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 146,
+      "hasStructuralAnalysis": true
+    },
+    "test/read.test.ts": {
+      "filePath": "test/read.test.ts",
+      "contentHash": "c1be0c6942e2d0c47230d0966a46ff67da494ca6ed0a98e7696f1fcfb1768ba3",
+      "functions": [
+        {
+          "name": "freshBrain",
+          "params": [],
+          "exported": false,
+          "lineCount": 3
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "specifiers": [
+            "describe",
+            "it",
+            "expect",
+            "beforeEach"
+          ]
+        },
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "mkdtempSync"
+          ]
+        },
+        {
+          "source": "node:os",
+          "specifiers": [
+            "tmpdir"
+          ]
+        },
+        {
+          "source": "node:path",
+          "specifiers": [
+            "join"
+          ]
+        },
+        {
+          "source": "../src/engine.js",
+          "specifiers": [
+            "addEntry",
+            "supersede",
+            "buildContextMap",
+            "renderContextBundle"
+          ]
+        },
+        {
+          "source": "../src/read.js",
+          "specifiers": [
+            "query",
+            "queryExplained"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 239,
+      "hasStructuralAnalysis": true
+    },
+    "test/resume.test.ts": {
+      "filePath": "test/resume.test.ts",
+      "contentHash": "aa3e81411cf7cc65786d2acd46b389dffd0c152b61000c18d53821e5e74e1a4b",
+      "functions": [
+        {
+          "name": "freshBrain",
+          "params": [],
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "priorRecord",
+          "params": [
+            "over"
+          ],
+          "returnType": "SessionData",
+          "exported": false,
+          "lineCount": 11
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "specifiers": [
+            "describe",
+            "it",
+            "expect",
+            "beforeEach"
+          ]
+        },
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "mkdtempSync"
+          ]
+        },
+        {
+          "source": "node:os",
+          "specifiers": [
+            "tmpdir"
+          ]
+        },
+        {
+          "source": "node:path",
+          "specifiers": [
+            "join"
+          ]
+        },
+        {
+          "source": "../src/engine.js",
+          "specifiers": [
+            "addEntry",
+            "supersede",
+            "renderResume",
+            "renderResumeDigest"
+          ]
+        },
+        {
+          "source": "../src/curator.js",
+          "specifiers": [
+            "promote"
+          ]
+        },
+        {
+          "source": "../src/counters.js",
+          "specifiers": [
+            "recordSignal"
+          ]
+        },
+        {
+          "source": "../src/session.js",
+          "specifiers": [
+            "SessionState",
+            "SessionData"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 124,
+      "hasStructuralAnalysis": true
+    },
+    "test/storage.test.ts": {
+      "filePath": "test/storage.test.ts",
+      "contentHash": "2d9d52d546241c3b3f651b0b04a61bc434aaf253f1d6b27bf0b6ae1b4c772c65",
+      "functions": [
+        {
+          "name": "freshBrain",
+          "params": [],
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "brainFile",
+          "params": [],
+          "exported": false,
+          "lineCount": 3
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "specifiers": [
+            "describe",
+            "it",
+            "expect",
+            "beforeEach"
+          ]
+        },
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "mkdtempSync",
+            "appendFileSync",
+            "readFileSync",
+            "writeFileSync"
+          ]
+        },
+        {
+          "source": "node:os",
+          "specifiers": [
+            "tmpdir"
+          ]
+        },
+        {
+          "source": "node:path",
+          "specifiers": [
+            "join"
+          ]
+        },
+        {
+          "source": "../src/engine.js",
+          "specifiers": [
+            "addEntry",
+            "deleteEntry",
+            "readAll",
+            "updateEntry",
+            "rebuild",
+            "getIndex"
+          ]
+        },
+        {
+          "source": "../src/storage.js",
+          "specifiers": [
+            "contentHash",
+            "materialize",
+            "readRecords"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 115,
+      "hasStructuralAnalysis": true
+    },
+    "tsconfig.json": {
+      "filePath": "tsconfig.json",
+      "contentHash": "9354912eaebf64583ae08bf63ac57f20405060e4808e5f121a91965ee7a0f9e0",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 18,
+      "hasStructuralAnalysis": true
+    }
+  }
+}
