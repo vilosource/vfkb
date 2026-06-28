@@ -1,6 +1,6 @@
 # ADR-0021: Auto-distill + ACE curator — capture distils to `incoming`; curation is deltas + counters, never rewrites
 
-- **Status:** Accepted
+- **Status:** Accepted (Amended by [ADR-0024](ADR-0024-relabel-trust-on-promotion.md) — §4 corroborated promotion now also re-stamps provenance verified)
 - **Date:** 2026-06-25
 - **Deciders:** operator + Claude
 - **Origin:** [RFC-006](../rfc/RFC-006-auto-distill-and-curator.md) (accepted; build sequenced in

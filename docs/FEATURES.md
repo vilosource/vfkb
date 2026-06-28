@@ -2,11 +2,14 @@
 
 > **A product brief.** What vtfkb is, the problem it solves, and the features that
 > make it worth building. Companion to the engineering design
-> [`vtfkb-DESIGN.md`](vtfkb-DESIGN.md) (decisions D1–D6 locked, 2026-05-31).
+> [`DESIGN.md`](DESIGN.md) (decisions D1–D7 + ADR-0011…0015 locked, 2026-06-03).
 >
-> **Status (honest):** the design is locked; the product is **not yet built**.
-> This brief sells the *idea* — every feature below traces to a locked design
-> decision, none is aspirational hand-waving.
+> **Status (2026-06-28):** the v1 per-project tier is **BUILT and shipped**, and the
+> H4 in-repo frontier on top of it is complete (session continuity, auto-distill/ACE
+> curator, the `verified` trust filter, relabel-on-promotion, pi live capture, and the
+> project context doc + `kb_context`). Every feature below traces to a locked design
+> decision and a shipped implementation behind an accepted ADR — see
+> [STATUS-AND-ROADMAP.md](STATUS-AND-ROADMAP.md) for the live state and ADR map.
 
 ---
 
@@ -161,9 +164,9 @@ with a repo" into "an agent that already understands your system." *(Design: D1,
 project-onboarding-schema D-O8.)*
 
 ### 3.8 Agents just ask; humans ask an agent (MCP query surface)
-On top of the automatic layer (§3.0), vtfkb exposes an **MCP tool surface** —
-`kb_search`, `kb_match`, `kb_context`, `kb_load`, `kb_add`, `kb_verify`,
-`kb_supersede`, `kb_promote`. MCP is the **one interface every harness in the
+On top of the automatic layer (§3.0), vtfkb exposes an **MCP tool surface** (9 tools) —
+`kb_search`, `kb_list`, `kb_get`, `kb_map`, `kb_context`, `kb_add`, `kb_supersede`,
+`kb_transition`, `kb_resume`. MCP is the **one interface every harness in the
 fleet speaks** (the architect runs on Pi, executors/judges on Claude Code), so
 knowledge access is a natural tool call in any agent's loop — not a bolted-on,
 harness-specific integration. **Humans read through an agent** ("ask the

@@ -19,11 +19,11 @@ cross-project context (e.g. the ingest↔vtfkb design) remains in
 | **1** | Storage kernel — append-only JSONL + tombstones, LWW, content-hash freshness, pluggable index | ✅ **DONE** (`storage.ts`, `index-store.ts`) |
 | **2** | Decision family — immutable-supersede, status lifecycle, Constitution, ADR ordinals, vision patterns | ✅ **DONE** (`engine.ts`) |
 | **3** | Read layer — D5c filters, BM25-lite search, Context Map (ADR-0006); Stark-FQDN E2E | ✅ **DONE** (`read.ts`); bundle live-verified |
-| **4** | MCP server — 7 scoped tools (cross-harness pull baseline, D5a); protocol e2e | ✅ **DONE** (`mcp-server.ts`); live-verified in Claude Code |
+| **4** | MCP server — 9 scoped tools (cross-harness pull baseline, D5a); protocol e2e | ✅ **DONE** (`mcp-server.ts`); live-verified in Claude Code |
 | **5** | Auto-layer polish — session isolation (`KB_SESSION_ID`, L4), per-turn Tier-C delta, tool-gating | ✅ **DONE** (`session.ts`, `gating.ts`); gating live-verified in Claude Code |
 | **6** | Guardrails + git — no-secrets write-time lint (D6e), `save`/`saveAndPush` lifecycle | ✅ **DONE** (`secrets.ts`, `git.ts`) |
 
-**v1 per-project tier feature-complete (Phases 0–6).** Deferred to later tiers: global served tier + promotion, Context Map Glossary/Routing, ACE curator, embedding reranker, SQLite/FTS5 backend.
+**v1 per-project tier feature-complete (Phases 0–6).** Since v1, the **H4 in-repo frontier** also shipped (2026-06-27/28): session continuity + auto-distill/ACE curator (ADR-0020/0021), the dockerized L4 eval substrate (ADR-0022), full Track-1 L4 coverage, and Track 4b — the `verified` trust filter, relabel-on-promotion (ADR-0024), pi live tool-result capture, and the project context doc + `kb_context` (ADR-0025). **In-repo H4 frontier exhausted.** Still deferred to later tiers: global served tier + promotion, Context Map Glossary/Routing, embedding reranker (RFC-003), SQLite/FTS5 backend.
 
 ## Layout
 
@@ -33,10 +33,10 @@ src/storage.ts      append-only JSONL kernel; tombstones; LWW; content-hash fres
 src/index-store.ts  pluggable KbIndex; pure-JS in-memory default; SQLite/FTS5 optional (ADR-0013)
 src/engine.ts       facade: filter (ADR-0005) · tiered reranker (ADR-0012) · render (ADR-0015) ·
                     decision family (ADR-0004/0007/0008/0009) · capture
-src/cli.ts          Claude Code face — `hook session-start` / `hook post-tool-use`
-src/pi-extension.ts Pi face — before_agent_start inject · context (Tier C) · tool_call capture
+src/cli.ts          Claude Code face — `hook session-start` / `hook pre-tool-use` / `hook post-tool-use`; `context`/`context init`
+src/pi-extension.ts Pi face — before_agent_start inject · context (Tier C) · tool_execution_end result capture (D-iv)
 spike/              Phase-0 settings, Dockerfile, container smoke, report
-test/               vitest (engine · storage · decision-family) — 27 tests
+test/               vitest (engine · storage · decision-family · context · hook · mcp) — 95 tests
 ```
 
 ## Build & test
@@ -44,7 +44,7 @@ test/               vitest (engine · storage · decision-family) — 27 tests
 ```
 npm install
 npm run build      # tsc -> dist/ (no native modules)
-npm test           # vitest: 49 unit/integration/protocol tests
+npm test           # vitest: 95 unit/integration/protocol tests
 ```
 
 ## pi MCP capability (bridge extension)

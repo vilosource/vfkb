@@ -1,6 +1,6 @@
 # vtfkb — Status & Roadmap
 
-> **Type:** living north-star (status + sequenced roadmap). **Updated:** 2026-06-25.
+> **Type:** living north-star (status + sequenced roadmap). **Updated:** 2026-06-28.
 > This is the *middle* layer of the doc stack — the one you stand on day-to-day:
 > **platform strategy** (`viloforge-product-strategy-STRATEGY.md`, top) → **this doc**
 > → **decisions** (`docs/adr/`, immutable) + **build plan** (`docs/IMPLEMENTATION-PLAN.md`).
@@ -32,16 +32,18 @@ comes from context; context is what vtfkb supplies. vtfkb is the front-half leve
 
 ---
 
-## 2. Status — what is true today **[verified 2026-06-25; partially refreshed 2026-06-27]**
+## 2. Status — what is true today **[verified 2026-06-25; fully refreshed 2026-06-28 — Track 4b complete]**
 
 > For the *current* in-repo frontier and the live build order, **[H4-DEVELOPMENT-ROADMAP](H4-DEVELOPMENT-ROADMAP.md)
-> is the authority** (this north-star is refreshed less often). As of 2026-06-27: Track 1 ✅, Track 5
-> (dockerized L4 substrate) ✅, Track 4 core ✅ (6 Track-1 L4 scenarios), ADR-0022/0023 ratified; Track 4b in
-> progress (D-i active).
+> is the authority** (this north-star is refreshed less often). As of 2026-06-28: Track 1 ✅, Track 5
+> (dockerized L4 substrate) ✅, Track 4 core ✅ (6 Track-1 L4 scenarios), and **Track 4b COMPLETE** —
+> D-i `verified`-filter, D-iii relabel-on-promotion (ADR-0024), D-iv pi live-capture, D-ii context-doc +
+> `kb_context` (ADR-0025) all shipped. ADR-0022/0023/0024/0025 ratified. **The in-repo H4 frontier is
+> EXHAUSTED** (only S1/P1 remain, gated).
 
-**v1 (the per-project tier) is built, green, hardened by a live dogfood, and now self-hosting.**
+**v1 (the per-project tier) is built, green, hardened by a live dogfood, and now self-hosting; the H4 frontier on top of it is complete.**
 
-- Repo `vilosource/vtfkb` `main` @ `fd654e3` (was `861089d` on 2026-06-25); package `0.1.0`; `tsc` clean; **87/87 tests**.
+- Repo `vilosource/vtfkb` `main` @ `0e75823`; package `0.1.0`; `tsc` clean; **95/95 tests**.
 - Greenfield **TypeScript**, mykb as a studied oracle (ADR-0002/0003) — zero code inheritance.
 - IMPLEMENTATION-PLAN Phases 0–6 delivered.
 - **Decisions ADR-0001–0023** ratified; **RFC-001–006** drafted (001/002/004/005/006 accepted;
@@ -64,14 +66,17 @@ comes from context; context is what vtfkb supplies. vtfkb is the front-half leve
 | Self-hosted design-brain | vtfkb dogfoods its own per-project tier — committed `.vtfkb/` (ADR-0019): ADR/RFC link-index + native gotchas/patterns |
 
 ### Acceptance (L4)
-**Complete** — 5 harness/model records (deepseek-v4-pro/flash, claude-haiku/cli,
-copilot-sonnet), **22 scenarios** each (`scenarios/compare.mjs`): deepseek-v4-pro **22/22**,
-the rest 20–21/22. The two divergences (`tool-gating`, `capture-recall`) are model-quirk,
-not engine holes. Caveats **[verified]**: (a) records are against older shas, not HEAD;
-(b) `guardrail:tool-gating` is **deterministically backstopped** by a unit test
-(`gating.ts:isBrainWrite` + `guardrails.test.ts`), so that gap is a probabilistic-harness
-artifact (*deterministic backstop > probabilistic gate*). A full paid L4 re-run against HEAD
-stays **deferred as low-value**: every engine behavior is unit-tested at HEAD (87/87).
+**Current coverage = the dockerized Track 4 / 4b records (ADR-0022)** — reproducible, N=3,
+dual-harness; `scenarios/records/{deepseek-v4-pro,claude-haiku-4-5}__docker.{json,md}` (≈33
+scenarios each, the Track-1 + Track-4b purpose-demonstrations). The earlier **v1 acceptance**
+was 5 host records of 22 scenarios (deepseek-v4-pro 22/22; rest 20–21/22). Caveat
+**[updated 2026-06-28]**: `guardrail:tool-gating`'s **path-matching is deterministically
+backstopped** (`gating.ts:isBrainWrite` + `guardrails.test.ts`), but the **live block
+*enforcement* is FLAKY on the current pi 0.73.1 substrate** — the gated arm holds only
+intermittently (the block fires some trials, not all; A/B-confirmed it is not a code
+regression). This is a genuine **guardrail-integrity finding**, not mere model-quirk — see
+[H4-DEVELOPMENT-ROADMAP](H4-DEVELOPMENT-ROADMAP.md) §4 findings; needs its own investigation.
+Every engine behavior is unit-tested at HEAD (**95/95**).
 
 ### Hardening — 2026-06-06 (the dogfood that found the search bug) **[verified 2026-06-06]**
 - The **devops-kb live dogfood** (vtfkb as a real DevOps agent's operating memory)
@@ -271,9 +276,9 @@ kb-write methodology (H1 leftover, folded into H2). Everything else is build.
 ## 8. Provenance
 Grounded against: the platform strategy + research roadmap, `docs/DESIGN.md`,
 `docs/FEATURES.md`, `docs/IMPLEMENTATION-PLAN.md`, `docs/H4-DEVELOPMENT-ROADMAP.md`,
-`docs/adr/` (0001–0020) + `docs/rfc/` (001–005), the locked
+`docs/adr/` (0001–0025) + `docs/rfc/` (001–007), the locked
 `project-onboarding-schema-DESIGN.md` (D-O1–O8) + `IngestEngine/*` (2026-04-05),
 `vfsf-ingest-and-vtfkb-DESIGN.md` (superseded brainstorm), the verified vafi/vtaskforge
 current state, and the 2026-06-06 devops-kb live dogfood. The §7 ledger reflects a
 four-reader reconciliation done 2026-06-06; the §2 status / §4 horizon facts are
-observed on 2026-06-25 (`main` @ `861089d`, 87/87 green).
+observed on 2026-06-28 (`main` @ `0e75823`, 95/95 green; Track 4b complete, H4 frontier exhausted).

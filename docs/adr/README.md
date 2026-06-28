@@ -37,7 +37,7 @@ Immutable records of significant vtfkb architecture decisions, in
 | [ADR-0018](ADR-0018-honest-no-match-contract.md) | Search reports a cause-distinguished honest no-match (empty_topic/no_match/all_filtered); amends ADR-0016 | Accepted |
 | [ADR-0019](ADR-0019-self-hosted-design-brain.md) | vtfkb self-hosts its own design-brain (commit `.vtfkb/`; ADRs link-not-copy); applies D2c + D1.4 to vtfkb's repo | Accepted |
 | [ADR-0020](ADR-0020-session-continuity-record.md) | Session continuity = a derived, append-only knowledge-continuity record (vtfkb's half of the vtf/vtfkb seam) | Accepted (build sequenced) |
-| [ADR-0021](ADR-0021-auto-distill-and-curator.md) | Auto-distill + ACE curator — capture distils to `incoming`; curation is deltas + counters, never rewrites | Accepted (build sequenced) |
+| [ADR-0021](ADR-0021-auto-distill-and-curator.md) | Auto-distill + ACE curator — capture distils to `incoming`; curation is deltas + counters, never rewrites | Accepted (Amended by ADR-0024) |
 | [ADR-0022](ADR-0022-l4-evaluation-methodology.md) | L4 evaluation methodology = dockerized, reproducible, contrast-based, multi-trial, dual-harness (self-contained images) | Accepted (build sequenced) |
 | [ADR-0023](ADR-0023-scenario-contract-first.md) | Agent-observable features are scenario-contract-first — the L4 scenario is the DoD, run RED before implementation (invariants stay unit tests) | Accepted |
 | [ADR-0024](ADR-0024-relabel-trust-on-promotion.md) | Corroborated promotion re-stamps provenance verified (trust elevation is agent-observable); distiller stops baking "(unverified)" into text | Accepted |

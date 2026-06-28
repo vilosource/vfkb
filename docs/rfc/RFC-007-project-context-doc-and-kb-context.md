@@ -46,6 +46,10 @@ deserve an operator decision before code.
 
 ## Decision (RECOMMENDED — pending operator answers to the open questions)
 
+> **RESOLVED 2026-06-28:** the operator approved the recommended shape ("proceed"). All five open
+> questions below were answered as recommended (hybrid; `<brain>/context.md`; on-demand; `vtfkb context init`
+> scaffold + deferred brownfield inference; one ADR). The accepted decision is **[ADR-0025](../adr/ADR-0025-project-context-doc-and-kb-context.md)** and is shipped. The text below is preserved as the original proposal.
+
 Build the project context doc as an **assembled artifact**: a hand-authored **narrative spine** stitched with
 **derived sections** that vtfkb already owns, exposed through a new **`kb_context`** read.
 
