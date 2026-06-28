@@ -12,3 +12,8 @@ coverage/
 
 # local registry auth (token via env)
 .npmrc
+
+# understand-anything: commit the graph artifacts, ignore the scratch/scan caches
+.understand-anything/.trash-*/
+.understand-anything/intermediate/
+.understand-anything/tmp/
