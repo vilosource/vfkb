@@ -12,13 +12,15 @@
 
 ---
 
-## 1. Where we are (status snapshot, 2026-06-25)
+## 1. Where we are (status snapshot, 2026-06-28)
 
-`main` is green (**87/87** unit). v1 (per-project tier) is shipped; **M1 (session-continuity Phase A)
-shipped** (`ff61215`); **RFC-006 accepted → ADR-0021**; **M2a (curator safety foundation, `ee45289`) +
-M2b (distiller + counters + corroborated promotion) shipped**; **M3 (session-continuity Phase B) shipped**
-— the resume digest now folds the auto-distilled `incoming` lessons in, trust-labelled and derived.
-**Track 1 (memory that carries itself) is complete.** Beyond that:
+`main` is green (**95/95** unit, @ `6b69d1d`). v1 (per-project tier) is shipped; **M1 (session-continuity
+Phase A)** (`ff61215`); **RFC-006 → ADR-0021**; **M2a (curator safety, `ee45289`) + M2b (distiller +
+counters + corroborated promotion)**; **M3 (session-continuity Phase B)** — the resume digest folds the
+auto-distilled `incoming` lessons in, trust-labelled and derived. **Track 1 (memory that carries itself) is
+complete.** **Track 5 (dockerized L4 substrate, ADR-0022)**, **Track 4 (6 core Track-1 L4 scenarios)**, and
+**Track 4b (D-i/D-iii/D-iv/D-ii — ADR-0023/0024/0025)** are all **COMPLETE (2026-06-27/28) — the in-repo H4
+frontier is EXHAUSTED.** Beyond that:
 
 | Area | State |
 |---|---|
@@ -308,7 +310,7 @@ In all three cases the response is the same: **update this roadmap and re-ratify
 work stays out-of-scope/HITL per H2.)
 
 ### ▶ Current action — **NONE: Track 4b complete, in-repo H4 frontier EXHAUSTED** (was D-ii, shipped 2026-06-28)
-**Track 1 complete** (M1–M3; 87/87). **Track 5 complete** (2026-06-27): both dockerized substrates reproduce
+**Track 1 complete** (M1–M3; now 95/95). **Track 5 complete** (2026-06-27): both dockerized substrates reproduce
 their host baselines at N=3 (T5a pi `vtfkb-l4-pi:dev` 22/22; T5b claude `vtfkb-l4-claude:dev` 21/22 via
 Max-subscription OAuth, no API key). **Track 4 core COMPLETE** (2026-06-27) — all 6 Track-1 scenarios, pi
 28/28, claude 27/28 (`tool-gating` the known haiku divergence):
