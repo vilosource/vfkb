@@ -63,7 +63,10 @@ const TASKS = {
       'uses it. Make the call yourself and implement it now.',
   },
   'id-scheme': {
-    expect: ['id', 'uuid', 'nanoid', 'sequential', 'identifier'],
+    // 'identifier' is FIRST because the recall probe searches expect[0]; the prompt frames the
+    // task as "record identifiers" so that term is present whichever scheme is chosen. 'id' was
+    // first but is a 2-char token the stemmer filters out → clean 3/3 capture recalled nothing.
+    expect: ['identifier', 'uuid', 'nanoid', 'sequential', 'id'],
     prompt:
       'This project needs record identifiers. Decide the scheme: UUID, nanoid, or sequential integers. ' +
       'Pick one, then CREATE THE FILE src/ids.ts ON DISK (use your file-writing tool — do NOT just print ' +
