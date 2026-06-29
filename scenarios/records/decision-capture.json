@@ -1,0 +1,70 @@
+{
+  "scenario": "decision-capture",
+  "task": "config-format",
+  "model": "claude-sonnet-4-6",
+  "trials": 3,
+  "generated": "2026-06-29T06:14:25.431Z",
+  "vfkbCaptured": 3,
+  "baselineCaptured": 0,
+  "demonstrated": true,
+  "arms": {
+    "vfkb": [
+      {
+        "captured": true,
+        "didWork": true,
+        "recalled": true,
+        "text": "Config files use JSON format (`.config.json`), loaded via `src/config.ts`.",
+        "role": {
+          "role": "executor"
+        },
+        "err": ""
+      },
+      {
+        "captured": true,
+        "didWork": true,
+        "recalled": true,
+        "text": "Config files use JSON (not YAML). Format is `.cliconfig.json` loaded via Node's built-in `fs` + `JSON.parse` in `src/config.ts`.",
+        "role": {
+          "role": "executor"
+        },
+        "err": ""
+      },
+      {
+        "captured": true,
+        "didWork": true,
+        "recalled": true,
+        "text": "Config files use JSON (not YAML). Loader is src/config.ts; reads config.json from CWD by default, returns {} if absent. Why: JSON requires zero extra dependencies (Node.js built-in JSON.parse), the project already uses .json files (mcp.json, settings.json), and a small CLI benefits from a minimal dependency footprint. YAML was ruled out because it requires an external parser (js-yaml / yaml) for no meaningful benefit at this scale.",
+        "role": {
+          "role": "executor"
+        },
+        "err": ""
+      }
+    ],
+    "baseline": [
+      {
+        "captured": false,
+        "didWork": true,
+        "recalled": false,
+        "text": "",
+        "role": "",
+        "err": ""
+      },
+      {
+        "captured": false,
+        "didWork": true,
+        "recalled": false,
+        "text": "",
+        "role": "",
+        "err": ""
+      },
+      {
+        "captured": false,
+        "didWork": true,
+        "recalled": false,
+        "text": "",
+        "role": "",
+        "err": ""
+      }
+    ]
+  }
+}

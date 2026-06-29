@@ -98,7 +98,9 @@ export class InMemoryIndex implements KbIndex {
     if (terms.size === 0) return [];
     return this.entries
       .map((entry) => {
-        const hay = tokenize(entry.text + ' ' + entry.tags.join(' '));
+        // tags may be absent on legacy or externally-projected entries (e.g. vfwb's
+        // lossy projection into .vfkb) — never let a tagless entry crash search.
+        const hay = tokenize(entry.text + ' ' + (entry.tags ?? []).join(' '));
         let score = 0;
         const hit = new Set<string>();
         for (const t of hay)
