@@ -17,3 +17,5 @@ coverage/
 .understand-anything/.trash-*/
 .understand-anything/intermediate/
 .understand-anything/tmp/
+scenarios/records/*.log
+scenarios/records/*.debug.*.txt

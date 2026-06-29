@@ -74,7 +74,11 @@ export function materialize(records: StoredRecord[] = readRecords()): KnowledgeE
     if (!cur || r.updated >= cur.updated) newest.set(r.id, r);
   }
   const out: KnowledgeEntry[] = [];
-  for (const r of newest.values()) if (!isTombstone(r)) out.push(r);
+  for (const r of newest.values())
+    // Normalize at the read boundary so every consumer sees a well-formed entry:
+    // legacy or externally-projected entries (e.g. vfwb's lossy projection into .vfkb)
+    // may omit `tags`; default it to [] once here rather than guarding every call site.
+    if (!isTombstone(r)) out.push(r.tags ? r : { ...r, tags: [] });
   return out;
 }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, appendFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -234,5 +234,32 @@ describe('cause-distinguished no-match (RFC-002)', () => {
     const r = queryExplained({ text: 'widget pipeline retry' });
     expect(r.results.length).toBeGreaterThan(0);
     expect(r.diagnosis).toBeUndefined();
+  });
+});
+
+describe('robustness: tagless entries (legacy / externally-projected, e.g. vfwb)', () => {
+  // A search/index path that does `entry.tags.join(' ')` crashed on an entry written
+  // without a `tags` field (found by the decision-capture L4 scenario). The read
+  // boundary now normalizes tags to []; a tagless entry must never crash search.
+  it('does not crash searching when an entry omits tags, and still matches', () => {
+    addEntry('fact', 'a normal tagged fact', { role: 'human', tags: ['x'] });
+    appendFileSync(
+      join(process.env.VFKB_DIR!, 'entries.jsonl'),
+      // an OTHERWISE well-formed entry (the realistic vfwb-projection / legacy shape)
+      // that simply omits `tags` — the exact gap the scenario hit.
+      JSON.stringify({
+        id: 'legacy-tagless-1',
+        type: 'fact',
+        text: 'config files use json not yaml',
+        zone: 'established',
+        author: { role: 'human' },
+        provenance: { status: 'verified' },
+        validity: { valid_from: '2020-01-01T00:00:00.000Z' },
+        created: '2020-01-01T00:00:00.000Z',
+        updated: '2020-01-01T00:00:00.000Z',
+      }) + '\n',
+    );
+    expect(() => query({ text: 'config json' })).not.toThrow();
+    expect(query({ text: 'config json' }).some((e) => e.id === 'legacy-tagless-1')).toBe(true);
   });
 });
