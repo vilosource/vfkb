@@ -1,0 +1,70 @@
+{
+  "scenario": "decision-capture",
+  "task": "id-scheme",
+  "model": "claude-sonnet-4-6",
+  "trials": 3,
+  "generated": "2026-06-29T09:32:25.689Z",
+  "vfkbCaptured": 3,
+  "baselineCaptured": 0,
+  "demonstrated": true,
+  "arms": {
+    "vfkb": [
+      {
+        "captured": true,
+        "didWork": true,
+        "recalled": false,
+        "text": "Record identifiers use UUID v4 via `crypto.randomUUID()` (src/ids.ts `newId()`). Rejected nanoid (would add a dependency to a zero-dependency project) and sequential integers (require a shared counter, fail in distributed/serverless contexts).",
+        "role": {
+          "role": "executor"
+        },
+        "err": ""
+      },
+      {
+        "captured": true,
+        "didWork": true,
+        "recalled": false,
+        "text": "Use UUID (crypto.randomUUID) as the record identifier scheme, implemented in src/ids.ts.",
+        "role": {
+          "role": "executor"
+        },
+        "err": ""
+      },
+      {
+        "captured": true,
+        "didWork": true,
+        "recalled": false,
+        "text": "Use UUID v4 (`crypto.randomUUID()`) for all record identifiers, implemented in `src/ids.ts` via `mintId()`.",
+        "role": {
+          "role": "human"
+        },
+        "err": ""
+      }
+    ],
+    "baseline": [
+      {
+        "captured": false,
+        "didWork": true,
+        "recalled": false,
+        "text": "",
+        "role": "",
+        "err": ""
+      },
+      {
+        "captured": false,
+        "didWork": true,
+        "recalled": false,
+        "text": "",
+        "role": "",
+        "err": ""
+      },
+      {
+        "captured": false,
+        "didWork": true,
+        "recalled": false,
+        "text": "",
+        "role": "",
+        "err": ""
+      }
+    ]
+  }
+}

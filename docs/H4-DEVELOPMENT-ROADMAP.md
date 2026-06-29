@@ -263,13 +263,50 @@ against a non-existent mechanism. `role-precedence` (the delivered one) is recor
 contracts pending an operator decision on whether/when to build (the `verified` filter is small and in-scope
 for §3.6; the context-doc is a larger feature). Not Track-1-blocking.
 
+### Track 6 — Reliable decision-capture  *(process-gap fork, ✅ COMPLETE 2026-06-28)*  ([ADR-0027](adr/ADR-0027-stop-hook-decision-capture-reminder.md) / [ADR-0028](adr/ADR-0028-sandbox-validate-auto-layer-wiring.md) / [ADR-0029](adr/ADR-0029-sandbox-proven-definition-of-done.md))
+
+**Fork (2026-06-28):** the in-repo H4 frontier was exhausted, but a real process gap surfaced — *nothing
+mechanically reminds the agent to `kb_add`* a load-bearing decision (PostToolUse auto-capture is OFF here by
+design; the standing prose rule is skippable by an LLM). This fork closes it. Per the §4 protocol (a new fork
+this roadmap did not already decide) it was sequenced via RFC-008 → accept, not ad hoc.
+
+- **D7-cap. Conditional Stop-hook reminder — `[✅ DONE 2026-06-28]`** (RFC-008 → ADR-0027; `vfkb hook stop`)
+  A conditional end-of-turn Stop hook (not a plain prose rule, not an every-turn nag): heuristic = uncommitted
+  `src/`/`docs/` changes AND no new `decision` entry since HEAD → emit the verified `decision:block` +
+  `additionalContext` reminder; native `stop_hook_active` loop guard; fail-open. The Stop-hook JSON contract
+  was **empirically verified at CLI v2.1.195** (additionalContext reaches + steers the agent; harness passes a
+  native `stop_hook_active` guard — *falsifying* RFC-008's original "no guard" finding). Backed by
+  deterministic unit tests + the Tier-0 probe; wired live into `.claude/settings.json`.
+- **D7-wire. Sandbox-validated auto-layer wiring — `[✅ DONE 2026-06-28]`** (ADR-0028; `scenarios/wiring-smoke.mjs`)
+  Process gap caught: the engine has unit tests, the platform contract has Tier-0 probes, agent-purpose has the
+  L4 harness — but the *wiring* (`.claude/settings.json` / `.mcp.json`) was promoted straight to live (editing
+  the tool while using it). Fix: a repeatable scripted smoke-gate that drives real `claude` turns against the
+  candidate settings in a throwaway sandbox and asserts hook-fires + heuristic blocks/suppresses + loop
+  terminates; promote to live **only on green**.
+- **D7-dod. Sandbox-proven Definition of Done — `[✅ DONE 2026-06-28]`** (ADR-0029)
+  Generalizes ADR-0023 (was scoped to agent-observable) to **any capability**: not "done" until its real
+  use-case is simulated e2e in a sandbox and **observed** to succeed, via a proof that **must be able to fail**
+  (baseline/contrast/RED). Four clauses: isolated-from-live · observed-not-asserted · before-declaring-done ·
+  capable-of-failing. Binds at epic/feature level; sub-tasks/refactors/docs exempt (inner unit gates). Proof
+  form fits the capability (agent-facing → L4; wiring → smoke-gate; external → Tier-0 probe; invariants → unit).
+- *Gate — MET:* `scenarios/decision-capture.mjs` is the L4 purpose-demonstration (revising ADR-0027's "no L4"
+  waiver). Causal design: identical sandbox both arms, no "record it" instruction; only variable = the Stop
+  hook. **DEMONSTRATED** on the `config-format` task (sonnet, N=3): **vfkb 3/3 +recall vs baseline 0/3**. The
+  capable-of-failing proof did its job — it caught **two real bugs**: a tagless-entry search crash (fixed at the
+  read boundary) and a sandbox repo-leak via a `dist` symlink (fixed to absolute paths + a leak-guard).
+- *Generalization (in progress, 2026-06-29):* confirm capture isn't task-specific — re-run the contrast on the
+  other two forced-decision tasks (`error-strategy`, `id-scheme`; sonnet, N=3). Records → task-suffixed JSON.
+- **RFC-009** carries the deferred L4-harness items (drift banner, probe-mode, readiness gate, telemetry),
+  decoupled from this fork and **evidence-gated/parked** — none is a prerequisite.
+
 ---
 
 ## 4. Ratified order + execution protocol
 
 **Order (re-ratified 2026-06-27):**
 `M1 ✅ → RFC-006 ✅ → M2a ✅ → M2b ✅ → M3 ✅` (**Track 1 complete**)
-`→ ADR-0022 ✅ → T5a ✅ → T5b ✅ → Track 4 (6 core ✅) → ADR-0023 ✅ → Track 4b (role-precedence ✅ → D-i verified-filter ✅ → D-iii relabel-on-promotion ✅ → D-iv pi-capture-results ✅ → D-ii context-doc ✅ ADR-0025)`. **Track 4b COMPLETE — the in-repo H4 frontier is EXHAUSTED.**
+`→ ADR-0022 ✅ → T5a ✅ → T5b ✅ → Track 4 (6 core ✅) → ADR-0023 ✅ → Track 4b (role-precedence ✅ → D-i verified-filter ✅ → D-iii relabel-on-promotion ✅ → D-iv pi-capture-results ✅ → D-ii context-doc ✅ ADR-0025)`. **Track 4b COMPLETE.**
+`→ Track 6 decision-capture fork (RFC-008 → ADR-0027 hook ✅ → ADR-0028 wiring-smoke ✅ → ADR-0029 DoD ✅; decision-capture L4 DEMONSTRATED 3/3 vs 0/3)` *(re-ratified 2026-06-29)*. **Track 6 COMPLETE — the in-repo H4 frontier is EXHAUSTED again.**
 **Track 4b is COMPLETE** — D-i `verified`-filter (pi/claude 2/3, 2026-06-27); D-iii relabel-on-promotion
 (`promotion-relabel` pi/claude 2/3, ADR-0024, 2026-06-27); D-iv pi live tool-result capture
 (`live-capture-result` pi 3/3, 2026-06-27; claude failure-capture EXTERNAL-BLOCKED); **D-ii context-doc +
@@ -309,7 +346,15 @@ In all three cases the response is the same: **update this roadmap and re-ratify
 — never leave the next step to an ad-hoc question. (Scope: in-repo `vfkb` only; vafi/vtaskforge
 work stays out-of-scope/HITL per H2.)
 
-### ▶ Current action — **NONE: Track 4b complete, in-repo H4 frontier EXHAUSTED** (was D-ii, shipped 2026-06-28)
+### ▶ Current action — **Track 6 generalization runs (decision-capture × 2 tasks); then NONE: frontier EXHAUSTED** (re-ratified 2026-06-29)
+**Track 6 (decision-capture fork) shipped 2026-06-28** — RFC-008 → ADR-0027 (Stop-hook reminder, live) +
+ADR-0028 (wiring smoke-gate) + ADR-0029 (sandbox-proven DoD); `scenarios/decision-capture.mjs` DEMONSTRATED
+3/3 vs 0/3 (config-format, sonnet) and caught two real bugs. **Only open thread:** confirm capture
+generalizes — re-run the contrast on `error-strategy` + `id-scheme` (sonnet, N=3). After that the in-repo H4
+frontier is exhausted again; S1/P1 stay gated, H2/H3 parked, RFC-009 items evidence-gated/parked. *(2026-06-28
+state preserved below.)*
+
+### ▶ (prior) Current action — **NONE: Track 4b complete, in-repo H4 frontier EXHAUSTED** (was D-ii, shipped 2026-06-28)
 **Track 1 complete** (M1–M3; now 95/95). **Track 5 complete** (2026-06-27): both dockerized substrates reproduce
 their host baselines at N=3 (T5a pi `vfkb-l4-pi:dev` 22/22; T5b claude `vfkb-l4-claude:dev` 21/22 via
 Max-subscription OAuth, no API key). **Track 4 core COMPLETE** (2026-06-27) — all 6 Track-1 scenarios, pi
