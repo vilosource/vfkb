@@ -1,0 +1,70 @@
+{
+  "scenario": "decision-capture",
+  "task": "error-strategy",
+  "model": "claude-sonnet-4-6",
+  "trials": 3,
+  "generated": "2026-06-29T09:27:55.529Z",
+  "vfkbCaptured": 3,
+  "baselineCaptured": 0,
+  "demonstrated": true,
+  "arms": {
+    "vfkb": [
+      {
+        "captured": true,
+        "didWork": true,
+        "recalled": true,
+        "text": "Use Result<T> discriminated union (Ok<T> | Err) for input validation error handling, not thrown exceptions. Implemented in src/validate.ts with validateInput() returning Result<Input>.",
+        "role": {
+          "role": "executor"
+        },
+        "err": ""
+      },
+      {
+        "captured": true,
+        "didWork": true,
+        "recalled": true,
+        "text": "Use Result<T> (discriminated union {ok, error}) for input validation error handling, not thrown exceptions.",
+        "role": {
+          "role": "executor"
+        },
+        "err": ""
+      },
+      {
+        "captured": true,
+        "didWork": true,
+        "recalled": true,
+        "text": "Use Result<T> union type ({ ok: true, value } | { ok: false, error }) for input validation error handling, not thrown exceptions. Implemented in src/validate.ts via validateInput().",
+        "role": {
+          "role": "executor"
+        },
+        "err": ""
+      }
+    ],
+    "baseline": [
+      {
+        "captured": false,
+        "didWork": true,
+        "recalled": false,
+        "text": "",
+        "role": "",
+        "err": ""
+      },
+      {
+        "captured": false,
+        "didWork": true,
+        "recalled": false,
+        "text": "",
+        "role": "",
+        "err": ""
+      },
+      {
+        "captured": false,
+        "didWork": true,
+        "recalled": false,
+        "text": "",
+        "role": "",
+        "err": ""
+      }
+    ]
+  }
+}
