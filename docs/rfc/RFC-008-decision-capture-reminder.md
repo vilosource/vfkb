@@ -1,7 +1,7 @@
 # RFC-008: Reliable decision capture — a conditional end-of-turn (Stop-hook) reminder
 
-- **Status:** Proposed — **contract empirically verified 2026-06-29; ready for accept→ADR pending design sign-off**
-- **Date:** 2026-06-28 (updated 2026-06-29)
+- **Status:** **Accepted → [ADR-0027](../adr/ADR-0027-stop-hook-decision-capture-reminder.md)** (2026-06-29; contract empirically verified)
+- **Date:** 2026-06-28 (accepted 2026-06-29)
 - **Deciders:** operator + Claude
 - **Relates:** [ADR-0015](../adr/ADR-0015-cross-harness-auto-layer.md) (P1 / Tier-C per-turn injection —
   external-blocked), [ADR-0021](../adr/ADR-0021-auto-distill-and-curator.md) (capture + the

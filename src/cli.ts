@@ -28,6 +28,7 @@ import { distill } from './distiller.js';
 import { recordSignal, tally } from './counters.js';
 import { queryExplained } from './read.js';
 import { isBrainWrite, GATING_REASON } from './gating.js';
+import { decideStop, gatherStopContext } from './stop-reminder.js';
 import { save } from './git.js';
 import type { AuthorRole, EntryType, Zone, DecisionStatus } from './types.js';
 
@@ -314,6 +315,37 @@ async function main() {
       return;
     }
 
+    // Stop — conditional end-of-turn decision-capture reminder (RFC-008 / ADR-0027).
+    // Verified contract (CLI v2.1.195): emit decision:block + additionalContext to
+    // continue the turn; `stop_hook_active` is the native loop guard (never block twice).
+    if (sub === 'stop') {
+      const raw = await readStdin();
+      let input: { stop_hook_active?: boolean } = {};
+      try {
+        input = JSON.parse(raw || '{}');
+      } catch {
+        /* malformed → fail-open: allow the stop, never wedge the turn */
+      }
+      // Native loop guard first (cheap, git-free): our own re-entry → allow the stop.
+      if (input.stop_hook_active) {
+        process.stdout.write('{}');
+        return;
+      }
+      const d = decideStop({ stop_hook_active: false }, gatherStopContext());
+      process.stdout.write(
+        d.block
+          ? JSON.stringify({
+              hookSpecificOutput: {
+                hookEventName: 'Stop',
+                decision: 'block',
+                additionalContext: d.reminder,
+              },
+            })
+          : '{}',
+      );
+      return;
+    }
+
     // PreToolUse gating — deny direct writes to the brain (force engine writes).
     if (sub === 'pre-tool-use') {
       const raw = await readStdin();
@@ -347,7 +379,7 @@ async function main() {
 
   process.stderr.write(
     'usage: vfkb <add|list|search|query|map|context|context init|resume|resume-note|curate|distill|save|context-block|' +
-      'hook session-start|hook pre-tool-use|hook post-tool-use>\n',
+      'hook session-start|hook pre-tool-use|hook post-tool-use|hook stop>\n',
   );
   process.exit(1);
 }
