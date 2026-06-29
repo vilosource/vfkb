@@ -115,6 +115,23 @@ this is a **deliberate discipline**:
 - **VERIFIED = observed, not asserted.** Never relay a gate's/agent's "passed/verified" as fact
   without reading ground truth. Snapshot ≠ history.
 
+## Definition of Done (capability level — ADR-0029)
+
+- **A capability is not "done" until its real use-case is simulated end-to-end in a sandbox and
+  observed to succeed.** This binds at the **epic / feature / main-group-of-tasks** level — **not**
+  every change. Sub-tasks, refactors, comments, formatting, pure-doc edits are **exempt** (they ride
+  the unit/integration inner gates).
+- **The proof is an agent-driven L4 scenario** — *an e2e test, but driven by you to simulate the real
+  use case* — exercising the capability as it'll actually be used (for vfkb, a real agent against the
+  real surface), DEMONSTRATED per ADR-0022 (≥2/3). It **must be able to fail** (baseline/contrast/RED
+  or a negative case) — *a proof that can't fail proves nothing* (this is what catches bugs, e.g. the
+  decision-capture build found a tagless-entry crash + a sandbox repo-leak).
+- **Four clauses for every proof form:** isolated from the live/dogfooded system · observed not
+  asserted · before declaring done · capable of failing.
+- **Proof fits the capability:** agent-facing → agent-driven L4 (default); auto-layer wiring → the
+  smoke-gate (ADR-0028); external contract → a Tier-0 probe; structural invariants → unit tests (the
+  inner gate, not the capability success criterion). Canonical example: `scenarios/decision-capture.mjs`.
+
 ## Commit rules
 
 - **NO AI attribution in ANY commit** — never `Co-Authored-By: Claude/Anthropic`,
