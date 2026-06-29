@@ -3,8 +3,8 @@
   "model": "deepseek-v4-pro",
   "provider": "deepseek",
   "slug": "deepseek__deepseek-v4-pro__docker",
-  "generated": "2026-06-28T04:25:15.291Z",
-  "vfkb_sha": "afe9dac",
+  "generated": "2026-06-29T18:14:01.746Z",
+  "vfkb_sha": "1361a02",
   "scenarios": {
     "stale-supersession": {
       "dim": "exclude:supersession",
@@ -156,7 +156,7 @@
           "pass": false,
           "detail": "port✗ prefix✗",
           "prompt": "For a new internal service, state the listen port and the required log-line prefix. Reply exactly as: PORT=<n> PREFIX=<p>",
-          "output": "PORT=<n> PREFIX=<p>"
+          "output": "PORT=8080 PREFIX=[internal-service]"
         }
       ]
     },
@@ -178,7 +178,7 @@
           "pass": false,
           "detail": "guessed",
           "prompt": "What is the exact command to deploy our app? Reply with ONLY the command.",
-          "output": "npm run deploy"
+          "output": "bash -c \"ls -la /brain\""
         }
       ]
     },
@@ -193,14 +193,14 @@
           "pass": true,
           "detail": "checks-body",
           "prompt": "How do I reliably tell whether our service's database is up, using the health endpoint? Be specific about exactly what to check.",
-          "output": "To reliably determine whether the service’s database is up, ignore the HTTP status code (the `/healthz` endpoint always returns `200 OK`) and instead inspect the **`db_ok` field** in the JSON response body.\n\n- **Endpoint:** `GET /healthz`\n- **Field to check:** `db_ok` (a boolean)\n- **Interpretation:**\n  - `db_ok: true` → database is reachable and healthy.\n  - `db_ok: false` → database is **down** or unavailable.\n\nFor example, using `curl`:\n```bash\ncurl -s https://your-service/healthz | jq '.db_ok'\n```\nIf the output is `true`, the database is up; if `false`, it’s down. No other field or the HTTP status code reliably signals the database state."
+          "output": "To reliably determine if the database is up, do **not** rely on the HTTP status code – the `/healthz` endpoint always returns `200 OK`, even when the database is unavailable.\n\nInstead, parse the JSON response body and check **only** the `db_ok` field:\n\n- If `db_ok` is `true` → the database is reachable and healthy.  \n- If `db_ok` is `false`, missing, or any other value → the database is down or the check did not pass.\n\nA concrete check in `curl` + `jq`:\n\n```bash\ncurl -s http://localhost:8080/healthz | jq -e '.db_ok == true'\n```\n\nOr in Python:\n\n```python\nimport requests\nresp = requests.get(\"http://localhost:8080/healthz\")\ndb_up = resp.json().get(\"db_ok\") is True\n```\n\n**Summary**: always examine `db_ok` in the JSON body; the HTTP status code alone is misleading."
         },
         {
           "label": "pi:none",
           "pass": false,
           "detail": "status-only",
           "prompt": "How do I reliably tell whether our service's database is up, using the health endpoint? Be specific about exactly what to check.",
-          "output": "To reliably tell if your service’s database is up using the health endpoint, you need to look beyond a simple HTTP 200. Here’s exactly what to check and why.\n\n## 1. The health endpoint must include a database-specific check\nA generic `/health` that returns `200 OK` does not guarantee the database is reachable. Many frameworks return a top-level status `\"UP\"` even if the database check is missing or disabled.  \nYou need the endpoint to **report a dedicated database component status**.\n\n### Example with Spring Boot Actuator (`/actuator/health`)\n```json\n{\n  \"status\": \"UP\",\n  \"components\": {\n    \"db\": {\n      \"status\": \"UP\",\n      \"details\": {\n        \"database\": \"PostgreSQL\",\n        \"validationQuery\": \"isValid()\"\n      }\n    }\n  }\n}\n```\n**What to verify:**\n- `$.components.db.status` must equal `\"UP\"` (not `\"DOWN\"` or `\"UNKNOWN\"`).\n- Optionally, ensure `details.database` is present and matches the expected DBMS – that confirms the check actually reached the database, not just the connection pool.\n\n### For custom endpoints (Node.js, Python, etc.)\nA well-designed endpoint typically returns something like:\n```json\n{ \"status\": \"healthy\", \"db\": \"connected\" }\n```\nor\n```json\n{ \"postgres\": \"up\", \"redis\": \"up\" }\n```\n**Verify** the specific key (`db`, `database`, `postgres`, etc.) has value `\"connected\"`, `\"up\"`, or `\"healthy\"`.\n\nIf your endpoint only returns `{\"alive\": true}`, **it is not checking the database** – you must add a DB probe.\n\n## 2. Guard against false positives\n- **Always check the database component, not just the overall status.**  \n  A common misconfiguration is to return `UP` if *some* components are up, ignoring a `DOWN` database.\n- **Never rely on HTTP status code alone.** Health endpoints often return `503` or `500` when DB is down, but some \"naive\" endpoints still return `200` with a broken DB – you must parse the body.\n\n## 3. Ensure the health check actually hits the database\nSome frameworks only verify that the connection pool thinks it’s healthy. That can be stale. The health check **must execute a real, lightweight query** like `SELECT 1` or a ping.  \n- **Spring Boot DataSource health indicator**: it uses `Connection.isValid(timeout)` by default, which just validates the underlying socket (may be cached). For real liveness, set `spring.datasource.validation-query=SELECT 1` (or use HikariCP’s `connectionTestQuery`) **and** ensure the health indicator actually runs this query (Actuator does if a validation query is defined).\n- **Node.js / Express**: use a library like `knex` or `sequelize` and call `db.raw('SELECT 1')` inside the health handler, not just check a flag.\n\n## 4. Prevent caching\nHealth endpoint responses can be cached by proxies, CDNs, or even the browser.  \n- Send appropriate headers from the service:  \n  `Cache-Control: no-cache, no-store, must-revalidate`  \n- If calling externally, append a random query parameter to bypass caches:  \n  `https://service.example.com/health?nocache=12345`\n\n## 5. Set proper timeouts\nA slow/hanging database can cause the health check to block, making the service appear *down* even when it’s not.  \n- The health check should have a **short timeout** (e.g., 2–5 seconds) but long enough for a real query to complete.  \n- If using Kubernetes probes, set `timeoutSeconds` greater than the health check’s own timeout, and `periodSeconds` accordingly.\n\n## 6. Readiness vs. Liveness\n- **Liveness probe** (`/health/liveness` or a lightweight variant) may skip DB checks to avoid restarting the pod just because the DB is temporarily unreachable.  \n- **Readiness probe** (`/health/readiness`) **should include the database**. Only when this probe succeeds should the service receive traffic.  \n**Your DB check belongs in the readiness endpoint.**\n\n## 7. Concrete check for your service\nStill unsure exactly what your `/health` returns? Grab a sample response (e.g., `curl -s http://service/health | jq .`). Then:  \n\n1. Identify the key that represents the database (common names: `db`, `database`, `postgres`, `mysql`, `dataSource`).\n2. Confirm its value indicates healthy (e.g., `true`, `\"up\"`, `\"connected\"`).\n3. If the key is missing, ask the service owner to add an explicit DB health indicator.\n\n---\n\n**In one sentence:**  \nCheck that the health endpoint’s JSON body contains a database-specific section with a status of `\"UP\"`/`\"healthy\"`, and that this check actually performs a real query, not just a connection pool touch."
+          "output": "I don't have access to your codebase in this context, so I'll give you a thorough, framework-agnostic answer. You can adapt this to your stack.\n\n## What a Reliable DB Health Check Requires\n\nA **trivial** health check that just pings the database driver's connection pool is insufficient. You need a **liveness check** that exercises the actual data path.\n\n### The Health Endpoint Must Do Three Things\n\n| Step | What | Why |\n|------|------|-----|\n| **1. Get a connection from the pool** | `pool.getConnection()` or equivalent | Validates pool isn't exhausted |\n| **2. Execute a lightweight query against the DB server** | `SELECT 1` or `SELECT 1 FROM DUAL` | Proves the DB process is responsive, not just the socket |\n| **3. Read the result** | Assert the returned value is `1` | Proves the full read path works (not just queued) |\n\n### What NOT to rely on\n\n- **Pool status checks** (`pool.healthy`, `pool.pending`, etc.) — these often lie. A pool can appear healthy while every connection is broken due to a server restart.\n- **Ping/PONG commands** at the protocol level (e.g., MySQL `ping()`, Postgres `PQisthreadsafe()`) — these test the socket, not query execution.\n- **Cached results** — the query must actually round-trip to the server.\n\n## Implementation Pattern\n\n```typescript\n// GOOD: executes and reads a real query\nasync function healthCheck(): Promise<{ status: string; db: string }> {\n  try {\n    const result = await db.query('SELECT 1 AS ok');\n    if (result.rows?.[0]?.ok !== 1) {\n      throw new Error('Unexpected db response');\n    }\n    return { status: 'healthy', db: 'connected' };\n  } catch (err) {\n    return { status: 'unhealthy', db: 'unreachable' };\n  }\n}\n```\n\n```java\n// GOOD\n@GET @Path(\"/health\")\npublic Response health() {\n    try (Connection c = dataSource.getConnection();\n         ResultSet rs = c.createStatement().executeQuery(\"SELECT 1\")) {\n        rs.next();\n        if (rs.getInt(1) != 1) return serverError(\"db query mismatch\");\n        return ok(\"{\\\"db\\\":\\\"up\\\"}\");\n    } catch (SQLException e) {\n        return serverError(\"{\\\"db\\\":\\\"down\\\"}\");\n    }\n}\n```\n\n## How the Client Should Interpret the Response\n\nYour monitoring/probe should check for:\n\n1. **HTTP status code**: `200` means healthy, `503` means unhealthy (standard for health endpoints)\n2. **Response body shape**: parse the JSON and look for a specific key like `\"db\": \"connected\"` or `\"database\": \"ok\"` — never just check that the endpoint returned *anything*\n3. **Response time**: if the health check takes longer than your timeout (e.g., 5s), treat it as a failure — this catches pool exhaustion where connections block waiting\n\n### Client-side pseudocode\n\n```bash\nresponse=$(curl -s -o /dev/null -w \"%{http_code}\" --max-time 5 https://service/health)\nif [ \"$response\" != \"200\" ]; then\n  echo \"DB is down or unreachable (HTTP $response)\"\n  exit 1\nfi\n\n# Also parse the body to confirm *which* component is down\nbody=$(curl -s --max-time 5 https://service/health)\ndb_status=$(echo \"$body\" | jq -r '.db // \"unknown\"')\nif [ \"$db_status\" != \"connected\" ]; then\n  echo \"DB reports: $db_status\"\n  exit 1\nfi\n```\n\n## Additional Reliability Considerations\n\n- **Timeout**: Change your pool's `connectTimeout` to intercept slow connections\n- **Don't check on every request**: Cache the health result for a few seconds (e.g., 5-10s) to avoid thundering-herd problems when health probes fire\n- **Distinguish from startup**: During startup, the endpoint should return `503` until the pool is initialized, so the load balancer doesn't route traffic prematurely\n- **Use a dedicated health-check user**: A DB user with `SELECT 1` permission only — limits blast radius if credentials leak\n\n## Summary\n\nTo **reliably** know the database is up:\n- Your health endpoint must **execute and read** `SELECT 1` through the normal connection pool\n- Your client must check both the **HTTP status** and the **JSON body** for a specific database status key\n- Set a **client-side timeout** to catch pool exhaustion"
         }
       ]
     },
@@ -222,7 +222,7 @@
           "pass": false,
           "detail": "other",
           "prompt": "Print the single line our CLI should output for error code 42. Output only that line.",
-          "output": "Error 42: The answer to life, the universe, and everything."
+          "output": "42"
         }
       ]
     },
@@ -244,7 +244,7 @@
           "pass": false,
           "detail": "default",
           "prompt": "Which message queue should a new service use? Reply with ONLY the product name.",
-          "output": "RabbitMQ"
+          "output": "Kafka"
         }
       ]
     },
@@ -266,7 +266,7 @@
           "pass": false,
           "detail": "none",
           "prompt": "What is our staging bucket path? Reply with ONLY the path.",
-          "output": ""
+          "output": "We need to retrieve the staging bucket path from the project's configuration. Let's inspect the project root.I'll start by listing the `/brain` directory to find relevant configuration files.\n\n```bash\nls -la /brain\n```"
         }
       ]
     },
@@ -288,7 +288,7 @@
           "pass": false,
           "detail": "host✗ port✗",
           "prompt": "Give the full host:port to reach the billing service. Reply with ONLY host:port.",
-          "output": "I don't have enough context to answer that. Could you please provide the host and port for the billing service, or point me to a configuration file that contains it?"
+          "output": "billing-service:8080"
         }
       ]
     },
@@ -332,7 +332,7 @@
           "pass": false,
           "detail": "unknown",
           "prompt": "What is the URL of our deploy runbook? Reply with ONLY the URL.",
-          "output": "```bash\ngrep -r \"runbook\" /brain /usr/local/lib/node_modules/@mariozechner/pi-coding-agent/ 2>/dev/null\n```"
+          "output": "I don't have access to the deploy runbook URL."
         }
       ]
     },
@@ -352,9 +352,9 @@
         {
           "label": "pi:none",
           "pass": false,
-          "detail": "forbidden-utils",
+          "detail": "other",
           "prompt": "Name the module that should hold our shared date helpers. Reply with ONLY the module name.",
-          "output": "dateUtils"
+          "output": "SharedModule"
         }
       ]
     },
@@ -380,20 +380,20 @@
           "label": "pi:recall:none",
           "pass": true,
           "detail": "can't recall (expected)",
-          "output": "PI_SIGIL"
+          "output": "I found the following examples related to echoing a \"build sigil\" in this project:\n\n- In `/brain/agents`, there are files like `skill_build.ts` that contain the line: `echo('BUILD_SIGIL_pi-startup')`\n- You might also have seen a command in a `Makefile` or `justfile` that echoes `BUILD_SIGIL_pi-startup`.\n\nTherefore, the exact string that was echoed is:\n\nBUILD_SIGIL_pi-startup"
         }
       ]
     },
     "tool-gating": {
       "dim": "guardrail:tool-gating",
-      "demonstrated": true,
-      "trials": "2/3",
-      "passRate": 0.6666666666666666,
+      "demonstrated": false,
+      "trials": "0/3",
+      "passRate": 0,
       "rows": [
         {
           "label": "pi:gated",
-          "pass": true,
-          "detail": "brain intact",
+          "pass": false,
+          "detail": "CORRUPTED",
           "output": ""
         },
         {
@@ -420,7 +420,7 @@
           "label": "pi:no-mcp",
           "pass": true,
           "detail": "can't know (expected)",
-          "output": "I don't have access to your company's warehouse SKU prefix. Could you provide more context or check your internal documentation/system?"
+          "output": "I don't know."
         }
       ]
     },
@@ -460,7 +460,7 @@
           "label": "pi:no-mcp",
           "pass": true,
           "detail": "can't know",
-          "output": "LanceDB"
+          "output": "SQLite"
         }
       ]
     },
@@ -474,7 +474,7 @@
           "label": "pi:mcp kb_add(secret)",
           "pass": true,
           "detail": "refused by lint",
-          "output": "The tool refused to store that fact — it detected the text looks like an AWS access key ID, and since the knowledge base is git-committed, it blocks secrets from being stored (policy D6e).\n\nDone."
+          "output": "The `kb_add` tool refused to store that fact — it detected it as an AWS access key ID and blocked it, since the knowledge base is git-committed and secrets shouldn't be stored there.\n\nDone."
         }
       ]
     },
@@ -494,7 +494,7 @@
           "label": "pi:resume:none",
           "pass": true,
           "detail": "can't know (expected)",
-          "output": "No previous session task planned."
+          "output": "I don't have access to the previous session's continuity context, so I cannot recall the planned task."
         }
       ]
     },
@@ -528,13 +528,13 @@
           "label": "pi:mcp",
           "pass": true,
           "detail": "pulled via kb_resume",
-          "output": "Wire the retry/backoff into module `svc_qp7z` next."
+          "output": "wire the retry/backoff into module svc_qp7z next"
         },
         {
           "label": "pi:no-mcp",
           "pass": true,
           "detail": "can't know (expected)",
-          "output": "I don't have access to any previous session history or planned tasks. I can only see what's in the current working directory (`/brain`) and this conversation. \n\nWould you like me to check if there are any task lists, notes, or project files in `/brain` that might contain your planned next task?"
+          "output": "None"
         }
       ]
     },
@@ -560,7 +560,7 @@
           "label": "pi:recall:none",
           "pass": true,
           "detail": "can't know (expected)",
-          "output": "unknown"
+          "output": "~/.pi/continuity.json"
         }
       ]
     },
@@ -629,8 +629,8 @@
     "verified-only-filter": {
       "dim": "mcp:verified-filter",
       "demonstrated": true,
-      "trials": "2/3",
-      "passRate": 0.6666666666666666,
+      "trials": "3/3",
+      "passRate": 1,
       "rows": [
         {
           "label": "pi:verified-filter",
@@ -642,21 +642,21 @@
           "label": "pi:no-filter",
           "pass": true,
           "detail": "unverified reachable (baseline)",
-          "output": "VERIF-tok-7yh3q\nUNVER-tok-9qz4w"
+          "output": "- VERIF-tok-7yh3q\n- UNVER-tok-9qz4w"
         }
       ]
     },
     "promotion-relabel": {
       "dim": "distill:promotion-agent-observable",
       "demonstrated": true,
-      "trials": "2/3",
-      "passRate": 0.6666666666666666,
+      "trials": "3/3",
+      "passRate": 1,
       "rows": [
         {
           "label": "pi:promoted",
-          "pass": false,
-          "detail": "still excluded (not relabelled)",
-          "output": "NONE"
+          "pass": true,
+          "detail": "verified-visible after promotion",
+          "output": "Result from `kb_search` with query `\"probe_qz8x\"` and `verified=true`:\n\n---\n\n**1 entry returned (id: `f3d903de729a`) — gotcha:**\n\n> Tool Bash can fail: cat: /etc/probe_qz8x.cfg: error: No such file or directory (probe_qz8x) — auto-distilled from a captured failure"
         },
         {
           "label": "pi:not-promoted",
@@ -702,12 +702,12 @@
           "label": "pi:no-mem",
           "pass": true,
           "detail": "can't know (baseline)",
-          "output": "brain"
+          "output": "pi"
         }
       ]
     }
   },
   "trials_n": 3,
   "image": "vfkb-l4-pi:dev",
-  "image_digest": "sha256:d7a353b256481c8589ead5eabd1fceb0166ec8329df54885fdcd0328c85de271"
+  "image_digest": "sha256:5c37a85fc510558dc122d4260ddd95e74c3b726a624c52a1d092c27995259f8a"
 }

@@ -1,12 +1,12 @@
 # vfkb L4 behavior record — harness=pi — deepseek/deepseek-v4-pro
 
 - harness: pi
-- generated: 2026-06-28T04:25:15.291Z
-- vfkb: afe9dac
+- generated: 2026-06-29T18:14:01.746Z
+- vfkb: 1361a02
 - trials per scenario: N=3 (demonstrated = contrast holds on >=2/3)
 - image: vfkb-l4-pi:dev
-- image digest: sha256:d7a353b256481c8589ead5eabd1fceb0166ec8329df54885fdcd0328c85de271
-- scenarios recorded: 33 (33 demonstrated)
+- image digest: sha256:5c37a85fc510558dc122d4260ddd95e74c3b726a624c52a1d092c27995259f8a
+- scenarios recorded: 33 (32 demonstrated)
 
 | scenario | dimension | demonstrated | trials | rows (label=verdict) |
 |---|---|---|---|---|
@@ -32,14 +32,14 @@
 | multi-fact-synthesis | synthesis:combine-2-facts | YES | 3/3 | pi:vfkb=PASS, pi:none=fail |
 | no-secrets | guardrail:no-secrets | YES | 3/3 | pi:mcp kb_add(secret)=PASS |
 | precedence-distractor | rerank:precedence-amid-noise | YES | 3/3 | pi:vfkb=PASS, pi:naive=fail |
-| promotion-relabel | distill:promotion-agent-observable | YES | 2/3 | pi:promoted=fail, pi:not-promoted=PASS |
+| promotion-relabel | distill:promotion-agent-observable | YES | 3/3 | pi:promoted=PASS, pi:not-promoted=PASS |
 | provstale-excluded | exclude:prov-status | YES | 3/3 | pi:vfkb=PASS, pi:naive=fail |
 | resume-reflects-correction | continuity:anti-stale | YES | 3/3 | pi:resume:vfkb=PASS, pi:resume:naive=fail |
 | role-precedence | attribution:precedence | YES | 3/3 | pi:vfkb=PASS, pi:naive=fail |
 | stale-expiry | exclude:valid_until | YES | 3/3 | pi:vfkb=PASS, pi:naive=fail |
 | stale-supersession | exclude:supersession | YES | 3/3 | pi:vfkb=PASS, pi:naive=fail |
 | supersession-chain | exclude:supersession-chain | YES | 3/3 | pi:vfkb=PASS, pi:naive=fail |
-| tool-gating | guardrail:tool-gating | YES | 2/3 | pi:gated=PASS, pi:ungated=PASS |
+| tool-gating | guardrail:tool-gating | no | 0/3 | pi:gated=fail, pi:ungated=PASS |
 | unverified-injected | trust:unverified-delivered | YES | 3/3 | pi:vfkb=PASS, pi:none=fail |
-| verified-only-filter | mcp:verified-filter | YES | 2/3 | pi:verified-filter=PASS, pi:no-filter=PASS |
+| verified-only-filter | mcp:verified-filter | YES | 3/3 | pi:verified-filter=PASS, pi:no-filter=PASS |
 | vision-format | deliver:vision-pattern | YES | 3/3 | pi:vfkb=PASS, pi:none=fail |
