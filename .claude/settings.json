@@ -20,6 +20,16 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "VFKB_DIR=.vfkb VFKB_PROJECT=vfkb node dist/cli.js hook stop"
+          }
+        ]
+      }
     ]
   }
 }

@@ -59,6 +59,11 @@ contracts).
    run we want to budget, or a suspected model-side drift.
 5. **Triggered re-validation on version bump** (depends on #1) — when the pin moves, re-run the affected
    scenarios/probes. The regression signal L4 currently lacks. **Trigger:** after #1 lands.
+6. **Auto-layer wiring smoke gate** — ✅ **DELIVERED 2026-06-29** ([ADR-0028](../adr/ADR-0028-sandbox-validate-auto-layer-wiring.md),
+   `scenarios/wiring-smoke.mjs`). The sandbox's second job beyond contract probes: drive real `claude`
+   turns against the **candidate** `.claude/settings.json` and assert hooks fire/suppress/terminate
+   **before** promoting to the live config. First case = ADR-0027's Stop wiring. Extends as new
+   hooks/MCP wiring are added.
 
 ## Alternatives
 
