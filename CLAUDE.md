@@ -137,7 +137,15 @@ this is a **deliberate discipline**:
 - **NO AI attribution in ANY commit** — never `Co-Authored-By: Claude/Anthropic`,
   `noreply@anthropic.com`, 🤖, or "Generated with Claude Code". (A global commit-msg hook enforces
   this; honor it — a blocked commit pushes nothing, so verify `git log` after committing.)
-- Solo-dev repo: after green tests, commit to `main`, show the message, push to origin.
+- **Always work on a branch — NEVER commit or push directly to `main`.** Every change (code *and*
+  docs, incl. RFCs/ADRs) lands on a topic branch and is delivered as a **PR** for the operator to read
+  on GitHub. **Definition of Done = the branch is mergeable to `main`** (green tests, review-ready).
+- **Always report clickable GitHub URLs after a push** — the **PR URL** plus a `blob` URL for each
+  added/changed file the operator will review (RFCs/ADRs especially). Repo: `vilosource/vfkb`.
+- **Default (interactive): open the PR and stop for review** — the operator reads it on GitHub and
+  merges. **The solo-dev self-merge latitude applies ONLY when the operator explicitly calls out
+  autonomous mode** — and even then it stays branch → PR → merge (after green/DoD), never a
+  direct-to-`main` commit.
 
 ## Current state (2026-06-28)
 
