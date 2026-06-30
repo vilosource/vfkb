@@ -32,6 +32,7 @@ import { decideStop, gatherStopContext } from './stop-reminder.js';
 import { save } from './git.js';
 import { initProject, approvalNotice } from './init.js';
 import { runDoctor, renderDoctor } from './doctor.js';
+import { fromMykb, fromAdr, fromMarkdown, resolveMykbArea } from './import.js';
 import type { AuthorRole, EntryType, Zone, DecisionStatus } from './types.js';
 
 function readStdin(): Promise<string> {
@@ -86,6 +87,30 @@ async function main() {
     const resolved = project || root.split(/[/\\]/).filter(Boolean).pop() || 'project';
     for (const c of changes) process.stdout.write(`${c.action}\t${c.path}\n`);
     process.stdout.write('\n' + approvalNotice(resolved) + '\n');
+    return;
+  }
+
+  // import: FR-3 (ADR-0030) — migrate existing knowledge into the brain (lossy,
+  // role=import). --from-mykb <area> | --from-adr [dir] | --from-markdown <file>.
+  if (cmd === 'import') {
+    const args = [sub, ...rest].filter((a): a is string => a !== undefined);
+    const results: { id: string; type: string; text: string }[] = [];
+    try {
+      if (args.includes('--from-adr')) results.push(...fromAdr(flag(args, 'from-adr') || 'docs/adr'));
+      const md = flag(args, 'from-markdown');
+      if (md) results.push(...fromMarkdown(md));
+      const mykb = flag(args, 'from-mykb');
+      if (mykb) results.push(...fromMykb(resolveMykbArea(mykb)));
+    } catch (err) {
+      process.stderr.write(`error: ${(err as Error).message}\n`);
+      process.exit(1);
+    }
+    if (results.length === 0) {
+      process.stderr.write('import: nothing imported — pass --from-mykb <area> | --from-adr [dir] | --from-markdown <file>\n');
+      process.exit(1);
+    }
+    for (const r of results) process.stdout.write(`${r.id}\t${r.type}\t${r.text.split('\n')[0].slice(0, 80)}\n`);
+    process.stdout.write(`\nimported ${results.length} entr${results.length === 1 ? 'y' : 'ies'} (role=import, unverified)\n`);
     return;
   }
 
