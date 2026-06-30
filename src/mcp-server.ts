@@ -182,6 +182,7 @@ server.registerTool(
     inputSchema: {
       type: ENTRY_TYPE,
       text: z.string(),
+      why: z.string().optional().describe('rationale; folded into the text as a "Why: …" line (esp. for decisions)'),
       tags: z.string().optional().describe('comma-separated'),
       role: ROLE.optional().describe('author role; defaults to executor (agent)'),
       status: STATUS.optional().describe('decision family only'),
@@ -191,6 +192,7 @@ server.registerTool(
   async (a) => {
     const e = addEntry(a.type, a.text, {
       role: envRole() ?? a.role ?? 'executor',
+      why: a.why,
       tags: tags(a.tags),
       status: a.status,
       constitutional: a.constitutional,
