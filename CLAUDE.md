@@ -25,10 +25,12 @@ vfkb automatically** (this is vfkb's actual product surface, not just a CLI):
   - **`PreToolUse`** (Write/Edit/MultiEdit) → **gates direct writes to `.vfkb/`** (forces brain
     writes through the engine; normal code/doc edits pass through untouched).
   - **`Stop`** → the end-of-turn decision-capture reminder (ADR-0027).
-  - **`SessionEnd`** → **auto-commits the brain** so `/exit` is safe-by-default (ADR-0033, GAP 2):
-    commits **only** `.vfkb/entries.jsonl`, on the **current topic branch** (never `main` — it warns
-    instead), pathspec-scoped (never sweeps your staged work), no push. *(GAP 1 — a guaranteed handoff
-    entry — is not yet wired; still leave a `handoff`/`next` fact by hand. RFC-011 §B is open.)*
+  - **`SessionEnd`** → **auto-commits the brain** so `/exit` is safe-by-default (ADR-0033): commits
+    **only** `.vfkb/entries.jsonl`, on the **current topic branch** (never `main` — it warns instead),
+    pathspec-scoped (never sweeps your staged work), no push (GAP 2). It also writes a **B2 fallback
+    handoff** (`fact` tagged `handoff,next,auto` enumerating the session's new entries) **only if you
+    left none** (GAP 1) — so still prefer recording a real `handoff`/`next` fact by hand; the fallback
+    is a floor, not a substitute. *(A higher-quality B1 Stop-hook nudge stays open — RFC-011 §B.)*
   - **`PostToolUse` auto-capture is intentionally OFF** — against the *committed* brain it would
     flood `.vfkb` with tool-call noise. Knowledge here is **deliberate** (`kb_add` / `vfkb add`).
 - **This repo now dogfoods the consumer wiring (ADR-0030/0031/0032):** the auto-layer resolves the

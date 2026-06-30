@@ -26,7 +26,7 @@ role-attributed; options under discussion live in the RFC's Decision/text.
 | [RFC-008](RFC-008-decision-capture-reminder.md) | Reliable decision capture — a conditional end-of-turn (Stop-hook) reminder | Proposed (WIP) |
 | [RFC-009](RFC-009-l4-harness-and-platform-probes.md) | L4 harness & platform probes | Proposed |
 | [RFC-010](RFC-010-consumer-integration-and-distribution.md) | Consumer integration & distribution contract — `vfkb init` / portable engine / `import` / `doctor` | Accepted → [ADR-0030](../adr/ADR-0030-consumer-integration-and-distribution.md) |
-| [RFC-011](RFC-011-session-end-continuity.md) | Session-end continuity — safe-by-default `/exit` (SessionEnd auto-commit + Stop-hook handoff reminder) | Accepted → [ADR-0033](../adr/ADR-0033-session-end-continuity.md) (GAP 2; GAP 1 open) |
+| [RFC-011](RFC-011-session-end-continuity.md) | Session-end continuity — safe-by-default `/exit` (SessionEnd auto-commit + handoff floor) | Accepted → [ADR-0033](../adr/ADR-0033-session-end-continuity.md) (GAP 2 + B2 floor; B1 open) |
 
 RFC-001..003 were drafted 2026-06-15 from a study of AnythingLLM (Mintplex Labs)
 retrieval mechanics mapped onto vfkb's substrate. All three **refine

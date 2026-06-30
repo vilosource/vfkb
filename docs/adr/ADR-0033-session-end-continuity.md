@@ -1,11 +1,12 @@
-# ADR-0033: Session-end continuity — a SessionEnd brain auto-commit (accepts RFC-011, GAP 2)
+# ADR-0033: Session-end continuity — SessionEnd brain auto-commit + B2 handoff floor (accepts RFC-011)
 
 - **Status:** Accepted
 - **Date:** 2026-06-30
 - **Deciders:** operator + Claude
 - **Accepts:** [RFC-011](../rfc/RFC-011-session-end-continuity.md) (the proposal + the empirically
-  verified SessionEnd contract). This ADR decides **GAP 2** (the brain auto-commit); **GAP 1** (the
-  handoff) stays open pending the L4 surface-contrast (RFC-011 §B / open items 2–3).
+  verified SessionEnd contract). This ADR decides **GAP 2** (the brain auto-commit) and the **GAP 1 B2
+  floor** (a deterministic fallback handoff). The higher-quality **B1** Stop nudge + the metered L4
+  quality contrast stay open (RFC-011 §B / open items 2–3).
 - **Relates:** [ADR-0019](ADR-0019-self-hosted-design-brain.md) (the brain ships *inside* the repo; only
   `entries.jsonl` is committed), [ADR-0020](ADR-0020-session-continuity-record.md) (the resume digest is
   already derived — only the *commit* + *handoff* were missing), [ADR-0021](ADR-0021-auto-distill-and-curator.md)
@@ -63,22 +64,34 @@ pathspec into *that* repo:
 **Fail-open everywhere.** Malformed stdin, no repo, missing git identity, a rejecting commit-msg hook →
 return silently. A SessionEnd hook must never throw (and cannot block exit anyway).
 
-### GAP 1 (handoff) — deliberately deferred
+### GAP 1 (handoff) — the B2 deterministic floor (operator-chosen 2026-06-30)
 
 SessionEnd cannot prompt, and the Stop hook fires per-turn while a handoff is an end-of-session artifact
-(RFC-011 §B). The surface choice (B1 Stop nudge / B2 SessionEnd auto-derive / B1+B2) is an empirical
-question — deferred to the GAP-1 L4 contrast before building. GAP 2 is the primary safety net and ships
-first: once the brain is auto-committed, *whatever* the agent recorded (including any handoff it wrote)
-survives `/exit`.
+(RFC-011 §B). A constraint settled the surface: **`KB_SESSION_ID` is unset in the live wiring** (gotcha
+`e8f324dc3c1a`), so `SessionState`/`resume-note` don't persist — the *only* reliable state-free signal at
+hook time is the git-HEAD-delta of `entries.jsonl` (the same signal `stop-reminder.ts` uses). The operator
+chose the **B2 deterministic floor** over a metered B1/B2 L4 contrast (deterministic backstop >
+probabilistic gate):
+
+- **B2:** at SessionEnd, among the entries appended since `HEAD`, if **none** is tagged `handoff`/`next`,
+  write a fallback `fact` (role `executor`, zone `established`, tags `handoff,next,auto`) that
+  **enumerates** the session's new entries (id · type · snippet) — then it ships in the same commit. No
+  transcript NLP, no session state; a fresh clone always gets a committed pointer to the session's
+  contribution (it surfaces via the knowledge bundle, which reads committed entries, not session records).
+  If the agent already authored a handoff, B2 stays out of the way.
+- **B1** (a Stop-hook nudge to author a *higher-quality* handoff) and the metered L4 quality contrast
+  remain the open follow-on — built only on evidence/explicit request.
 
 ### Definition of Done (ADR-0029)
 
-GAP 2 is an auto-layer mechanism, so its proof is the **deterministic smoke-gate**, not an L4 scenario:
-`src/session-end.test.ts` (6 cases against a real throwaway repo) asserts commit-on-topic-branch ·
-scoped-to-`entries.jsonl` · attribution-free message · **must-not** commit on `main` (warns) ·
-**must-not** sweep pre-staged files · no-op when clean · no-op outside a repo. Each is capable of
-failing, isolated from the live `.vfkb`, observed not asserted. The full `cli hook session-end` path was
-additionally smoke-validated through the **bundle** (topic-branch commit + main-branch warning).
+Both GAP 2 and the B2 floor are deterministic mechanisms, so the proof is the **deterministic
+smoke-gate**, not an L4 scenario: `src/session-end.test.ts` (8 cases against a real throwaway repo) —
+GAP 2: commit-on-topic-branch · scoped-to-`entries.jsonl` · attribution-free message · **must-not**
+commit on `main` (warns) · **must-not** sweep pre-staged files · no-op when clean · no-op outside a repo;
+B2: writes & commits an auto-handoff enumerating the session's entries when none was recorded · stays out
+of the way when the agent authored one. Each is capable of failing, isolated from the live `.vfkb`,
+observed not asserted. The full `cli hook session-end` path was additionally smoke-validated through the
+**bundle** (topic-branch commit + main-branch warning + the committed `[handoff,next,auto]` entry).
 
 ### Wiring
 
@@ -88,11 +101,13 @@ repo's live `.claude/settings.json` via the committed bootstrap, after the smoke
 
 ## Consequences
 
-- **+** `/exit` is safe-by-default for GAP 2: brain entries are durably committed on the working branch
-  with zero ceremony, never on the default branch, never entangling the operator's staged work.
-- **+** Mechanism over prose (ADR-0021); fail-open; deterministic gate.
-- **−** GAP 1 (a curated handoff) is **not yet closed** — still a habit until the L4 contrast picks a
-  surface. The auto-commit preserves a hand-written handoff if one exists, but doesn't guarantee one.
+- **+** `/exit` is safe-by-default: brain entries are durably committed on the working branch with zero
+  ceremony (never on the default branch, never entangling the operator's staged work), **and** a committed
+  handoff entry is guaranteed (agent-authored if present, else the B2 fallback enumerating the session's
+  work) — so a fresh clone always has a forward pointer.
+- **+** Mechanism over prose (ADR-0021); fail-open; deterministic gate; no metered LLM run needed.
+- **−** The B2 fallback is a **low-quality floor** (an entry list, not a curated "next: …"). A
+  higher-quality agent-authored handoff (B1 Stop nudge) + a metered L4 quality contrast remain open.
 - **−** Contract is **version-pinned to CLI v2.1.196** — re-verify on a Claude Code upgrade. Interactive
   `/exit` and the in-hook commit were inferred-from-docs / proven via `claude -p` + the bundle smoke, not
   a true-TTY exit.
@@ -113,5 +128,6 @@ repo's live `.claude/settings.json` via the committed bootstrap, after the smoke
 [RFC-011](../rfc/RFC-011-session-end-continuity.md), [ADR-0019](ADR-0019-self-hosted-design-brain.md),
 [ADR-0027](ADR-0027-stop-hook-decision-capture-reminder.md), [ADR-0028](ADR-0028-sandbox-validate-auto-layer-wiring.md),
 [ADR-0029](ADR-0029-sandbox-proven-definition-of-done.md). Brain: gotcha `f0e913b97824` (verified
-contract), decisions `92f046fdf5c7` (RFC-011), `e773cdda83b9` (self-review). Code: `src/session-end.ts`,
-`src/cli.ts` (`hook session-end`), `src/init.ts` (emission), `src/session-end.test.ts`.
+contract), `e8f324dc3c1a` (KB_SESSION_ID constraint), decisions `92f046fdf5c7` (RFC-011), `e773cdda83b9`
+(self-review). Code: `src/session-end.ts` (GAP 2 commit + B2 `writeAutoHandoff`/`newEntriesSinceHead`),
+`src/cli.ts` (`hook session-end`), `src/init.ts` (emission), `src/session-end.test.ts` (8-case gate).
