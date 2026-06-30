@@ -25,7 +25,7 @@ role-attributed; options under discussion live in the RFC's Decision/text.
 | [RFC-007](RFC-007-project-context-doc-and-kb-context.md) | The project context doc + `kb_context` — an assembled "agent's first read" (authored spine + derived sections) | Accepted → [ADR-0025](../adr/ADR-0025-project-context-doc-and-kb-context.md) |
 | [RFC-008](RFC-008-decision-capture-reminder.md) | Reliable decision capture — a conditional end-of-turn (Stop-hook) reminder | Proposed (WIP) |
 | [RFC-009](RFC-009-l4-harness-and-platform-probes.md) | L4 harness & platform probes | Proposed |
-| [RFC-010](RFC-010-consumer-integration-and-distribution.md) | Consumer integration & distribution contract — `vfkb init` / portable engine / `import` / `doctor` | Proposed |
+| [RFC-010](RFC-010-consumer-integration-and-distribution.md) | Consumer integration & distribution contract — `vfkb init` / portable engine / `import` / `doctor` | Accepted → [ADR-0030](../adr/ADR-0030-consumer-integration-and-distribution.md) |
 
 RFC-001..003 were drafted 2026-06-15 from a study of AnythingLLM (Mintplex Labs)
 retrieval mechanics mapped onto vfkb's substrate. All three **refine

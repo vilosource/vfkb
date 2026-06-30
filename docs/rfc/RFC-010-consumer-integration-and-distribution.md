@@ -1,6 +1,6 @@
 # RFC-010: Consumer integration & distribution contract — `vfkb init` / portable engine / `import` / `doctor`
 
-- **Status:** **Proposed** (2026-06-30)
+- **Status:** **Accepted → [ADR-0030](../adr/ADR-0030-consumer-integration-and-distribution.md)** (2026-06-30; FR-2 bundle unknown spike-resolved before acceptance)
 - **Date:** 2026-06-30
 - **Deciders:** operator + Claude
 - **Relates:** [ADR-0019](../adr/ADR-0019-self-hosted-design-brain.md) (self-hosted design-brain —

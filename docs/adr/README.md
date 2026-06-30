@@ -43,3 +43,7 @@ Immutable records of significant vfkb architecture decisions, in
 | [ADR-0024](ADR-0024-relabel-trust-on-promotion.md) | Corroborated promotion re-stamps provenance verified (trust elevation is agent-observable); distiller stops baking "(unverified)" into text | Accepted |
 | [ADR-0025](ADR-0025-project-context-doc-and-kb-context.md) | The project context doc + `kb_context` — an assembled "agent's first read" (authored spine + derived Constitution/Map/decisions), read on demand | Accepted |
 | [ADR-0026](ADR-0026-rebrand-to-vfkb.md) | Rebrand vtfkb → vfkb (ViloForge KnowledgeBase) — full hard rename (identity/env/dirs/repo) to align the VF-family with vfwb | Accepted |
+| [ADR-0027](ADR-0027-stop-hook-decision-capture-reminder.md) | Reliable decision capture — a conditional end-of-turn (Stop-hook) reminder | Accepted |
+| [ADR-0028](ADR-0028-sandbox-validate-auto-layer-wiring.md) | Auto-layer wiring is validated in a throwaway sandbox before promotion to live (the wiring smoke-gate) | Accepted |
+| [ADR-0029](ADR-0029-sandbox-proven-definition-of-done.md) | Definition of Done — a capability is proven by an agent-driven, sandboxed, e2e use-case simulation that can fail | Accepted |
+| [ADR-0030](ADR-0030-consumer-integration-and-distribution.md) | Consumer integration & distribution contract — portable engine (`$VFKB_HOME` + single-file bundles), `vfkb init`, `import`, `doctor` | Accepted |
