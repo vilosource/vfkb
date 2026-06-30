@@ -47,3 +47,4 @@ Immutable records of significant vfkb architecture decisions, in
 | [ADR-0028](ADR-0028-sandbox-validate-auto-layer-wiring.md) | Auto-layer wiring is validated in a throwaway sandbox before promotion to live (the wiring smoke-gate) | Accepted |
 | [ADR-0029](ADR-0029-sandbox-proven-definition-of-done.md) | Definition of Done — a capability is proven by an agent-driven, sandboxed, e2e use-case simulation that can fail | Accepted |
 | [ADR-0030](ADR-0030-consumer-integration-and-distribution.md) | Consumer integration & distribution contract — portable engine (`$VFKB_HOME` + single-file bundles), `vfkb init`, `import`, `doctor` | Accepted |
+| [ADR-0031](ADR-0031-bootstrap-engine-resolution-guard.md) | A committed bootstrap guards engine resolution and informs the user when `$VFKB_HOME` is unset | Accepted |
