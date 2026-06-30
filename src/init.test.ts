@@ -35,7 +35,13 @@ describe('vfkb init (FR-1)', () => {
 
     // .claude/settings.json — the three hooks, via the bootstrap, no relative dist/ path.
     const settings = JSON.parse(read('.claude/settings.json'));
-    expect(Object.keys(settings.hooks).sort()).toEqual(['PreToolUse', 'SessionStart', 'Stop']);
+    expect(Object.keys(settings.hooks).sort()).toEqual([
+      'PreToolUse',
+      'SessionEnd',
+      'SessionStart',
+      'Stop',
+    ]);
+    expect(settings.hooks.SessionEnd[0].hooks[0].command).toContain('cli hook session-end');
     const blob = JSON.stringify(settings);
     expect(blob).toContain('.vfkb/bin/bootstrap.mjs cli hook');
     expect(blob).toContain('VFKB_PROJECT=demo');
