@@ -2,9 +2,9 @@
   "mcpServers": {
     "vfkb": {
       "command": "node",
-      "args": ["dist/mcp-server.js"],
+      "args": [".vfkb/bin/bootstrap.mjs", "mcp"],
       "env": {
-        "VFKB_DIR": ".vfkb",
+        "VFKB_DATA_DIR": ".vfkb",
         "VFKB_PROJECT": "vfkb"
       }
     }

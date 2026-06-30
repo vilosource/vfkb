@@ -18,16 +18,21 @@ Repo: `git@github.com:vilosource/vfkb.git` (vilosource/vfkb). Dev working copy: 
 
 This repo ships the Claude Code integration committed at the root, so a session here **runs on
 vfkb automatically** (this is vfkb's actual product surface, not just a CLI):
-- **`.mcp.json`** registers the **`vfkb` MCP server** (`node dist/mcp-server.js`, `VFKB_DATA_DIR=.vfkb`)
-  → you have the 9 `mcp__vfkb__kb_*` tools (`kb_search`, `kb_context`, `kb_add`, `kb_resume`, …).
-- **`.claude/settings.json`** hooks:
+- **`.mcp.json`** registers the **`vfkb` MCP server** via the committed bootstrap
+  (`node .vfkb/bin/bootstrap.mjs mcp`, `VFKB_DATA_DIR=.vfkb`) → the 9 `mcp__vfkb__kb_*` tools.
+- **`.claude/settings.json`** hooks (also via `.vfkb/bin/bootstrap.mjs cli hook …`):
   - **`SessionStart`** → injects the resume digest + knowledge bundle (continuity, automatic).
   - **`PreToolUse`** (Write/Edit/MultiEdit) → **gates direct writes to `.vfkb/`** (forces brain
     writes through the engine; normal code/doc edits pass through untouched).
+  - **`Stop`** → the end-of-turn decision-capture reminder (ADR-0027).
   - **`PostToolUse` auto-capture is intentionally OFF** — against the *committed* brain it would
     flood `.vfkb` with tool-call noise. Knowledge here is **deliberate** (`kb_add` / `vfkb add`).
-- Requires a built `dist/` (`npm run build`). On first interactive `claude`, approve the project
-  MCP server + hooks when prompted (once per machine).
+- **This repo now dogfoods the consumer wiring (ADR-0030/0031/0032):** the auto-layer resolves the
+  engine through **`$VFKB_BUNDLE_DIR`**, not a relative `dist/` path. So per machine, once:
+  `npm run build:bundles` then `export VFKB_BUNDLE_DIR=$PWD/dist/bundles`. **If `VFKB_BUNDLE_DIR` is
+  unset, SessionStart shows a "vfkb INACTIVE — set VFKB_BUNDLE_DIR" banner** (graceful, never blocks)
+  — set it and restart the session. On first interactive `claude`, approve the MCP server + hooks once.
+  (`dist/cli.js` from `npm run build` still works for manual CLI; the auto-layer uses the bundle.)
 
 So prefer the **`mcp__vfkb__*` tools** in-session; the CLI (below) is the equivalent for scripting.
 
@@ -81,8 +86,9 @@ this is a **deliberate discipline**:
 - **CLI:** `node dist/cli.js <cmd>` — `add|list|search|query|map|context|context init|resume|`
   `resume-note|curate|distill|save|init|import|doctor|hook (session-start|pre-tool-use|post-tool-use|stop)`.
   Env: `VFKB_DATA_DIR` (brain/data dir; default `~/.vfkb`), `VFKB_PROJECT`, and `VFKB_BUNDLE_DIR`
-  (the shared engine bundles, for consumer wiring). **`VFKB_DIR`/`VFKB_HOME` are deprecated aliases**
-  (ADR-0032) — still honored; this repo's live wiring still uses `VFKB_DIR`/`dist/`.
+  (the shared engine bundles — required by the auto-layer, see above). **`VFKB_DIR`/`VFKB_HOME` are
+  deprecated aliases** (ADR-0032) — still honored. This repo's live auto-layer now uses the bootstrap +
+  `$VFKB_BUNDLE_DIR` (dogfooding the consumer wiring).
 - **MCP server:** `node dist/mcp-server.js` — 9 tools: `kb_add` `kb_get` `kb_list` `kb_map`
   `kb_context` `kb_search` `kb_supersede` `kb_transition` `kb_resume`.
 
