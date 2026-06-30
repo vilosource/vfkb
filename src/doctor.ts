@@ -60,14 +60,22 @@ export function runDoctor(opts: { root: string; brainDir: string; env: Record<st
     }
   }
 
-  // 3. $VFKB_HOME resolves the bundles (the portability indirection, FR-2).
-  const home = env.VFKB_HOME;
+  // 3. $VFKB_BUNDLE_DIR resolves the bundles (the portability indirection, FR-2).
+  const home = env.VFKB_BUNDLE_DIR || env.VFKB_HOME;
   if (!home) {
-    add('$VFKB_HOME', 'warn', 'unset — set it once per machine to the vfkb bundles dir (so the wiring resolves the engine)');
+    add('$VFKB_BUNDLE_DIR', 'warn', 'unset — set it once per machine to the vfkb bundles dir (so the wiring resolves the engine)');
   } else if (!existsSync(join(home, 'vfkb.mjs')) || !existsSync(join(home, 'vfkb-mcp.mjs'))) {
-    add('$VFKB_HOME', 'warn', `set to ${home} but vfkb.mjs / vfkb-mcp.mjs not found there (run \`npm run build:bundles\`)`);
+    add('$VFKB_BUNDLE_DIR', 'warn', `set to ${home} but vfkb.mjs / vfkb-mcp.mjs not found there (run \`npm run build:bundles\`)`);
   } else {
-    add('$VFKB_HOME', 'ok', home);
+    add('$VFKB_BUNDLE_DIR', 'ok', home);
+  }
+
+  // 3b. Deprecated env-var aliases still in use (ADR-0032) — work, but should be renamed.
+  if (env.VFKB_DIR && !env.VFKB_DATA_DIR) {
+    add('env (deprecated)', 'warn', 'VFKB_DIR is a deprecated alias — rename it to VFKB_DATA_DIR');
+  }
+  if (env.VFKB_HOME && !env.VFKB_BUNDLE_DIR) {
+    add('env (deprecated)', 'warn', 'VFKB_HOME is a deprecated alias — rename it to VFKB_BUNDLE_DIR');
   }
 
   // 4. MCP wiring.
