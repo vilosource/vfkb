@@ -6,6 +6,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
+import { writeManifest } from './manifest.js';
 
 export type InitAction = 'created' | 'updated' | 'skipped';
 export interface InitChange {
@@ -89,6 +90,9 @@ export function initProject(root: string, opts: { project?: string } = {}): Init
   } else {
     changes.push({ path: '.vfkb/entries.jsonl', action: 'skipped' });
   }
+
+  // 1b. Brain↔engine version stamp (FR-4) — committed, engine-written.
+  changes.push({ path: '.vfkb/manifest.json', action: writeManifest(brainDir) });
 
   // 2. .mcp.json — register the vfkb MCP server (merge, keep other servers).
   {

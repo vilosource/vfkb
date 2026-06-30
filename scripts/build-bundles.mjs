@@ -14,14 +14,30 @@
 // Usage: node scripts/build-bundles.mjs [outdir]   (default: dist/bundles)
 
 import { build } from 'esbuild';
-import { mkdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
+// Engine identity stamped into the bundles (FR-4 / src/version.ts). Best-effort:
+// version from package.json, commit from git (falls back if not a checkout).
+function engineIdentity() {
+  let version = '0.0.0';
+  try {
+    version = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8')).version ?? version;
+  } catch {}
+  let commit = 'unknown';
+  try {
+    commit = execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim();
+  } catch {}
+  return { version, commit };
+}
+
 export async function buildBundles(outdir = join(repoRoot, 'dist', 'bundles')) {
   mkdirSync(outdir, { recursive: true });
+  const id = engineIdentity();
   // No shebang banner: both entry files (src/cli.ts, src/mcp-server.ts) already
   // start with `#!/usr/bin/env node`, which esbuild preserves at line 1. Adding a
   // banner would emit a second shebang on line 2 (a syntax error).
@@ -32,6 +48,10 @@ export async function buildBundles(outdir = join(repoRoot, 'dist', 'bundles')) {
     target: 'node20',
     logLevel: 'silent',
     absWorkingDir: repoRoot,
+    define: {
+      __VFKB_VERSION__: JSON.stringify(id.version),
+      __VFKB_COMMIT__: JSON.stringify(id.commit),
+    },
   };
   const cli = join(outdir, 'vfkb.mjs');
   const mcp = join(outdir, 'vfkb-mcp.mjs');
