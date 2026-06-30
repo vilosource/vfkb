@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "VFKB_DIR=.vfkb VFKB_PROJECT=vfkb node dist/cli.js hook session-start"
+            "command": "VFKB_DATA_DIR=.vfkb VFKB_PROJECT=vfkb node .vfkb/bin/bootstrap.mjs cli hook session-start"
           }
         ]
       }
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "VFKB_DIR=.vfkb VFKB_PROJECT=vfkb node dist/cli.js hook pre-tool-use"
+            "command": "VFKB_DATA_DIR=.vfkb VFKB_PROJECT=vfkb node .vfkb/bin/bootstrap.mjs cli hook pre-tool-use"
           }
         ]
       }
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "VFKB_DIR=.vfkb VFKB_PROJECT=vfkb node dist/cli.js hook stop"
+            "command": "VFKB_DATA_DIR=.vfkb VFKB_PROJECT=vfkb node .vfkb/bin/bootstrap.mjs cli hook stop"
           }
         ]
       }
