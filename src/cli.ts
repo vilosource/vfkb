@@ -30,6 +30,7 @@ import { queryExplained } from './read.js';
 import { isBrainWrite, GATING_REASON } from './gating.js';
 import { decideStop, gatherStopContext } from './stop-reminder.js';
 import { save } from './git.js';
+import { initProject, approvalNotice } from './init.js';
 import type { AuthorRole, EntryType, Zone, DecisionStatus } from './types.js';
 
 function readStdin(): Promise<string> {
@@ -72,6 +73,18 @@ async function main() {
       process.stderr.write(`error: ${(err as Error).message}\n`);
       process.exit(1);
     }
+    return;
+  }
+
+  // init [project]: FR-1 (ADR-0030) — idempotently scaffold THIS repo (cwd) as a
+  // vfkb consumer (portable $VFKB_HOME wiring + .gitignore + empty brain + snippet).
+  if (cmd === 'init') {
+    const root = process.cwd();
+    const project = (sub && !sub.startsWith('--') ? sub : undefined) || process.env.VFKB_PROJECT;
+    const changes = initProject(root, { project });
+    const resolved = project || root.split(/[/\\]/).filter(Boolean).pop() || 'project';
+    for (const c of changes) process.stdout.write(`${c.action}\t${c.path}\n`);
+    process.stdout.write('\n' + approvalNotice(resolved) + '\n');
     return;
   }
 
