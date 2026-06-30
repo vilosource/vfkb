@@ -306,7 +306,8 @@ this roadmap did not already decide) it was sequenced via RFC-008 → accept, no
 **Order (re-ratified 2026-06-27):**
 `M1 ✅ → RFC-006 ✅ → M2a ✅ → M2b ✅ → M3 ✅` (**Track 1 complete**)
 `→ ADR-0022 ✅ → T5a ✅ → T5b ✅ → Track 4 (6 core ✅) → ADR-0023 ✅ → Track 4b (role-precedence ✅ → D-i verified-filter ✅ → D-iii relabel-on-promotion ✅ → D-iv pi-capture-results ✅ → D-ii context-doc ✅ ADR-0025)`. **Track 4b COMPLETE.**
-`→ Track 6 decision-capture fork (RFC-008 → ADR-0027 hook ✅ → ADR-0028 wiring-smoke ✅ → ADR-0029 DoD ✅; decision-capture L4 DEMONSTRATED 3/3 vs 0/3)` *(re-ratified 2026-06-29)*. **Track 6 COMPLETE — the in-repo H4 frontier is EXHAUSTED again.**
+`→ Track 6 decision-capture fork (RFC-008 → ADR-0027 hook ✅ → ADR-0028 wiring-smoke ✅ → ADR-0029 DoD ✅; decision-capture L4 DEMONSTRATED 3/3 vs 0/3)` *(re-ratified 2026-06-29)*. **Track 6 COMPLETE.**
+`→ Track 7 consumer distribution & onboarding fork (RFC-010 → ADR-0030; FR-2 bundle unknown spike-resolved ✅ before acceptance) → build FR-2 → FR-1 → FR-4 → FR-3 → CONSUMER-ONBOARDING.md` *(new fork, re-ratified 2026-06-30 on the vfwb onboarding evidence)*. **Track 7 IN PROGRESS — this is the active frontier.**
 **Track 4b is COMPLETE** — D-i `verified`-filter (pi/claude 2/3, 2026-06-27); D-iii relabel-on-promotion
 (`promotion-relabel` pi/claude 2/3, ADR-0024, 2026-06-27); D-iv pi live tool-result capture
 (`live-capture-result` pi 3/3, 2026-06-27; claude failure-capture EXTERNAL-BLOCKED); **D-ii context-doc +
@@ -346,7 +347,22 @@ In all three cases the response is the same: **update this roadmap and re-ratify
 — never leave the next step to an ad-hoc question. (Scope: in-repo `vfkb` only; vafi/vtaskforge
 work stays out-of-scope/HITL per H2.)
 
-### ▶ Current action — **Track 6 generalization runs (decision-capture × 2 tasks); then NONE: frontier EXHAUSTED** (re-ratified 2026-06-29)
+### ▶ Current action — **Track 7: Consumer distribution & onboarding** (re-ratified 2026-06-30)
+**New fork** off the vfwb onboarding evidence (brain fact `102a92f3`): vfkb's only working integration was
+the one hand-built for *this* repo, and its committed wiring runs the engine via **relative paths** that
+only resolve inside this repo — a hard blocker for any consumer. RFC-010 → **[ADR-0030](adr/ADR-0030-consumer-integration-and-distribution.md)**
+(Accepted 2026-06-30) adopts the **consumer integration & distribution contract**; the one technical unknown
+(single-file zero-dep MCP bundle) was **spiked and resolved before acceptance** (brain fact `8c547ae0` — a
+1.1 MB `vfkb-mcp.mjs` runs the full MCP handshake from a dir with no `node_modules`).
+**Build order (dependency-forced):** **FR-2** portable engine (`$VFKB_HOME` + single-file `esbuild` bundles)
+→ **FR-1** `vfkb init` → **FR-4** version stamp + `vfkb doctor` → **FR-3** `vfkb import` →
+**CONSUMER-ONBOARDING.md**. **DoD (ADR-0029):** an agent-driven scenario `scenarios/consumer-onboarding.mjs`
+extending the wiring smoke-gate (ADR-0028) **self→consumer** — `vfkb init` a throwaway repo, set `$VFKB_HOME`,
+real agent turn, observe SessionStart inject + PreToolUse gate + `kb_*` resolve, with a must-fail contrast
+arm. The live self-repo wiring migrates to `$VFKB_HOME` **only after** the consumer sandbox proves it (never
+edit the live tool in place — ADR-0028). **▶ NOW: build FR-2.** *(2026-06-29 state preserved below.)*
+
+### ▶ (prior) Current action — **Track 6 generalization runs (decision-capture × 2 tasks); then NONE: frontier EXHAUSTED** (re-ratified 2026-06-29)
 **Track 6 (decision-capture fork) shipped 2026-06-28** — RFC-008 → ADR-0027 (Stop-hook reminder, live) +
 ADR-0028 (wiring smoke-gate) + ADR-0029 (sandbox-proven DoD); `scenarios/decision-capture.mjs` DEMONSTRATED
 3/3 vs 0/3 (config-format, sonnet) and caught two real bugs. **Only open thread:** confirm capture
