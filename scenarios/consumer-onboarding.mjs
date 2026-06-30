@@ -4,11 +4,11 @@
 // ----------------------------------------------------------------------------
 // Proves the Track-7 capability END-TO-END, with a real agent, in a THROWAWAY
 // consumer repo — the way a non-self repo (vfwb, the fleet) will actually adopt
-// vfkb: `vfkb init` scaffolds the portable $VFKB_HOME wiring (FR-1), the
+// vfkb: `vfkb init` scaffolds the portable $VFKB_BUNDLE_DIR wiring (FR-1), the
 // single-file bundles resolve with NO node_modules (FR-2), and a real `claude`
 // turn in that repo GROUNDS on the repo's vfkb knowledge.
 //
-// Exercised together: FR-1 (init) + FR-2 ($VFKB_HOME bundle) + the SessionStart
+// Exercised together: FR-1 (init) + FR-2 ($VFKB_BUNDLE_DIR bundle) + the SessionStart
 // auto-layer — i.e. the whole onboarding path, observed not asserted.
 //
 //   PASS arm   — onboard a fresh repo (`vfkb init` + record a sentinel fact),
@@ -17,7 +17,7 @@
 //   CONTRAST   — a NOT-onboarded repo (no wiring, no knowledge): the same turn
 //                CANNOT produce the sentinel. (The must-fail arm — ADR-0029 #3.)
 //
-// Isolated from the live repo: the engine is resolved by ABSOLUTE $VFKB_HOME to
+// Isolated from the live repo: the engine is resolved by ABSOLUTE $VFKB_BUNDLE_DIR to
 // the repo's dist/bundles (self-contained, zero-dep) — the sandbox holds NO
 // symlink/breadcrumb back into the repo (avoids the known sandbox-leak gotcha).
 //
@@ -53,7 +53,7 @@ async function ensureBundles() {
 function vfkb(dir, BUNDLES, args, extraEnv = {}) {
   return sh('node', [join(BUNDLES, 'vfkb.mjs'), ...args], {
     cwd: dir,
-    env: { ...process.env, VFKB_HOME: BUNDLES, ...extraEnv },
+    env: { ...process.env, VFKB_BUNDLE_DIR: BUNDLES, ...extraEnv },
   });
 }
 
@@ -62,7 +62,7 @@ function onboard(BUNDLES) {
   const dir = mkdtempSync(join(tmpdir(), 'vfkb-onboard-'));
   vfkb(dir, BUNDLES, ['init', 'onboard-demo']);
   vfkb(dir, BUNDLES, ['add', 'fact', `the onboarding sentinel token is ${SENTINEL}`, '--role', 'human'], {
-    VFKB_DIR: '.vfkb',
+    VFKB_DATA_DIR: '.vfkb',
     VFKB_PROJECT: 'onboard-demo',
   });
   return dir;
@@ -73,7 +73,7 @@ function ask(dir, BUNDLES, { wired }) {
   const args = ['-p', QUESTION, '--dangerously-skip-permissions'];
   if (wired) args.push('--settings', join(dir, '.claude/settings.json'));
   try {
-    return sh('claude', args, { cwd: dir, timeout: TIMEOUT, env: { ...process.env, VFKB_HOME: BUNDLES } });
+    return sh('claude', args, { cwd: dir, timeout: TIMEOUT, env: { ...process.env, VFKB_BUNDLE_DIR: BUNDLES } });
   } catch (e) {
     return String(e.stdout || '') + String(e.stderr || '');
   }
@@ -93,7 +93,7 @@ try {
   // ── Deterministic pre-check: the onboarded wiring must surface the seed in the
   //    SessionStart injection. If not, fail cheap before spending a claude turn. ──
   onboarded = onboard(BUNDLES);
-  const injection = vfkb(onboarded, BUNDLES, ['hook', 'session-start'], { VFKB_DIR: '.vfkb', VFKB_PROJECT: 'onboard-demo' });
+  const injection = vfkb(onboarded, BUNDLES, ['hook', 'session-start'], { VFKB_DATA_DIR: '.vfkb', VFKB_PROJECT: 'onboard-demo' });
   if (!injection.includes(SENTINEL)) {
     console.error('PRE-CHECK FAILED: SessionStart injection did not surface the seeded fact.');
     rmSync(onboarded, { recursive: true, force: true });

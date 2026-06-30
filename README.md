@@ -60,7 +60,7 @@ It connects **per call** (open→call→close) so no child process lingers to bl
 ```
 cat > mcp.json <<'JSON'
 { "mcpServers": { "vfkb": { "command": "node", "args": ["dist/mcp-server.js"],
-                             "env": { "VFKB_DIR": "/path/to/brain" } } } }
+                             "env": { "VFKB_DATA_DIR": "/path/to/brain" } } } }
 JSON
 VFKB_MCP_CONFIG=$PWD/mcp.json pi -p -e dist/pi-mcp-bridge.js \
   --provider deepseek --model deepseek-v4-pro "Use kb_search to find X; reply only the value"
@@ -137,7 +137,7 @@ it) and is omitted from L4 (unit-tested instead).
 ## Try the auto-layer (against a throwaway brain)
 
 ```
-export VFKB_DIR=/tmp/vfkb && rm -rf "$VFKB_DIR"
+export VFKB_DATA_DIR=/tmp/vfkb && rm -rf "$VFKB_DATA_DIR"
 node dist/cli.js add fact "the canary token is BANANA-42." --role human
 # Claude Code:
 claude -p "what is the canary token? reply with only the token" --settings spike/settings.json
