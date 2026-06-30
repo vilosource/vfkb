@@ -70,6 +70,16 @@ describe('tools/call round-trips through the real engine', () => {
     expect(parsed.status).toBe('accepted');
   });
 
+  it('kb_add folds `why` into the entry text (gotcha 91338268)', async () => {
+    const add = await client.callTool({
+      name: 'kb_add',
+      arguments: { type: 'decision', text: 'use esbuild bundles', why: 'zero-dep portable engine' },
+    });
+    const id = callText(add).split(' ')[1];
+    const get = await client.callTool({ name: 'kb_get', arguments: { id } });
+    expect(JSON.parse(callText(get)).text).toContain('Why: zero-dep portable engine');
+  });
+
   it('kb_map reports topology', async () => {
     const map = await client.callTool({ name: 'kb_map', arguments: {} });
     expect(callText(map)).toContain('entries');

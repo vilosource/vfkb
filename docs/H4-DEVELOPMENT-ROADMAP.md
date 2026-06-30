@@ -392,7 +392,8 @@ edit the live tool in place — ADR-0028).
 120/120 unit green. **▶ ONLY REMAINING (deferred, needs operator go):** migrate THIS repo's live
 `.mcp.json`/`.claude/settings.json` to the `$VFKB_BUNDLE_DIR` form — now unblocked (sandbox-proven) but it
 alters the running session's own tooling, so do it deliberately (set `VFKB_BUNDLE_DIR`, verify, then flip).
-Side finding logged: the engine's decision `--why` is a no-op (gotcha `91338268`) — a follow-up.
+Side finding logged: the engine's decision `--why` is a no-op (gotcha `91338268`) — **FIXED** 2026-06-30
+(`AddOpts.why` → `foldWhy` folds rationale into the entry text in both `vfkb add --why` and `kb_add why`).
 *(2026-06-29 state preserved below.)*
 
 ### ▶ (prior) Current action — **Track 6 generalization runs (decision-capture × 2 tasks); then NONE: frontier EXHAUSTED** (re-ratified 2026-06-29)

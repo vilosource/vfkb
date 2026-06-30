@@ -81,6 +81,60 @@ function mcpToolNames(bundle: string, cwd: string, brain: string): Promise<strin
   });
 }
 
+// Drive the MCP server over stdio for a kb_add(why) → kb_get round-trip; returns the
+// stored entry text. Proves the BUNDLE (the consumer surface) folds `why` (gotcha 91338268).
+function mcpAddWhyGetText(bundle: string, cwd: string, brain: string): Promise<string> {
+  return new Promise((resolveP, reject) => {
+    const child = spawn('node', [bundle], {
+      cwd,
+      env: { ...process.env, VFKB_DIR: brain, VFKB_PROJECT: 'bundle-test' },
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    let buf = '';
+    const t = setTimeout(() => {
+      child.kill();
+      reject(new Error('mcp why round-trip timed out'));
+    }, 15000);
+    const send = (o: unknown) => child.stdin.write(JSON.stringify(o) + '\n');
+    child.stdout.on('data', (d) => {
+      buf += d;
+      let i: number;
+      while ((i = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, i).trim();
+        buf = buf.slice(i + 1);
+        if (!line) continue;
+        let msg: any;
+        try {
+          msg = JSON.parse(line);
+        } catch {
+          continue;
+        }
+        if (msg.id === 2) {
+          const added: string = msg.result?.content?.[0]?.text ?? '';
+          const id = (added.match(/added\s+(\S+)/) ?? [])[1];
+          send({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'kb_get', arguments: { id } } });
+        } else if (msg.id === 3) {
+          clearTimeout(t);
+          child.kill();
+          try {
+            resolveP(JSON.parse(msg.result?.content?.[0]?.text ?? '{}').text ?? '');
+          } catch {
+            resolveP('');
+          }
+        }
+      }
+    });
+    send({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 't', version: '0' } } });
+    send({ jsonrpc: '2.0', method: 'notifications/initialized' });
+    send({
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/call',
+      params: { name: 'kb_add', arguments: { type: 'decision', text: 'adopt the bundle', why: 'consumer surface' } },
+    });
+  });
+}
+
 describe('FR-2 portable single-file engine bundles (ADR-0030)', () => {
   beforeAll(async () => {
     const out = mkdtempSync(join(tmpdir(), 'vfkb-bundles-'));
@@ -106,6 +160,14 @@ describe('FR-2 portable single-file engine bundles (ADR-0030)', () => {
       'kb_supersede',
       'kb_transition',
     ]);
+  }, 30000);
+
+  it('vfkb-mcp.mjs folds kb_add `why` into the entry text (gotcha 91338268)', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'vfkb-consumer-'));
+    const brain = mkdtempSync(join(tmpdir(), 'vfkb-brain-'));
+    const text = await mcpAddWhyGetText(bundles.mcp, cwd, brain);
+    expect(text).toContain('adopt the bundle');
+    expect(text).toContain('Why: consumer surface');
   }, 30000);
 
   it('vfkb.mjs runs the engine (add → persisted) from a non-repo cwd with no node_modules', async () => {
