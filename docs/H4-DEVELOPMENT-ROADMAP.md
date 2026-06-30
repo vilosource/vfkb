@@ -360,7 +360,15 @@ only resolve inside this repo — a hard blocker for any consumer. RFC-010 → *
 extending the wiring smoke-gate (ADR-0028) **self→consumer** — `vfkb init` a throwaway repo, set `$VFKB_HOME`,
 real agent turn, observe SessionStart inject + PreToolUse gate + `kb_*` resolve, with a must-fail contrast
 arm. The live self-repo wiring migrates to `$VFKB_HOME` **only after** the consumer sandbox proves it (never
-edit the live tool in place — ADR-0028). **▶ NOW: build FR-2.** *(2026-06-29 state preserved below.)*
+edit the live tool in place — ADR-0028).
+**STATUS 2026-06-30 — Track 7 build COMPLETE:** FR-2 (portable single-file bundles, PR #5) ✅ · FR-1
+(`vfkb init`, PR #6) ✅ · consumer-onboarding capability **DEMONSTRATED 3/3** (PR #7) ✅ · FR-4
+(`manifest.json` + `vfkb doctor`, PR #8) ✅ · FR-3 (`vfkb import`, PR #9) ✅ · FR-5 CONSUMER-ONBOARDING.md ✅.
+120/120 unit green. **▶ ONLY REMAINING (deferred, needs operator go):** migrate THIS repo's live
+`.mcp.json`/`.claude/settings.json` to the `$VFKB_HOME` form — now unblocked (sandbox-proven) but it
+alters the running session's own tooling, so do it deliberately (set `VFKB_HOME`, verify, then flip).
+Side finding logged: the engine's decision `--why` is a no-op (gotcha `91338268`) — a follow-up.
+*(2026-06-29 state preserved below.)*
 
 ### ▶ (prior) Current action — **Track 6 generalization runs (decision-capture × 2 tasks); then NONE: frontier EXHAUSTED** (re-ratified 2026-06-29)
 **Track 6 (decision-capture fork) shipped 2026-06-28** — RFC-008 → ADR-0027 (Stop-hook reminder, live) +
