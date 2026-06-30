@@ -90,13 +90,14 @@ export function runDoctor(opts: { root: string; brainDir: string; env: Record<st
   // 5. Hooks wiring.
   const settings = readJson(join(root, '.claude', 'settings.json'));
   const hooks = settings?.hooks ?? {};
-  const have = ['SessionStart', 'PreToolUse', 'Stop'].filter((e) => JSON.stringify(hooks[e] ?? '').includes('vfkb'));
+  const expected = ['SessionStart', 'PreToolUse', 'Stop', 'SessionEnd'];
+  const have = expected.filter((e) => JSON.stringify(hooks[e] ?? '').includes('vfkb'));
   if (have.length === 0) {
     add('.claude/settings.json', 'warn', 'no vfkb hooks — run `vfkb init`');
-  } else if (have.length < 3) {
-    add('.claude/settings.json', 'warn', `only ${have.join(', ')} wired (expected SessionStart, PreToolUse, Stop)`);
+  } else if (have.length < expected.length) {
+    add('.claude/settings.json', 'warn', `only ${have.join(', ')} wired (expected ${expected.join(', ')})`);
   } else {
-    add('.claude/settings.json', 'ok', 'SessionStart, PreToolUse, Stop wired');
+    add('.claude/settings.json', 'ok', `${have.join(', ')} wired`);
   }
 
   // 5b. The committed bootstrap entry-point (ADR-0031).

@@ -30,6 +30,7 @@ import { queryExplained } from './read.js';
 import { isBrainWrite, GATING_REASON } from './gating.js';
 import { decideStop, gatherStopContext } from './stop-reminder.js';
 import { save } from './git.js';
+import { runSessionEnd } from './session-end.js';
 import { initProject, approvalNotice } from './init.js';
 import { runDoctor, renderDoctor } from './doctor.js';
 import { fromMykb, fromAdr, fromMarkdown, resolveMykbArea } from './import.js';
@@ -397,6 +398,32 @@ async function main() {
       return;
     }
 
+    // SessionEnd — GAP 2 (RFC-011 / ADR-0033): auto-commit the brain so `/exit` is
+    // safe by default. Cannot block exit / inject context (verified contract, gotcha
+    // f0e913b97824) → fire-and-forget; only a `systemMessage` (the main-branch warning)
+    // is surfaced. Fail-open: never throw, always exit 0.
+    if (sub === 'session-end') {
+      const raw = await readStdin();
+      let cwd: string | undefined;
+      let sessionId: string | undefined;
+      try {
+        const payload = JSON.parse(raw || '{}');
+        if (typeof payload.cwd === 'string') cwd = payload.cwd;
+        if (typeof payload.session_id === 'string') sessionId = payload.session_id;
+      } catch {
+        /* malformed → fall back to process.cwd()/env */
+      }
+      let systemMessage: string | undefined;
+      try {
+        const r = runSessionEnd({ cwd, sessionId });
+        systemMessage = r.systemMessage;
+      } catch {
+        /* fail-open: never block exit */
+      }
+      process.stdout.write(systemMessage ? JSON.stringify({ systemMessage }) : '{}');
+      return;
+    }
+
     // PreToolUse gating — deny direct writes to the brain (force engine writes).
     if (sub === 'pre-tool-use') {
       const raw = await readStdin();
@@ -430,7 +457,7 @@ async function main() {
 
   process.stderr.write(
     'usage: vfkb <add|list|search|query|map|context|context init|resume|resume-note|curate|distill|save|context-block|' +
-      'hook session-start|hook pre-tool-use|hook post-tool-use|hook stop>\n',
+      'hook session-start|hook pre-tool-use|hook post-tool-use|hook stop|hook session-end>\n',
   );
   process.exit(1);
 }
