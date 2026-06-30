@@ -49,3 +49,4 @@ Immutable records of significant vfkb architecture decisions, in
 | [ADR-0030](ADR-0030-consumer-integration-and-distribution.md) | Consumer integration & distribution contract — portable engine (`$VFKB_HOME` + single-file bundles), `vfkb init`, `import`, `doctor` | Accepted |
 | [ADR-0031](ADR-0031-bootstrap-engine-resolution-guard.md) | A committed bootstrap guards engine resolution and informs the user when `$VFKB_BUNDLE_DIR` is unset | Accepted |
 | [ADR-0032](ADR-0032-env-var-rename-data-dir-bundle-dir.md) | Rename env vars for clarity — `VFKB_DATA_DIR` (brain) + `VFKB_BUNDLE_DIR` (engine); old names kept as deprecated aliases | Accepted |
+| [ADR-0033](ADR-0033-session-end-continuity.md) | Session-end continuity — a `SessionEnd` brain auto-commit (GAP 2; branch-guarded, pathspec-scoped); GAP 1 handoff deferred | Accepted |

@@ -25,6 +25,10 @@ vfkb automatically** (this is vfkb's actual product surface, not just a CLI):
   - **`PreToolUse`** (Write/Edit/MultiEdit) → **gates direct writes to `.vfkb/`** (forces brain
     writes through the engine; normal code/doc edits pass through untouched).
   - **`Stop`** → the end-of-turn decision-capture reminder (ADR-0027).
+  - **`SessionEnd`** → **auto-commits the brain** so `/exit` is safe-by-default (ADR-0033, GAP 2):
+    commits **only** `.vfkb/entries.jsonl`, on the **current topic branch** (never `main` — it warns
+    instead), pathspec-scoped (never sweeps your staged work), no push. *(GAP 1 — a guaranteed handoff
+    entry — is not yet wired; still leave a `handoff`/`next` fact by hand. RFC-011 §B is open.)*
   - **`PostToolUse` auto-capture is intentionally OFF** — against the *committed* brain it would
     flood `.vfkb` with tool-call noise. Knowledge here is **deliberate** (`kb_add` / `vfkb add`).
 - **This repo now dogfoods the consumer wiring (ADR-0030/0031/0032):** the auto-layer resolves the
@@ -84,7 +88,7 @@ this is a **deliberate discipline**:
   (`nexus.optiscangroup.com`) → **ENOTFOUND off-VPN**. `node_modules` here was bootstrapped by
   copying from `~/GitHub/vfkb`. On VPN, a normal install works (or `--registry`).
 - **CLI:** `node dist/cli.js <cmd>` — `add|list|search|query|map|context|context init|resume|`
-  `resume-note|curate|distill|save|init|import|doctor|hook (session-start|pre-tool-use|post-tool-use|stop)`.
+  `resume-note|curate|distill|save|init|import|doctor|hook (session-start|pre-tool-use|post-tool-use|stop|session-end)`.
   Env: `VFKB_DATA_DIR` (brain/data dir; default `~/.vfkb`), `VFKB_PROJECT`, and `VFKB_BUNDLE_DIR`
   (the shared engine bundles — required by the auto-layer, see above). **`VFKB_DIR`/`VFKB_HOME` are
   deprecated aliases** (ADR-0032) — still honored. This repo's live auto-layer now uses the bootstrap +

@@ -85,6 +85,7 @@ function settingsHooks(project: string) {
       { matcher: 'Write|Edit|MultiEdit', hooks: [{ type: 'command', command: hookCommand(project, 'pre-tool-use') }] },
     ],
     Stop: [{ hooks: [{ type: 'command', command: hookCommand(project, 'stop') }] }],
+    SessionEnd: [{ hooks: [{ type: 'command', command: hookCommand(project, 'session-end') }] }],
   };
 }
 
