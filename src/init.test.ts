@@ -31,7 +31,7 @@ describe('vfkb init (FR-1)', () => {
     // .mcp.json — via the committed relative bootstrap (ADR-0031), project from the arg.
     const mcp = JSON.parse(read('.mcp.json'));
     expect(mcp.mcpServers.vfkb.args).toEqual(['.vfkb/bin/bootstrap.mjs', 'mcp']);
-    expect(mcp.mcpServers.vfkb.env).toEqual({ VFKB_DIR: '.vfkb', VFKB_PROJECT: 'demo' });
+    expect(mcp.mcpServers.vfkb.env).toEqual({ VFKB_DATA_DIR: '.vfkb', VFKB_PROJECT: 'demo' });
 
     // .claude/settings.json — the three hooks, via the bootstrap, no relative dist/ path.
     const settings = JSON.parse(read('.claude/settings.json'));
@@ -44,7 +44,7 @@ describe('vfkb init (FR-1)', () => {
 
     // the bootstrap is a committed, self-contained guard.
     const boot = read('.vfkb/bin/bootstrap.mjs');
-    expect(boot).toContain('VFKB_HOME');
+    expect(boot).toContain('VFKB_BUNDLE_DIR');
     expect(boot).not.toContain("from './"); // no engine import — must run standalone
 
     // version stamp (FR-4).

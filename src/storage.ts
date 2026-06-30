@@ -21,7 +21,8 @@ export function isTombstone(r: StoredRecord): r is Tombstone {
 }
 
 export function brainDir(): string {
-  return process.env.VFKB_DIR || join(homedir(), '.vfkb');
+  // VFKB_DATA_DIR is canonical; VFKB_DIR is a kept-working deprecated alias (ADR-0032).
+  return process.env.VFKB_DATA_DIR || process.env.VFKB_DIR || join(homedir(), '.vfkb');
 }
 function recordsFile(): string {
   return join(brainDir(), 'entries.jsonl');
