@@ -56,7 +56,7 @@ function flag(args: string[], name: string): string | undefined {
 async function main() {
   const [cmd, sub, ...rest] = process.argv.slice(2);
 
-  // --- add <type> <text> [--role] [--tag a,b] [--status] [--prov-status] [--valid-until] ---
+  // --- add <type> <text> [--role] [--tag a,b] [--why …] [--status] [--prov-status] [--valid-until] ---
   if (cmd === 'add') {
     const type = sub as EntryType;
     const role = (flag(rest, 'role') as AuthorRole) || 'executor';
@@ -64,6 +64,7 @@ async function main() {
     try {
       const e = addEntry(type, cleanText(rest), {
         role,
+        why: flag(rest, 'why'),
         tags,
         status: flag(rest, 'status') as any,
         provStatus: flag(rest, 'prov-status') as any,

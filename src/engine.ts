@@ -60,6 +60,10 @@ export function deriveTrust(role: AuthorRole): Trust {
 // --- Writes ---
 export interface AddOpts {
   role?: AuthorRole;
+  /** Rationale folded into the entry TEXT as a "Why: …" line (the envelope has no
+   *  `why` field — gotcha 91338268). Esp. for decisions. No-op if blank or if the
+   *  text already carries a "Why:" line. */
+  why?: string;
   tags?: string[];
   status?: KnowledgeEntry['status'];
   provStatus?: KnowledgeEntry['provenance']['status'];
@@ -70,7 +74,18 @@ export interface AddOpts {
   supersedes?: string; // refs.supersedes — set by supersede()
 }
 
+// Fold a `--why`/`why=` rationale into the entry text (gotcha 91338268: the envelope
+// has no `why` field, so rationale only persists in the text). No-op if blank or if a
+// "Why:" line is already present. Matches the import convention (mykb why → "Why: …").
+export function foldWhy(text: string, why?: string): string {
+  const w = (why ?? '').trim();
+  if (!w) return text;
+  if (/(^|\n)\s*why:/i.test(text)) return text;
+  return `${text}\n\nWhy: ${w}`;
+}
+
 export function addEntry(type: EntryType, text: string, opts: AddOpts = {}): KnowledgeEntry {
+  text = foldWhy(text, opts.why);
   assertNoSecrets(text); // no-secrets write-time lint (D6e) — throws on a planted secret
   const role: AuthorRole = opts.role ?? 'executor';
   const ts = nowIso();

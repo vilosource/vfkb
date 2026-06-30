@@ -13,6 +13,7 @@ import {
   addEntry,
   captureToolCall,
   deriveTrust,
+  foldWhy,
   isInjectable,
   readAll,
   rerank,
@@ -22,6 +23,25 @@ import {
 import type { KnowledgeEntry } from '../src/types.js';
 
 beforeEach(freshBrain);
+
+describe('foldWhy / addEntry({ why }) — rationale persistence (gotcha 91338268)', () => {
+  it('folds a why into the text as a "Why:" line', () => {
+    expect(foldWhy('chose JSON', 'simpler to parse')).toBe('chose JSON\n\nWhy: simpler to parse');
+  });
+  it('is a no-op for blank/undefined why', () => {
+    expect(foldWhy('t', undefined)).toBe('t');
+    expect(foldWhy('t', '   ')).toBe('t');
+  });
+  it('does not double up when the text already carries a Why:', () => {
+    const t = 'chose JSON\n\nWhy: already explained';
+    expect(foldWhy(t, 'ignored')).toBe(t);
+  });
+  it('addEntry persists the rationale (it would otherwise be dropped)', () => {
+    const e = addEntry('decision', 'use vitest', { role: 'human', why: 'fast deterministic gate' });
+    expect(e.text).toContain('Why: fast deterministic gate');
+    expect(readAll().find((x) => x.id === e.id)?.text).toContain('Why: fast deterministic gate');
+  });
+});
 
 describe('deriveTrust (ADR-0011)', () => {
   it('maps roles to the trust projection', () => {
