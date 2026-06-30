@@ -31,6 +31,7 @@ import { isBrainWrite, GATING_REASON } from './gating.js';
 import { decideStop, gatherStopContext } from './stop-reminder.js';
 import { save } from './git.js';
 import { initProject, approvalNotice } from './init.js';
+import { runDoctor, renderDoctor } from './doctor.js';
 import type { AuthorRole, EntryType, Zone, DecisionStatus } from './types.js';
 
 function readStdin(): Promise<string> {
@@ -85,6 +86,18 @@ async function main() {
     const resolved = project || root.split(/[/\\]/).filter(Boolean).pop() || 'project';
     for (const c of changes) process.stdout.write(`${c.action}\t${c.path}\n`);
     process.stdout.write('\n' + approvalNotice(resolved) + '\n');
+    return;
+  }
+
+  // doctor: FR-4 (ADR-0030) — diagnose brain↔engine compat + wiring health.
+  if (cmd === 'doctor') {
+    const report = runDoctor({
+      root: process.cwd(),
+      brainDir: process.env.VFKB_DIR || '.vfkb',
+      env: process.env,
+    });
+    process.stdout.write(renderDoctor(report) + '\n');
+    if (!report.ok) process.exit(1);
     return;
   }
 
