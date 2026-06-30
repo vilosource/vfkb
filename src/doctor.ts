@@ -91,6 +91,13 @@ export function runDoctor(opts: { root: string; brainDir: string; env: Record<st
     add('.claude/settings.json', 'ok', 'SessionStart, PreToolUse, Stop wired');
   }
 
+  // 5b. The committed bootstrap entry-point (ADR-0031).
+  if (existsSync(join(root, '.vfkb', 'bin', 'bootstrap.mjs'))) {
+    add('bootstrap', 'ok', '.vfkb/bin/bootstrap.mjs present');
+  } else if (mcp?.mcpServers?.vfkb || have.length > 0) {
+    add('bootstrap', 'warn', 'wiring present but .vfkb/bin/bootstrap.mjs is missing — run `vfkb init`');
+  }
+
   // 6. VFKB_PROJECT consistency across the two wiring files.
   const settingsProject = projectFromSettings(settings);
   if (mcpProject && settingsProject && mcpProject !== settingsProject) {
