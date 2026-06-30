@@ -173,8 +173,13 @@ The capability is **agent-facing**, so its proof is an **agent-driven L4 / sandb
 
 ## Open items
 
-1. **Spike FR-2's MCP bundle** — prove `@modelcontextprotocol/sdk` + `zod` esbuild into a single
-   runnable `vfkb-mcp.mjs` (or fall back to a vendored bundle dir). **Gates the ADR.**
+1. ~~**Spike FR-2's MCP bundle**~~ — **RESOLVED (2026-06-30, observed).** `esbuild 0.21.5
+   --bundle --platform=node --format=esm` produces a single **1.1 MB** `vfkb-mcp.mjs` with
+   `@modelcontextprotocol/sdk` + `zod` inlined and **zero externals**; run from a dir with **no
+   `node_modules`** it completed the MCP `initialize` handshake and `tools/list` advertised **all 9
+   `kb_*` tools`. So the single-file bundle is feasible — **no vendored-bundle-dir fallback needed**;
+   `cli.ts` bundles the same way for `vfkb.mjs`. (Brain: fact `8c547ae0`.) The ADR is no longer
+   blocked on this unknown.
 2. **`manifest.json` vs `index-meta.json`** — decide whether the version stamp extends the existing
    derived `index-meta.json` or gets its own committed/derived split (it must not become a hand-edited
    committed file that drifts).
