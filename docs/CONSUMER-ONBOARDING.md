@@ -20,6 +20,14 @@ The engine is resolved through one environment variable, **`$VFKB_HOME`** — so
 wiring works on every machine, container, and clone, with **no machine paths in git** and **no
 `node_modules`** on the consumer side.
 
+## If you forget `$VFKB_HOME`
+
+You won't get a cryptic failure. The committed bootstrap (`.vfkb/bin/bootstrap.mjs`, ADR-0031) detects
+an unset/invalid `$VFKB_HOME` and **degrades gracefully**: at session start it injects a clear
+**⚠️ "vfkb is INACTIVE: VFKB_HOME is not set — here's the fix"** banner, the write-gate stops blocking
+(your edits aren't held hostage), and nothing crashes. Set the variable (below) and you're live. Run
+`vfkb doctor` any time to check.
+
 ## One-time, per machine
 
 1. **Build the single-file bundles** (in a checkout of the vfkb repo):
@@ -46,8 +54,9 @@ wiring works on every machine, container, and clone, with **no machine paths in 
    |---|---|
    | `.vfkb/entries.jsonl` | the brain (empty; an existing brain is never clobbered) |
    | `.vfkb/manifest.json` | brain↔engine version stamp (committed) |
-   | `.mcp.json` | registers the `vfkb` MCP server via `${VFKB_HOME}/vfkb-mcp.mjs` |
-   | `.claude/settings.json` | SessionStart / PreToolUse-gate / Stop hooks via `$VFKB_HOME/vfkb.mjs` |
+   | `.vfkb/bin/bootstrap.mjs` | committed engine-resolution guard (committed; see below) |
+   | `.mcp.json` | registers the `vfkb` MCP server via the bootstrap |
+   | `.claude/settings.json` | SessionStart / PreToolUse-gate / Stop hooks via the bootstrap |
    | `.gitignore` | the derived/operational stanza (only `entries.jsonl` + `manifest.json` are committed) |
    | `AGENTS.md` | a parameterized "how we track work HERE" snippet |
 
