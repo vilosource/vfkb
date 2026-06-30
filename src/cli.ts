@@ -118,7 +118,7 @@ async function main() {
   if (cmd === 'doctor') {
     const report = runDoctor({
       root: process.cwd(),
-      brainDir: process.env.VFKB_DIR || '.vfkb',
+      brainDir: process.env.VFKB_DATA_DIR || process.env.VFKB_DIR || '.vfkb',
       env: process.env,
     });
     process.stdout.write(renderDoctor(report) + '\n');

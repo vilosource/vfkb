@@ -27,7 +27,7 @@ beforeAll(() => {
 function run(args: string[], env: Record<string, string | undefined>) {
   return spawnSync('node', [bootstrap, ...args], {
     encoding: 'utf8',
-    env: { ...process.env, VFKB_HOME: undefined, ...env },
+    env: { ...process.env, VFKB_HOME: undefined, VFKB_BUNDLE_DIR: undefined, ...env },
   });
 }
 
@@ -37,7 +37,7 @@ describe('bootstrap guard (ADR-0031)', () => {
     expect(r.status).toBe(0);
     const payload = JSON.parse(r.stdout);
     expect(payload.hookSpecificOutput.hookEventName).toBe('SessionStart');
-    expect(payload.hookSpecificOutput.additionalContext).toContain('VFKB_HOME');
+    expect(payload.hookSpecificOutput.additionalContext).toContain('VFKB_BUNDLE_DIR');
     expect(payload.hookSpecificOutput.additionalContext).toContain('INACTIVE');
   });
 
@@ -45,7 +45,7 @@ describe('bootstrap guard (ADR-0031)', () => {
     const r = run(['cli', 'hook', 'pre-tool-use'], { VFKB_HOME: undefined });
     expect(r.status).toBe(0);
     expect(r.stdout.trim()).toBe('');
-    expect(r.stderr).toContain('VFKB_HOME'); // informs on stderr
+    expect(r.stderr).toContain('VFKB_BUNDLE_DIR'); // informs on stderr
   });
 
   it('VFKB_HOME unset + mcp: exits cleanly (no crash)', () => {
@@ -54,12 +54,18 @@ describe('bootstrap guard (ADR-0031)', () => {
   });
 
   it('VFKB_HOME set: runs the resolved engine transparently (passthrough)', () => {
+    const r = run(['cli', 'hook', 'session-start'], { VFKB_BUNDLE_DIR: fakeHome });
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim()).toBe('ENGINE hook session-start');
+  });
+
+  it('VFKB_HOME still works as a deprecated alias (passthrough)', () => {
     const r = run(['cli', 'hook', 'session-start'], { VFKB_HOME: fakeHome });
     expect(r.status).toBe(0);
     expect(r.stdout.trim()).toBe('ENGINE hook session-start');
   });
 
-  it('VFKB_HOME set but bundles missing: degrades like unset', () => {
+  it('VFKB_BUNDLE_DIR set but bundles missing: degrades like unset', () => {
     const empty = mkdtempSync(join(tmpdir(), 'vfkb-empty-'));
     const r = run(['cli', 'hook', 'session-start'], { VFKB_HOME: empty });
     expect(r.status).toBe(0);

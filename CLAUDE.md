@@ -18,7 +18,7 @@ Repo: `git@github.com:vilosource/vfkb.git` (vilosource/vfkb). Dev working copy: 
 
 This repo ships the Claude Code integration committed at the root, so a session here **runs on
 vfkb automatically** (this is vfkb's actual product surface, not just a CLI):
-- **`.mcp.json`** registers the **`vfkb` MCP server** (`node dist/mcp-server.js`, `VFKB_DIR=.vfkb`)
+- **`.mcp.json`** registers the **`vfkb` MCP server** (`node dist/mcp-server.js`, `VFKB_DATA_DIR=.vfkb`)
   → you have the 9 `mcp__vfkb__kb_*` tools (`kb_search`, `kb_context`, `kb_add`, `kb_resume`, …).
 - **`.claude/settings.json`** hooks:
   - **`SessionStart`** → injects the resume digest + knowledge bundle (continuity, automatic).
@@ -36,22 +36,22 @@ So prefer the **`mcp__vfkb__*` tools** in-session; the CLI (below) is the equiva
 - **Do NOT use mykb / the `kb` CLI / `~/.mykb`** in this repo. That operator workflow does **not**
   apply here.
 - **vfkb tracks its own development by dogfooding its self-hosted design-brain `.vfkb/`** (ADR-0019),
-  via the `vfkb` CLI against `VFKB_DIR=.vfkb`:
+  via the `vfkb` CLI against `VFKB_DATA_DIR=.vfkb`:
   - **Session START** — get the handoff:
-    `VFKB_DIR=.vfkb VFKB_PROJECT=vfkb node dist/cli.js resume`
+    `VFKB_DATA_DIR=.vfkb VFKB_PROJECT=vfkb node dist/cli.js resume`
   - **During work** — record knowledge into the brain:
-    - `VFKB_DIR=.vfkb node dist/cli.js add decision "…" --why "…" --role human`
-    - `VFKB_DIR=.vfkb node dist/cli.js add fact|gotcha|pattern "…" --role human [--tags a,b]`
-    - `VFKB_DIR=.vfkb node dist/cli.js add link "…" "<path-or-url>" --role human`
+    - `VFKB_DATA_DIR=.vfkb node dist/cli.js add decision "…" --why "…" --role human`
+    - `VFKB_DATA_DIR=.vfkb node dist/cli.js add fact|gotcha|pattern "…" --role human [--tags a,b]`
+    - `VFKB_DATA_DIR=.vfkb node dist/cli.js add link "…" "<path-or-url>" --role human`
   - **Session END** — leave continuity, then commit the brain:
-    `VFKB_DIR=.vfkb node dist/cli.js resume-note "what the next session should pick up"`
+    `VFKB_DATA_DIR=.vfkb node dist/cli.js resume-note "what the next session should pick up"`
     then `git add .vfkb && git commit` (the brain ships **with** the repo — ADR-0019).
 - Git is the source of truth; **only `.vfkb/entries.jsonl` is committed** — `.vfkb/.sessions/`,
   `.signals/`, `index-meta.json` are gitignored (derived/operational, ADR-0019). So **cross-clone
   continuity lives in committed entries + this CLAUDE.md**, not in `resume-note` (session records are
   local). Record durable handoff state as **entries** (e.g. a `fact` tagged `status`/`handoff`), which
   `vfkb resume`'s knowledge bundle surfaces in any clone.
-- Ergonomic shortcut (optional): `alias vfkb='VFKB_DIR=.vfkb node ~/VFKB/vfkb/dist/cli.js'`, or
+- Ergonomic shortcut (optional): `alias vfkb='VFKB_DATA_DIR=.vfkb node ~/VFKB/vfkb/dist/cli.js'`, or
   `npm link` for a global `vfkb` / `vfkb-mcp`.
 
 ## Capturing decisions (standing rule — do this, don't defer)
@@ -79,8 +79,10 @@ this is a **deliberate discipline**:
   (`nexus.optiscangroup.com`) → **ENOTFOUND off-VPN**. `node_modules` here was bootstrapped by
   copying from `~/GitHub/vfkb`. On VPN, a normal install works (or `--registry`).
 - **CLI:** `node dist/cli.js <cmd>` — `add|list|search|query|map|context|context init|resume|`
-  `resume-note|curate|distill|save|hook (session-start|pre-tool-use|post-tool-use)`. Env:
-  `VFKB_DIR` (brain dir; default `~/.vfkb`), `VFKB_PROJECT`.
+  `resume-note|curate|distill|save|init|import|doctor|hook (session-start|pre-tool-use|post-tool-use|stop)`.
+  Env: `VFKB_DATA_DIR` (brain/data dir; default `~/.vfkb`), `VFKB_PROJECT`, and `VFKB_BUNDLE_DIR`
+  (the shared engine bundles, for consumer wiring). **`VFKB_DIR`/`VFKB_HOME` are deprecated aliases**
+  (ADR-0032) — still honored; this repo's live wiring still uses `VFKB_DIR`/`dist/`.
 - **MCP server:** `node dist/mcp-server.js` — 9 tools: `kb_add` `kb_get` `kb_list` `kb_map`
   `kb_context` `kb_search` `kb_supersede` `kb_transition` `kb_resume`.
 
@@ -166,7 +168,7 @@ this is a **deliberate discipline**:
 
 ## Key files
 
-- `src/storage.ts` (JSONL kernel; `brainDir = VFKB_DIR || ~/.vfkb`; context spine), `src/engine.ts`
+- `src/storage.ts` (JSONL kernel; `brainDir = VFKB_DATA_DIR || ~/.vfkb`; context spine), `src/engine.ts`
   (filter/rerank/render; decision family; capture; `renderContext`; `setProvenanceStatus`),
   `src/read.ts` (query incl. the `verified` trust filter), `src/mcp-server.ts` (9 tools incl.
   `kb_context`), `src/cli.ts` (CLI + Claude-Code hooks), `src/pi-extension.ts` (Pi face;
