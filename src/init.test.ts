@@ -21,6 +21,7 @@ describe('vfkb init (FR-1)', () => {
     const changes = initProject(root, { project: 'demo' });
     const actions = Object.fromEntries(changes.map((c) => [c.path, c.action]));
     expect(actions['.vfkb/entries.jsonl']).toBe('created');
+    expect(actions['.vfkb/manifest.json']).toBe('created');
     expect(actions['.mcp.json']).toBe('created');
     expect(actions['.claude/settings.json']).toBe('created');
     expect(actions['.gitignore']).toBe('created');
@@ -39,6 +40,9 @@ describe('vfkb init (FR-1)', () => {
     expect(blob).toContain('VFKB_PROJECT=demo');
     expect(blob).not.toContain('dist/cli.js');
     expect(settings.hooks.PreToolUse[0].matcher).toBe('Write|Edit|MultiEdit');
+
+    // version stamp (FR-4).
+    expect(JSON.parse(read('.vfkb/manifest.json')).schema_version).toBe(1);
 
     // empty brain + gitignore stanza + snippet marker.
     expect(read('.vfkb/entries.jsonl')).toBe('');
