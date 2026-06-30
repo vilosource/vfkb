@@ -48,6 +48,14 @@ interface BrainEntry {
   tags?: string[];
 }
 
+// Repo-relative path to the brain file, POSIX-normalized. git's `HEAD:<path>` tree
+// lookup needs forward slashes even on Windows (path.join yields `\` there) — without
+// this, the lookup fails, headCount→0, and every existing entry is treated as "new".
+// Matches the convention in stop-reminder.ts (relative(...).replace(/\\/g,'/')).
+export function brainEntriesRelPath(dataDir: string): string {
+  return join(dataDir, 'entries.jsonl').replace(/\\/g, '/');
+}
+
 function tryGit(git: GitRunner, args: string[], cwd: string): string | null {
   try {
     return git(args, cwd).trim();
@@ -146,7 +154,7 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
   const cwd = opts.cwd || process.cwd();
   const dataDir = opts.dataDir || process.env.VFKB_DATA_DIR || process.env.VFKB_DIR || '.vfkb';
   const sessionId = opts.sessionId ?? process.env.KB_SESSION_ID;
-  const entries = join(dataDir, 'entries.jsonl');
+  const entries = brainEntriesRelPath(dataDir);
 
   try {
     // 1) Must be inside a git work tree (committed-brain model). Otherwise no-op.

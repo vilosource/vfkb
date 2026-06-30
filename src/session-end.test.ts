@@ -9,7 +9,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, appendFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runSessionEnd } from './session-end.js';
+import { runSessionEnd, brainEntriesRelPath } from './session-end.js';
 
 let repo: string;
 const git = (args: string[], cwd = repo) =>
@@ -40,6 +40,16 @@ beforeEach(() => {
   writeFileSync(join(repo, 'README.md'), '# repo\n');
   git(['add', '-A']);
   git(['commit', '-q', '-m', 'init']);
+});
+
+describe('brainEntriesRelPath — POSIX normalization for git HEAD: lookup', () => {
+  it('passes posix paths through unchanged', () => {
+    expect(brainEntriesRelPath('.vfkb')).toBe('.vfkb/entries.jsonl');
+  });
+  it('normalizes backslashes to forward slashes (the Windows git HEAD: bug)', () => {
+    // simulates a win32 path.join result / a backslash-containing dataDir
+    expect(brainEntriesRelPath('sub\\.vfkb')).toBe('sub/.vfkb/entries.jsonl');
+  });
 });
 
 describe('SessionEnd auto-commit (GAP 2)', () => {
