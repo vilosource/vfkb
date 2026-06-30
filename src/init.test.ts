@@ -24,22 +24,28 @@ describe('vfkb init (FR-1)', () => {
     expect(actions['.vfkb/manifest.json']).toBe('created');
     expect(actions['.mcp.json']).toBe('created');
     expect(actions['.claude/settings.json']).toBe('created');
+    expect(actions['.vfkb/bin/bootstrap.mjs']).toBe('created');
     expect(actions['.gitignore']).toBe('created');
     expect(actions['AGENTS.md']).toBe('created');
 
-    // .mcp.json — portable $VFKB_HOME form, project from the arg.
+    // .mcp.json — via the committed relative bootstrap (ADR-0031), project from the arg.
     const mcp = JSON.parse(read('.mcp.json'));
-    expect(mcp.mcpServers.vfkb.args).toEqual(['${VFKB_HOME}/vfkb-mcp.mjs']);
+    expect(mcp.mcpServers.vfkb.args).toEqual(['.vfkb/bin/bootstrap.mjs', 'mcp']);
     expect(mcp.mcpServers.vfkb.env).toEqual({ VFKB_DIR: '.vfkb', VFKB_PROJECT: 'demo' });
 
-    // .claude/settings.json — the three hooks, $VFKB_HOME, no relative dist/ path.
+    // .claude/settings.json — the three hooks, via the bootstrap, no relative dist/ path.
     const settings = JSON.parse(read('.claude/settings.json'));
     expect(Object.keys(settings.hooks).sort()).toEqual(['PreToolUse', 'SessionStart', 'Stop']);
     const blob = JSON.stringify(settings);
-    expect(blob).toContain('$VFKB_HOME/vfkb.mjs');
+    expect(blob).toContain('.vfkb/bin/bootstrap.mjs cli hook');
     expect(blob).toContain('VFKB_PROJECT=demo');
     expect(blob).not.toContain('dist/cli.js');
     expect(settings.hooks.PreToolUse[0].matcher).toBe('Write|Edit|MultiEdit');
+
+    // the bootstrap is a committed, self-contained guard.
+    const boot = read('.vfkb/bin/bootstrap.mjs');
+    expect(boot).toContain('VFKB_HOME');
+    expect(boot).not.toContain("from './"); // no engine import — must run standalone
 
     // version stamp (FR-4).
     expect(JSON.parse(read('.vfkb/manifest.json')).schema_version).toBe(1);
