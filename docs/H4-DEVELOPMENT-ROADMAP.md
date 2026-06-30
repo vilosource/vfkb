@@ -307,7 +307,8 @@ this roadmap did not already decide) it was sequenced via RFC-008 → accept, no
 `M1 ✅ → RFC-006 ✅ → M2a ✅ → M2b ✅ → M3 ✅` (**Track 1 complete**)
 `→ ADR-0022 ✅ → T5a ✅ → T5b ✅ → Track 4 (6 core ✅) → ADR-0023 ✅ → Track 4b (role-precedence ✅ → D-i verified-filter ✅ → D-iii relabel-on-promotion ✅ → D-iv pi-capture-results ✅ → D-ii context-doc ✅ ADR-0025)`. **Track 4b COMPLETE.**
 `→ Track 6 decision-capture fork (RFC-008 → ADR-0027 hook ✅ → ADR-0028 wiring-smoke ✅ → ADR-0029 DoD ✅; decision-capture L4 DEMONSTRATED 3/3 vs 0/3)` *(re-ratified 2026-06-29)*. **Track 6 COMPLETE.**
-`→ Track 7 consumer distribution & onboarding fork (RFC-010 → ADR-0030; FR-2 bundle unknown spike-resolved ✅ before acceptance) → build FR-2 → FR-1 → FR-4 → FR-3 → CONSUMER-ONBOARDING.md` *(new fork, re-ratified 2026-06-30 on the vfwb onboarding evidence)*. **Track 7 IN PROGRESS — this is the active frontier.**
+`→ Track 7 consumer distribution & onboarding fork (RFC-010 → ADR-0030; FR-2 bundle unknown spike-resolved ✅ before acceptance) → build FR-2 → FR-1 → FR-4 → FR-3 → CONSUMER-ONBOARDING.md` *(new fork, re-ratified 2026-06-30 on the vfwb onboarding evidence)*. **Track 7 COMPLETE.**
+`→ Track 8 session-end continuity fork (RFC-011 → ADR-0033; SessionEnd contract verified ✅ gotcha f0e913b9) → GAP 2 brain auto-commit ✅ (built + deterministic gate green + bundle smoke + live-wired) → GAP 1 handoff surface OPEN (B1/B2 L4 contrast)` *(new fork, re-ratified 2026-06-30 — this is the active frontier)*. **Track 8 GAP 2 COMPLETE; GAP 1 NEXT.**
 **Track 4b is COMPLETE** — D-i `verified`-filter (pi/claude 2/3, 2026-06-27); D-iii relabel-on-promotion
 (`promotion-relabel` pi/claude 2/3, ADR-0024, 2026-06-27); D-iv pi live tool-result capture
 (`live-capture-result` pi 3/3, 2026-06-27; claude failure-capture EXTERNAL-BLOCKED); **D-ii context-doc +
@@ -347,7 +348,26 @@ In all three cases the response is the same: **update this roadmap and re-ratify
 — never leave the next step to an ad-hoc question. (Scope: in-repo `vfkb` only; vafi/vtaskforge
 work stays out-of-scope/HITL per H2.)
 
-### ▶ Current action — **Track 7: Consumer distribution & onboarding** (re-ratified 2026-06-30)
+### ▶ Current action — **Track 8: Session-end continuity (safe-by-default `/exit`)** (re-ratified 2026-06-30)
+**New fork** (operator-requested, brain fact `d23912ca`): session START continuity is solid (ADR-0020
+resume digest), but session END had two gaps making `/exit` unsafe — **GAP 1** no durable handoff
+auto-capture, **GAP 2** nothing auto-commits the brain (so `/exit` leaves `entries.jsonl` uncommitted →
+invisible to a fresh clone). RFC-011 → **[ADR-0033](adr/ADR-0033-session-end-continuity.md)** (Accepted
+2026-06-30). The **SessionEnd hook contract was empirically verified** (CLI v2.1.196, gotcha
+`f0e913b97824`): SessionEnd can run commands at the project cwd (→ GAP 2 feasible) but **cannot inject /
+prompt** (→ GAP 1 can't live on SessionEnd).
+**STATUS 2026-06-30 — GAP 2 COMPLETE:** `vfkb hook session-end` (`src/session-end.ts`) auto-commits
+**only** `.vfkb/entries.jsonl`, on the current topic branch, **never on the default branch** (warns
+instead), pathspec-scoped (`git commit -o`, never sweeps the operator's staged work), no push. Proof =
+the **deterministic smoke-gate** `src/session-end.test.ts` (6 cases, ADR-0029) + a bundle smoke + live
+`.claude/settings.json` wiring + `vfkb init` emission. 135/135 unit green.
+**▶ GAP 1 NEXT (open, the active sub-frontier):** decide the handoff surface — **B1** Stop-hook nudge
+(per-turn, agent-authored) vs **B2** SessionEnd auto-derive from `transcript_path` (right timing, lower
+quality) vs **B1+B2** — settled empirically by an agent-driven L4 contrast (RFC-011 §B / open items 2–3,
+DoD). The per-turn-vs-end-of-session timing mismatch is the crux. Build GAP 1 scenario-first (ADR-0023).
+*(2026-06-30 Track-7 state preserved below.)*
+
+### ▶ (prior) Current action — **Track 7: Consumer distribution & onboarding** (re-ratified 2026-06-30)
 **New fork** off the vfwb onboarding evidence (brain fact `102a92f3`): vfkb's only working integration was
 the one hand-built for *this* repo, and its committed wiring runs the engine via **relative paths** that
 only resolve inside this repo — a hard blocker for any consumer. RFC-010 → **[ADR-0030](adr/ADR-0030-consumer-integration-and-distribution.md)**
