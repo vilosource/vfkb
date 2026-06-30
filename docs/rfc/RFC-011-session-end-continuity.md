@@ -1,7 +1,8 @@
 # RFC-011: Session-end continuity — safe-by-default `/exit`
 
-- **Status:** **Accepted → [ADR-0033](../adr/ADR-0033-session-end-continuity.md)** (2026-06-30; GAP 2
-  built + gated). GAP 1 (the handoff surface) remains open pending the L4 contrast (§B / open items 2–3).
+- **Status:** **Accepted → [ADR-0033](../adr/ADR-0033-session-end-continuity.md)** (2026-06-30; GAP 2 +
+  the GAP-1 **B2 deterministic floor** built & gated). The higher-quality **B1** Stop nudge + the metered
+  L4 quality contrast remain open (§B / open items 2–3).
 - **Date:** 2026-06-30
 - **Deciders:** operator + Claude
 - **Relates:** [ADR-0019](../adr/ADR-0019-self-hosted-design-brain.md) (the brain ships **inside**

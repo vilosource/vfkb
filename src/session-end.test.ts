@@ -6,7 +6,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, appendFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { runSessionEnd } from './session-end.js';
@@ -20,6 +20,14 @@ const ENTRIES = '.vfkb/entries.jsonl';
 function addEntry(line = '{"id":"x","type":"fact","text":"t"}') {
   appendFileSync(join(repo, ENTRIES), line + '\n');
 }
+// A handoff-tagged entry suppresses the B2 auto-handoff — use it to keep the
+// GAP-2 commit-mechanics tests isolated from the GAP-1 (B2) behaviour.
+const HANDOFF_ENTRY = '{"id":"h","type":"fact","text":"next: do the thing","tags":["handoff"]}';
+const readEntries = (): Array<{ id?: string; type?: string; text?: string; tags?: string[] }> =>
+  readFileSync(join(repo, ENTRIES), 'utf8')
+    .split('\n')
+    .filter(Boolean)
+    .map((l) => JSON.parse(l));
 
 beforeEach(() => {
   repo = mkdtempSync(join(tmpdir(), 'vfkb-se-'));
@@ -37,7 +45,7 @@ beforeEach(() => {
 describe('SessionEnd auto-commit (GAP 2)', () => {
   it('commits ONLY entries.jsonl on a topic branch, attribution-free message', () => {
     git(['checkout', '-q', '-b', 'feat/work']);
-    addEntry();
+    addEntry(HANDOFF_ENTRY); // handoff present → no B2 auto-handoff, keeps added=1
     const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb', sessionId: 'abcd1234efgh' });
 
     expect(r.committed).toBe(true);
@@ -76,7 +84,7 @@ describe('SessionEnd auto-commit (GAP 2)', () => {
     // Operator has staged their own file for a separate commit.
     writeFileSync(join(repo, 'src.txt'), 'operator work\n');
     git(['add', 'src.txt']);
-    addEntry();
+    addEntry(HANDOFF_ENTRY); // isolate from B2
 
     const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb' });
     expect(r.committed).toBe(true);
@@ -117,5 +125,41 @@ describe('SessionEnd auto-commit (GAP 2)', () => {
     const r = runSessionEnd({ cwd: bare, dataDir: '.vfkb' });
     expect(r.committed).toBe(false);
     expect(r.reason).toBe('not-a-repo');
+  });
+
+  // GAP 1 (B2 deterministic floor): when a session records knowledge but no handoff,
+  // SessionEnd writes a fallback handoff enumerating the new entries, then commits it.
+  it('writes & commits an auto-handoff when the session left none (B2)', () => {
+    git(['checkout', '-q', '-b', 'feat/work']);
+    addEntry('{"id":"k1","type":"decision","text":"chose approach X over Y"}');
+    addEntry('{"id":"k2","type":"gotcha","text":"watch out for Z"}');
+
+    const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb' });
+    expect(r.committed).toBe(true);
+    expect(r.autoHandoff).toBe(true);
+
+    const entries = readEntries();
+    const auto = entries.find((e) => (e.tags ?? []).includes('auto'));
+    expect(auto).toBeDefined();
+    expect(auto!.tags).toEqual(expect.arrayContaining(['handoff', 'next', 'auto']));
+    // It enumerates the session's real entries (so a fresh clone has a pointer).
+    expect(auto!.text).toContain('k1');
+    expect(auto!.text).toContain('k2');
+
+    // It is COMMITTED (survives a fresh clone), in a commit touching only the brain.
+    const files = git(['show', '--name-only', '--pretty=format:', 'HEAD']).split('\n').filter(Boolean);
+    expect(files).toEqual([ENTRIES]);
+    expect(git(['status', '--porcelain', '--', ENTRIES])).toBe(''); // fully committed
+  });
+
+  it('does NOT write an auto-handoff when the session already recorded one (B2)', () => {
+    git(['checkout', '-q', '-b', 'feat/work']);
+    addEntry('{"id":"k1","type":"fact","text":"some work"}');
+    addEntry(HANDOFF_ENTRY); // agent authored a real handoff this session
+
+    const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb' });
+    expect(r.committed).toBe(true);
+    expect(r.autoHandoff).toBe(false);
+    expect(readEntries().some((e) => (e.tags ?? []).includes('auto'))).toBe(false);
   });
 });

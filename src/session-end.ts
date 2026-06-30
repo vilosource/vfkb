@@ -9,7 +9,9 @@
 // Fail-open throughout: a SessionEnd hook cannot block exit and must never throw.
 
 import { execFileSync } from 'node:child_process';
-import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { join, isAbsolute } from 'node:path';
+import { addEntry } from './engine.js';
 
 export type GitRunner = (args: string[], cwd: string) => string;
 
@@ -36,6 +38,14 @@ export interface SessionEndResult {
   added?: number; // new entry lines this commit covers
   message?: string; // the commit message used (when committed)
   systemMessage?: string; // surfaced to the user at exit (the main-branch warning)
+  autoHandoff?: boolean; // GAP 1 (B2): a fallback handoff entry was written this run
+}
+
+interface BrainEntry {
+  id?: string;
+  type?: string;
+  text?: string;
+  tags?: string[];
 }
 
 function tryGit(git: GitRunner, args: string[], cwd: string): string | null {
@@ -58,6 +68,70 @@ function countAdded(git: GitRunner, cwd: string, path: string): number {
     }
   }
   return added;
+}
+
+// Entries appended to the brain since HEAD (append-only, ADR-0019): the lines beyond
+// the committed line count — the same git-HEAD-delta signal stop-reminder.ts uses, so
+// it needs NO session state (KB_SESSION_ID is unset in the live wiring — gotcha e8f324dc).
+function newEntriesSinceHead(
+  git: GitRunner,
+  cwd: string,
+  repoRelEntries: string,
+  absEntries: string,
+): BrainEntry[] {
+  let lines: string[];
+  try {
+    lines = readFileSync(absEntries, 'utf8').split('\n').filter(Boolean);
+  } catch {
+    return [];
+  }
+  let headCount = 0;
+  const head = tryGit(git, ['show', `HEAD:${repoRelEntries}`], cwd);
+  if (head !== null) headCount = head.split('\n').filter(Boolean).length;
+  return lines
+    .slice(headCount)
+    .map((l) => {
+      try {
+        return JSON.parse(l) as BrainEntry;
+      } catch {
+        return null;
+      }
+    })
+    .filter((e): e is BrainEntry => e !== null);
+}
+
+const isHandoff = (e: BrainEntry): boolean =>
+  (e.tags ?? []).some((t) => t === 'handoff' || t === 'next');
+
+const oneLine = (s: string): string => (s || '').replace(/\s+/g, ' ').trim();
+
+// GAP 1 (B2 floor, ADR-0033 follow-on): when a session recorded knowledge but left no
+// explicit handoff, write a minimal, honest fallback that ENUMERATES the session's new
+// entries — deterministic (no transcript NLP), so a fresh clone always gets a committed
+// pointer to the session's contribution. Surfaces via the knowledge bundle (it is a
+// committed `fact`, independent of session records). Tagged `auto` to distinguish it
+// from an agent-authored handoff. Writes through the engine (correct envelope); the
+// engine resolves the brain via VFKB_DATA_DIR, so point it at the resolved dir for the call.
+function writeAutoHandoff(absBrain: string, fresh: BrainEntry[]): void {
+  const CAP = 12;
+  const list = fresh
+    .slice(0, CAP)
+    .map((e) => `${e.id ?? '?'} [${e.type ?? '?'}] ${oneLine(e.text ?? '').slice(0, 70)}`)
+    .join('; ');
+  const more = fresh.length > CAP ? ` (+${fresh.length - CAP} more)` : '';
+  const n = fresh.length;
+  const text =
+    `Auto-handoff (session-end): no explicit handoff was recorded, but this session added ` +
+    `${n} brain entr${n === 1 ? 'y' : 'ies'} since the last commit — ${list}${more}. ` +
+    'Next session: review these and record an explicit `next:` if continuing.';
+  const prev = process.env.VFKB_DATA_DIR;
+  process.env.VFKB_DATA_DIR = absBrain;
+  try {
+    addEntry('fact', text, { role: 'executor', zone: 'established', tags: ['handoff', 'next', 'auto'] });
+  } finally {
+    if (prev === undefined) delete process.env.VFKB_DATA_DIR;
+    else process.env.VFKB_DATA_DIR = prev;
+  }
 }
 
 // The repo's default branch (e.g. "main"/"master"), best-effort; falls back to "main".
@@ -83,13 +157,13 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
     const status = tryGit(git, ['status', '--porcelain', '--', entries], cwd);
     if (!status) return { committed: false, reason: 'brain-clean' };
 
-    const added = countAdded(git, cwd, entries);
     const tag = sessionId ? `, session ${sessionId.slice(0, 8)}` : '';
 
     // 3) Branch guard — never commit on a detached HEAD or the default branch.
     const branch = tryGit(git, ['symbolic-ref', '--short', '-q', 'HEAD'], cwd) || '';
     const def = defaultBranch(git, cwd);
     if (!branch) {
+      const added = countAdded(git, cwd, entries);
       return {
         committed: false,
         reason: 'detached-head',
@@ -98,6 +172,7 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
       };
     }
     if (branch === def || branch === 'main' || branch === 'master') {
+      const added = countAdded(git, cwd, entries);
       return {
         committed: false,
         reason: 'on-default-branch',
@@ -107,14 +182,30 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
       };
     }
 
-    // 4) Pathspec-scoped commit. Stage ONLY the brain file (leaves any other staged
+    // 4) GAP 1 (B2 floor): guarantee a committed handoff exists. If the session left no
+    //    handoff/next entry among its new-since-HEAD entries, write a fallback that
+    //    enumerates them — BEFORE the commit, so it ships in the same commit.
+    const absBrain = isAbsolute(dataDir) ? dataDir : join(cwd, dataDir);
+    const fresh = newEntriesSinceHead(git, cwd, entries, join(absBrain, 'entries.jsonl'));
+    let autoHandoff = false;
+    if (fresh.length > 0 && !fresh.some(isHandoff)) {
+      try {
+        writeAutoHandoff(absBrain, fresh);
+        autoHandoff = true;
+      } catch {
+        /* handoff is best-effort; never let it block the commit */
+      }
+    }
+
+    // 5) Pathspec-scoped commit. Stage ONLY the brain file (leaves any other staged
     //    files alone), then commit with `--only` so even pre-staged files are NOT
     //    swept into this auto-commit.
+    const added = countAdded(git, cwd, entries);
     const message = `chore(brain): session-end auto-commit (${added} new entr${added === 1 ? 'y' : 'ies'}${tag})`;
     git(['add', '--', entries], cwd);
     // `-m` MUST precede `--`; everything after `--` is treated as a pathspec.
     git(['commit', '-o', '-m', message, '--', entries], cwd);
-    return { committed: true, reason: 'committed', branch, added, message };
+    return { committed: true, reason: 'committed', branch, added, message, autoHandoff };
   } catch {
     // Any git failure (no identity, hook rejection, …) → fail-open, never block exit.
     return { committed: false, reason: 'error' };
