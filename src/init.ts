@@ -29,8 +29,17 @@ function mcpConfig(project: string) {
   };
 }
 
+// Anchor hook paths to the project root Claude Code injects into the hook env
+// ($CLAUDE_PROJECT_DIR), defaulting to the CWD-relative form when it is unset so the
+// wiring never regresses. Hooks run in the SESSION's cwd — which is NOT guaranteed to
+// be the repo root (it follows `cd`) — so the bare-relative `node .vfkb/bin/bootstrap.mjs`
+// threw MODULE_NOT_FOUND the moment a session cd'd out of the root (issue #22, ADR-0035).
+// $CLAUDE_PROJECT_DIR is CWD-independent (empirically verified) and hook commands are
+// shell-run, so `${VAR:-.}` parameter-expansion resolves. (The MCP server in .mcp.json
+// stays relative — it is spawned once at session start with cwd=root, not re-invoked.)
 function hookCommand(project: string, sub: string): string {
-  return `VFKB_DATA_DIR=.vfkb VFKB_PROJECT=${project} node ${BOOTSTRAP_REL} cli hook ${sub}`;
+  const root = '${CLAUDE_PROJECT_DIR:-.}';
+  return `VFKB_DATA_DIR=${root}/.vfkb VFKB_PROJECT=${project} node ${root}/${BOOTSTRAP_REL} cli hook ${sub}`;
 }
 
 // The bootstrap source, written verbatim into the consumer repo. Self-contained
@@ -176,7 +185,9 @@ export function initProject(root: string, opts: { project?: string } = {}): Init
     }
   }
 
-  // 3. .claude/settings.json — the three hooks (merge per-event; don't duplicate).
+  // 3. .claude/settings.json — the four hooks (merge per-event; don't duplicate).
+  // Drop any pre-existing vfkb entry and re-append the current form: this UPGRADES an
+  // older CWD-relative hook to the anchored one (issue #22) while keeping user hooks.
   {
     const dir = join(root, '.claude');
     const path = join(dir, 'settings.json');
@@ -186,9 +197,12 @@ export function initProject(root: string, opts: { project?: string } = {}): Init
     const want = settingsHooks(project);
     let touched = false;
     for (const event of Object.keys(want) as (keyof typeof want)[]) {
-      const cur = cfg.hooks[event];
-      if (eventHasVfkb(cur)) continue; // already wired
-      cfg.hooks[event] = [...(Array.isArray(cur) ? cur : []), ...want[event]];
+      const raw = cfg.hooks[event];
+      const cur = Array.isArray(raw) ? raw : raw ? [raw] : [];
+      const others = cur.filter((e) => !eventHasVfkb(e)); // keep non-vfkb (user) hooks
+      const desired = [...others, ...want[event]];
+      if (JSON.stringify(cur) === JSON.stringify(desired)) continue; // already current form
+      cfg.hooks[event] = desired;
       touched = true;
     }
     if (touched) {
