@@ -1,0 +1,69 @@
+{
+  "scenario": "session-end-handoff",
+  "model": "claude-haiku-4-5",
+  "trials": 3,
+  "generated": "2026-07-01T07:12:01.089Z",
+  "vfkbAgentHandoff": 3,
+  "baselineAgentHandoff": 0,
+  "demonstrated": true,
+  "arms": {
+    "vfkb": [
+      {
+        "captured": true,
+        "didWork": true,
+        "recalled": true,
+        "entries": 4,
+        "autoFloor": false,
+        "text": "next: Implement src/config.ts to read environment variables into a typed config object at startup. Then create the service entry point (src/index.ts) that initializes config and logger, and wire up the main tracking logic.",
+        "err": ""
+      },
+      {
+        "captured": true,
+        "didWork": true,
+        "recalled": true,
+        "entries": 4,
+        "autoFloor": false,
+        "text": "Next session: implement config loader that reads env vars at startup and integrate logger into the service. Logger is ready at src/log.ts. Config should follow 12-factor (env vars only, no hot reload). Watch for the serialization gotcha when logging Errors.",
+        "err": ""
+      },
+      {
+        "captured": true,
+        "didWork": true,
+        "recalled": true,
+        "entries": 4,
+        "autoFloor": false,
+        "text": "Next: Implement error wrapper utilities (convert Error → {name, message, stack}) and add unit tests for src/log.ts, particularly testing Error serialization edge case and circular reference handling per the gotcha entry.",
+        "err": ""
+      }
+    ],
+    "baseline": [
+      {
+        "captured": false,
+        "didWork": true,
+        "recalled": false,
+        "entries": 4,
+        "autoFloor": true,
+        "text": "Auto-handoff (session-end): no explicit handoff was recorded, but this session added 3 brain entries since the last commit — 660bddb98181 [decision] Use structured JSON lines for logging, one complete JSON object per li; 10e1f501b195 [fact] Runtime config lives in environment variables, read at startup into a ; 080a555db33a [gotcha] JSON.stringify() on Error objects produces `{}` (empty object) because. Next session: review these and record an explicit `next:` if continuing.",
+        "err": ""
+      },
+      {
+        "captured": false,
+        "didWork": true,
+        "recalled": false,
+        "entries": 4,
+        "autoFloor": true,
+        "text": "Auto-handoff (session-end): no explicit handoff was recorded, but this session added 3 brain entries since the last commit — 19c3b3162446 [decision] Use structured JSON lines for logging format Why: JSON lines allow log; 5815147f00df [fact] Runtime config lives in environment variables, with defaults from proc; bb2a5a21c026 [gotcha] Error objects do not serialize to JSON by default — stack, message, an. Next session: review these and record an explicit `next:` if continuing.",
+        "err": ""
+      },
+      {
+        "captured": false,
+        "didWork": true,
+        "recalled": false,
+        "entries": 4,
+        "autoFloor": true,
+        "text": "Auto-handoff (session-end): no explicit handoff was recorded, but this session added 3 brain entries since the last commit — 6c72ce08ab98 [decision] Log format: structured JSON lines (one JSON object per line). Why: Str; de925ed354d4 [fact] Runtime config should live in environment variables, with LOG_LEVEL as; e9781327b0a6 [gotcha] Timestamps are generated per log call at write time. Clock skew or rap. Next session: review these and record an explicit `next:` if continuing.",
+        "err": ""
+      }
+    ]
+  }
+}

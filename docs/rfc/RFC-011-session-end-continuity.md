@@ -1,8 +1,10 @@
 # RFC-011: Session-end continuity — safe-by-default `/exit`
 
 - **Status:** **Accepted → [ADR-0033](../adr/ADR-0033-session-end-continuity.md)** (2026-06-30; GAP 2 +
-  the GAP-1 **B2 deterministic floor** built & gated). The higher-quality **B1** Stop nudge + the metered
-  L4 quality contrast remain open (§B / open items 2–3).
+  the GAP-1 **B2 deterministic floor** built & gated) **→ fully settled by
+  [ADR-0034](../adr/ADR-0034-b1-handoff-nudge.md)** (2026-07-01; the GAP-1 **B1** Stop nudge built,
+  surface decided as **B1+B2**, L4 quality contrast **DEMONSTRATED 3/3 vs 0/3**). §B / open items 2–3
+  are now closed.
 - **Date:** 2026-06-30
 - **Deciders:** operator + Claude
 - **Relates:** [ADR-0019](../adr/ADR-0019-self-hosted-design-brain.md) (the brain ships **inside**
@@ -164,12 +166,13 @@ default**.
 
 1. ~~**Empirically verify** the SessionEnd hook contract (exists? stdin/stdout? can it run commands?)~~
    **DONE (2026-06-30)** — see Findings; gotcha `f0e913b97824`.
-2. **Decide the GAP-1 surface (§B)** — B2 floor + gated B1 nudge (recommended), B2-only, or B1-only.
-   Settle via the L4 contrast (DoD). This is the RFC's central open question, created by the
-   per-turn/end-of-session timing mismatch.
-3. **Finalize the GAP-1 trigger** — for B1: per-session baseline (entry-count delta since SessionStart),
-   fire **at most once per session**, strong-signal only; for B2: how to detect/avoid duplicating an
-   agent-authored handoff already present this session.
+2. ~~**Decide the GAP-1 surface (§B)** — B2 floor + gated B1 nudge, B2-only, or B1-only.~~
+   **DONE (2026-07-01, ADR-0034)** — chose **B1+B2**; the L4 contrast DEMONSTRATED B1 3/3 vs baseline
+   0/3 (agent-authored handoff), so B1 adds real recallable quality over the B2 floor at zero new wiring.
+3. ~~**Finalize the GAP-1 trigger.**~~ **DONE (2026-07-01, ADR-0034)** — B1 fires on
+   `uncommittedWork ∧ newEntries ≥ 3 ∧ newHandoffs === 0`; "once per session" is achieved by
+   **self-silencing** (any recorded handoff/next quiets it — no `KB_SESSION_ID` needed). B2 already
+   avoids duplication by checking the same git-delta for an existing `handoff`/`next` before writing.
 4. **Branch-detection robustness** — default-branch name may not be `main` in a consumer repo; detect
    via `git symbolic-ref refs/remotes/origin/HEAD` (fallback `main`), and treat detached-HEAD as
    "don't commit, warn."
