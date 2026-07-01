@@ -85,18 +85,28 @@ an unset/invalid `$VFKB_BUNDLE_DIR` and **degrades gracefully**: at session star
 
 ## Bring existing knowledge across (optional)
 
-`vfkb import` migrates prior knowledge into the brain (recorded as `role=import`, unverified, lossy):
+`vfkb import` migrates prior knowledge into the brain (recorded as `role=import`, unverified, lossy).
+**First point the manual CLI at this repo's brain** — a manual command has no cwd auto-detection, so with
+`VFKB_DATA_DIR` unset it writes to the global `~/.vfkb`, not this repo (the hooks bake this in, but a
+hand-run command doesn't). Export it for the shell and run from the repo root:
 
 ```sh
+export VFKB_DATA_DIR=.vfkb        # per-repo; do NOT put in ~/.bashrc (only VFKB_BUNDLE_DIR is global)
 node "$VFKB_BUNDLE_DIR/vfkb.mjs" import --from-adr docs/adr        # one link per ADR
-node "$VFKB_BUNDLE_DIR/vfkb.mjs" import --from-mykb <area>          # a mykb area's *.jsonl -> envelopes
-node "$VFKB_BUNDLE_DIR/vfkb.mjs" import --from-markdown NOTES.md    # attach a historical doc
+node "$VFKB_BUNDLE_DIR/vfkb.mjs" import --from-markdown NOTES.md   # attach a historical doc
+node "$VFKB_BUNDLE_DIR/vfkb.mjs" import --from-mykb <area>          # ONLY a mykb AREA (see caveat)
 ```
+
+**`--from-mykb` caveat:** it reads only `~/.mykb/areas/<name>/{decisions,facts,gotchas,patterns,links}.jsonl`
+— **not** a mykb *workspace* journal (`~/.mykb/workspaces/<name>/journal.jsonl`). A `kb work journal` is a
+workspace, so `--from-mykb` on it imports nothing; check `kb list` / `ls ~/.mykb/areas` first, and if the
+data is only in a workspace journal, hand-fold the durable lines with `vfkb add`. Imports are append-only
+(no dedup) — run each once.
 
 ## Check it's healthy
 
 ```sh
-node "$VFKB_BUNDLE_DIR/vfkb.mjs" doctor
+node "$VFKB_BUNDLE_DIR/vfkb.mjs" doctor        # with VFKB_DATA_DIR=.vfkb still exported (as above)
 ```
 
 `doctor` verifies brain↔engine compatibility, that `$VFKB_BUNDLE_DIR` resolves the bundles, that the wiring

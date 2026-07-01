@@ -38,11 +38,32 @@ the agent to ask for them.
 > `.vfkb/bin/bootstrap.mjs`, and an `AGENTS.md` snippet — all wired through the bootstrap, no machine
 > paths in git.
 >
-> **4. Migrate existing knowledge (lossy, `role=import`):**
+> **3b. Point the *manual* CLI at this repo's brain (do this before any `import`/`doctor`/`add`).**
+> The hooks bake `VFKB_DATA_DIR=.vfkb` into their commands, but a **manual** CLI call resolves its brain
+> from the environment — with `VFKB_DATA_DIR` unset it **silently writes to the global `~/.vfkb`, not this
+> repo**. So export it (and the project name) for this shell, and keep `cwd` at the repo root (the path is
+> relative) for every command below:
 > ```bash
-> node "$VFKB_BUNDLE_DIR/vfkb.mjs" import --from-mykb <your-mykb-area>   # journal -> envelopes
-> node "$VFKB_BUNDLE_DIR/vfkb.mjs" import --from-adr docs/adr            # one link per ADR
+> export VFKB_DATA_DIR=.vfkb        # per-repo — do NOT put this in ~/.bashrc (only VFKB_BUNDLE_DIR is global)
+> export VFKB_PROJECT=<project-name>
 > ```
+>
+> **4. Migrate existing knowledge (lossy, `role=import`).** The reliable source is this repo's own
+> git-tracked docs — do this unconditionally:
+> ```bash
+> node "$VFKB_BUNDLE_DIR/vfkb.mjs" import --from-adr docs/adr            # one link per ADR
+> node "$VFKB_BUNDLE_DIR/vfkb.mjs" import --from-markdown <path/to/doc>  # attach a key doc as a source
+> ```
+> **mykb is conditional — `--from-mykb` reads ONLY `~/.mykb/areas/<name>/{decisions,facts,gotchas,patterns,links}.jsonl`.**
+> It does **not** read a mykb *workspace* journal (`~/.mykb/workspaces/<name>/journal.jsonl`, a `{date,text}`
+> log) — a `kb work journal` is a workspace, not an area, so pointing `--from-mykb` at it imports **nothing**.
+> Discover the real source first (`kb list` = areas; `ls ~/.mykb/areas ~/.mykb/workspaces`), then:
+> ```bash
+> node "$VFKB_BUNDLE_DIR/vfkb.mjs" import --from-mykb <area-name-or-absolute-dir>   # only if a real AREA exists
+> ```
+> If your knowledge is only in a workspace journal (or no area exists), skip it and hand-fold the durable
+> lines with `vfkb add fact "…" --role human`. Run each import **once** — it's append-only with no dedup,
+> so re-running duplicates entries.
 >
 > **5. Verify and commit:**
 > ```bash
@@ -52,10 +73,12 @@ the agent to ask for them.
 > Then start `claude` in this repo and **approve the project MCP server + hooks once** when prompted.
 >
 > **Key facts:**
-> - **Two env vars, don't conflate:** `VFKB_BUNDLE_DIR` = the shared engine *code* (per machine);
->   `VFKB_DATA_DIR=.vfkb` = this repo's *brain*, baked into the wiring and resolved against this repo's
->   directory. Sharing one `VFKB_BUNDLE_DIR` across projects does **not** cross-contaminate — this repo
->   writes only to its own `.vfkb`, never vfkb's brain.
+> - **Two env vars, don't conflate:** `VFKB_BUNDLE_DIR` = the shared engine *code* (per machine, global);
+>   `VFKB_DATA_DIR=.vfkb` = this repo's *brain*. The **hooks** set `VFKB_DATA_DIR=.vfkb` for you (though
+>   that path is CWD-relative too — see vfkb#22), while a **manual** `import`/`doctor`/`add`/`resume` has no
+>   cwd auto-detection: with `VFKB_DATA_DIR` unset it targets the global `~/.vfkb`, not this repo (hence
+>   step 3b). Sharing one
+>   `VFKB_BUNDLE_DIR` across projects does **not** cross-contaminate — each repo writes only to its own `.vfkb`.
 > - **Guardrail:** if `VFKB_BUNDLE_DIR` is unset, SessionStart shows a clear *"vfkb INACTIVE — set
 >   VFKB_BUNDLE_DIR"* banner and the write-gate stops blocking — it never breaks your session.
 >   `vfkb doctor` reports it too.
