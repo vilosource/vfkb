@@ -4,7 +4,8 @@
 // consumer-onboarding L4 scenario is the capability-level DoD (ADR-0029).
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { mkdtempSync, readFileSync, existsSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, existsSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { initProject } from './init.js';
@@ -47,6 +48,12 @@ describe('vfkb init (FR-1)', () => {
     expect(blob).toContain('VFKB_PROJECT=demo');
     expect(blob).not.toContain('dist/cli.js');
     expect(settings.hooks.PreToolUse[0].matcher).toBe('Write|Edit|MultiEdit');
+
+    // issue #22 / ADR-0035 — hooks anchor to $CLAUDE_PROJECT_DIR (CWD-independent),
+    // NOT a bare CWD-relative path that breaks when the session cd's out of the root.
+    expect(blob).toContain('${CLAUDE_PROJECT_DIR:-.}/.vfkb/bin/bootstrap.mjs');
+    expect(blob).toContain('VFKB_DATA_DIR=${CLAUDE_PROJECT_DIR:-.}/.vfkb');
+    expect(blob).not.toContain('node .vfkb/bin/bootstrap.mjs'); // the old bare-relative form
 
     // the bootstrap is a committed, self-contained guard.
     const boot = read('.vfkb/bin/bootstrap.mjs');
@@ -95,5 +102,53 @@ describe('vfkb init (FR-1)', () => {
     const mcp = JSON.parse(read('.mcp.json'));
     expect(mcp.mcpServers.other).toEqual({ command: 'x' });
     expect(mcp.mcpServers.vfkb).toBeDefined();
+  });
+
+  it('upgrades an existing CWD-relative vfkb hook to the anchored form, keeping user hooks (issue #22)', () => {
+    const dir = join(root, '.claude');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'settings.json'), JSON.stringify({
+      hooks: {
+        Stop: [
+          { hooks: [{ type: 'command', command: 'echo user-hook' }] }, // a user's own hook — must survive
+          { hooks: [{ type: 'command', command: 'VFKB_DATA_DIR=.vfkb VFKB_PROJECT=demo node .vfkb/bin/bootstrap.mjs cli hook stop' }] },
+        ],
+      },
+    }));
+    const changes = initProject(root, { project: 'demo' });
+    expect(changes.find((c) => c.path === '.claude/settings.json')?.action).toBe('updated');
+
+    const settings = JSON.parse(read('.claude/settings.json'));
+    const cmds = settings.hooks.Stop.map((e: any) => e.hooks[0].command);
+    expect(cmds).toContain('echo user-hook'); // user hook preserved
+    expect(cmds.some((c: string) => c.includes('${CLAUDE_PROJECT_DIR:-.}/.vfkb/bin/bootstrap.mjs cli hook stop'))).toBe(true);
+    expect(cmds).not.toContain('VFKB_DATA_DIR=.vfkb VFKB_PROJECT=demo node .vfkb/bin/bootstrap.mjs cli hook stop'); // old form gone
+    // and re-running is now idempotent on the upgraded form
+    const again = initProject(root, { project: 'demo' });
+    expect(again.find((c) => c.path === '.claude/settings.json')?.action).toBe('skipped');
+  });
+
+  it('the emitted hook resolves from a foreign CWD; the old bare-relative form does not (issue #22 DoD)', () => {
+    initProject(root, { project: 'demo' });
+    const settings = JSON.parse(read('.claude/settings.json'));
+    const anchored: string = settings.hooks.SessionStart[0].hooks[0].command;
+
+    const foreign = mkdtempSync(join(tmpdir(), 'vfkb-cwd-')); // a dir that is NOT the repo root
+    const env = { ...process.env, CLAUDE_PROJECT_DIR: root } as Record<string, string>;
+    delete env.VFKB_BUNDLE_DIR; // force the bootstrap's graceful INACTIVE path (no engine needed)
+    delete env.VFKB_HOME;
+
+    // Anchored form: the bootstrap is FOUND despite the foreign CWD -> emits the
+    // SessionStart INACTIVE payload and exits 0.
+    const ok = spawnSync('sh', ['-c', anchored], { cwd: foreign, env, encoding: 'utf8' });
+    expect(ok.status).toBe(0);
+    expect(ok.stdout).toContain('INACTIVE');
+
+    // Contrast (proves the bug + that this gate CAN fail): the old bare-relative form
+    // from the same foreign CWD -> MODULE_NOT_FOUND, non-zero exit.
+    const bare = 'VFKB_DATA_DIR=.vfkb VFKB_PROJECT=demo node .vfkb/bin/bootstrap.mjs cli hook session-start';
+    const bad = spawnSync('sh', ['-c', bare], { cwd: foreign, env, encoding: 'utf8' });
+    expect(bad.status).not.toBe(0);
+    expect(bad.stderr).toMatch(/Cannot find module|MODULE_NOT_FOUND/);
   });
 });
