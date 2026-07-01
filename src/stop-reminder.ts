@@ -25,6 +25,10 @@ export interface StopContext {
   uncommittedWork: boolean;
   /** count of `decision` entries appended to the brain but not yet committed */
   newDecisions: number;
+  /** total entries appended to the brain since HEAD this session (git-delta) */
+  newEntries?: number;
+  /** count of `handoff`/`next`-tagged entries appended to the brain since HEAD */
+  newHandoffs?: number;
 }
 
 export type StopDecision = { block: false } | { block: true; reminder: string };
@@ -35,6 +39,24 @@ export const STOP_REMINDER =
   '`mcp__vfkb__kb_add` (type=decision, why=<rationale>, role=human) — or ' +
   '`vfkb add decision "…" --why "…" --role human` — and add an ADR under docs/adr/ for ' +
   'anything architectural. If NO decision was made this turn, just finish normally.';
+
+// The strong-signal threshold: only nudge for a handoff once the session has
+// accumulated enough knowledge that a "what's next" pointer is worth writing. Below
+// this, the SessionEnd B2 floor (ADR-0033) still guarantees a committed handoff.
+export const HANDOFF_MIN_ENTRIES = 3;
+
+// GAP-1 B1 (RFC-011 §B): the higher-quality, agent-authored handoff nudge. The Stop
+// hook is the ONLY surface that can prompt the agent, but it fires per-turn while a
+// handoff is an end-of-session artifact — so the framing is deliberately conditional
+// ("if you're wrapping up"), letting the agent decline mid-session. It self-silences:
+// the moment ANY handoff/next entry is recorded, the trigger goes quiet (no
+// KB_SESSION_ID / per-session state needed — the side-effect it asks for is the guard).
+export const HANDOFF_REMINDER =
+  'vfkb handoff check: this session has recorded knowledge but no `handoff`/`next` entry. ' +
+  'If you are WRAPPING UP, record a durable handoff now — `mcp__vfkb__kb_add` ' +
+  '(type=fact, tags=handoff,next, role=human) naming what the NEXT session should pick up ' +
+  '(a real "next:", not just a summary). If you are still mid-session, ignore this and ' +
+  'finish normally — the SessionEnd floor will leave a fallback if you never do.';
 
 /**
  * The pure decision. Block (inject the reminder, continuing the turn) only when a
@@ -47,8 +69,15 @@ export const STOP_REMINDER =
  */
 export function decideStop(input: StopHookInput, ctx: StopContext): StopDecision {
   if (input?.stop_hook_active) return { block: false };
-  if (ctx.uncommittedWork && ctx.newDecisions === 0) return { block: true, reminder: STOP_REMINDER };
-  return { block: false };
+  const reminders: string[] = [];
+  // Decision-capture nudge (ADR-0027): work happened AND no decision recorded this session.
+  if (ctx.uncommittedWork && ctx.newDecisions === 0) reminders.push(STOP_REMINDER);
+  // Handoff nudge (B1, RFC-011): work happened AND a strong-signal amount of knowledge
+  // accumulated AND no handoff/next entry yet. Self-silences once a handoff is recorded.
+  if (ctx.uncommittedWork && (ctx.newEntries ?? 0) >= HANDOFF_MIN_ENTRIES && (ctx.newHandoffs ?? 0) === 0)
+    reminders.push(HANDOFF_REMINDER);
+  if (reminders.length === 0) return { block: false };
+  return { block: true, reminder: reminders.join('\n\n') };
 }
 
 /** Working tree has uncommitted src/ or docs/ changes (brain-only changes don't count as "work"). */
@@ -68,19 +97,24 @@ export function hasUncommittedWork(cwd: string = process.cwd(), brain: string = 
   });
 }
 
+interface BrainLine {
+  type?: string;
+  tags?: string[];
+}
+
 /**
- * Count `decision` entries appended to the brain since HEAD. The brain is append-only
+ * Entries appended to the brain since HEAD, parsed. The brain is append-only
  * (ADR-0019), so fresh entries are exactly the lines beyond the committed line count —
  * no per-session state (KB_SESSION_ID) needed, and it aligns with the "record then commit"
- * workflow: an uncommitted decision means one WAS captured this session.
+ * workflow: uncommitted entries are exactly this session's captures.
  */
-export function uncommittedDecisionCount(brain: string = brainDir(), cwd: string = process.cwd()): number {
+export function newBrainEntriesSinceHead(brain: string = brainDir(), cwd: string = process.cwd()): BrainLine[] {
   const file = join(brain, 'entries.jsonl');
   let current: string[];
   try {
     current = readFileSync(file, 'utf8').split('\n').filter(Boolean);
   } catch {
-    return 0; // no brain file yet
+    return []; // no brain file yet
   }
   const rel = relative(cwd, file).replace(/\\/g, '/');
   let headCount = 0;
@@ -92,19 +126,30 @@ export function uncommittedDecisionCount(brain: string = brainDir(), cwd: string
   }
   return current
     .slice(headCount)
-    .filter((l) => {
+    .map((l) => {
       try {
-        return (JSON.parse(l) as { type?: string }).type === 'decision';
+        return JSON.parse(l) as BrainLine;
       } catch {
-        return false;
+        return null;
       }
-    }).length;
+    })
+    .filter((e): e is BrainLine => e !== null);
 }
+
+/** Count `decision` entries appended to the brain since HEAD (ADR-0027 nudge trigger). */
+export function uncommittedDecisionCount(brain: string = brainDir(), cwd: string = process.cwd()): number {
+  return newBrainEntriesSinceHead(brain, cwd).filter((e) => e.type === 'decision').length;
+}
+
+const isHandoff = (e: BrainLine): boolean => (e.tags ?? []).some((t) => t === 'handoff' || t === 'next');
 
 /** Impure shell: gather the real context for `decideStop` from git + the brain. */
 export function gatherStopContext(cwd: string = process.cwd(), brain: string = brainDir()): StopContext {
+  const fresh = newBrainEntriesSinceHead(brain, cwd);
   return {
     uncommittedWork: hasUncommittedWork(cwd, brain),
-    newDecisions: uncommittedDecisionCount(brain, cwd),
+    newDecisions: fresh.filter((e) => e.type === 'decision').length,
+    newEntries: fresh.length,
+    newHandoffs: fresh.filter(isHandoff).length,
   };
 }
