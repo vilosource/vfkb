@@ -74,9 +74,10 @@ the agent to ask for them.
 >
 > **Key facts:**
 > - **Two env vars, don't conflate:** `VFKB_BUNDLE_DIR` = the shared engine *code* (per machine, global);
->   `VFKB_DATA_DIR=.vfkb` = this repo's *brain*. The **hooks** bake `VFKB_DATA_DIR=.vfkb` in, so the live
->   session is fine — but a **manual** `import`/`doctor`/`add`/`resume` has no cwd auto-detection: with
->   `VFKB_DATA_DIR` unset it targets the global `~/.vfkb`, not this repo (hence step 3b). Sharing one
+>   `VFKB_DATA_DIR=.vfkb` = this repo's *brain*. The **hooks** set `VFKB_DATA_DIR=.vfkb` for you (though
+>   that path is CWD-relative too — see vfkb#22), while a **manual** `import`/`doctor`/`add`/`resume` has no
+>   cwd auto-detection: with `VFKB_DATA_DIR` unset it targets the global `~/.vfkb`, not this repo (hence
+>   step 3b). Sharing one
 >   `VFKB_BUNDLE_DIR` across projects does **not** cross-contaminate — each repo writes only to its own `.vfkb`.
 > - **Guardrail:** if `VFKB_BUNDLE_DIR` is unset, SessionStart shows a clear *"vfkb INACTIVE — set
 >   VFKB_BUNDLE_DIR"* banner and the write-gate stops blocking — it never breaks your session.
