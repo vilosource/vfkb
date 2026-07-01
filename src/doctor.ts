@@ -100,6 +100,14 @@ export function runDoctor(opts: { root: string; brainDir: string; env: Record<st
     add('.claude/settings.json', 'ok', `${have.join(', ')} wired`);
   }
 
+  // 5a. Hooks must anchor to $CLAUDE_PROJECT_DIR (issue #22 / ADR-0035) — a bare
+  // CWD-relative bootstrap path breaks (MODULE_NOT_FOUND) when the session cd's out
+  // of the repo root, silently disabling the write-gate and the SessionEnd auto-commit.
+  const hooksBlob = JSON.stringify(hooks ?? '');
+  if (have.length > 0 && hooksBlob.includes('bootstrap.mjs') && !hooksBlob.includes('CLAUDE_PROJECT_DIR')) {
+    add('hooks anchor', 'warn', 'vfkb hooks use a CWD-relative bootstrap path — they break when the session cd\'s out of the repo root; re-run `vfkb init` to anchor them to $CLAUDE_PROJECT_DIR (issue #22)');
+  }
+
   // 5b. The committed bootstrap entry-point (ADR-0031).
   if (existsSync(join(root, '.vfkb', 'bin', 'bootstrap.mjs'))) {
     add('bootstrap', 'ok', '.vfkb/bin/bootstrap.mjs present');
