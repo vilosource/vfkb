@@ -161,18 +161,27 @@ this is a **deliberate discipline**:
   autonomous mode** — and even then it stays branch → PR → merge (after green/DoD), never a
   direct-to-`main` commit.
 
-## Current state (2026-06-28)
+## Current state (2026-07-02)
 
-- `main` rebranded **vtfkb → vfkb** (ADR-0026, commit `dc1525a`); 95/95 unit green; ADRs 0001–0026,
-  RFCs 001–007.
+- `main` rebranded **vtfkb → vfkb** (ADR-0026, commit `dc1525a`); unit suite green; ADRs 0001–0035,
+  RFCs 001–011.
 - **v1 (per-project tier) COMPLETE** (Phases 0–6). **H4 COMPLETE:** Track 1 (session continuity +
   auto-distill/ACE curator, ADR-0020/0021), Track 5 (dockerized L4 substrate, ADR-0022), Track 4
   (6 core scenarios), Track 4b (D-i `verified`-filter; D-iii relabel-on-promotion, ADR-0024; D-iv pi
-  live tool-result capture; D-ii context-doc + `kb_context`, ADR-0025). **In-repo H4 frontier is
-  EXHAUSTED — no in-order build remains.** The next work is a **new fork → re-ratify the roadmap first**.
-- **Gated (do NOT build on spec):** **S1** embedding reranker (RFC-003 — build only on a 2nd live
-  phrasing-robustness miss *or* an explicit request); **P1** Claude-Code per-turn push (ADR-0015
-  Tier C — external-blocked upstream). **Parked:** H2 fleet wiring, H3 global tier.
+  live tool-result capture; D-ii context-doc + `kb_context`, ADR-0025). Tracks 6–8 (decision-capture,
+  consumer distribution, session-end continuity) also COMPLETE.
+- **▶ Active frontier: Track 9 — memory quality & interop** (ratified 2026-07-02, fork decision
+  `97cd3c55`), forked off the July-2026 agent-memory landscape survey
+  (`docs/research/agent-memory-landscape-2026-07.md` + the FEATURES.md verified rewrite). Order:
+  **Q0 hygiene batch (no RFC) → Q1 RFC-012 contradiction-surfacing at write time → Q2 RFC-013
+  injection-path use-feedback → Q3 RFC-014 AGENTS.md export**; Q4 sleep-time distillation + the
+  gated-ledger items build only on their triggers. See H4-DEVELOPMENT-ROADMAP §3 Track 9 + §4.
+- **Gated (do NOT build on spec):** **S1** search-robustness upgrade (trigger unchanged: 2nd live
+  phrasing-robustness miss *or* explicit request; **amended 2026-07-02: first resort = BM25 in
+  `InMemoryIndex`, RFC-003 embeddings second**); **P1** Claude-Code per-turn push (ADR-0015
+  Tier C — external-blocked upstream); Track-9 **Q4** sleep-time distillation (first live
+  passive-capture volume) and **bi-temporal consumption** (first as-of need). **Parked:** H2 fleet
+  wiring, H3 global tier.
 - **Open findings:** (1) Claude Code's PostToolUse hook does **not fire on a FAILED tool call** →
   live *failure*-capture is pi-only (external-block). (2) `tool-gating` (the brain-write block) is
   **flaky on the pi 0.73.1 substrate** — it holds only intermittently (guardrail-integrity issue,
