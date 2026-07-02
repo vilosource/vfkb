@@ -28,6 +28,7 @@ role-attributed; options under discussion live in the RFC's Decision/text.
 | [RFC-010](RFC-010-consumer-integration-and-distribution.md) | Consumer integration & distribution contract — `vfkb init` / portable engine / `import` / `doctor` | Accepted → [ADR-0030](../adr/ADR-0030-consumer-integration-and-distribution.md) |
 | [RFC-011](RFC-011-session-end-continuity.md) | Session-end continuity — safe-by-default `/exit` (SessionEnd auto-commit + handoff floor) | Accepted → [ADR-0033](../adr/ADR-0033-session-end-continuity.md) (GAP 2 + B2 floor; B1 open) |
 | [RFC-012](RFC-012-contradiction-surfacing-at-write.md) | Deterministic contradiction surfacing at write time — conflict candidates in the `kb_add` result, never blocking (Track 9 Q1) | Proposed |
+| [RFC-013](RFC-013-cross-project-brain-query.md) | Cross-project brain query — read-only, provenance-labeled recall from a registered sibling project's `.vfkb` (links registry + `kb_query_external`) | Proposed |
 
 RFC-001..003 were drafted 2026-06-15 from a study of AnythingLLM (Mintplex Labs)
 retrieval mechanics mapped onto vfkb's substrate. All three **refine
