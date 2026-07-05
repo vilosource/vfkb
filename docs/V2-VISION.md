@@ -1,12 +1,18 @@
 # vfkb v2 — vision & design notes
 
-**Status:** proposed / pre-RFC consolidation — nothing here is decided. This is the
-brainstorm from a 2026-07-05 session written down so it isn't lost, structured so each
-initiative can graduate into its own RFC. **Breaking changes are explicitly allowed** —
-this is what `STATUS-AND-ROADMAP.md` and `CLAUDE.md`'s "Current state" section call
-*the next fork*: H4 is complete, the in-repo frontier is exhausted, and re-ratifying the
-roadmap is the acknowledged next step. Treat this doc as the opening move of that
-re-ratification, not the ratification itself.
+**Status:** proposed / pre-RFC consolidation — nothing in the initiatives below is
+decided. This is the brainstorm from a 2026-07-05 session written down so it isn't
+lost, structured so each initiative can graduate into its own RFC. **Breaking changes
+are explicitly allowed** — this is what `STATUS-AND-ROADMAP.md` and `CLAUDE.md`'s
+"Current state" section call *the next fork*: H4 is complete, the in-repo frontier is
+exhausted, and re-ratifying the roadmap is the acknowledged next step. Treat this doc as
+the opening move of that re-ratification, not the ratification itself.
+
+**One thing *is* already decided:** how v2 gets built without disrupting the released
+`main` — [ADR-0036](adr/ADR-0036-v2-two-branch-strategy.md) sets a dedicated long-lived
+`v2` branch as the target for every initiative's code below (never `main`); see
+`CLAUDE.md`'s "v2 development — branch discipline" section. That ADR governs process;
+this doc still governs content.
 
 **How to read this:** §1 is the one architectural correction/insight worth understanding
 before anything else. §2 stress-tests §1 and the rest of the brainstorm against a second,
