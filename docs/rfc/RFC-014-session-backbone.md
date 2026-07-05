@@ -1,7 +1,7 @@
 # RFC-014: Session backbone — real session identity from hook stdin, widened for attribution
 
 - **Status:** Proposed
-- **Date:** 2026-07-05
+- **Date:** 2026-07-05 (strengthened 2026-07-05 after independent review — see below)
 - **Deciders:** operator + Claude
 - **Relates:** [ADR-0020](../adr/ADR-0020-session-continuity-record.md) (the session-continuity
   record this extends), [ADR-0033](../adr/ADR-0033-session-end-continuity.md) /
@@ -23,6 +23,14 @@ independent harnesses**: this repo's own `.claude/settings.json` (four hooks —
 PreToolUse, Stop, SessionEnd) and vilonotes' identical wiring inside its kagent-hosted
 researcher pod. **Neither sets `KB_SESSION_ID`.** Per `SessionState.load()`, no id means
 ephemeral in-memory state — nothing persisted, matching the already-recorded GAP-1 finding.
+
+**This pattern is already proven in-repo for one hook, which de-risks the design.**
+`src/cli.ts`'s `session-end` handler (GAP 2 / ADR-0033) already parses `session_id` out of
+its own stdin JSON (`JSON.parse(raw).session_id`) — it just only uses it to tag the
+auto-commit message, not to load/persist session state. So this RFC isn't proposing an
+unproven technique; it's generalizing a pattern already shipped and working for one of the
+four hooks to all of them, and threading the result into `SessionState.load()` instead of
+`process.env.KB_SESSION_ID`.
 
 Separately, `SessionData` today only carries resume-digest bookkeeping (`injectedIds`,
 `capturedIds`, `note`, `signals`, `turnCount`) — nothing that identifies *who* wrote an
@@ -74,8 +82,12 @@ must be ephemeral (regression guard, proves the scenario can actually fail).
 
 ## Open items
 
-- **Verify, don't assume:** does Claude Code's hook-stdin `session_id` stay the *same*
-  value across multiple `claude -p --resume <id>` invocations of one conversation? This is
+- **Acceptance precondition, not just a build-time check:** does Claude Code's hook-stdin
+  `session_id` stay the *same* value across multiple `claude -p --resume <id>` invocations
+  of one conversation? The whole design depends on it — if it doesn't hold,
+  `.sessions/<id>.json` would fragment into one file per turn instead of accumulating
+  correctly across a conversation, silently defeating the point of this RFC. This is
   expected `--resume` behavior and consistent with how vilonotes' `run.py` already reuses
-  the id it captures, but it hasn't been independently probed live. Cheap pre-flight check
-  before or during the build, not a blocker to drafting this RFC.
+  the id it captures, but it hasn't been independently probed live. **Promoted from "cheap
+  check during the build" to a precondition for accepting this RFC** — verify it with a
+  throwaway two-turn `claude -p --resume` probe before acceptance, not after.

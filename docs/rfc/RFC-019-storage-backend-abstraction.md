@@ -49,7 +49,8 @@ built only if a real project asks for it (this repo's own evidence-gated-builds 
 
 ## Definition of Done
 
-The full existing test suite (95/95 at the time of this RFC) passes **unchanged** against
+The full existing test suite (155/155 as of this RFC's revision — corrected from a stale
+"95/95" in the original draft, caught by independent review) passes **unchanged** against
 the abstracted interface — a strict "no behavior change" refactor contract. No test edits
 beyond what the refactor mechanically requires (e.g. import paths), and no new test is
 needed to prove this RFC's own scope, since it deliberately ships no second backend to
@@ -57,6 +58,12 @@ test against yet.
 
 ## Open items
 
+- **Fair question raised by independent review:** is a seam with exactly one
+  implementation worth a standalone RFC, versus folding into RFC-018's refactor (they
+  already explicitly share this seam)? Leaning toward keeping them separate — the
+  hosted-vs-git tradeoff has enough recorded history (`docs/V2-VISION.md` §3.4) to be
+  worth its own citable decision independent of whether/when RFC-018 actually builds —
+  but not pre-decided; reasonable to merge them if that turns out cleaner at review time.
 - The interface's exact method surface should be shaped by real experience from RFC-015
   (lock) and RFC-018 (index) — sequenced last among the core v2 initiatives specifically
   so it isn't designed speculatively ahead of the code that will actually use it.

@@ -31,9 +31,9 @@ role-attributed; options under discussion live in the RFC's Decision/text.
 | RFC-013 | Cross-project brain query — read-only recall from a registered sibling project's `.vfkb` | Proposed — drafted, pending merge ([PR #29](https://github.com/vilosource/vfkb/pull/29)) |
 | [RFC-014](RFC-014-session-backbone.md) | v2 — Session backbone: real session identity from hook stdin, widened for entry attribution | Proposed |
 | [RFC-015](RFC-015-native-concurrency-lock.md) | v2 — A vfkb-native concurrency lock, scoped to the read-decide-append critical section | Proposed |
-| [RFC-016](RFC-016-entries-jsonl-merge-driver.md) | v2 — A git merge driver for `entries.jsonl` (verified: tail-append conflicts are guaranteed, not occasional) | Proposed |
-| [RFC-017](RFC-017-schema-honesty.md) | v2 — Schema honesty: a real `why` field, full envelope validation, structural contradiction/supersede fields | Proposed |
-| [RFC-018](RFC-018-rebuildable-index.md) | v2 — A rebuildable index; `entries.jsonl` stays the source of truth | Proposed |
+| [RFC-016](RFC-016-entries-jsonl-merge-driver.md) | v2 — `entries.jsonl` stops guaranteeing a merge conflict on every second branch (v1: `merge=union`, pending a GitHub server-side check) | Proposed |
+| [RFC-017](RFC-017-schema-honesty.md) | v2 — Schema honesty: a structural `why` field, full envelope validation, structural contradiction/supersede fields | Proposed |
+| [RFC-018](RFC-018-rebuildable-index.md) | v2 — A rebuildable index (shape ratified, build evidence-gated); `entries.jsonl` stays the source of truth | Proposed |
 | [RFC-019](RFC-019-storage-backend-abstraction.md) | v2 — A pluggable storage-backend interface; JSONL stays the shipped default | Proposed |
 
 RFC-014..019 are the first batch of [ADR-0036](../adr/ADR-0036-v2-two-branch-strategy.md)'s

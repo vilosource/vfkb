@@ -1,22 +1,36 @@
-# RFC-017: Schema honesty — a real `why` field, full envelope validation, structural contradiction/supersede fields
+# RFC-017: Schema honesty — a structural `why` field, full envelope validation, structural contradiction/supersede fields
 
 - **Status:** Proposed
-- **Date:** 2026-07-05
+- **Date:** 2026-07-05 (context corrected 2026-07-05 after independent review — see note below)
 - **Deciders:** operator + Claude
 - **Relates:** [ADR-0011](../adr/ADR-0011-envelope-richness.md) (envelope richness this
   extends), [RFC-012](RFC-012-contradiction-surfacing-at-write.md) (contradiction
   surfacing — this RFC gives it a structural hook instead of text-sniffing),
   `docs/V2-VISION.md` §3.2
 
+> **Correction:** the first draft of this RFC claimed `--why` was a live, silent no-op.
+> An independent review caught that this was already fixed on 2026-06-30 (commit
+> `5ff56fc`, gotcha `91338268`) — five days before this RFC's original draft — and the
+> claim was written from a stale memory without re-checking current code. Acknowledged
+> directly rather than defended; the section below reflects verified current behavior.
+> The underlying decision (item 1) still stands, just reframed: it was never "fix a
+> no-op," it's "promote an already-working convention to a structural field."
+
 ## Context
 
-Three separate, independently verified, silent gaps in the current envelope:
+Two separate, independently verified, silent gaps remain in the current envelope (a
+third, originally claimed here, turned out to already be fixed — see the correction
+above and item 1 below):
 
-1. **`--why` is a documented no-op.** `cli.ts`'s `cleanText()` strips `--flag value` pairs
-   (including `--why`) before `addEntry` ever sees them; `AddOpts` has no `why` field;
-   `KnowledgeEntry` has no `why` field; `mcp-server.ts`'s `kb_add` has no `why` param
-   either. Rationale only survives today if the caller folds it into `text` by hand.
-   CLAUDE.md and the ADR/RFC docs show `--why`/`why=` as if it persists — it doesn't.
+1. **`why` persists today, but only as folded prose, not as a structural field.**
+   `AddOpts.why`, `foldWhy()` (`src/engine.ts`), the CLI's `--why` flag, and the MCP
+   tool's `why` param all exist and work correctly today — rationale genuinely survives
+   CLI → MCP → storage as a `"Why: …"` line appended to `text`. What's still missing:
+   `KnowledgeEntry` itself has **no structural `why` field** — the rationale is only
+   recoverable by pattern-matching a `"Why:"` line out of prose, not as its own
+   queryable/renderable value. That's a real, narrower gap than the original draft
+   claimed, but a real one: anything that wants to *display* rationale separately from
+   the entry body, or search on it specifically, can't today.
 2. **Only `tags` got a defensive read-boundary default**, after a tagless entry crashed
    `index-store.ts` (`entry.tags.join(' ')` assuming presence). Other optional fields
    (e.g. `validity.valid_until`) are still unguarded — any externally-projected entry
@@ -29,11 +43,12 @@ Three separate, independently verified, silent gaps in the current envelope:
 
 ## Decision
 
-1. **Add a real `why?: string` field** to the decision-family envelope. Thread it through
-   `AddOpts`, the CLI (`--why`), and the MCP tool (`why` param per its existing schema
-   description — the tool description already promises `why` is "rationale; folded into
-   the text as a 'Why: ...' line," which this RFC makes literally true instead of
-   accidentally true only when a caller manually duplicates it).
+1. **Add a real `why?: string` field** to the decision-family envelope itself, alongside
+   the existing folded-text convention (`foldWhy` keeps working for anything reading
+   `text` directly — this is additive, not a replacement). `AddOpts.why`, the CLI's
+   `--why`, and the MCP tool's `why` param already thread a value in today; this RFC adds
+   the one missing piece — a structural home for that value so it's independently
+   queryable/renderable, not just recoverable by pattern-matching `text`.
 2. **Validate the whole envelope at the read boundary**, not just `tags` — a schema parse
    (zod, already a dependency) on load, covering every optional field. Malformed/missing
    fields get safe, documented defaults; entries that fail validation entirely are
@@ -44,9 +59,12 @@ Three separate, independently verified, silent gaps in the current envelope:
 
 ## Alternatives Considered
 
-- **Keep folding `why` into `text` by convention** (status quo) — rejected: it's exactly
-  the silent gap being fixed, and the MCP tool's own schema description already claims
-  behavior that doesn't exist.
+- **Keep folding `why` into `text` by convention only, add no structural field** (status
+  quo) — rejected, but on narrower grounds than the original draft claimed: the
+  convention already works correctly, this isn't fixing broken behavior. Rejected because
+  a text-only convention can't be rendered/searched/validated independently of the entry
+  body, which matters more once RFC-018's index and RFC-012's contradiction surfacing
+  both want to reason about rationale as its own value.
 - **Validate only at write time, not read time** — rejected: doesn't protect against
   entries that entered `.vfkb` outside vfkb's own write path (external projections,
   hand-edited legacy entries, a future storage backend per RFC-019 with different
@@ -61,7 +79,9 @@ Three separate, independently verified, silent gaps in the current envelope:
 
 Unit tests (structural invariant, not agent-observable behavior — no L4 scenario needed):
 
-- A `why` value survives CLI → MCP → storage → read intact.
+- A `why` value lands in the new structural field (not just folded into `text`) and
+  survives CLI → MCP → storage → read intact; the existing `foldWhy` text-convention path
+  keeps passing unchanged (no regression to today's working behavior).
 - A deliberately malformed entry (missing `tags`, missing `validity` fields, or other
   gaps) no longer crashes any read path — assert a safe default or a clearly-tagged
   malformed state instead.

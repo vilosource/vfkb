@@ -1,7 +1,7 @@
 # RFC-015: A vfkb-native concurrency lock
 
 - **Status:** Proposed
-- **Date:** 2026-07-05
+- **Date:** 2026-07-05 (DoD corrected 2026-07-05 after independent review — see below)
 - **Deciders:** operator + Claude
 - **Relates:** [RFC-014](RFC-014-session-backbone.md) (session identity this lock logs
   against), `docs/NOTES-multi-agent-concurrency-corner-cases.md` (corner case #7, the TOCTOU
@@ -29,8 +29,12 @@ vfkb owns a lock primitive scoped to the actual read-decide-append critical sect
 engine operation that reads state before writing (`kb_supersede`, `kb_transition`, and any
 future contradiction check) — **not** exposed as something callers must remember to acquire,
 but held internally by the engine around just that critical section. Implemented as a local
-advisory lock scoped to one `VFKB_DATA_DIR` (mechanism — e.g. an OS-level `flock` on a
-lockfile under the brain dir — is an implementation choice, not locked by this RFC).
+advisory lock scoped to one `VFKB_DATA_DIR`. **Mechanism constraint:** a real OS `flock`
+would need a native binding, which [ADR-0013](../adr/ADR-0013-no-hard-native-dep.md) (no
+hard native dep) forbids — so the realistic shape is a plain lockfile scheme (e.g.
+exclusive-create via `O_EXCL`, with staleness detection for a crashed holder), not `flock`
+itself. The exact retry/staleness policy is still an implementation choice, not locked by
+this RFC, but the native-dep constraint is not optional and should shape it from the start.
 Session-aware once RFC-014 lands: log which `session_id` holds/held the lock, so contention
 is observable rather than silent.
 
@@ -54,10 +58,26 @@ tighter than a whole-turn mutex.
 ## Definition of Done
 
 A first-class concurrent-writer test in the unit/L4 pyramid (flagged as missing in
-`docs/V2-VISION.md` §3.5): spawn N in-process writers against one temp brain dir performing
-overlapping read-decide-append operations, assert no lost entries, no interleaved/corrupted
-lines, and no two writers both acting on the same stale pre-write snapshot. Deterministic,
-not timing-dependent (structure the test to force the race, not hope for it).
+`docs/V2-VISION.md` §3.5). **Correction from the original draft:** the storage layer is
+entirely synchronous (`appendFileSync`/`readFileSync`), so N *in-process* writers on one
+Node event loop cannot actually interleave their read-decide-append sequences — a test
+built that way would pass whether or not the lock exists, which fails this repo's own
+ADR-0029 rule ("a proof that can't fail proves nothing"). The TOCTOU gap only exists
+*across processes*, so the test must force a real cross-process race:
+
+- Spawn N real **child processes** (not in-process callbacks) against one temp brain dir,
+  each performing a read-decide-append operation, orchestrated with a barrier/signal so
+  their critical sections are forced to overlap in time rather than hoping OS scheduling
+  happens to interleave them; **or**
+- Add a test-only injectable pause inside the critical section (a hook the test can use to
+  suspend execution between the read and the append) so a single test process can
+  deterministically force two "logical" operations to interleave without needing real
+  child processes.
+
+Either way: assert no lost entries, no interleaved/corrupted lines, and no two operations
+both acting on the same stale pre-write snapshot. **Must-fail arm:** the same test with the
+lock disabled must actually fail (proves the test exercises the real race, not a
+no-op).
 
 ## Open items
 
