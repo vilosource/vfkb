@@ -20,8 +20,8 @@ asserted) · `GATED (trigger)`
 | # | Initiative | Decision | Status | DoD gate |
 |---|---|---|---|---|
 | V2-1 | Session backbone | [ADR-0039](adr/ADR-0039-session-backbone.md) ← RFC-014 | **DONE** (2026-07-06, `v2` PR #49 — DoD observed) | L4 two-session scenario + must-fail arm |
-| V2-2 | Native concurrency lock | [ADR-0040](adr/ADR-0040-native-concurrency-lock.md) ← RFC-015 | **NOT STARTED — next** | cross-process race test + must-fail arm |
-| V2-3 | `entries.jsonl` merge=union | [ADR-0041](adr/ADR-0041-entries-jsonl-merge-union.md) ← RFC-016 | NOT STARTED | local two-branch test + must-fail arm **+ GitHub server-side check** |
+| V2-2 | Native concurrency lock | [ADR-0040](adr/ADR-0040-native-concurrency-lock.md) ← RFC-015 | **DONE** (2026-07-06, `v2` PR #55 — DoD observed, review gate run) | cross-process race test + must-fail arm |
+| V2-3 | `entries.jsonl` merge=union | [ADR-0041](adr/ADR-0041-entries-jsonl-merge-union.md) ← RFC-016 | **NOT STARTED — next** | local two-branch test + must-fail arm **+ GitHub server-side check** |
 | V2-4 | Schema honesty | [ADR-0042](adr/ADR-0042-schema-honesty.md) ← RFC-017 | NOT STARTED | unit gates (structural invariant) |
 | V2-5 | Rebuildable index | [ADR-0043](adr/ADR-0043-rebuildable-index-shape.md) ← RFC-018 | **GATED** | trigger in the ADR: observed consumer slowness / a real brain ≥10k entries / explicit request |
 | V2-6 | Storage-backend seam | [ADR-0044](adr/ADR-0044-storage-backend-abstraction.md) ← RFC-019 | NOT STARTED — **sequenced last** | full existing suite passes unchanged |
@@ -44,15 +44,24 @@ asserted) · `GATED (trigger)`
   writes stamp `session_id` only when the env override is set — revisit if per-call identity
   becomes available upstream.
 
-### V2-2 — Concurrency lock (ADR-0040) — after V2-1
+### V2-2 — Concurrency lock (ADR-0040) — ✅ DONE 2026-07-06 (`v2` PR #55)
 
-- Engine-internal advisory lock around read-decide-append (`kb_supersede`, `kb_transition`);
-  lockfile scheme (`O_EXCL` + staleness), **not** `flock` (ADR-0013). Logs holder `session_id`
-  (needs V2-1).
-- The DoD test must force a **real cross-process** overlap (child processes with a barrier, or an
-  injectable pause) — in-process callbacks cannot race on a synchronous storage layer; a test built
-  that way passes with or without the lock (ADR-0029: a proof that can't fail proves nothing).
-- Build-time open item: whether a future contradiction-aware `kb_add` (ADR-0037) joins the lock.
+- Shipped: `src/lock.ts` — engine-internal advisory lock at `<brain>/.lock` (O_EXCL, ADR-0013:
+  no flock) around `supersede`/`transitionDecision`/`updateEntry`/`setProvenanceStatus`;
+  session-aware holder file; dead-pid/10s staleness (mtime fallback, confirm-before-break,
+  **owner-token-checked release**); 5s bounded acquisition then fail-open; re-entrancy depth
+  guard. `supersede()` now rejects an already-superseded target — concurrent supersedes can no
+  longer fork a lineage.
+- **DoD observed:** real cross-process race (3 children, time barrier, injectable pause between
+  read and append): locked arm exactly 1 winner; must-fail arm ≥2 winners with the lock disabled.
+  172/172 green, stable across repeats.
+- **Review gate (first run):** verdict FIX-FIRST — the reviewer *demonstrated* a release-without-
+  ownership bug (a >10s holder freed the waiter's fresh lock → overlapping writers) plus 4 more
+  findings; all fixed pre-merge (owner token + regression test, EPERM=alive, a stale-test that can
+  actually fail, `.lock` gitignored, CI timing). Record: brain `8ec78f0e201a`.
+- Build-time open item carried: whether a future contradiction-aware `kb_add` (ADR-0037) joins the
+  lock. Also noted: composite curator ops take the lock per-step, not per-composite (outside
+  ADR-0040 scope).
 
 ### V2-3 — merge=union (ADR-0041)
 
