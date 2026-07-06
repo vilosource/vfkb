@@ -50,8 +50,8 @@ async function race(
   extraEnv: Record<string, string>,
 ): Promise<string[]> {
   writeFileSync(join(brain, 'child.mjs'), CHILD);
-  const barrier = String(Date.now() + 600);
-  const env = { ...process.env, VFKB_DATA_DIR: brain, VFKB_TEST_LOCK_HOLD_MS: '300', ...extraEnv };
+  const barrier = String(Date.now() + 800);
+  const env = { ...process.env, VFKB_DATA_DIR: brain, VFKB_TEST_LOCK_HOLD_MS: '500', ...extraEnv };
   delete (env as Record<string, unknown>).KB_SESSION_ID;
   const runs = Array.from({ length: n }, (_, i) =>
     new Promise<string>((res, rej) => {
@@ -104,7 +104,7 @@ describe('ADR-0040 — cross-process read-decide-append serialization', () => {
     expect(edges.length).toBeGreaterThanOrEqual(2); // the forked lineage the lock prevents
   }, 30_000);
 
-  it('a stale lock (dead holder) is broken, not waited on forever', async () => {
+  it('a stale lock (dead holder) is BROKEN promptly — not merely out-waited by fail-open', async () => {
     const brain = mkdtempSync(join(tmpdir(), 'vfkb-lock-stale-'));
     const target = seedDecision(brain);
     // plant a lock owned by a dead pid, timestamped old
@@ -112,8 +112,32 @@ describe('ADR-0040 — cross-process read-decide-append serialization', () => {
       join(brain, '.lock'),
       JSON.stringify({ pid: 999999999, at: new Date(Date.now() - 60_000).toISOString() }),
     );
+    const before = Date.now();
     const results = await race(brain, target, 1, { VFKB_TEST_LOCK_HOLD_MS: '0' });
+    const elapsed = Date.now() - before;
     expect(results[0]).toMatch(/^OK/);
+    // Review-gate F3: without stale-breaking, the 5s fail-open would ALSO yield OK —
+    // assert the op completed well under the acquisition timeout, proving the break.
+    expect(elapsed).toBeLessThan(4_000);
+  }, 30_000);
+
+  it('release is owner-checked: a holder never unlinks a lock that was taken over (F1)', async () => {
+    const brain = mkdtempSync(join(tmpdir(), 'vfkb-lock-owner-'));
+    const target = seedDecision(brain);
+    // child holds the lock for 900ms; mid-hold we simulate a takeover by replacing
+    // the lockfile with a FOREIGN holder's content (what a stale-break + reacquire
+    // leaves behind). The finishing child must leave the foreign lock in place.
+    const foreign = JSON.stringify({ pid: 1, at: new Date().toISOString(), token: 'foreign-token' });
+    const childDone = race(brain, target, 1, { VFKB_TEST_LOCK_HOLD_MS: '900' });
+    await new Promise((r) => setTimeout(r, 500)); // mid-hold (barrier 800ms + acquire ≈ <1400ms)
+    // wait until the child has actually acquired (lockfile exists), then replace it
+    for (let i = 0; i < 100 && !existsSync(join(brain, '.lock')); i++)
+      await new Promise((r) => setTimeout(r, 20));
+    writeFileSync(join(brain, '.lock'), foreign);
+    const results = await childDone;
+    expect(results[0]).toMatch(/^OK/); // the op itself still completes
+    expect(existsSync(join(brain, '.lock'))).toBe(true); // foreign lock NOT freed
+    expect(readFileSync(join(brain, '.lock'), 'utf8')).toBe(foreign);
   }, 30_000);
 
   it('already-superseded rejection also holds single-process (the decide the lock protects)', async () => {

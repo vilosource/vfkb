@@ -13,10 +13,16 @@
 // bounds at 10s).
 //
 // Re-entrancy: node is single-threaded, so a process-local depth counter suffices —
-// nested engine ops (e.g. curator merge → archive → updateEntry) run under the outer
-// acquisition instead of deadlocking on their own lockfile.
+// should engine ops ever compose in-process, the inner op runs under the outer
+// acquisition instead of deadlocking on its own lockfile.
+//
+// Release is OWNER-CHECKED (review gate F1): the holder file carries a unique token;
+// release unlinks only if the file still holds OUR token. Without this, a holder whose
+// critical section outlives STALE_MS would unlink the NEXT holder's fresh lock and
+// admit an unbounded chain of overlapping writers.
 
 import { openSync, closeSync, writeSync, readFileSync, unlinkSync, mkdirSync, statSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import { brainDir } from './storage.js';
 
@@ -34,8 +40,10 @@ function pidAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
     return true;
-  } catch {
-    return false;
+  } catch (err) {
+    // EPERM = the process EXISTS but belongs to another user (shared brain dirs) —
+    // that is an alive holder, not a dead one (review gate F2).
+    return (err as NodeJS.ErrnoException).code === 'EPERM';
   }
 }
 
@@ -68,18 +76,18 @@ export function withBrainLock<T>(fn: () => T): T {
   const lockPath = join(brainDir(), '.lock');
   const started = Date.now();
   let contended = false;
+  // Unique per-acquisition token: release only unlinks a lock that is still OURS.
+  const ourContent = JSON.stringify({
+    pid: process.pid,
+    at: new Date().toISOString(),
+    session_id: process.env.KB_SESSION_ID,
+    token: randomBytes(6).toString('hex'),
+  });
   for (;;) {
     try {
       mkdirSync(brainDir(), { recursive: true });
       const fd = openSync(lockPath, 'wx'); // O_EXCL: atomic exclusive create
-      writeSync(
-        fd,
-        JSON.stringify({
-          pid: process.pid,
-          at: new Date().toISOString(),
-          session_id: process.env.KB_SESSION_ID,
-        }),
-      );
+      writeSync(fd, ourContent);
       closeSync(fd);
       break; // acquired
     } catch (err) {
@@ -147,7 +155,9 @@ export function withBrainLock<T>(fn: () => T): T {
   } finally {
     depth = 0;
     try {
-      unlinkSync(lockPath);
+      // Owner-checked release (F1): if a waiter judged us stale and took over, the
+      // file now carries THEIR token — leave it alone rather than freeing their lock.
+      if (readFileSync(lockPath, 'utf8') === ourContent) unlinkSync(lockPath);
     } catch {
       /* already broken as stale by a waiter — nothing to release */
     }
