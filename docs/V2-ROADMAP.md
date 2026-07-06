@@ -22,9 +22,9 @@ asserted) · `GATED (trigger)`
 | V2-1 | Session backbone | [ADR-0039](adr/ADR-0039-session-backbone.md) ← RFC-014 | **DONE** (2026-07-06, `v2` PR #49 — DoD observed) | L4 two-session scenario + must-fail arm |
 | V2-2 | Native concurrency lock | [ADR-0040](adr/ADR-0040-native-concurrency-lock.md) ← RFC-015 | **DONE** (2026-07-06, `v2` PR #55 — DoD observed, review gate run) | cross-process race test + must-fail arm |
 | V2-3 | `entries.jsonl` merge=union | [ADR-0041](adr/ADR-0041-entries-jsonl-merge-union.md) ← RFC-016 | **DONE** (2026-07-06, `v2` PR #58 — both DoD arms observed, gate: MERGE) | local two-branch test + must-fail arm **+ GitHub server-side check** |
-| V2-4 | Schema honesty | [ADR-0042](adr/ADR-0042-schema-honesty.md) ← RFC-017 | **NOT STARTED — next** | unit gates (structural invariant) |
+| V2-4 | Schema honesty | [ADR-0042](adr/ADR-0042-schema-honesty.md) ← RFC-017 | **DONE** (2026-07-06, `v2` PR #61 — RED-first proof, gate: MERGE w/ tracked conditions) | unit gates (structural invariant) |
 | V2-5 | Rebuildable index | [ADR-0043](adr/ADR-0043-rebuildable-index-shape.md) ← RFC-018 | **GATED** | trigger in the ADR: observed consumer slowness / a real brain ≥10k entries / explicit request |
-| V2-6 | Storage-backend seam | [ADR-0044](adr/ADR-0044-storage-backend-abstraction.md) ← RFC-019 | NOT STARTED — **sequenced last** | full existing suite passes unchanged |
+| V2-6 | Storage-backend seam | [ADR-0044](adr/ADR-0044-storage-backend-abstraction.md) ← RFC-019 | **NOT STARTED — next** (sequenced last among non-gated) | full existing suite passes unchanged |
 
 ## Per-initiative notes
 
@@ -79,11 +79,21 @@ asserted) · `GATED (trigger)`
   yet emit the attribute for consumer repos** — consumer brains keep the guaranteed-conflict shape;
   candidate small addition when consumer wiring is next touched.
 
-### V2-4 — Schema honesty (ADR-0042)
+### V2-4 — Schema honesty (ADR-0042) — ✅ DONE 2026-07-06 (`v2` PR #61)
 
-- Structural `why` (additive to `foldWhy`), whole-envelope read-boundary validation (zod),
-  structural `contradicts`. Unit-gated only. Envelope change → v2 branch (breaking allowed).
-- Build-time call to make: malformed-entry surfacing shape (lean visible, not silent).
+- Shipped all three decided items: structural `why` additive to `foldWhy`; whole-envelope
+  read-boundary validation (`src/validate.ts`, zod looseObject + per-field defaults; corrupt JSONL
+  lines tolerated; no-usable-id records excluded and **visibly counted** in the map render — the
+  "lean visible" call was made visible); structural `refs.contradicts` (CLI `--contradicts`, MCP
+  param, ⚔-surfaced on read lines). Proof RED-first (7/9 failed pre-fix, reviewer reproduced);
+  184/184 green.
+- **Review gate: MERGE with tracked conditions** (gotcha `ffd04537d350`): (1) **declare
+  `zod ^4.0` before any npm publish** — v4-only API, currently transitive via the MCP SDK whose
+  range permits v3; deferred offline (lock refresh needs VPN). (2) Read-boundary defaults persist
+  into stored values on the next edit of a legacy/foreign entry (documented, deliberate);
+  (3) unknown entry types coerce to `fact` — revisit before any v3 types; (4) ADR-0043's future
+  index benchmark must baseline against post-0042 code (zod adds ~2x to the linear scan —
+  measured, sub-ms at real scale); (5) CLAUDE.md's "engine is stdlib" line is stale.
 
 ### V2-5 — Rebuildable index (ADR-0043) — GATED, not in the build order until triggered
 
