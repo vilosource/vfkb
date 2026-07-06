@@ -119,9 +119,22 @@ asserted) · `GATED (trigger)`
 V2-1..V2-4 and V2-6 are built, review-gated, and merged into `v2`; V2-5 stays gated on its
 trigger. **Per the exit criterion below, the next decision is the ADR-0036 ship decision —
 an operator call, not an autonomous one:** merge `v2`→`main` as one reviewed merge, or promote
-`v2` to be the new `main`. Before shipping, worth a final pass: the zod declaration
-(gotcha `ffd04537d350`, needs VPN), a full L4 suite re-run against v2, and consumer-facing
-notes (`vfkb init` union attribute; CONSUMER-ONBOARDING refresh).
+`v2` to be the new `main`.
+
+**Targeted L4 regression: ALL GREEN (2026-07-06, claude harness, brain fact `a53ca3a1e945`).**
+Image `vfkb-l4-claude:v2` built from `v2` (fresh in-container install resolved zod 4.4.3 —
+the dependency worry passes live). Dockerized, N=3 each, `--no-record` (`:dev` records stay
+pinned to v1): `stale-supersession` / `knowledge-delivery` / `capture-recall` /
+`continuity-resume` / `mcp-pull` — **5/5 DEMONSTRATED, 3/3 trials each**. Host, from the v2
+worktree: `decision-capture` **3/3 vs 0/3**, `session-end-handoff` **3/3 vs 0/3**,
+`session-backbone` **3× 11/11** (now at the ADR-0022 bar on claude). The changed surfaces —
+supersession+lock, capture, session continuity, Stop, SessionEnd — all hold.
+
+**Remaining before ship** (deliberately not covered by the targeted pass): the **pi harness
+arm** (needs `DEEPSEEK_TOKEN`; pi-extension touches the refactored SessionState/storage), the
+other ~28 purpose scenarios (full honest re-pin), a live-bundle smoke of the v2 auto-layer,
+the zod declaration (gotcha `ffd04537d350`, needs VPN), the `vfkb init` union attribute for
+consumers, and a `$VFKB_BUNDLE_DIR` rebuild from v2 at ship time.
 
 ## Parallel v1 queue (not v2 — built on `main`, tracked in the H4 roadmap)
 
