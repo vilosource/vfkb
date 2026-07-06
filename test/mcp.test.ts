@@ -104,6 +104,22 @@ describe('tools/call round-trips through the real engine', () => {
     expect(out).not.toContain('OLD.example.com');
   });
 
+  it('kb_supersede folds `why` into the new decision text (Track 9 Q0)', async () => {
+    const add = await client.callTool({
+      name: 'kb_add',
+      arguments: { type: 'decision', text: 'retry twice on failure', status: 'accepted' },
+    });
+    const oldId = callText(add).split(' ')[1];
+
+    const sup = await client.callTool({
+      name: 'kb_supersede',
+      arguments: { old_id: oldId, text: 'retry three times on failure', why: 'observed flaky under load' },
+    });
+    const newId = callText(sup).split('-> ')[1].split(' ')[0];
+    const get = await client.callTool({ name: 'kb_get', arguments: { id: newId } });
+    expect(JSON.parse(callText(get)).text).toContain('Why: observed flaky under load');
+  });
+
   it('kb_transition moves a decision through its lifecycle', async () => {
     const add = await client.callTool({
       name: 'kb_add',

@@ -49,6 +49,18 @@ describe('supersession is an additive edge (ADR-0004)', () => {
     // the old entry's stored text is untouched (immutable content)
     expect(live.find((e) => e.id === old.id)!.text).toBe('use Python');
   });
+
+  it('folds a why rationale into the superseding decision text (Track 9 Q0)', () => {
+    const old = addEntry('decision', 'use Python', { role: 'human', status: 'accepted' });
+    const neu = supersede(old.id, 'use TypeScript instead', {
+      role: 'human',
+      why: 'one in-process codebase with the Pi extension',
+    });
+    expect(neu.text).toContain('use TypeScript instead');
+    expect(neu.text).toMatch(/\nWhy: one in-process codebase/);
+    // the old entry stays byte-identical — why lands only on the new decision
+    expect(readAll().find((e) => e.id === old.id)!.text).toBe('use Python');
+  });
 });
 
 describe('lifecycle transitions vs content-immutability', () => {

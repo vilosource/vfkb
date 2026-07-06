@@ -19,7 +19,9 @@ import {
 } from './engine.js';
 import { query, queryExplained } from './read.js';
 import type { SearchDiagnosis } from './read.js';
+import { brainDir } from './storage.js';
 import type { KnowledgeEntry } from './types.js';
+import { ENGINE_VERSION } from './version.js';
 
 // Default page size for the read tools. An MCP tool result has a hard token
 // budget; an unbounded `query()` returns the whole candidate pool (up to ~200
@@ -82,7 +84,17 @@ function envRole(): z.infer<typeof ROLE> | undefined {
   return p.success ? p.data : undefined;
 }
 
-const server = new McpServer({ name: 'vfkb', version: '0.0.0-spike0' });
+// Render defaults resolve the real project name (VFKB_PROJECT, else the cwd
+// basename) — the 'spike' literal was a leftover of the spike era (Track 9 Q0).
+function projectName(): string {
+  return (
+    process.env.VFKB_PROJECT ||
+    process.cwd().split(/[/\\]/).filter(Boolean).pop() ||
+    'project'
+  );
+}
+
+const server = new McpServer({ name: 'vfkb', version: ENGINE_VERSION });
 
 server.registerTool(
   'kb_search',
@@ -171,7 +183,7 @@ server.registerTool(
       'context spine + the live Constitution/Map/decisions (always current).',
     inputSchema: {},
   },
-  async () => text(renderContext(process.env.VFKB_PROJECT || 'spike')),
+  async () => text(renderContext(projectName())),
 );
 
 server.registerTool(
@@ -206,10 +218,18 @@ server.registerTool(
   {
     description:
       'Supersede a decision with a new one (additive edge; the old is never edited and stops being injected).',
-    inputSchema: { old_id: z.string(), text: z.string(), role: ROLE.optional() },
+    inputSchema: {
+      old_id: z.string(),
+      text: z.string(),
+      why: z
+        .string()
+        .optional()
+        .describe('rationale for the new decision; folded into its text as a "Why: …" line'),
+      role: ROLE.optional(),
+    },
   },
   async (a) => {
-    const e = supersede(a.old_id, a.text, { role: envRole() ?? a.role ?? 'architect' });
+    const e = supersede(a.old_id, a.text, { role: envRole() ?? a.role ?? 'architect', why: a.why });
     return text(`superseded ${a.old_id} -> ${line(e)}`);
   },
 );
@@ -234,14 +254,15 @@ server.registerTool(
       'Session-continuity resume (ADR-0020): the prior session’s derived digest (what was added/superseded/injected/captured — recomputed from the brain, so never stale) + the live knowledge bundle. Pull this to see where the last session left off.',
     inputSchema: {},
   },
-  async () => text(renderResume(process.env.VFKB_PROJECT || 'spike')),
+  async () => text(renderResume(projectName())),
 );
 
 async function main(): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
   // stdout is the protocol channel — never write to it. Log to stderr.
-  process.stderr.write(`vfkb MCP server up (brain: ${process.env.VFKB_DIR ?? '~/.vfkb'})\n`);
+  // brainDir() resolves VFKB_DATA_DIR (canonical) → VFKB_DIR (deprecated alias) → ~/.vfkb.
+  process.stderr.write(`vfkb MCP server up (v${ENGINE_VERSION}, brain: ${brainDir()})\n`);
 }
 
 main().catch((err) => {
