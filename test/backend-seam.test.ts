@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { setStorageBackend, storageBackend } from '../src/backend.js';
 import type { StorageBackend, RawMalformed } from '../src/backend.js';
-import { addEntry, readAll } from '../src/engine.js';
+import { addEntry, readAll, supersede } from '../src/engine.js';
+import { readContextSpine, writeContextSpine } from '../src/storage.js';
 import { SessionState } from '../src/session.js';
 
 // V2-6 (ADR-0044): the seam is LOAD-BEARING — engine reads/writes and session
@@ -15,6 +16,7 @@ class MemBackend implements StorageBackend {
   meta: string | null = null;
   spine: string | null = null;
   sessions = new Map<string, string>();
+  exclusiveCalls = 0;
   location() {
     return 'memory://test';
   }
@@ -49,6 +51,7 @@ class MemBackend implements StorageBackend {
     this.sessions.set(id, json);
   }
   withExclusive<T>(fn: () => T): T {
+    this.exclusiveCalls++;
     return fn();
   }
 }
@@ -77,6 +80,31 @@ describe('ADR-0044 — the storage seam is load-bearing', () => {
       s.save();
       expect(mem.sessions.has('seam-sess')).toBe(true);
       expect(SessionState.records().some((r) => r.sessionId === 'seam-sess')).toBe(true);
+    } finally {
+      setStorageBackend(prev);
+    }
+  });
+
+  it('withExclusive is the BACKEND’s (review-gate F2): a supersede on an injected backend runs ITS exclusive section, not the lockfile', () => {
+    const mem = new MemBackend();
+    const prev = setStorageBackend(mem);
+    try {
+      const old = addEntry('decision', 'v1', { role: 'human', status: 'accepted' });
+      const neu = supersede(old.id, 'v2', { role: 'human' });
+      expect(mem.exclusiveCalls).toBeGreaterThanOrEqual(1); // the fake's exclusive ran
+      expect(mem.records.some((r) => (r as { id?: string }).id === neu.id)).toBe(true);
+    } finally {
+      setStorageBackend(prev);
+    }
+  });
+
+  it('the context spine rides the seam too (review-gate F2)', () => {
+    const mem = new MemBackend();
+    const prev = setStorageBackend(mem);
+    try {
+      writeContextSpine('# spine in memory');
+      expect(mem.spine).toBe('# spine in memory');
+      expect(readContextSpine()).toBe('# spine in memory');
     } finally {
       setStorageBackend(prev);
     }

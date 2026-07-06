@@ -11,6 +11,9 @@
 // Git-layer consumers (git.ts, gating.ts, stop-reminder.ts, session-end.ts) stay
 // file-based BY DESIGN: they exist because the brain is a committed file (ADR-0019);
 // a backend without that property simply doesn't wire them.
+// KNOWN HOLE (review gate, deliberate): counters.ts (.signals telemetry) is
+// engine-owned but still direct-fs — it joins the seam in whatever follow-up first
+// needs it behind one (a second backend); until then signals are local-disk-only.
 //
 // The method surface was shaped by the shipped v2 code, per RFC-019's sequencing
 // intent: records (the kernel), spine/meta (ADR-0025/0014), session records
@@ -25,8 +28,11 @@ import {
   readdirSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { homedir } from 'node:os';
 import { withBrainLock } from './lock.js';
+// One shared env resolver (review gate F3): the JSONL file, the lock, and the
+// git layer must never drift onto different directories. Call-time-only cycle
+// with storage.ts — safe (nothing dereferences at module init).
+import { brainDir } from './storage.js';
 
 // A record the transport could not even hand back (e.g. an unparseable JSONL line).
 // Shape-level validation failures are storage-policy (ADR-0042), not transport.
@@ -59,10 +65,7 @@ export interface StorageBackend {
 
 // --- the one shipped implementation: JSONL on disk (ADR-0019) ---
 
-function dataDir(): string {
-  // VFKB_DATA_DIR is canonical; VFKB_DIR is a kept-working deprecated alias (ADR-0032).
-  return process.env.VFKB_DATA_DIR || process.env.VFKB_DIR || join(homedir(), '.vfkb');
-}
+const dataDir = (): string => brainDir();
 const safeKey = (id: string): string => id.replace(/[^A-Za-z0-9_-]/g, '_');
 
 class JsonlFsBackend implements StorageBackend {
