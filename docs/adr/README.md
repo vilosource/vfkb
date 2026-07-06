@@ -50,3 +50,6 @@ Immutable records of significant vfkb architecture decisions, in
 | [ADR-0031](ADR-0031-bootstrap-engine-resolution-guard.md) | A committed bootstrap guards engine resolution and informs the user when `$VFKB_BUNDLE_DIR` is unset | Accepted |
 | [ADR-0032](ADR-0032-env-var-rename-data-dir-bundle-dir.md) | Rename env vars for clarity — `VFKB_DATA_DIR` (brain) + `VFKB_BUNDLE_DIR` (engine); old names kept as deprecated aliases | Accepted |
 | [ADR-0033](ADR-0033-session-end-continuity.md) | Session-end continuity — a `SessionEnd` brain auto-commit (GAP 2; branch-guarded, pathspec-scoped) + a deterministic B2 handoff floor (GAP 1); B1 nudge open | Accepted |
+| [ADR-0034](ADR-0034-b1-handoff-nudge.md) | GAP-1 B1 — the agent-authored handoff nudge (settles RFC-011 §B) | Accepted |
+| [ADR-0035](ADR-0035-hooks-anchor-to-project-dir.md) | `vfkb init` anchors the Claude Code hooks to `$CLAUDE_PROJECT_DIR` | Accepted |
+| [ADR-0036](ADR-0036-v2-two-branch-strategy.md) | v2 development uses a dedicated long-lived `v2` branch; `main` stays release-only | Accepted |

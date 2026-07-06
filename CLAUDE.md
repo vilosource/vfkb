@@ -161,6 +161,25 @@ this is a **deliberate discipline**:
   autonomous mode** — and even then it stays branch → PR → merge (after green/DoD), never a
   direct-to-`main` commit.
 
+## v2 development — branch discipline (ADR-0036)
+
+**`main` is the released v1 — it never receives v2 work.** v2 (`docs/V2-VISION.md`,
+breaking changes explicitly allowed) develops on a dedicated long-lived **`v2`** branch:
+
+- Every v2 initiative branches **from `v2`** and PRs **back into `v2`** — never into
+  `main`. Same branch → PR → review discipline as above, just retargeted.
+- `main` keeps receiving v1 patches/fixes exactly as before this ADR; merge `main` into
+  `v2` after every such fix (not batched) so the two branches never diverge far enough
+  for reconciliation to become its own project.
+- **Exception: docs.** RFCs, ADRs, and vision/notes docs (incl. `V2-VISION.md` itself)
+  are non-breaking and keep landing on `main` via the normal PR flow — writing about a
+  decision isn't building it. The rule that matters is **v2 *code* never lands on `main`
+  until v2 ships**.
+- `v2` gets the **same branch protection as `main`** — no direct pushes, PR required.
+
+Before starting any v2-initiative code (not docs), confirm you're branching from `v2`,
+not `main`. Full rationale: [ADR-0036](docs/adr/ADR-0036-v2-two-branch-strategy.md).
+
 ## Current state (2026-06-28)
 
 - `main` rebranded **vtfkb → vfkb** (ADR-0026, commit `dc1525a`); 95/95 unit green; ADRs 0001–0026,
@@ -170,6 +189,10 @@ this is a **deliberate discipline**:
   (6 core scenarios), Track 4b (D-i `verified`-filter; D-iii relabel-on-promotion, ADR-0024; D-iv pi
   live tool-result capture; D-ii context-doc + `kb_context`, ADR-0025). **In-repo H4 frontier is
   EXHAUSTED — no in-order build remains.** The next work is a **new fork → re-ratify the roadmap first**.
+  **That fork has started (2026-07-05):** `docs/V2-VISION.md` is the pre-RFC brainstorm,
+  `docs/NOTES-multi-agent-concurrency-corner-cases.md` grounds it, and
+  [ADR-0036](docs/adr/ADR-0036-v2-two-branch-strategy.md) sets the branch discipline (see the
+  "v2 development" section above).
 - **Gated (do NOT build on spec):** **S1** embedding reranker (RFC-003 — build only on a 2nd live
   phrasing-robustness miss *or* an explicit request); **P1** Claude-Code per-turn push (ADR-0015
   Tier C — external-blocked upstream). **Parked:** H2 fleet wiring, H3 global tier.

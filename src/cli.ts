@@ -267,10 +267,13 @@ async function main() {
     return;
   }
 
-  // supersede <oldId> <text...> [--role r]
+  // supersede <oldId> <text...> [--role r] [--why w]
   if (cmd === 'supersede') {
     try {
-      const e = supersede(sub, cleanText(rest), { role: (flag(rest, 'role') as AuthorRole) || 'human' });
+      const e = supersede(sub, cleanText(rest), {
+        role: (flag(rest, 'role') as AuthorRole) || 'human',
+        why: flag(rest, 'why'),
+      });
       process.stdout.write(`${e.id}\tsupersedes ${sub}\t${e.text}\n`);
     } catch (err) {
       process.stderr.write(`error: ${(err as Error).message}\n`);
