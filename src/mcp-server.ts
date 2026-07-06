@@ -38,7 +38,9 @@ const ROLE = z.enum(['architect', 'pm', 'executor', 'judge', 'human', 'init', 'i
 function line(e: KnowledgeEntry): string {
   const adr = typeof e.adr_no === 'number' ? ` ADR-${String(e.adr_no).padStart(4, '0')}` : '';
   const st = e.status ? `/${e.status}` : '';
-  return `${e.id} [${e.type} ${deriveTrust(e.author.role)}/${e.provenance.status}${st}${adr}] ${e.text}`;
+  // ADR-0042 §3: a structural contradiction reference is surfaced on every read line.
+  const contra = e.refs?.contradicts?.length ? ` ⚔ contradicts ${e.refs.contradicts.join(',')}` : '';
+  return `${e.id} [${e.type} ${deriveTrust(e.author.role)}/${e.provenance.status}${st}${adr}]${contra} ${e.text}`;
 }
 function text(s: string) {
   return { content: [{ type: 'text' as const, text: s }] };
@@ -194,8 +196,9 @@ server.registerTool(
     inputSchema: {
       type: ENTRY_TYPE,
       text: z.string(),
-      why: z.string().optional().describe('rationale; folded into the text as a "Why: …" line (esp. for decisions)'),
+      why: z.string().optional().describe('rationale; stored structurally AND folded into the text as a "Why: …" line (esp. for decisions)'),
       tags: z.string().optional().describe('comma-separated'),
+      contradicts: z.string().optional().describe('comma-separated ids of entries this one contradicts (structural reference, ADR-0042)'),
       role: ROLE.optional().describe('author role; defaults to executor (agent)'),
       status: STATUS.optional().describe('decision family only'),
       constitutional: z.boolean().optional().describe('decision family only (ADR-0008)'),
@@ -206,6 +209,7 @@ server.registerTool(
       role: envRole() ?? a.role ?? 'executor',
       why: a.why,
       tags: tags(a.tags),
+      contradicts: tags(a.contradicts),
       status: a.status,
       constitutional: a.constitutional,
     });

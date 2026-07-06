@@ -1,12 +1,14 @@
 // vfkb storage kernel (Phase 1). Append-only JSONL = source of truth (ADR-0013).
-// Pure Node stdlib, ZERO runtime deps. Records are entries OR tombstones; the
-// live set is *materialized* by last-write-wins on `updated` (merge=union-safe:
-// concatenating two branches' JSONL and re-materializing is order-independent).
+// Node stdlib + zod (the ADR-0042 read-boundary schema — the one non-stdlib import).
+// Records are entries OR tombstones; the live set is *materialized* by
+// last-write-wins on `updated` (merge=union-safe: concatenating two branches'
+// JSONL and re-materializing is order-independent).
 
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { createHash } from 'node:crypto';
+import { normalizeEntry } from './validate.js';
 import type { KnowledgeEntry } from './types.js';
 
 export interface Tombstone {
@@ -55,13 +57,36 @@ export function writeContextSpine(content: string): void {
   writeFileSync(contextSpinePath(), content);
 }
 
+// Malformed state of the LAST read pass (ADR-0042 §2): records excluded from the
+// live set, surfaced instead of silently dropped or — worse — crashing every read.
+// Reset on each readRecords() pass; inspect via lastMalformed().
+export interface MalformedRecord {
+  line?: number; // 1-based line in entries.jsonl, when the failure was at parse time
+  issue: string;
+  raw: string;
+}
+let malformed: MalformedRecord[] = [];
+export function lastMalformed(): MalformedRecord[] {
+  return [...malformed];
+}
+
 export function readRecords(): StoredRecord[] {
   const f = recordsFile();
+  malformed = [];
   if (!existsSync(f)) return [];
-  return readFileSync(f, 'utf8')
-    .split('\n')
-    .filter((l) => l.trim().length > 0)
-    .map((l) => JSON.parse(l) as StoredRecord);
+  const out: StoredRecord[] = [];
+  const lines = readFileSync(f, 'utf8').split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    if (l.trim().length === 0) continue;
+    try {
+      out.push(JSON.parse(l) as StoredRecord);
+    } catch (err) {
+      // ADR-0042: one corrupt line must not crash every read of the whole brain.
+      malformed.push({ line: i + 1, issue: `unparseable JSON: ${(err as Error).message}`, raw: l.slice(0, 200) });
+    }
+  }
+  return out;
 }
 
 // Collapse the append log to the live entry set.
@@ -71,15 +96,26 @@ export function readRecords(): StoredRecord[] {
 export function materialize(records: StoredRecord[] = readRecords()): KnowledgeEntry[] {
   const newest = new Map<string, StoredRecord>();
   for (const r of records) {
+    if (!r || typeof r !== 'object' || typeof (r as { id?: unknown }).id !== 'string' || !(r as { id: string }).id) {
+      // Unsalvageable: no usable id → excluded from the live set, visibly counted
+      // (ADR-0042 §2 — a distinct surfaced state, never a crash, never silent).
+      malformed.push({ issue: 'no usable id', raw: JSON.stringify(r).slice(0, 200) });
+      continue;
+    }
     const cur = newest.get(r.id);
     if (!cur || r.updated >= cur.updated) newest.set(r.id, r);
   }
   const out: KnowledgeEntry[] = [];
-  for (const r of newest.values())
-    // Normalize at the read boundary so every consumer sees a well-formed entry:
-    // legacy or externally-projected entries (e.g. vfwb's lossy projection into .vfkb)
-    // may omit `tags`; default it to [] once here rather than guarding every call site.
-    if (!isTombstone(r)) out.push(r.tags ? r : { ...r, tags: [] });
+  for (const r of newest.values()) {
+    if (isTombstone(r)) continue;
+    // Whole-envelope normalization at the read boundary (ADR-0042 §2): every consumer
+    // sees a well-formed entry regardless of origin (vfkb write path, external
+    // projection, hand edit). Safe defaults for missing/invalid fields; unknown
+    // future fields pass through untouched (forward compatibility).
+    const n = normalizeEntry(r);
+    if (n.ok) out.push(n.entry);
+    else malformed.push({ issue: n.issue, raw: JSON.stringify(r).slice(0, 200) });
+  }
   return out;
 }
 
