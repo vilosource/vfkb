@@ -72,6 +72,9 @@ export interface AddOpts {
   validUntil?: string;
   constitutional?: boolean; // ADR-0008 (decision family only)
   supersedes?: string; // refs.supersedes — set by supersede()
+  // ADR-0039 (v2): the writing session's id. Explicit value wins; falls back to
+  // $KB_SESSION_ID; omitted (not stamped) when neither is known.
+  sessionId?: string;
 }
 
 // Fold a `--why`/`why=` rationale into the entry text (gotcha 91338268: the envelope
@@ -106,6 +109,7 @@ export function addEntry(type: EntryType, text: string, opts: AddOpts = {}): Kno
     // default a brand-new decision to `proposed` (an RFC, ADR-0007) unless told.
     status: opts.status ?? (isDecisionFamily(type) ? 'proposed' : undefined),
     constitutional: isDecisionFamily(type) ? opts.constitutional : undefined,
+    session_id: opts.sessionId ?? process.env.KB_SESSION_ID ?? undefined,
     created: ts,
     updated: ts,
   };
@@ -553,6 +557,7 @@ export interface ToolEvent {
   tool_input?: unknown;
   tool_result?: unknown;
   call_id?: string;
+  session_id?: string; // ADR-0039: the capturing session (harness stdin id)
 }
 
 // vfkb's own knowledge tools (bare `kb_*` or harness-namespaced `mcp__vfkb__*`).
@@ -608,6 +613,7 @@ export function captureToolCall(ev: ToolEvent): KnowledgeEntry | null {
       tags: ['captured', `capture:${outcome}`],
       provStatus: 'unverified',
       origin: { kind: 'tool_call', tool: ev.tool_name, call_id: ev.call_id },
+      sessionId: ev.session_id,
     });
   } catch {
     // no-secrets lint (or any write error) → skip the capture, never crash the harness.

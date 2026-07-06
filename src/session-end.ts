@@ -120,7 +120,7 @@ const oneLine = (s: string): string => (s || '').replace(/\s+/g, ' ').trim();
 // committed `fact`, independent of session records). Tagged `auto` to distinguish it
 // from an agent-authored handoff. Writes through the engine (correct envelope); the
 // engine resolves the brain via VFKB_DATA_DIR, so point it at the resolved dir for the call.
-function writeAutoHandoff(absBrain: string, fresh: BrainEntry[]): void {
+function writeAutoHandoff(absBrain: string, fresh: BrainEntry[], sessionId?: string): void {
   const CAP = 12;
   const list = fresh
     .slice(0, CAP)
@@ -135,7 +135,12 @@ function writeAutoHandoff(absBrain: string, fresh: BrainEntry[]): void {
   const prev = process.env.VFKB_DATA_DIR;
   process.env.VFKB_DATA_DIR = absBrain;
   try {
-    addEntry('fact', text, { role: 'executor', zone: 'established', tags: ['handoff', 'next', 'auto'] });
+    addEntry('fact', text, {
+      role: 'executor',
+      zone: 'established',
+      tags: ['handoff', 'next', 'auto'],
+      sessionId, // ADR-0039: attribute the fallback handoff to the ending session
+    });
   } finally {
     if (prev === undefined) delete process.env.VFKB_DATA_DIR;
     else process.env.VFKB_DATA_DIR = prev;
@@ -198,7 +203,7 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
     let autoHandoff = false;
     if (fresh.length > 0 && !fresh.some(isHandoff)) {
       try {
-        writeAutoHandoff(absBrain, fresh);
+        writeAutoHandoff(absBrain, fresh, sessionId);
         autoHandoff = true;
       } catch {
         /* handoff is best-effort; never let it block the commit */
