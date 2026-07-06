@@ -1,6 +1,6 @@
 # RFC-012: Deterministic contradiction surfacing at write time
 
-- **Status:** **Proposed** (Track 9 Q1 — the first RFC of the 2026-07-02 roadmap fork)
+- **Status:** **Accepted → [ADR-0037](../adr/ADR-0037-contradiction-surfacing-at-write.md)** (2026-07-06; Track 9 Q1 — build is scenario-contract-first, RED before build)
 - **Date:** 2026-07-02
 - **Deciders:** operator + Claude
 - **Relates:** [H4-DEVELOPMENT-ROADMAP §3 Track 9](../H4-DEVELOPMENT-ROADMAP.md) (fork decision

@@ -389,8 +389,8 @@ operator request. When it fires: schedule the existing deterministic `distill` +
 `→ Track 6 decision-capture fork (RFC-008 → ADR-0027 hook ✅ → ADR-0028 wiring-smoke ✅ → ADR-0029 DoD ✅; decision-capture L4 DEMONSTRATED 3/3 vs 0/3)` *(re-ratified 2026-06-29)*. **Track 6 COMPLETE.**
 `→ Track 7 consumer distribution & onboarding fork (RFC-010 → ADR-0030; FR-2 bundle unknown spike-resolved ✅ before acceptance) → build FR-2 → FR-1 → FR-4 → FR-3 → CONSUMER-ONBOARDING.md` *(new fork, re-ratified 2026-06-30 on the vfwb onboarding evidence)*. **Track 7 COMPLETE.**
 `→ Track 8 session-end continuity fork (RFC-011 → ADR-0033; SessionEnd contract verified ✅ gotcha f0e913b9) → GAP 2 brain auto-commit ✅ + GAP 1 B2 handoff floor ✅ (deterministic gate green + bundle smoke + live-wired) → GAP 1 B1 higher-quality Stop nudge ✅ (RFC-011 §B settled as B1+B2 → ADR-0034; L4 quality contrast DEMONSTRATED 3/3 vs 0/3, claude-haiku-4-5, 2026-07-01)` *(new fork, re-ratified 2026-06-30)*. **Track 8 COMPLETE (GAP 2 + GAP 1 B2 floor + GAP 1 B1 nudge).**
-`→ Track 9 memory quality & interop (landscape survey 2026-07-02, brain fact 9ebe4eaf → Q0 hygiene ✅ #27 → Q1 RFC-012 drafted/Proposed ✅ #28, pauses at acceptance → Q2 use-feedback + Q3 AGENTS.md export queued, RFC numbers at draft; Q4 sleep-time + BM25-first S1 amendment + bi-temporal stay GATED)` *(reconciled ratification 2026-07-06 — v1-compatible quality queue, not the frontier)*.
-`→ **v2 fork — THE ACTIVE FRONTIER** (ADR-0036 two-branch strategy ✅ → V2-VISION ✅ → RFC-014..019 drafted/Proposed ✅ #35; each pauses at operator acceptance, then builds on the `v2` branch — RFC-014 session backbone is the foundational dependency of 015/016)` *(fork ratified 2026-07-05)*.
+`→ Track 9 memory quality & interop (landscape survey 2026-07-02, brain fact 9ebe4eaf → Q0 hygiene ✅ #27 → Q1 RFC-012 ACCEPTED ✅ → ADR-0037 (build on request/evidence, RED first) → Q2 use-feedback + Q3 AGENTS.md export queued, RFC numbers at draft; Q4 sleep-time + BM25-first S1 amendment + bi-temporal stay GATED)` *(reconciled ratification 2026-07-06 — v1-compatible quality queue, not the frontier; RFC-013 ACCEPTED ✅ → ADR-0038 rides this queue too)*.
+`→ **v2 fork — THE ACTIVE FRONTIER** (ADR-0036 two-branch strategy ✅ → V2-VISION ✅ → RFC-014..019 ACCEPTED ✅ 2026-07-06 → ADR-0039..0044; builds on the `v2` branch in order: 014 session backbone (precondition verified live) → 015 lock → 016 merge=union → 017 schema honesty; 018 build gated; 019 last)` *(fork ratified 2026-07-05; acceptances 2026-07-06)*.
 **Track 4b is COMPLETE** — D-i `verified`-filter (pi/claude 2/3, 2026-06-27); D-iii relabel-on-promotion
 (`promotion-relabel` pi/claude 2/3, ADR-0024, 2026-06-27); D-iv pi live tool-result capture
 (`live-capture-result` pi 3/3, 2026-06-27; claude failure-capture EXTERNAL-BLOCKED); **D-ii context-doc +
@@ -430,15 +430,21 @@ In all three cases the response is the same: **update this roadmap and re-ratify
 — never leave the next step to an ad-hoc question. (Scope: in-repo `vfkb` only; vafi/vtaskforge
 work stays out-of-scope/HITL per H2.)
 
-### ▶ Current action — **the v2 fork (ADR-0036) + the Track 9 acceptance queue** (re-ratified 2026-07-06)
-**The v2 fork is the active frontier** ([ADR-0036](adr/ADR-0036-v2-two-branch-strategy.md),
-[V2-VISION](V2-VISION.md)): RFC-014..019 are drafted and Proposed on `main` (#35). **Each pauses at
-operator acceptance** (acceptance → ADR per ADR-0007/0009), then builds **on the `v2` branch only** —
-RFC-014 (session backbone) is the foundational dependency of RFC-015/016 and the natural first
-acceptance. In parallel, **Track 9 is the v1-compatible quality queue** (§3 Track 9): Q0 shipped (#27),
-RFC-012 awaits acceptance (#28), Q2/Q3 queued behind operator request or their triggers, Q4 + the
-gated-ledger items on their named triggers. RFC-013 (cross-project query, #29) likewise awaits
-acceptance. One build in flight (P7); no build starts without its RFC accepted.
+### ▶ Current action — **build the accepted v2 backbone on `v2`** (acceptances 2026-07-06)
+**All eight pending RFCs were ACCEPTED by the operator on 2026-07-06** (→ ADR-0037..0044; RFC-014's
+`--resume` session-id-stability precondition was **verified live first**, CLI v2.1.201). The build
+order on the **`v2` branch** ([ADR-0036](adr/ADR-0036-v2-two-branch-strategy.md)):
+**RFC-014/[ADR-0039](adr/ADR-0039-session-backbone.md) session backbone first** (foundational; its
+DoD scenario RED before/with the build) → RFC-015/[ADR-0040](adr/ADR-0040-native-concurrency-lock.md)
+lock → RFC-016/[ADR-0041](adr/ADR-0041-entries-jsonl-merge-union.md) merge=union (incl. the GitHub
+server-side empirical check) → RFC-017/[ADR-0042](adr/ADR-0042-schema-honesty.md) schema honesty;
+RFC-018/[ADR-0043](adr/ADR-0043-rebuildable-index-shape.md) **build stays gated** (trigger in the
+ADR); RFC-019/[ADR-0044](adr/ADR-0044-storage-backend-abstraction.md) **sequenced last** (the seam is
+shaped by the lock/index experience). In parallel on `main`, the **Track 9 queue**:
+RFC-012/[ADR-0037](adr/ADR-0037-contradiction-surfacing-at-write.md) and
+RFC-013/[ADR-0038](adr/ADR-0038-cross-project-brain-query.md) are accepted — each builds
+scenario-contract-first (RED on both harnesses) on operator request or evidence, per the reconciled
+Track 9 ratification. One build in flight (P7).
 *(2026-07-01 Track-8 state preserved below.)*
 
 ### ▶ (prior) Current action — **Track 8: Session-end continuity (safe-by-default `/exit`)** (re-ratified 2026-06-30)

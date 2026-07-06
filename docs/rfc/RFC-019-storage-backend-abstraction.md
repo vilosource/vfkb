@@ -1,6 +1,6 @@
 # RFC-019: A pluggable storage-backend interface
 
-- **Status:** Proposed
+- **Status:** **Accepted → [ADR-0044](../adr/ADR-0044-storage-backend-abstraction.md)** (2026-07-06)
 - **Date:** 2026-07-05
 - **Deciders:** operator + Claude
 - **Relates:** [ADR-0019](../adr/ADR-0019-self-hosted-design-brain.md) (self-hosted design
