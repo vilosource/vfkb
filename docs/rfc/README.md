@@ -28,7 +28,7 @@ role-attributed; options under discussion live in the RFC's Decision/text.
 | [RFC-010](RFC-010-consumer-integration-and-distribution.md) | Consumer integration & distribution contract — `vfkb init` / portable engine / `import` / `doctor` | Accepted → [ADR-0030](../adr/ADR-0030-consumer-integration-and-distribution.md) |
 | [RFC-011](RFC-011-session-end-continuity.md) | Session-end continuity — safe-by-default `/exit` (SessionEnd auto-commit + handoff floor) | Accepted → [ADR-0033](../adr/ADR-0033-session-end-continuity.md) (GAP 2 + B2 floor; B1 open) |
 | [RFC-012](RFC-012-contradiction-surfacing-at-write.md) | Deterministic contradiction surfacing at write time — conflict candidates in the `kb_add` result, never blocking (Track 9 Q1) | Proposed |
-| RFC-013 | Cross-project brain query — read-only recall from a registered sibling project's `.vfkb` | Proposed — drafted, pending merge ([PR #29](https://github.com/vilosource/vfkb/pull/29)) |
+| [RFC-013](RFC-013-cross-project-brain-query.md) | Cross-project brain query — read-only, provenance-labeled recall from a registered sibling project's `.vfkb` (links registry + `kb_query_external`) | Proposed |
 | [RFC-014](RFC-014-session-backbone.md) | v2 — Session backbone: real session identity from hook stdin, widened for entry attribution | Proposed |
 | [RFC-015](RFC-015-native-concurrency-lock.md) | v2 — A vfkb-native concurrency lock, scoped to the read-decide-append critical section | Proposed |
 | [RFC-016](RFC-016-entries-jsonl-merge-driver.md) | v2 — `entries.jsonl` stops guaranteeing a merge conflict on every second branch (v1: `merge=union`, pending a GitHub server-side check) | Proposed |
