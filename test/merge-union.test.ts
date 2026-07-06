@@ -24,6 +24,10 @@ function git(cwd: string, ...args: string[]): string {
       GIT_AUTHOR_EMAIL: 't@t',
       GIT_COMMITTER_NAME: 't',
       GIT_COMMITTER_EMAIL: 't@t',
+      // hermetic: a developer's global/system git config (gpgsign, a global
+      // attributesFile mapping *.jsonl…) must not leak into the scratch repos
+      GIT_CONFIG_GLOBAL: '/dev/null',
+      GIT_CONFIG_SYSTEM: '/dev/null',
     },
   });
 }
