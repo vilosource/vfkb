@@ -75,6 +75,10 @@ export interface KnowledgeEntry {
   // content-immutability rule — they carry lifecycle/identity, not the decision):
   constitutional?: boolean; // ADR-0008: a constitutional rule (always-injected)
   adr_no?: number; // ADR-0009: human ordinal, stamped by the engine at merge-to-main
+  // ADR-0039 (v2): which session wrote this entry — attribution independent of the
+  // (shared) git commit identity that later lands it. Stamped when the session is
+  // known at write time (hook-driven writes always; CLI/MCP via KB_SESSION_ID).
+  session_id?: string;
   created: string;
   updated: string;
 }
