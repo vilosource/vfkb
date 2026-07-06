@@ -253,6 +253,7 @@ export function supersede(oldId: string, text: string, opts: AddOpts = {}): Know
   }
   return addEntry('decision', text, {
     role: opts.role ?? 'human',
+    why: opts.why,
     tags: opts.tags,
     status: opts.status ?? 'accepted',
     constitutional: opts.constitutional ?? old.constitutional,
