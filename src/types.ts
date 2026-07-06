@@ -51,6 +51,7 @@ export interface Refs {
   files?: string[];
   related?: string[];
   supersedes?: string; // supersession edge (decision family) — ADR-0004
+  contradicts?: string[]; // structural contradiction references (ADR-0042 §3, v2)
 }
 
 // Bi-temporal validity window (ADR-0011). recorded_invalid_at stored-but-not-consumed in v1.
@@ -71,6 +72,10 @@ export interface KnowledgeEntry {
   provenance: Provenance;
   validity: Validity;
   status?: DecisionStatus; // decision family only
+  // ADR-0042 §1 (v2): structural rationale, ADDITIVE to the folded "Why: …" text
+  // convention (foldWhy keeps working; this makes rationale independently
+  // queryable/renderable instead of recoverable only by pattern-matching text).
+  why?: string;
   // Engine-managed decision-family fields (NOT user content; exempt from the
   // content-immutability rule — they carry lifecycle/identity, not the decision):
   constitutional?: boolean; // ADR-0008: a constitutional rule (always-injected)

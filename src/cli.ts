@@ -66,6 +66,7 @@ async function main() {
         role,
         why: flag(rest, 'why'),
         tags,
+        contradicts: flag(rest, 'contradicts')?.split(',').map((t) => t.trim()).filter(Boolean),
         status: flag(rest, 'status') as any,
         provStatus: flag(rest, 'prov-status') as any,
         validUntil: flag(rest, 'valid-until'),
@@ -303,7 +304,8 @@ async function main() {
       includeSuperseded: args.includes('--superseded'),
     });
     for (const e of results) {
-      process.stdout.write(`${e.id}\t${e.type}\t${deriveTrust(e.author.role)}\t${e.text}\n`);
+      const contra = e.refs?.contradicts?.length ? `\t⚔ contradicts ${e.refs.contradicts.join(',')}` : '';
+      process.stdout.write(`${e.id}\t${e.type}\t${deriveTrust(e.author.role)}\t${e.text}${contra}\n`);
     }
     // RFC-002: an empty result is reported with its cause, not silence — so the
     // human/agent reading the CLI knows "no recorded entry" vs "all matches stale".
