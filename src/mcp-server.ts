@@ -228,7 +228,7 @@ server.registerTool(
       why: z
         .string()
         .optional()
-        .describe('rationale for the new decision; folded into its text as a "Why: …" line'),
+        .describe('rationale for the new decision; stored structurally AND folded into its text as a "Why: …" line'),
       role: ROLE.optional(),
     },
   },

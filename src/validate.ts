@@ -20,6 +20,16 @@ const PROV_STATUS = z.enum(['verified', 'unverified', 'stale', 'expired']);
 // Defaults (documented): unknown role → executor (agent-trust, the safe floor);
 // unknown provenance → unverified (never accidentally verified); unknown zone →
 // incoming (never accidentally injected as established); missing tags → [].
+//
+// TWO KNOWN CONSEQUENCES (review gate, 2026-07-06 — deliberate, documented):
+// 1. PERSISTENCE-ON-UPDATE: update paths (updateEntry/setProvenanceStatus/transition)
+//    spread the NORMALIZED entry and re-append, so read-time defaults become stored
+//    values on the next edit of a legacy/foreign entry. The original line stays
+//    untouched (append-only intact) and normalization is idempotent, but an
+//    invalid-but-meaningful original value leaves the live record permanently.
+// 2. UNKNOWN TYPE COERCES TO 'fact' (the one place passthrough does NOT hold): a
+//    future v3 entry type read by this code renders as a fact, and via (1) an edit
+//    would persist that coercion. Revisit before any v3 schema introduces new types.
 const entrySchema = z
   .looseObject({
     id: z.string().min(1),
@@ -72,8 +82,9 @@ export function normalizeEntry(raw: unknown): NormalizeResult {
     return { ok: false, issue: parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ') };
   }
   const e = parsed.data as unknown as KnowledgeEntry;
-  // valid_from is required downstream (staleness math) — default it from the entry's
-  // own created stamp, else epoch (visibly ancient beats invisibly wrong).
+  // valid_from is required by the TS envelope type (no runtime consumer today) —
+  // default it from the entry's own created stamp, else epoch (visibly ancient
+  // beats invisibly wrong).
   if (!e.validity.valid_from) {
     e.validity = { ...e.validity, valid_from: e.created || '1970-01-01T00:00:00.000Z' };
   }
