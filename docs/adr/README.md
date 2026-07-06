@@ -53,3 +53,11 @@ Immutable records of significant vfkb architecture decisions, in
 | [ADR-0034](ADR-0034-b1-handoff-nudge.md) | GAP-1 B1 — the agent-authored handoff nudge (settles RFC-011 §B) | Accepted |
 | [ADR-0035](ADR-0035-hooks-anchor-to-project-dir.md) | `vfkb init` anchors the Claude Code hooks to `$CLAUDE_PROJECT_DIR` | Accepted |
 | [ADR-0036](ADR-0036-v2-two-branch-strategy.md) | v2 development uses a dedicated long-lived `v2` branch; `main` stays release-only | Accepted |
+| [ADR-0037](ADR-0037-contradiction-surfacing-at-write.md) | Deterministic contradiction surfacing at write time — conflict candidates in the add result, never blocking (accepts RFC-012) | Accepted |
+| [ADR-0038](ADR-0038-cross-project-brain-query.md) | Cross-project brain query — read-only, provenance-labeled recall from a registered sibling `.vfkb` (accepts RFC-013) | Accepted |
+| [ADR-0039](ADR-0039-session-backbone.md) | v2 session backbone — real session identity from hook stdin, entry attribution (accepts RFC-014; `--resume` id-stability precondition verified live) | Accepted |
+| [ADR-0040](ADR-0040-native-concurrency-lock.md) | A vfkb-native advisory lock scoped to the read-decide-append critical section (accepts RFC-015) | Accepted |
+| [ADR-0041](ADR-0041-entries-jsonl-merge-union.md) | `entries.jsonl` merges via built-in `merge=union`; custom driver deferred (accepts RFC-016 as revised) | Accepted |
+| [ADR-0042](ADR-0042-schema-honesty.md) | Schema honesty — structural `why`, read-boundary envelope validation, `contradicts` field (accepts RFC-017) | Accepted |
+| [ADR-0043](ADR-0043-rebuildable-index-shape.md) | Rebuildable index — shape ratified, build evidence-gated (accepts RFC-018; trigger settled) | Accepted (build gated) |
+| [ADR-0044](ADR-0044-storage-backend-abstraction.md) | A pluggable storage-backend interface; JSONL stays the shipped default (accepts RFC-019) | Accepted |
