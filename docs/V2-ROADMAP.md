@@ -21,8 +21,8 @@ asserted) · `GATED (trigger)`
 |---|---|---|---|---|
 | V2-1 | Session backbone | [ADR-0039](adr/ADR-0039-session-backbone.md) ← RFC-014 | **DONE** (2026-07-06, `v2` PR #49 — DoD observed) | L4 two-session scenario + must-fail arm |
 | V2-2 | Native concurrency lock | [ADR-0040](adr/ADR-0040-native-concurrency-lock.md) ← RFC-015 | **DONE** (2026-07-06, `v2` PR #55 — DoD observed, review gate run) | cross-process race test + must-fail arm |
-| V2-3 | `entries.jsonl` merge=union | [ADR-0041](adr/ADR-0041-entries-jsonl-merge-union.md) ← RFC-016 | **NOT STARTED — next** | local two-branch test + must-fail arm **+ GitHub server-side check** |
-| V2-4 | Schema honesty | [ADR-0042](adr/ADR-0042-schema-honesty.md) ← RFC-017 | NOT STARTED | unit gates (structural invariant) |
+| V2-3 | `entries.jsonl` merge=union | [ADR-0041](adr/ADR-0041-entries-jsonl-merge-union.md) ← RFC-016 | **DONE** (2026-07-06, `v2` PR #58 — both DoD arms observed, gate: MERGE) | local two-branch test + must-fail arm **+ GitHub server-side check** |
+| V2-4 | Schema honesty | [ADR-0042](adr/ADR-0042-schema-honesty.md) ← RFC-017 | **NOT STARTED — next** | unit gates (structural invariant) |
 | V2-5 | Rebuildable index | [ADR-0043](adr/ADR-0043-rebuildable-index-shape.md) ← RFC-018 | **GATED** | trigger in the ADR: observed consumer slowness / a real brain ≥10k entries / explicit request |
 | V2-6 | Storage-backend seam | [ADR-0044](adr/ADR-0044-storage-backend-abstraction.md) ← RFC-019 | NOT STARTED — **sequenced last** | full existing suite passes unchanged |
 
@@ -63,13 +63,21 @@ asserted) · `GATED (trigger)`
   lock. Also noted: composite curator ops take the lock per-step, not per-composite (outside
   ADR-0040 scope).
 
-### V2-3 — merge=union (ADR-0041)
+### V2-3 — merge=union (ADR-0041) — ✅ DONE 2026-07-06 (`v2` PR #58)
 
-- One `.gitattributes` line + tests. **The load-bearing unknown:** whether GitHub's server-side PR
-  merge honors `merge=union` — unverified, and it is this repo's actual merge path. The empirical
-  check (a deliberately conflicting test PR observed against the merge button) is **part of the
-  Done bar**, not follow-up. If negative → the follow-up decision in RFC-016's Open items (accept
-  the trivially-resolvable gap vs. local-merge-and-push) gets made then.
+- Shipped: `.gitattributes` → `.vfkb/entries.jsonl merge=union` + `test/merge-union.test.ts`
+  (RFC-016's own reproduction, both arms: clean union with the attribute; the must-fail arm still
+  conflicts without it, asserting a real `UU` on the brain file).
+- **The load-bearing unknown, ANSWERED empirically** (throwaway probe repo, created+deleted;
+  decision `6d328f607e82`): **GitHub's server-side PR merge does NOT honor `merge=union`** —
+  CONFLICTING even with the attribute committed. **Workaround observed end-to-end:** a local
+  `git merge <base>` on the PR branch auto-unions (no manual resolution) and pushing flips the PR
+  to MERGEABLE. Disposition: accept the GitHub gap, keep the PR audit trail; conflicting brain PRs
+  get the one-command local merge.
+- **Review gate: MERGE** (reviewer verified the proof fails when the attribute is deleted, and
+  that the probe record leads with the negative result). Follow-up noted: **`vfkb init` does not
+  yet emit the attribute for consumer repos** — consumer brains keep the guaranteed-conflict shape;
+  candidate small addition when consumer wiring is next touched.
 
 ### V2-4 — Schema honesty (ADR-0042)
 
