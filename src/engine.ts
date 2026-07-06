@@ -14,6 +14,7 @@ import {
   writeContextSpine,
 } from './storage.js';
 import { selectIndex } from './index-store.js';
+import { withBrainLock, testHoldForRace } from './lock.js';
 import { assertNoSecrets } from './secrets.js';
 import { tally } from './counters.js';
 import { SessionState } from './session.js';
@@ -127,16 +128,18 @@ export function updateEntry(
   id: string,
   patch: Partial<Pick<KnowledgeEntry, 'text' | 'tags' | 'zone'>>,
 ): KnowledgeEntry {
-  const cur = readAll().find((e) => e.id === id);
-  if (!cur) throw new Error(`no such entry: ${id}`);
-  if (!FLUID_TYPES.has(cur.type)) {
-    throw new Error(
-      `entry ${id} is a ${cur.type} (decision family) — immutable; supersede it, don't edit (ADR-0004)`,
-    );
-  }
-  const next: KnowledgeEntry = { ...cur, ...patch, updated: nowIso() };
-  appendRecord(next);
-  return next;
+  return withBrainLock(() => {
+    const cur = readAll().find((e) => e.id === id);
+    if (!cur) throw new Error(`no such entry: ${id}`);
+    if (!FLUID_TYPES.has(cur.type)) {
+      throw new Error(
+        `entry ${id} is a ${cur.type} (decision family) — immutable; supersede it, don't edit (ADR-0004)`,
+      );
+    }
+    const next: KnowledgeEntry = { ...cur, ...patch, updated: nowIso() };
+    appendRecord(next);
+    return next;
+  });
 }
 
 // Non-destructive provenance re-stamp (D-iii / ADR-0024). Flips the trust label
@@ -148,15 +151,17 @@ export function setProvenanceStatus(
   id: string,
   status: KnowledgeEntry['provenance']['status'],
 ): KnowledgeEntry {
-  const cur = readAll().find((e) => e.id === id);
-  if (!cur) throw new Error(`no such entry: ${id}`);
-  const next: KnowledgeEntry = {
-    ...cur,
-    provenance: { ...cur.provenance, status },
-    updated: nowIso(),
-  };
-  appendRecord(next);
-  return next;
+  return withBrainLock(() => {
+    const cur = readAll().find((e) => e.id === id);
+    if (!cur) throw new Error(`no such entry: ${id}`);
+    const next: KnowledgeEntry = {
+      ...cur,
+      provenance: { ...cur.provenance, status },
+      updated: nowIso(),
+    };
+    appendRecord(next);
+    return next;
+  });
 }
 
 // Delete = additive tombstone (never rewrites; merge=union safe).
@@ -249,19 +254,33 @@ export function renderContextMap(map: ContextMap = buildContextMap()): string {
 
 // Supersede a decision with a new one (additive edge — the old is never edited).
 // The old entry's effective status becomes `superseded`, derived from the edge.
+// Read-decide-append → runs under the brain lock (ADR-0040): two concurrent
+// supersedes of the same target must not both act on the pre-edge snapshot and
+// fork the lineage — the second sees the first's edge and is rejected.
 export function supersede(oldId: string, text: string, opts: AddOpts = {}): KnowledgeEntry {
-  const old = readAll().find((e) => e.id === oldId);
-  if (!old) throw new Error(`no such entry: ${oldId}`);
-  if (!isDecisionFamily(old.type)) {
-    throw new Error(`entry ${oldId} is not a decision — fluid types are edited, not superseded`);
-  }
-  return addEntry('decision', text, {
-    role: opts.role ?? 'human',
-    why: opts.why,
-    tags: opts.tags,
-    status: opts.status ?? 'accepted',
-    constitutional: opts.constitutional ?? old.constitutional,
-    supersedes: oldId,
+  return withBrainLock(() => {
+    const all = readAll();
+    const old = all.find((e) => e.id === oldId);
+    if (!old) throw new Error(`no such entry: ${oldId}`);
+    if (!isDecisionFamily(old.type)) {
+      throw new Error(`entry ${oldId} is not a decision — fluid types are edited, not superseded`);
+    }
+    if (supersededIds(all).has(oldId)) {
+      throw new Error(
+        `entry ${oldId} is already superseded — superseding it again would fork the lineage; ` +
+          'supersede its live successor instead',
+      );
+    }
+    testHoldForRace(); // test-only seam between the read and the append (ADR-0040 DoD)
+    return addEntry('decision', text, {
+      role: opts.role ?? 'human',
+      why: opts.why,
+      tags: opts.tags,
+      status: opts.status ?? 'accepted',
+      constitutional: opts.constitutional ?? old.constitutional,
+      supersedes: oldId,
+      sessionId: opts.sessionId,
+    });
   });
 }
 
@@ -275,14 +294,17 @@ export function transitionDecision(
   if (status === 'superseded') {
     throw new Error('`superseded` is derived from a supersession edge — use supersede()');
   }
-  const cur = readAll().find((e) => e.id === id);
-  if (!cur) throw new Error(`no such entry: ${id}`);
-  if (!isDecisionFamily(cur.type)) {
-    throw new Error(`entry ${id} is not a decision — use updateEntry() for fluid types`);
-  }
-  const next: KnowledgeEntry = { ...cur, status, updated: nowIso() };
-  appendRecord(next);
-  return next;
+  return withBrainLock(() => {
+    const cur = readAll().find((e) => e.id === id);
+    if (!cur) throw new Error(`no such entry: ${id}`);
+    if (!isDecisionFamily(cur.type)) {
+      throw new Error(`entry ${id} is not a decision — use updateEntry() for fluid types`);
+    }
+    testHoldForRace();
+    const next: KnowledgeEntry = { ...cur, status, updated: nowIso() };
+    appendRecord(next);
+    return next;
+  });
 }
 
 // The set of ids superseded by some live entry (the supersession edges).
