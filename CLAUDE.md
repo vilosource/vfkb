@@ -85,7 +85,7 @@ this is a **deliberate discipline**:
 ## Build / test / run
 
 - `npm run build` → `tsc` → `dist/` (no native modules). `pretest` runs `tsc` first.
-- `npm test` → vitest (**95/95** at the 2026-06-28 rebrand). The **fast deterministic gate**.
+- `npm test` → vitest (**157/157** as of 2026-07-06). The **fast deterministic gate**.
 - **Env caveat:** `npm install` is configured against the corporate Nexus
   (`nexus.optiscangroup.com`) → **ENOTFOUND off-VPN**. `node_modules` here was bootstrapped by
   copying from `~/GitHub/vfkb`. On VPN, a normal install works (or `--registry`).
@@ -180,22 +180,28 @@ breaking changes explicitly allowed) develops on a dedicated long-lived **`v2`**
 Before starting any v2-initiative code (not docs), confirm you're branching from `v2`,
 not `main`. Full rationale: [ADR-0036](docs/adr/ADR-0036-v2-two-branch-strategy.md).
 
-## Current state (2026-06-28)
+## Current state (2026-07-06)
 
-- `main` rebranded **vtfkb → vfkb** (ADR-0026, commit `dc1525a`); 95/95 unit green; ADRs 0001–0026,
-  RFCs 001–007.
-- **v1 (per-project tier) COMPLETE** (Phases 0–6). **H4 COMPLETE:** Track 1 (session continuity +
-  auto-distill/ACE curator, ADR-0020/0021), Track 5 (dockerized L4 substrate, ADR-0022), Track 4
-  (6 core scenarios), Track 4b (D-i `verified`-filter; D-iii relabel-on-promotion, ADR-0024; D-iv pi
-  live tool-result capture; D-ii context-doc + `kb_context`, ADR-0025). **In-repo H4 frontier is
-  EXHAUSTED — no in-order build remains.** The next work is a **new fork → re-ratify the roadmap first**.
-  **That fork has started (2026-07-05):** `docs/V2-VISION.md` is the pre-RFC brainstorm,
-  `docs/NOTES-multi-agent-concurrency-corner-cases.md` grounds it, and
-  [ADR-0036](docs/adr/ADR-0036-v2-two-branch-strategy.md) sets the branch discipline (see the
-  "v2 development" section above).
-- **Gated (do NOT build on spec):** **S1** embedding reranker (RFC-003 — build only on a 2nd live
-  phrasing-robustness miss *or* an explicit request); **P1** Claude-Code per-turn push (ADR-0015
-  Tier C — external-blocked upstream). **Parked:** H2 fleet wiring, H3 global tier.
+- `main` rebranded **vtfkb → vfkb** (ADR-0026, commit `dc1525a`); 157/157 unit green; ADRs 0001–0036,
+  RFCs 001–019.
+- **v1 (per-project tier) COMPLETE** (Phases 0–6). **H4 COMPLETE:** Tracks 1, 4, 4b, 5 (ADR-0020..0025)
+  plus Track 6 (decision capture, ADR-0027..0029), Track 7 (consumer distribution, ADR-0030..0032),
+  Track 8 (session-end continuity, ADR-0033/0034).
+- **▶ Active frontier: the v2 fork** ([ADR-0036](docs/adr/ADR-0036-v2-two-branch-strategy.md),
+  `docs/V2-VISION.md`, grounded by `docs/NOTES-multi-agent-concurrency-corner-cases.md`): RFC-014..019
+  drafted and **Proposed** (#35) — each **pauses at operator acceptance** (→ ADR), then builds on the
+  `v2` branch only (see the "v2 development" section above). RFC-014 (session backbone) is the
+  foundational dependency of 015/016.
+- **Track 9 — memory quality & interop** (landscape-informed, reconciled ratification 2026-07-06;
+  roadmap §3 Track 9) is the **v1-compatible quality queue**, not the frontier: Q0 hygiene SHIPPED
+  (#27); RFC-012 contradiction-surfacing **Proposed** (#28, pauses at acceptance); Q2 use-feedback +
+  Q3 AGENTS.md export queued (RFC numbers at draft time); Q4 sleep-time distillation gated. RFC-013
+  cross-project brain query also **Proposed** (#29).
+- **Gated (do NOT build on spec):** **S1** search-robustness upgrade (trigger unchanged: 2nd live
+  phrasing-robustness miss *or* an explicit request; **amended 2026-07-06: first resort = BM25 in
+  `InMemoryIndex`, RFC-003 embeddings second**); **P1** Claude-Code per-turn push (ADR-0015
+  Tier C — external-blocked upstream); Track-9 **Q4** + bi-temporal consumption (named triggers).
+  **Parked:** H2 fleet wiring, H3 global tier.
 - **Open findings:** (1) Claude Code's PostToolUse hook does **not fire on a FAILED tool call** →
   live *failure*-capture is pi-only (external-block). (2) `tool-gating` (the brain-write block) is
   **flaky on the pi 0.73.1 substrate** — it holds only intermittently (guardrail-integrity issue,
@@ -210,7 +216,7 @@ not `main`. Full rationale: [ADR-0036](docs/adr/ADR-0036-v2-two-branch-strategy.
   `tool_execution_end` result capture), `src/curator.ts` (`promote`/`promoteIfCorroborated`),
   `src/distiller.ts`.
 - `docs/`: `DESIGN.md`, `FEATURES.md`, `STATUS-AND-ROADMAP.md` (north-star),
-  `H4-DEVELOPMENT-ROADMAP.md` (execution authority), `adr/` (0001–0026), `rfc/` (001–007).
+  `H4-DEVELOPMENT-ROADMAP.md` (execution authority), `adr/` (0001–0036), `rfc/` (001–019).
 - `.vfkb/` — vfkb's self-hosted design brain. **Commit it.**
 
 ## vfwb relationship
