@@ -1,6 +1,7 @@
 # RFC-014: Session backbone — real session identity from hook stdin, widened for attribution
 
-- **Status:** Proposed
+- **Status:** **Accepted → [ADR-0039](../adr/ADR-0039-session-backbone.md)** (2026-07-06; the
+  acceptance precondition below was verified live first — see Open items)
 - **Date:** 2026-07-05 (strengthened 2026-07-05 after independent review — see below)
 - **Deciders:** operator + Claude
 - **Relates:** [ADR-0020](../adr/ADR-0020-session-continuity-record.md) (the session-continuity
@@ -91,3 +92,6 @@ must be ephemeral (regression guard, proves the scenario can actually fail).
   the id it captures, but it hasn't been independently probed live. **Promoted from "cheap
   check during the build" to a precondition for accepting this RFC** — verify it with a
   throwaway two-turn `claude -p --resume` probe before acceptance, not after.
+  **→ VERIFIED 2026-07-06 (CLI v2.1.201), before acceptance:** a sandbox with a Stop hook
+  logging its stdin observed the **same** `session_id` on the fresh `claude -p` turn and the
+  `claude -p --resume <id>` turn. Precondition holds; re-verify on a CLI major change.
