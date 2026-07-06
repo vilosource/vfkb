@@ -24,7 +24,7 @@ asserted) · `GATED (trigger)`
 | V2-3 | `entries.jsonl` merge=union | [ADR-0041](adr/ADR-0041-entries-jsonl-merge-union.md) ← RFC-016 | **DONE** (2026-07-06, `v2` PR #58 — both DoD arms observed, gate: MERGE) | local two-branch test + must-fail arm **+ GitHub server-side check** |
 | V2-4 | Schema honesty | [ADR-0042](adr/ADR-0042-schema-honesty.md) ← RFC-017 | **DONE** (2026-07-06, `v2` PR #61 — RED-first proof, gate: MERGE w/ tracked conditions) | unit gates (structural invariant) |
 | V2-5 | Rebuildable index | [ADR-0043](adr/ADR-0043-rebuildable-index-shape.md) ← RFC-018 | **GATED** | trigger in the ADR: observed consumer slowness / a real brain ≥10k entries / explicit request |
-| V2-6 | Storage-backend seam | [ADR-0044](adr/ADR-0044-storage-backend-abstraction.md) ← RFC-019 | **NOT STARTED — next** (sequenced last among non-gated) | full existing suite passes unchanged |
+| V2-6 | Storage-backend seam | [ADR-0044](adr/ADR-0044-storage-backend-abstraction.md) ← RFC-019 | **DONE** (2026-07-06, `v2` PR #64 — suite unchanged, gate: MERGE) | full existing suite passes unchanged |
 
 ## Per-initiative notes
 
@@ -100,10 +100,28 @@ asserted) · `GATED (trigger)`
 - Shape ratified (incremental append-offset parsing, not content-hash staleness); **do not build**
   until the ADR's trigger fires. When it does, insert it into this order by re-ratifying this doc.
 
-### V2-6 — Storage seam (ADR-0044) — deliberately last
+### V2-6 — Storage seam (ADR-0044) — ✅ DONE 2026-07-06 (`v2` PR #64)
 
-- The interface is shaped by real experience from V2-2 (and V2-5 if triggered) — not designed
-  speculatively. Strict no-behavior-change refactor; JSONL stays the only shipped backend.
+- Shipped: `src/backend.ts` — the `StorageBackend` interface (records / spine / meta / session
+  records / `withExclusive` / location) + the one JSONL implementation; `storage.ts` became
+  backend-agnostic policy; sessions and the ADR-0040 exclusive section ride the seam;
+  `setStorageBackend` is the opt-in door. Git-layer consumers stay file-based by design.
+- **DoD observed:** the full pre-existing suite passed **unchanged** (zero test edits, reviewer
+  verified) — 189/189 with the new seam-proof tests (an injected in-memory backend receives
+  engine traffic incl. its own `withExclusive`; the seam can fail if bypassed).
+- **Review gate: MERGE**, findings folded in. Known seam hole documented: `counters.ts`
+  (.signals telemetry) stays direct-fs until a second backend first needs it.
+
+---
+
+## ⚑ State of the fork (2026-07-06): all non-gated initiatives DONE
+
+V2-1..V2-4 and V2-6 are built, review-gated, and merged into `v2`; V2-5 stays gated on its
+trigger. **Per the exit criterion below, the next decision is the ADR-0036 ship decision —
+an operator call, not an autonomous one:** merge `v2`→`main` as one reviewed merge, or promote
+`v2` to be the new `main`. Before shipping, worth a final pass: the zod declaration
+(gotcha `ffd04537d350`, needs VPN), a full L4 suite re-run against v2, and consumer-facing
+notes (`vfkb init` union attribute; CONSUMER-ONBOARDING refresh).
 
 ## Parallel v1 queue (not v2 — built on `main`, tracked in the H4 roadmap)
 
