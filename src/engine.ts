@@ -9,6 +9,7 @@ import {
   appendRecord,
   materialize,
   readRecords,
+  lastMalformed,
   contextSpinePath,
   readContextSpine,
   writeContextSpine,
@@ -61,10 +62,12 @@ export function deriveTrust(role: AuthorRole): Trust {
 // --- Writes ---
 export interface AddOpts {
   role?: AuthorRole;
-  /** Rationale folded into the entry TEXT as a "Why: …" line (the envelope has no
-   *  `why` field — gotcha 91338268). Esp. for decisions. No-op if blank or if the
-   *  text already carries a "Why:" line. */
+  /** Rationale. Stored BOTH ways (ADR-0042 §1): folded into the entry TEXT as a
+   *  "Why: …" line (the pre-v2 convention, kept working) AND as the structural
+   *  `why` field, so rationale is independently queryable/renderable. */
   why?: string;
+  /** Structural contradiction references (ADR-0042 §3) → refs.contradicts. */
+  contradicts?: string[];
   tags?: string[];
   status?: KnowledgeEntry['status'];
   provStatus?: KnowledgeEntry['provenance']['status'];
@@ -100,7 +103,14 @@ export function addEntry(type: EntryType, text: string, opts: AddOpts = {}): Kno
     tags: opts.tags ?? [],
     zone: opts.zone ?? (deriveTrust(role) === 'operator' ? 'established' : 'incoming'),
     author: { role },
-    refs: opts.supersedes ? { supersedes: opts.supersedes } : undefined,
+    refs:
+      opts.supersedes || opts.contradicts?.length
+        ? {
+            supersedes: opts.supersedes,
+            contradicts: opts.contradicts?.length ? opts.contradicts : undefined,
+          }
+        : undefined,
+    why: opts.why?.trim() || undefined, // structural rationale (ADR-0042 §1)
     provenance: {
       status: opts.provStatus ?? (deriveTrust(role) === 'operator' ? 'verified' : 'unverified'),
       date: ts,
@@ -192,6 +202,9 @@ export interface ContextMap {
   byZone: Record<KnowledgeEntry['zone'], number>;
   decisions: { accepted: number; proposed: number; superseded: number; deprecated: number; constitutional: number };
   topTags: Array<{ tag: string; n: number }>;
+  // ADR-0042 §2: records excluded by read-boundary validation on the last pass —
+  // surfaced (visible in the map render), never silently dropped.
+  malformed: number;
 }
 
 export function buildContextMap(): ContextMap {
@@ -220,7 +233,7 @@ export function buildContextMap(): ContextMap {
     .slice(0, 8)
     .map(([tag, n]) => ({ tag, n }));
 
-  return { total: all.length, byType, byZone, decisions, topTags };
+  return { total: all.length, byType, byZone, decisions, topTags, malformed: lastMalformed().length };
 }
 
 export function renderContextMap(map: ContextMap = buildContextMap()): string {
@@ -240,6 +253,7 @@ export function renderContextMap(map: ContextMap = buildContextMap()): string {
     `${map.total} entries · ${types} · zones: established ${map.byZone.established}/incoming ${map.byZone.incoming}\n` +
     `${decLine}\n` +
     `top tags: ${tags}\n` +
+    (map.malformed ? `⚠ ${map.malformed} malformed record${map.malformed === 1 ? '' : 's'} excluded (ADR-0042 — inspect the brain file)\n` : '') +
     `pull more: search <terms> · filter by type/tag/status/author\n` +
     `</vfkb-map>`
   );
