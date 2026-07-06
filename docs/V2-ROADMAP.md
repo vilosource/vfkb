@@ -19,8 +19,8 @@ asserted) · `GATED (trigger)`
 
 | # | Initiative | Decision | Status | DoD gate |
 |---|---|---|---|---|
-| V2-1 | Session backbone | [ADR-0039](adr/ADR-0039-session-backbone.md) ← RFC-014 | **NOT STARTED — next** | L4 two-session scenario + must-fail arm |
-| V2-2 | Native concurrency lock | [ADR-0040](adr/ADR-0040-native-concurrency-lock.md) ← RFC-015 | NOT STARTED | cross-process race test + must-fail arm |
+| V2-1 | Session backbone | [ADR-0039](adr/ADR-0039-session-backbone.md) ← RFC-014 | **DONE** (2026-07-06, `v2` PR #49 — DoD observed) | L4 two-session scenario + must-fail arm |
+| V2-2 | Native concurrency lock | [ADR-0040](adr/ADR-0040-native-concurrency-lock.md) ← RFC-015 | **NOT STARTED — next** | cross-process race test + must-fail arm |
 | V2-3 | `entries.jsonl` merge=union | [ADR-0041](adr/ADR-0041-entries-jsonl-merge-union.md) ← RFC-016 | NOT STARTED | local two-branch test + must-fail arm **+ GitHub server-side check** |
 | V2-4 | Schema honesty | [ADR-0042](adr/ADR-0042-schema-honesty.md) ← RFC-017 | NOT STARTED | unit gates (structural invariant) |
 | V2-5 | Rebuildable index | [ADR-0043](adr/ADR-0043-rebuildable-index-shape.md) ← RFC-018 | **GATED** | trigger in the ADR: observed consumer slowness / a real brain ≥10k entries / explicit request |
@@ -28,16 +28,21 @@ asserted) · `GATED (trigger)`
 
 ## Per-initiative notes
 
-### V2-1 — Session backbone (ADR-0039) — foundational, build first
+### V2-1 — Session backbone (ADR-0039) — ✅ DONE 2026-07-06 (`v2` PR #49)
 
-- Everything session-aware downstream (V2-2's lock logging, future contradiction checks) depends
-  on this. Acceptance precondition already verified live (2026-07-06, CLI v2.1.201): hook-stdin
-  `session_id` is stable across `claude -p --resume` (brain gotcha `1a008f0ef92e`).
-- Scope: hooks read `session_id` from stdin (env var becomes an override); `SessionData` gains
-  `agentRole`/`agentLabel`/branch/pid; every entry stamped with `session_id`;
-  `SessionState.records()` documented as the concurrent-session registry.
-- Scenario **RED before/with the build** on both harnesses (ADR-0023); must-fail arm = pre-fix
-  code shows ephemeral state.
+- Shipped exactly the accepted scope: hooks read `session_id` from their own stdin
+  (`effectiveSessionId()`; `KB_SESSION_ID` overrides); `SessionData` gained
+  `agentRole`/`agentLabel`/`branch`/`pid`; `KnowledgeEntry.session_id` stamped by `addEntry`
+  (explicit opt or env); `SessionState.records()` documented as the concurrent-session registry.
+- **DoD observed:** unit contract `test/session-backbone.test.ts` run **RED first** (8/10 failed
+  pre-fix) → 167/167 green. L4 `scenarios/session-backbone.mjs` (real `claude -p`,
+  `KB_SESSION_ID` unset): **fixed arm 11/11** — two sessions + one `--resume` turn against one
+  brain → two isolated records, turn accumulation across the resume, captures stamped with the
+  right session id; **baseline arm** vs the pre-fix dist showed fully ephemeral state (can-fail
+  proven). Brain fact `12f87e6a2b05` (on `v2`).
+- Honest limitation carried forward: the MCP server has no per-call harness id, so MCP `kb_add`
+  writes stamp `session_id` only when the env override is set — revisit if per-call identity
+  becomes available upstream.
 
 ### V2-2 — Concurrency lock (ADR-0040) — after V2-1
 
