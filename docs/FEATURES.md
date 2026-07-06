@@ -1,265 +1,302 @@
-# vfkb — The Shared Memory That Makes an AI Software Factory Compound
+# vfkb — Features
 
-> **A product brief.** What vfkb is, the problem it solves, and the features that
-> make it worth building. Companion to the engineering design
-> [`DESIGN.md`](DESIGN.md) (decisions D1–D7 + ADR-0011…0015 locked, 2026-06-03).
+> **The verified feature reference.** What vfkb is and what it actually does today,
+> grounded in the shipped code (`src/`), the accepted ADRs (0001–0035), and the
+> L4 evaluation harness. Companion to the engineering design
+> [`DESIGN.md`](DESIGN.md) and the live state in
+> [`STATUS-AND-ROADMAP.md`](STATUS-AND-ROADMAP.md).
 >
-> **Status (2026-06-28):** the v1 per-project tier is **BUILT and shipped**, and the
-> H4 in-repo frontier on top of it is complete (session continuity, auto-distill/ACE
-> curator, the `verified` trust filter, relabel-on-promotion, pi live capture, and the
-> project context doc + `kb_context`). Every feature below traces to a locked design
-> decision and a shipped implementation behind an accepted ADR — see
-> [STATUS-AND-ROADMAP.md](STATUS-AND-ROADMAP.md) for the live state and ADR map.
+> **Status (2026-07-02):** the v1 per-project tier is **built and shipped**, the H4
+> in-repo frontier on top of it is **complete**, and the consumer
+> distribution/onboarding story (ADR-0030–0032) plus session-end continuity
+> (ADR-0033–0035) have landed. Every feature below states whether it is **BUILT**,
+> **PARTIAL** (built on one face, not the other), or **DESIGNED / GATED** (not
+> built — deliberately). This document replaces the 2026-06 product brief; the
+> problem statement (§1) and the before/after story (§5) carry over because they
+> are still the point.
 
 ---
 
 ## 1. The problem
 
 **ViloForge already has a software factory that works.** Give the execution
-engine (vtaskforge + vafi) a high-quality spec and it returns verified code with
-near-zero rework — proven across dozens of autonomous task runs. The factory's
-own hard-won lesson, in its words:
+engine a high-quality spec and it returns verified code with near-zero rework.
+The factory's own hard-won lesson: *"Invest in spec quality, not executor
+sophistication."* And a good spec is only good because whoever wrote it *had the
+context* — the domain, the prior decisions, the gotcha that bit the last person
+who touched this module. Today that context lives in exactly one place: **a
+human's head.**
 
-> *"Invest in spec quality, not executor sophistication."*
-> *"Precise specs → first-attempt passes."*
-
-So **spec quality is the single biggest lever on factory output.** And here is the
-trap: a good spec is only good because whoever wrote it *had the context* — the
-domain, the prior decisions, the gotcha that bit the last person who touched this
-module. Today that context lives in exactly one place: **a human's head.**
-
-That creates three compounding failures as you try to run the fleet at scale:
+That creates three compounding failures at fleet scale:
 
 - **Every agent starts generic.** The architect that plans your payment system
-  knows nothing about your payment system. It has the repo and the ticket — no
-  memory of *why* the last three decisions went the way they did.
+  knows nothing about your payment system.
 - **Hard-won lessons evaporate.** An executor discovers "money needs Postgres
-  `NUMERIC`, not float," fixes it, and ships. The next task makes the same
-  mistake, because that lesson was never written anywhere an agent will read.
-- **The human is the only shared memory** between the architect, PM, executor,
-  and judge — so the human is the bottleneck, and an unattended fleet starves.
+  `NUMERIC`, not float," fixes it, ships — and the next task makes the same
+  mistake, because the lesson was never written anywhere an agent will read.
+- **The human is the only shared memory** between agents, so the human is the
+  bottleneck and an unattended fleet starves.
 
-You can buy a better model. You cannot buy *your project's accumulated judgment.*
-**vfkb is where that judgment lives** — a shared, durable, multi-agent memory so
-every agent in the factory is smarter than a generic one, and gets smarter every
-time the factory runs.
+You can buy a better model. You cannot buy *your project's accumulated
+judgment.* **vfkb is where that judgment lives.**
 
 > **One line:** *vfkb turns one-shot agents into a team with a memory.*
 
 ---
 
-## 2. The features at a glance
+## 2. What vfkb is (one paragraph)
 
-| Feature | What it gives you |
-|---|---|
-| **Memory that shows up on its own** | Relevant knowledge is **injected into the agent automatically** — at session start and as the conversation shifts — and lessons are **captured passively** from what the agent does. The agent doesn't have to remember to look; the memory comes to it. (Carried over from mykb's deepest capability.) |
-| **Knowledge lives in the repo** | The brain is a git directory inside the project. Knowledge is versioned *with the code*, branches with it, and travels with a clone — no external service to be down or out of sync. |
-| **Causally consistent with code** | A gotcha about module M lands on `main` exactly when M's change does. Branch a task → inherit all prior knowledge. No "the wiki says X but the code does Y." |
-| **Multi-agent attribution** | Every entry records *who* wrote it — architect, PM, executor, judge, human, or the onboarding `init`. You can trust, filter, and audit by author. |
-| **Knowledge ↔ work ↔ code links** | Entries reference the vtf task, the commit/branch, and the files they came from. Knowledge is never orphaned from the change that produced it. |
-| **Conflict-free at fleet scale** | Many agents on many branches write at once and *never* collide (`merge=union` on append-only logs). Concurrency is a non-event. |
-| **Trust as a gradient, not a gate** | Writes land instantly, labeled "unverified." Nothing queues. Readers weigh the label; an *independent* signal (a judge, a passing test, a human) promotes to "verified." Wrong entries self-heal — superseded and archived, never silently deleted. |
-| **A first-class project context doc** | One always-current brief — the agent's first read — that says what the project *is*: domain, architecture, conventions, key decisions. The `CLAUDE.md` you wish every project maintained, maintained by the factory itself. |
-| **Agents ask; the brain also volunteers** | On top of the automatic layer, agents query knowledge through natural tool calls (`kb_search`, `kb_context`, `kb_add`…) over MCP — the one interface every harness in the fleet speaks. Humans read *through* an agent, like asking a knowledgeable teammate. |
-| **One search, two scopes** | A single query spans this project's brain *and* the org-wide knowledge tier, returns one ranked list, each result labeled with its scope and trust. |
-| **Two tiers, deliberate promotion** | Per-project knowledge stays local; genuinely reusable knowledge is *promoted* to a shared "Viloforge KB" by an explicit, reviewed step — never leaks automatically. |
-| **Secrets stay out** | The brain is git-committed, so a write-time lint blocks secrets at the door. Knowledge and secret *references* only. |
-| **Backend-agnostic** | Brain-in-repo + a `kb` binary in the agent works on any execution backend — k8s pod today, bare VM tomorrow. No new infrastructure coupling. |
-
----
-
-## 3. The features, section by section
-
-### 3.0 Memory that shows up on its own (the signature capability)
-The difference between "a knowledge base you can query" and "an agent that
-remembers" is **who initiates**. vfkb does both, but this is the one that makes
-it feel like memory:
-- **Automatic context-injection.** At session start the agent is handed the
-  project context doc; as the conversation moves, relevant facts/decisions/gotchas
-  are **scored and injected into the agent's context without it asking.** The
-  agent doesn't have to *remember to look it up* — the right knowledge is already
-  in front of it.
-- **Passive capture.** vfkb observes the agent's inputs and tool activity to know
-  what's relevant (and, over time, to harvest lessons) — no explicit "save this"
-  ceremony on the hot path.
-
-Because this hooks each agent harness's loop, it's delivered **per harness over
-one shared engine**: a native **Pi extension** (where the architect runs) and
-**Claude Code hooks** (where executors/judges run), both driving the same brain.
-This is exactly the capability that makes mykb valuable today, carried forward —
-not traded away for a pull-only API. *(Design: D7; the cross-harness query
-baseline is D5a/§3.8.)*
-
-### 3.1 Knowledge lives in the repo (git-native)
-The brain is a directory (`.vfkb/`) committed inside the project's main repo —
-append-only JSONL logs plus a rebuildable search index. That single choice buys a
-lot: knowledge is **versioned**, **diffable**, **reviewable in a PR**, and
-**travels with the code**. There is no separate database to provision, back up,
-or find out-of-sync at 2 a.m. Clone the repo and you have the memory. *(Design:
-D2 — git is the system of record; JSONL + SQLite/FTS, deterministic rebuild.)*
-
-### 3.2 Knowledge that stays true to the code (causal consistency)
-Because the brain is *in* the repo, it follows the same branch-and-merge flow as
-the code — and vfkb leans into that:
-- The **architect** writes design-level knowledge to `main` directly (it's
-  human-gated in the planning chat, and cheap to revise).
-- **Executors and judges** write what they *discover while building* onto the
-  task branch, so the lesson merges to `main` **together with the code change
-  that taught it.**
-- Every new task branches from `main` and **inherits all prior knowledge.**
-
-The payoff is a guarantee generic memory systems can't make: *a gotcha about a
-module is present exactly when that module's code is present.* No drift, no stale
-wiki. *(Design: §5 origin-split writes, D4.)*
-
-### 3.3 Every memory knows who made it (multi-agent attribution)
-mykb — the proven single-user predecessor — assumed one author. A factory has
-several specialized agents plus humans, so vfkb stamps every entry with an
-**author role** (`architect | pm | executor | judge | human | init`). That turns
-attribution into leverage: a judge's verified decision can outrank an executor's
-unverified hunch; you can audit "what did the architect actually decide here";
-you can filter a query to human-authored knowledge only. *(Design: D3a.)*
-
-### 3.4 Knowledge wired to work and code (linkage)
-Entries carry **references**: the vtf task they came from, the commit/branch, the
-files involved, and links to related or superseding entries. A decision is never
-a free-floating sentence — it's connected to the work that motivated it and the
-code that implements it. Ask "why is this here?" and the trail is intact. The
-reference direction is deliberately **one-way** (knowledge points at work, never
-the reverse), which keeps the work-tracker clean and product-agnostic. *(Design:
-D3b, D1.)*
-
-### 3.5 Many agents writing at once — and never colliding (concurrency)
-A fleet means N agents on N branches all appending knowledge simultaneously.
-vfkb makes that a non-problem: the logs are **append-only** and marked
-`merge=union`, so concurrent appends from any number of branches **merge without
-conflict**; the index dedups by ID on rebuild. The rare destructive edits are
-mediated through the architect. The 95% case — agents appending what they learn —
-is conflict-free *by construction*, not by locking. *(Design: §5.1, D4c.)*
-
-### 3.6 Trust as a gradient, not a bottleneck (the trust model)
-The hardest question for a shared agent memory is *"how do you keep it from
-filling with confident nonsense?"* The wrong answer is a curation queue — it
-stalls the fleet. vfkb's answer:
-- **Writes land immediately**, in the active set, **labeled** with their author
-  and a status that defaults to **`unverified`** for agents. Nothing waits.
-- **Readers get the trust signal** and weigh it; an agent can ask for
-  `verified`-only when it matters.
-- **`verified` is earned by an independent signal** — a judge, a passing test, a
-  second agent, a human — *never* by the author asserting its own correctness.
-- **Corrections self-heal:** a better entry *supersedes* the old one, which is
-  *archived* (kept as a record), never silently deleted.
-
-This mirrors how good engineering teams actually work, and it scales to
-autonomous writers without a human gatekeeper on the hot path. *(Design: D3d.)*
-
-### 3.7 The project context doc (the agent's first read)
-Beyond discrete entries, every project has one **context document** — loaded by
-`kb_context` — that orients any agent instantly: what the project is (the
-job-to-be-done), its architecture, tech profile, conventions, the load-bearing
-decisions, and links into `docs/`. It's the `CLAUDE.md` every project *should*
-have, except the factory writes and maintains it (seeded at onboarding, kept
-current by the architect). This single artifact is what turns "a generic model
-with a repo" into "an agent that already understands your system." *(Design: D1,
-project-onboarding-schema D-O8.)*
-
-### 3.8 Agents just ask; humans ask an agent (MCP query surface)
-On top of the automatic layer (§3.0), vfkb exposes an **MCP tool surface** (9 tools) —
-`kb_search`, `kb_list`, `kb_get`, `kb_map`, `kb_context`, `kb_add`, `kb_supersede`,
-`kb_transition`, `kb_resume`. MCP is the **one interface every harness in the
-fleet speaks** (the architect runs on Pi, executors/judges on Claude Code), so
-knowledge access is a natural tool call in any agent's loop — not a bolted-on,
-harness-specific integration. **Humans read through an agent** ("ask the
-architect, it runs the search, it answers") — the same loop that works between a
-person and mykb today. A thin CLI exists for scripts and debugging. *(Design:
-D5a, D5d.)*
-
-### 3.9 One search across project and org (unified query)
-Knowledge worth keeping isn't all project-local — some is org-wide ("how we do
-auth," "our Postgres conventions"). vfkb resolves both in **one query**: a single
-`kb_search` hits the local project brain *and* the global tier and returns **one
-ranked list, each result labeled with its scope and trust** (project-first, then
-global). The caller never has to know where knowledge lives. *(Design: D5b, D2d.)*
-
-### 3.10 Two tiers, with deliberate promotion (project + global)
-The same engine and format serve two scopes: a **per-project brain** (local,
-versioned with the code) and a **global "Viloforge KB"** shared across projects.
-Crucially, knowledge moves from local to global **only by an explicit, reviewed
-promotion** — never automatically. So a project's half-formed notes never pollute
-the org's canon, and the org's canon is something a human deliberately curated.
-*(Design: D2a, D2f. v1 ships the per-project tier; the global served tier is
-designed-now-built-later — D2g.)*
-
-### 3.11 Secrets stay out, by design (safety)
-Because the brain is git-committed and therefore low-trust, vfkb treats secrets
-as a hard boundary: a **write-time lint** on the `add` path blocks high-entropy /
-known-token material. The brain holds knowledge and secret *references* only;
-real secrets stay in the work-tracker's variable store / Vault. Safety is a
-property of the front door, not a policy you hope everyone remembers. *(Design: D1
-constraint #2, D6e.)*
-
-### 3.12 Runs anywhere the factory runs (backend-agnostic)
-vfkb is a **TypeScript engine** — MCP server + thin CLI + per-harness auto-layer
-— baked into the agent image, pointed at the repo-local brain. That's it. Any
-execution backend that can clone a repo and run it gets full knowledge access — a
-Kubernetes pod today, a bare VM under the cloud-native redesign tomorrow.
-Knowledge access adds **zero** new infrastructure coupling, which is exactly the
-"core passes references, the backend resolves" principle the platform is already
-moving toward. (TypeScript is deliberate: it lets the Pi auto-injection extension
-and the engine be one in-process codebase — the very thing that makes the
-integration deep. §5.) *(Design: D6, and the cloud-native alignment in the ingest
-brainstorm §10.)*
+vfkb is a **per-project, git-native knowledge substrate for coding agents**:
+zero-runtime-dependency TypeScript (Node stdlib; the MCP face alone adds
+`@modelcontextprotocol/sdk` + `zod`) over an **append-only JSONL log**
+(`.vfkb/entries.jsonl`) that materializes last-write-wins with tombstones — so
+concurrent branches merge union-safe by construction. One shared engine is
+exposed through **two harness faces** (Claude Code hooks + CLI; an in-process Pi
+extension) plus a **9-tool MCP server** as the cross-harness pull floor. On the
+kernel it layers a **decision-family lifecycle** (ADR-grade, immutable,
+supersede-only), a **derived trust model** (operator / agent / import), a
+**stale-filtering auto-injection layer**, a **lexical two-stage retriever** with
+a relevance floor and an honest no-match contract, **session continuity**
+(derived resume digests, stop-hook nudges, session-end auto-commit), an
+**auto-distill + ACE curator** pipeline, and a **consumer distribution story**
+(`init` / `import` / `doctor` + portable single-file bundles).
 
 ---
 
-## 4. What it unlocks — a concrete before/after
+## 3. Features at a glance
+
+| Feature | Status | What it gives you |
+|---|---|---|
+| Git-native brain in the repo | **BUILT** | Knowledge versioned *with* the code; branches, merges, and clones with it. No external service. (ADR-0013/0019) |
+| Conflict-free concurrent writes | **BUILT** | Append-only + LWW materialize + tombstones → `merge=union` is safe by construction. |
+| Typed entries + decision family | **BUILT** | `fact / gotcha / pattern / link` are fluid; `decision` is ADR-grade — immutable, supersede-only, with proposed→accepted lifecycle, constitutional flag, ADR ordinals. (ADR-0004/0007/0008/0009) |
+| Multi-agent attribution + derived trust | **BUILT** | Seven author roles; trust (`operator / agent / import`) is *derived*, never stored; verified is earned by an independent signal. |
+| Auto-injection with stale filtering | **BUILT** | Session-start resume digest + budgeted context bundle; archive/superseded/expired entries are hard-gated out; unverified is injected but labeled. (ADR-0005/0015/0020) |
+| Passive capture of tool activity | **PARTIAL** | Built and shipped on the **Pi face** (`tool_execution_end`, with real results + error status). **Not wired on Claude Code** — deliberate for the dogfooded brain; the hook exists (`hook post-tool-use`) but `init`/settings don't register it. |
+| Lexical two-stage retrieval | **BUILT** | Stemmed term-overlap scoring (no embeddings, no IDF), heuristic rerank (type tier → trust → recency), relevance floor (RFC-001), honest no-match diagnosis (RFC-002). |
+| `verified`-only trust filter | **BUILT** | Readers can restrict to independently verified knowledge. (H4 D-i) |
+| Project context doc + `kb_context` | **BUILT** | An authored `context.md` spine stitched with derived sections — the agent's first read. (ADR-0025) |
+| Session continuity | **BUILT** | Derived (never-stale) resume digests; Stop-hook decision-capture + handoff nudges; SessionEnd auto-commit of the brain + fallback handoff floor. (ADR-0020/0027/0033/0034) |
+| Auto-distill + ACE curator | **BUILT** | Captured errors → candidate gotchas (contained in incoming/unverified); recurrence corroborates; ≥2 helpful signals or a human promotes and re-stamps `verified`. Curator never rewrites text (structural Brake). (ADR-0021/0024) |
+| No-secrets write lint | **BUILT** | High-signal secret patterns blocked at the front door; the git-committed brain holds knowledge and secret *references* only. |
+| Brain write-gating | **BUILT** | Direct file-writes into `.vfkb/` are denied at the harness level; all writes go through the engine. |
+| Consumer onboarding + portable bundles | **BUILT** | `vfkb init` scaffolds a consumer repo (hooks, MCP, bootstrap, gitignore); `import` migrates mykb/ADR/markdown; `doctor` diagnoses wiring; esbuild single-file bundles (`vfkb.mjs`, `vfkb-mcp.mjs`) resolve via `$VFKB_BUNDLE_DIR`. (ADR-0030/0031/0032/0035) |
+| L4 purpose-evaluation harness | **BUILT** | Dockerized, contrast-based, multi-trial, dual-harness (Claude Code + Pi) scenarios driving *real agents*; ≥2/3 = DEMONSTRATED; the Definition of Done for agent-observable features. (ADR-0022/0023/0029) |
+| One search across project + org tiers | **DESIGNED** | Not built. `query()` reads the single local brain only. (D5b/D2d) |
+| Global "ViloForge KB" tier + promotion | **DESIGNED** | Not built. Only the per-project tier exists. (D2a/D2f/D2g) |
+| Embedding/semantic reranker | **GATED** | RFC-003 Proposed — build only on a second live phrasing-robustness miss or explicit request. |
+| SQLite/FTS5 index backend | **DESIGNED** | The `KbIndex` interface is pluggable (ADR-0013); v1 always uses the pure-JS in-memory index. |
+
+---
+
+## 4. The features, by area
+
+### 4.1 Storage & data model (the kernel)
+
+- **Append-only JSONL** (`entries.jsonl`): every record is a `KnowledgeEntry` or
+  a tombstone. `appendRecord` is the only writer and regenerates the
+  `index-meta.json` freshness sidecar on every write.
+- **Materialize = last-write-wins by `updated`** per id, order-independent —
+  which is exactly what makes `merge=union` safe across N agents on N branches.
+- **Freshness is content-derived** (sha256 over sorted `id@updated`), never
+  mtime (ADR-0014). The index is rebuilt automatically on hash mismatch.
+- **The entry envelope** (types.ts): `id`, `type`, `text`, `tags[]`, `zone`
+  (`incoming | established | archive`), `author.role` (7 roles:
+  `architect | pm | executor | judge | human | init | import`), `refs`
+  (task / commit / branch / files / related / supersedes), `provenance`
+  (status + a structured, re-verifiable `origin`: commit / message / tool_call
+  / manual — ADR-0011), bi-temporal `validity` (`valid_from`, `valid_until`;
+  `recorded_invalid_at` is stored-but-not-yet-consumed), and for decisions:
+  `status`, `constitutional`, `adr_no`.
+- **The context spine** (`context.md`) is an authored Markdown file in the brain
+  — deliberately *not* a JSONL entry, so the curator's never-rewrite Brake
+  doesn't apply and it can be freely edited (ADR-0025).
+
+### 4.2 Capture
+
+- **Deliberate capture** — `kb_add` (MCP) / `vfkb add` (CLI). Rationale for
+  decisions is passed as `why` and **folded into the entry text as a `"Why: …"`
+  line** (`foldWhy`, engine.ts) — the envelope has no structured `why` field.
+  Zone and provenance default by trust: operator → established/verified;
+  agent → incoming/unverified. A new `decision` defaults to `status=proposed`
+  (an RFC, per ADR-0007). *Known gap:* `kb_supersede` / `supersede` accept no
+  `why` — a superseding decision carries rationale only if written inline.
+- **Passive capture** (`captureToolCall`) — records tool activity as `fact`s
+  tagged `captured` with a `tool_call` origin and a bounded outcome
+  classification; skips vfkb's own tools (self-pollution guard); fails silent.
+  **Live on the Pi face only** (with real tool results and authoritative
+  error status). On Claude Code the `post-tool-use` hook exists but is
+  **intentionally not wired** in this repo or by `init` — against a committed
+  brain it would flood the log with tool-call noise, and Claude Code's
+  PostToolUse hook doesn't fire on failed calls anyway (external limitation).
+- **No-secrets lint** (`secrets.ts`) — named high-signal patterns (private key
+  blocks, AWS/GitHub/Slack/GCP/Azure tokens, bearer/assigned-secret shapes).
+  Explicit adds throw; passive capture swallows the error.
+- **Write-gating** (`gating.ts`) — the PreToolUse hook (Claude Code) and
+  `tool_call` (Pi) deny harness file-writes targeting the brain directory,
+  forcing all writes through the engine.
+
+### 4.3 Retrieval
+
+- **Two-stage** (ADR-0012/0016): Stage 1 lexical candidates (top 200), Stage 2
+  rerank — **relevance-primary for explicit search**, pure heuristic order for
+  listing/injection.
+- **Scoring is deliberately lexical**: stemmed term-overlap over text + tags
+  (light suffix stemmer), no IDF, no length normalization, **no embeddings**.
+  The heuristic reranker tiers by type (pattern/gotcha > decision > fact >
+  link), then trust (operator +3, verified +1), then recency.
+- **Relevance floor** (RFC-001/ADR-0017): candidates matching under ⅓ of
+  distinct query terms are dropped — a wrong-but-confident result is worse than
+  an honest miss.
+- **Honest no-match** (RFC-002/ADR-0018): empty results are *diagnosed* —
+  `empty_topic` vs `no_match` vs `all_filtered`, with per-reason counts and a
+  near-miss hint — and the MCP rendering tells the agent explicitly not to
+  answer from model priors.
+- **Filters** (D5c): type / zone / status / tags (ALL) / author-role /
+  `verifiedOnly` / stale / superseded / limit.
+- **Injection gate** (`isInjectable`, ADR-0005): archive, superseded,
+  deprecated, stale, and expired entries never auto-inject; unverified entries
+  *do* inject, labeled — trust is a gradient the reader weighs, not a gate.
+
+### 4.4 Curation & lifecycle
+
+- **Decision family**: `supersede()` adds an edge (the old entry is never
+  edited), `transitionDecision()` moves proposed→accepted→deprecated (and
+  refuses text changes), effective status folds supersession, `adr_no` ordinals
+  stamp at merge-to-main, and the **Constitution** derives from accepted +
+  constitutional + non-superseded decisions (ADR-0008).
+- **ACE curator** (`curator.ts`): deltas + counters, **never rewrites entry
+  text** (a structural Brake enforced by unit tests, not a prose rule).
+  Operations: promote (incoming→established), archive, merge-duplicate,
+  propose-only lexical duplicate detection.
+- **Corroborated promotion** (ADR-0021/0024): auto-distilled knowledge needs
+  **≥2 net helpful signals or a human** to promote — and promotion re-stamps
+  `provenance=verified` so the elevation is *agent-observable* (the ✓ glyph and
+  the `verified` filter see it).
+- **Auto-distill** (`distiller.ts`): deterministic — captured `capture:error`
+  facts become candidate gotchas in incoming/unverified; recurrence of the same
+  error signature *corroborates* (a helpful signal) instead of duplicating.
+- **Signals** live in an append-only, gitignored counter stream
+  (`.signals/counters.jsonl`) — helpful/harmful tallies aggregate at read time
+  and never mutate entries.
+
+### 4.5 Session continuity
+
+- **Derived resume digests** (ADR-0020): the SessionStart hook injects a
+  prior-session digest plus a live budgeted context bundle (Constitution + Map
+  always lead and are never dropped; 10k budget). Digests are *recomputed from
+  the live brain*, so they cannot go stale.
+- **Stop-hook nudges** (`stop-reminder.ts`): (1) a decision-capture reminder
+  when there's uncommitted src/docs work but zero new decisions since HEAD
+  (ADR-0027); (2) a handoff nudge when ≥3 new entries but no handoff/next entry
+  (ADR-0034). Both use git-HEAD-delta signals (no session state needed) and the
+  native `stop_hook_active` loop guard.
+- **SessionEnd auto-commit** (ADR-0033): commits *only* `entries.jsonl`,
+  pathspec-scoped, on the current topic branch — never on main/master/detached
+  (warns instead), never pushes. If the session left no handoff, it writes a
+  deterministic **B2 fallback handoff** first — a floor, not a substitute for a
+  real handoff entry.
+- **Per-session records** (`.sessions/`, gitignored) are keyed by
+  `KB_SESSION_ID` and ephemeral when it's unset — which is why durable
+  continuity lives in *committed entries*, not session state.
+
+### 4.6 Harness integrations (one engine, two faces + MCP)
+
+- **Claude Code** (via `cli.ts hook …`): SessionStart (resume inject),
+  PreToolUse (brain write-gate), Stop (nudges), SessionEnd (auto-commit).
+  Hooks anchor to `${CLAUDE_PROJECT_DIR:-.}` so they survive `cd` away from the
+  repo root (ADR-0035).
+- **Pi extension** (`pi-extension.ts`, ADR-0015): tiered parity —
+  `before_agent_start` (Tier-A bundle), `context` (Tier-C per-turn delta,
+  Pi-only), `tool_execution_start/end` (Tier-B passive capture *with results*),
+  `tool_call` (gate), `session_shutdown` (git save). A Pi↔MCP bridge gives Pi
+  client-side MCP capability.
+- **MCP server** — the 9-tool cross-harness floor: `kb_search`, `kb_list`,
+  `kb_get`, `kb_map`, `kb_context`, `kb_add`, `kb_supersede`, `kb_transition`,
+  `kb_resume`. `VFKB_ROLE` lets the harness stamp attribution over
+  model-supplied roles.
+
+### 4.7 CLI surface
+
+`add · init · import (--from-mykb | --from-adr | --from-markdown) · doctor ·
+list · search/query (type/tag/zone/status/role/verified/stale/superseded
+filters) · map · context / context init · context-block · resume · resume-note ·
+curate (dups/promote/promote-auto/archive/merge/signal) · distill · supersede ·
+save · hook (session-start/post-tool-use/stop/session-end/pre-tool-use)`.
+Env: `VFKB_DATA_DIR` (canonical; `VFKB_DIR`/`VFKB_HOME` are deprecated aliases —
+ADR-0032), `VFKB_PROJECT`, `VFKB_BUNDLE_DIR` (required by the auto-layer).
+
+### 4.8 Evaluation harness (how "done" is proven)
+
+- **L4 purpose scenarios** (`scenarios/l4-purpose.mjs`, 37 scenario ids):
+  dockerized, reproducible, multi-trial (N=3, ≥2/3 = DEMONSTRATED), dual-harness
+  (Claude Code + Pi), and **contrast-based** — every scenario runs against a
+  baseline (`naive`/`none`/`no-gating`/`no-mcp`) so the proof *can fail*
+  (ADR-0022/0029). Live and metered; deliberately not part of `npm test`.
+- **Scenario-contract-first** (ADR-0023): for agent-observable features the L4
+  scenario *is* the Definition of Done — named in the ADR/RFC, run RED before
+  implementation, then green. Structural invariants stay deterministic unit
+  tests (the fast 95+-test vitest gate).
+- Dedicated proofs exist for decision-capture, session-end handoff, consumer
+  onboarding, and candidate-wiring smoke (ADR-0028).
+
+### 4.9 Distribution & consumer onboarding (ADR-0030–0032, 0035)
+
+- **`vfkb init`** idempotently scaffolds a consumer repo: empty brain,
+  version-stamped manifest, committed `bootstrap.mjs`, `.mcp.json`, hooked
+  `.claude/settings.json`, gitignore stanza, `AGENTS.md` snippet. Never
+  clobbers an existing brain.
+- **`vfkb import`** migrates lossily (role=`import`, tagged `imported`) from
+  mykb areas, ADR directories, or arbitrary markdown.
+- **`vfkb doctor`** diagnoses engine identity, brain↔engine schema
+  compatibility, bundle-dir resolution, deprecated aliases, and hook/MCP wiring.
+- **Portable bundles**: two self-contained ESM files (`vfkb.mjs` zero-dep CLI;
+  `vfkb-mcp.mjs` with the SDK inlined), resolved via `$VFKB_BUNDLE_DIR` through
+  a committed bootstrap that degrades gracefully (a banner, never a block) when
+  unset (ADR-0031).
+
+---
+
+## 5. What it unlocks — before/after
 
 **Task: "build a payment system."**
 
 - The **architect** plans it *with* the project's context doc and prior
-  decisions in hand — not as a stranger. It records the design and the *why*
-  ("double-entry ledger because…") to `main`.
-- An **executor** implements the ledger, **discovers** that money needs Postgres
-  `NUMERIC` not float, and **writes that gotcha next to the code** on its branch.
-- The **judge** approves; branch merges → **code and gotcha land on `main`
-  together.**
-- The **next task** ("charge endpoint") branches from the new `main` and
-  **inherits both the ledger code and the gotcha.** The mistake is never repeated.
+  decisions in hand, and records the design and the *why* to `main`.
+- An **executor** discovers money needs Postgres `NUMERIC` not float, and
+  writes that gotcha next to the code on its branch.
+- The **judge** approves; the branch merges → **code and gotcha land on `main`
+  together** — the causal-consistency guarantee generic memory stores can't
+  make.
+- The **next task** branches from the new `main` and inherits both. The mistake
+  is never repeated.
 
-Without vfkb, step 2's lesson dies with the task and step 4 re-learns it the
-hard way. *That* difference — repeated across thousands of tasks — is the product:
-**a factory whose output quality compounds instead of resetting to generic every
-time.** *(Design: ingest brainstorm §6, verified mechanics.)*
+Repeated across thousands of tasks, that difference is the product: **a factory
+whose output quality compounds instead of resetting to generic every time.**
 
 ---
 
-## 5. Why now, and why not just reuse mykb
+## 6. Deliberately not built (and why)
 
-mykb proved the kernel — JSONL + SQLite + git, the five entry types
-(facts/decisions/gotchas/patterns/links), search and relevance, **and the
-automatic Pi context-injection/capture layer**. vfkb **carries that proven core
-faithfully** and adds the things a *factory* needs that a single-user tool
-doesn't: **role attribution**, **branch-aware writes wired to vtf tasks**, a
-**cross-harness MCP surface**, and a **second harness adapter (Claude Code hooks)**
-beside the existing Pi extension. It sheds mykb's single-user workspace machinery
-(a per-project instance makes it redundant), and **stays in TypeScript** — which
-is what lets the auto-injection extension and the engine remain one in-process
-codebase. Staying in TS also means the realistic path is to **evolve mykb**, not
-rewrite it from scratch: the kernel, the Pi extension, and the scorer come for
-free. This isn't a rewrite for its own sake — it's the proven idea, re-aimed at a
-team of agents instead of one human. *(Design: ingest brainstorm §4.5,
-vfkb-DESIGN §2 + D6a.)*
+| Item | State | Gate |
+|---|---|---|
+| Embedding/semantic reranker | RFC-003 Proposed | A second live phrasing-robustness miss, or an explicit request. Retrieval stays lexical until evidence demands otherwise. |
+| SQLite/FTS5 index backend | Designed (ADR-0013) | The pluggable `KbIndex` seam exists; the pure-JS index is sufficient at current brain sizes. |
+| Global org tier + unified cross-scope search | Designed (D2a/D2f/D2g, D5b) | Parked as H3 — per-project tier first. |
+| Claude Code per-turn push (Tier C) | ADR-0015 | External-blocked upstream (no per-turn injection hook). |
+| Claude Code live *failure* capture | — | External-blocked: PostToolUse doesn't fire on failed tool calls. |
+| `recorded_invalid_at` consumption | Schema-now, consume-later | Bi-temporal invalidation recording is stored but not yet read. |
+| Fleet wiring (H2) / platform probes (RFC-009) | Parked / Proposed | Evidence-gated. |
 
 ---
 
-## 6. Where this stands
+## 7. Lineage
 
-- **Design: locked.** Scope boundary, topology, schema, write/concurrency, read
-  interface, runtime (**TypeScript**, D6a), and the **automatic per-harness
-  context/capture layer** (D7) are settled (D1–D7), plus the project-onboarding
-  contract that seeds the brain. Open for the IMPLEMENTATION-PLAN: **evolve mykb
-  vs greenfield TS** (leaning evolve).
-- **Build: not started.** vfkb is the **foundation** of the VFSF Ingest Cycle
-  (`vfkb → project-init → ingest-engine`); the next artifact is its
-  IMPLEMENTATION-PLAN. Everything in this brief is buildable from the locked
-  design — that's the point of presenting it now.
+mykb — the proven single-user predecessor — contributed the kernel idea (JSONL +
+git, the five entry types, relevance scoring, and the automatic Pi
+injection/capture layer). vfkb is a **greenfield TypeScript reimplementation**
+(ADR-0002/0003) that carries the proven core and adds what a *factory* needs:
+role attribution, a derived trust model, the ADR-grade decision family, the
+cross-harness MCP surface, the Claude Code face, the L4 evaluation methodology,
+and the consumer distribution story. mykb remains a studied spike, not a
+dependency; a lossy `import --from-mykb` path exists for its data.
