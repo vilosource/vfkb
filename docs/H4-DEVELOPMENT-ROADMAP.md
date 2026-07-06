@@ -431,6 +431,8 @@ In all three cases the response is the same: **update this roadmap and re-ratify
 work stays out-of-scope/HITL per H2.)
 
 ### ▶ Current action — **build the accepted v2 backbone on `v2`** (acceptances 2026-07-06)
+**The per-initiative execution tracker is [V2-ROADMAP.md](V2-ROADMAP.md)** (created 2026-07-06) —
+statuses, DoD gates, and deviations are tracked there; this section stays the frontier pointer.
 **All eight pending RFCs were ACCEPTED by the operator on 2026-07-06** (→ ADR-0037..0044; RFC-014's
 `--resume` session-id-stability precondition was **verified live first**, CLI v2.1.201). The build
 order on the **`v2` branch** ([ADR-0036](adr/ADR-0036-v2-two-branch-strategy.md)):
