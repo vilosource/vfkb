@@ -17,10 +17,8 @@
 // DIGEST is DERIVED from these signals against the live brain at render time
 // (engine.renderResume), so it cannot go stale.
 
-import { mkdirSync, readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { brainDir } from './storage.js';
+import { storageBackend } from './backend.js';
 
 function now(): string {
   return new Date().toISOString();
@@ -74,11 +72,11 @@ export class SessionState {
   private data: SessionData;
   private injected = new Set<string>();
   private captured = new Set<string>();
-  private file: string | null;
+  private persisted: boolean; // false → ephemeral, in-memory only
   readonly sessionId?: string;
 
-  private constructor(file: string | null, sessionId?: string) {
-    this.file = file;
+  private constructor(persisted: boolean, sessionId?: string) {
+    this.persisted = persisted && !!sessionId;
     this.sessionId = sessionId;
     const ts = now();
     this.data = {
@@ -94,9 +92,10 @@ export class SessionState {
       branch: currentBranch(),
       pid: process.pid,
     };
-    if (file && existsSync(file)) {
+    const raw = this.persisted && sessionId ? storageBackend().readSessionRecord(sessionId) : null;
+    if (raw !== null) {
       try {
-        const loaded = JSON.parse(readFileSync(file, 'utf8')) as Partial<SessionData>;
+        const loaded = JSON.parse(raw) as Partial<SessionData>;
         this.data = {
           sessionId,
           startedAt: loaded.startedAt ?? ts,
@@ -121,10 +120,8 @@ export class SessionState {
   }
 
   static load(sessionId = process.env.KB_SESSION_ID): SessionState {
-    if (!sessionId) return new SessionState(null); // ephemeral, in-memory only
-    const dir = join(brainDir(), '.sessions');
-    const safe = sessionId.replace(/[^A-Za-z0-9_-]/g, '_');
-    return new SessionState(join(dir, `${safe}.json`), sessionId);
+    if (!sessionId) return new SessionState(false); // ephemeral, in-memory only
+    return new SessionState(true, sessionId); // keyed storage via the backend (ADR-0044)
   }
 
   // The CONCURRENT-SESSION REGISTRY (ADR-0039 §4): every persisted session record
@@ -134,13 +131,12 @@ export class SessionState {
   // check can scope "concurrent" by [startedAt, lastAt] overlap. Append-only: one
   // file per session id, never a shared mutable singleton.
   static records(): SessionData[] {
-    const dir = join(brainDir(), '.sessions');
-    if (!existsSync(dir)) return [];
+    const be = storageBackend();
     const out: SessionData[] = [];
-    for (const f of readdirSync(dir)) {
-      if (!f.endsWith('.json')) continue;
+    for (const id of be.listSessionIds()) {
       try {
-        out.push(JSON.parse(readFileSync(join(dir, f), 'utf8')) as SessionData);
+        const raw = be.readSessionRecord(id);
+        if (raw !== null) out.push(JSON.parse(raw) as SessionData);
       } catch {
         /* skip a corrupt record */
       }
@@ -177,13 +173,11 @@ export class SessionState {
   }
 
   save(): void {
-    if (!this.file) return; // ephemeral
+    if (!this.persisted || !this.sessionId) return; // ephemeral
     this.data.sessionId = this.sessionId;
     this.data.lastAt = now();
     this.data.injectedIds = [...this.injected];
     this.data.capturedIds = [...this.captured];
-    const dir = join(brainDir(), '.sessions');
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(this.file, JSON.stringify(this.data), 'utf8');
+    storageBackend().writeSessionRecord(this.sessionId, JSON.stringify(this.data));
   }
 }

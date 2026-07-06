@@ -10,12 +10,13 @@ import {
   materialize,
   readRecords,
   lastMalformed,
+  withExclusive,
   contextSpinePath,
   readContextSpine,
   writeContextSpine,
 } from './storage.js';
 import { selectIndex } from './index-store.js';
-import { withBrainLock, testHoldForRace } from './lock.js';
+import { testHoldForRace } from './lock.js';
 import { assertNoSecrets } from './secrets.js';
 import { tally } from './counters.js';
 import { SessionState } from './session.js';
@@ -138,7 +139,7 @@ export function updateEntry(
   id: string,
   patch: Partial<Pick<KnowledgeEntry, 'text' | 'tags' | 'zone'>>,
 ): KnowledgeEntry {
-  return withBrainLock(() => {
+  return withExclusive(() => {
     const cur = readAll().find((e) => e.id === id);
     if (!cur) throw new Error(`no such entry: ${id}`);
     if (!FLUID_TYPES.has(cur.type)) {
@@ -161,7 +162,7 @@ export function setProvenanceStatus(
   id: string,
   status: KnowledgeEntry['provenance']['status'],
 ): KnowledgeEntry {
-  return withBrainLock(() => {
+  return withExclusive(() => {
     const cur = readAll().find((e) => e.id === id);
     if (!cur) throw new Error(`no such entry: ${id}`);
     const next: KnowledgeEntry = {
@@ -272,7 +273,7 @@ export function renderContextMap(map: ContextMap = buildContextMap()): string {
 // supersedes of the same target must not both act on the pre-edge snapshot and
 // fork the lineage — the second sees the first's edge and is rejected.
 export function supersede(oldId: string, text: string, opts: AddOpts = {}): KnowledgeEntry {
-  return withBrainLock(() => {
+  return withExclusive(() => {
     const all = readAll();
     const old = all.find((e) => e.id === oldId);
     if (!old) throw new Error(`no such entry: ${oldId}`);
@@ -308,7 +309,7 @@ export function transitionDecision(
   if (status === 'superseded') {
     throw new Error('`superseded` is derived from a supersession edge — use supersede()');
   }
-  return withBrainLock(() => {
+  return withExclusive(() => {
     const cur = readAll().find((e) => e.id === id);
     if (!cur) throw new Error(`no such entry: ${id}`);
     if (!isDecisionFamily(cur.type)) {
