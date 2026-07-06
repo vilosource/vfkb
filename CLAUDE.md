@@ -124,6 +124,8 @@ this is a **deliberate discipline**:
   enforce structural/guardrail rules with a deterministic test/Brake, not the LLM harness.
 - **Roadmap-as-authority.** `docs/H4-DEVELOPMENT-ROADMAP.md` §4 is the execution authority — follow
   its order; a "what's next?" urge = a signal to update + re-ratify the roadmap, not to poll.
+  **v2 work is tracked per-initiative in `docs/V2-ROADMAP.md`** — flip statuses as ADRs build,
+  re-ratify it on any deviation (it lands on `main` like all docs, then syncs to `v2`).
 - **Evidence-gated builds.** Don't build speculatively — an RFC decides the *shape*; the *build*
   triggers on observed evidence or an explicit request.
 - **VERIFIED = observed, not asserted.** Never relay a gate's/agent's "passed/verified" as fact
@@ -219,7 +221,8 @@ not `main`. Full rationale: [ADR-0036](docs/adr/ADR-0036-v2-two-branch-strategy.
   `tool_execution_end` result capture), `src/curator.ts` (`promote`/`promoteIfCorroborated`),
   `src/distiller.ts`.
 - `docs/`: `DESIGN.md`, `FEATURES.md`, `STATUS-AND-ROADMAP.md` (north-star),
-  `H4-DEVELOPMENT-ROADMAP.md` (execution authority), `adr/` (0001–0044), `rfc/` (001–019).
+  `H4-DEVELOPMENT-ROADMAP.md` (execution authority), `V2-ROADMAP.md` (v2 per-initiative tracker),
+  `adr/` (0001–0044), `rfc/` (001–019).
 - `.vfkb/` — vfkb's self-hosted design brain. **Commit it.**
 
 ## vfwb relationship
