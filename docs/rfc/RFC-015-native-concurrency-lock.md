@@ -1,6 +1,6 @@
 # RFC-015: A vfkb-native concurrency lock
 
-- **Status:** Proposed
+- **Status:** **Accepted → [ADR-0040](../adr/ADR-0040-native-concurrency-lock.md)** (2026-07-06)
 - **Date:** 2026-07-05 (DoD corrected 2026-07-05 after independent review — see below)
 - **Deciders:** operator + Claude
 - **Relates:** [RFC-014](RFC-014-session-backbone.md) (session identity this lock logs

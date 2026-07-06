@@ -1,6 +1,6 @@
 # RFC-017: Schema honesty — a structural `why` field, full envelope validation, structural contradiction/supersede fields
 
-- **Status:** Proposed
+- **Status:** **Accepted → [ADR-0042](../adr/ADR-0042-schema-honesty.md)** (2026-07-06)
 - **Date:** 2026-07-05 (context corrected 2026-07-05 after independent review — see note below)
 - **Deciders:** operator + Claude
 - **Relates:** [ADR-0011](../adr/ADR-0011-envelope-richness.md) (envelope richness this
