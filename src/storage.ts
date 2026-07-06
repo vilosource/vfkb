@@ -1,13 +1,14 @@
-// vfkb storage kernel (Phase 1). Append-only JSONL = source of truth (ADR-0013).
-// Node stdlib + zod (the ADR-0042 read-boundary schema — the one non-stdlib import).
-// Records are entries OR tombstones; the live set is *materialized* by
-// last-write-wins on `updated` (merge=union-safe: concatenating two branches'
-// JSONL and re-materializing is order-independent).
+// vfkb storage POLICY (v2: ADR-0044 layered over the backend seam). This module is
+// backend-agnostic: LWW materialization, ADR-0042 read-boundary normalization, and
+// ADR-0014 content-hash freshness — all computed over whatever transport
+// `storageBackend()` provides (exactly one ships in v2: JSONL-on-disk, ADR-0019).
+// The exported API is unchanged from the pre-seam kernel — the DoD's refactor-safety
+// contract (the full suite passes untouched) hangs on that.
 
-import { appendFileSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { createHash } from 'node:crypto';
+import { storageBackend } from './backend.js';
 import { normalizeEntry } from './validate.js';
 import type { KnowledgeEntry } from './types.js';
 
@@ -22,39 +23,41 @@ export function isTombstone(r: StoredRecord): r is Tombstone {
   return (r as Tombstone).deleted === true;
 }
 
+// The resolved data location. For the JSONL backend this is the brain DIRECTORY the
+// committed file lives in — the path git-layer consumers (git.ts, gating.ts,
+// stop-reminder.ts, counters, the lock) anchor to. Kept here (not behind the seam):
+// those consumers exist because of ADR-0019's committed-file property, and a backend
+// without that property simply doesn't wire them.
 export function brainDir(): string {
   // VFKB_DATA_DIR is canonical; VFKB_DIR is a kept-working deprecated alias (ADR-0032).
   return process.env.VFKB_DATA_DIR || process.env.VFKB_DIR || join(homedir(), '.vfkb');
 }
-function recordsFile(): string {
-  return join(brainDir(), 'entries.jsonl');
-}
-function metaFile(): string {
-  return join(brainDir(), 'index-meta.json');
-}
 
 // --- append-only writes. Every write regenerates the freshness meta as a
-//     GUARANTEED side-effect (mykb L11; ADR-0014). ---
+//     GUARANTEED side-effect (mykb L11; ADR-0014) — policy, so it lives here,
+//     above the backend's raw append. ---
 export function appendRecord(rec: StoredRecord): void {
-  mkdirSync(brainDir(), { recursive: true });
-  appendFileSync(recordsFile(), JSON.stringify(rec) + '\n', 'utf8');
+  storageBackend().append(rec);
   writeMeta();
 }
 
-// --- Project context doc spine (D-ii / ADR-0025). The AUTHORED, architect-maintained
-//     half of the context document — a plain Markdown file in the brain, NOT a JSONL
-//     entry (so it stays freely editable; the never-rewrite Brake governs entries only).
-//     The derived sections are stitched at render time in engine.renderContext. ---
+// ADR-0040: the exclusive section for read-decide-append engine ops, provided by
+// the backend (a lockfile for JSONL; a transaction for a future hosted backend).
+export function withExclusive<T>(fn: () => T): T {
+  return storageBackend().withExclusive(fn);
+}
+
+// --- Project context doc spine (D-ii / ADR-0025) — authored content, stored by the
+//     backend, never a JSONL entry (stays freely editable; the never-rewrite Brake
+//     governs entries only). ---
 export function contextSpinePath(): string {
-  return join(brainDir(), 'context.md');
+  return storageBackend().spinePath();
 }
 export function readContextSpine(): string | null {
-  const p = contextSpinePath();
-  return existsSync(p) ? readFileSync(p, 'utf8').trim() : null;
+  return storageBackend().readSpine();
 }
 export function writeContextSpine(content: string): void {
-  mkdirSync(brainDir(), { recursive: true });
-  writeFileSync(contextSpinePath(), content);
+  storageBackend().writeSpine(content);
 }
 
 // Malformed state of the LAST read pass (ADR-0042 §2): records excluded from the
@@ -71,22 +74,9 @@ export function lastMalformed(): MalformedRecord[] {
 }
 
 export function readRecords(): StoredRecord[] {
-  const f = recordsFile();
-  malformed = [];
-  if (!existsSync(f)) return [];
-  const out: StoredRecord[] = [];
-  const lines = readFileSync(f, 'utf8').split('\n');
-  for (let i = 0; i < lines.length; i++) {
-    const l = lines[i];
-    if (l.trim().length === 0) continue;
-    try {
-      out.push(JSON.parse(l) as StoredRecord);
-    } catch (err) {
-      // ADR-0042: one corrupt line must not crash every read of the whole brain.
-      malformed.push({ line: i + 1, issue: `unparseable JSON: ${(err as Error).message}`, raw: l.slice(0, 200) });
-    }
-  }
-  return out;
+  const { records, malformed: bad } = storageBackend().readAllRaw();
+  malformed = [...bad];
+  return records as StoredRecord[];
 }
 
 // Collapse the append log to the live entry set.
@@ -136,10 +126,10 @@ export interface IndexMeta {
 }
 
 export function readMeta(): IndexMeta | null {
-  const f = metaFile();
-  if (!existsSync(f)) return null;
+  const raw = storageBackend().readMetaRaw();
+  if (raw === null) return null;
   try {
-    return JSON.parse(readFileSync(f, 'utf8')) as IndexMeta;
+    return JSON.parse(raw) as IndexMeta;
   } catch {
     return null;
   }
@@ -152,7 +142,6 @@ export function writeMeta(): IndexMeta {
     entry_count: entries.length,
     last_write: new Date().toISOString(),
   };
-  mkdirSync(brainDir(), { recursive: true });
-  writeFileSync(metaFile(), JSON.stringify(meta), 'utf8');
+  storageBackend().writeMetaRaw(JSON.stringify(meta));
   return meta;
 }
