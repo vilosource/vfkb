@@ -2,6 +2,9 @@
 
 > **Type:** sequenced build plan for the H4 "robustness & quality" frontier. **Created:** 2026-06-25.
 > **Re-ratified:** 2026-06-27 (added Track 5 dockerized L4 substrate + Track 4 Track-1 L4 coverage; ADR-0022).
+> **Re-ratified:** 2026-07-06 (added **Track 9 — memory quality & interop**, reconciled with the
+> [ADR-0036](adr/ADR-0036-v2-two-branch-strategy.md) v2 fork which stays the active frontier;
+> **amended the S1 gate to BM25-first, embeddings-second**. Supersedes the unmerged PR #26 ratification).
 > Sits under [STATUS-AND-ROADMAP](STATUS-AND-ROADMAP.md) §4 H4 (the broad north-star) and above
 > the decisions ([docs/adr/](adr/)) + proposals ([docs/rfc/](rfc/)) it sequences. ADRs ratify the
 > *decisions* (what to build); **this roadmap ratifies the *order* and is the standing authority to
@@ -299,6 +302,83 @@ this roadmap did not already decide) it was sequenced via RFC-008 → accept, no
 - **RFC-009** carries the deferred L4-harness items (drift banner, probe-mode, readiness gate, telemetry),
   decoupled from this fork and **evidence-gated/parked** — none is a prerequisite.
 
+### Track 9 — Memory quality & interop  *(landscape-informed, ratified 2026-07-06 reconciled with the v2 fork)*
+
+> **Reconciliation note (2026-07-06):** Track 9 was originally drafted as the active-frontier
+> ratification (PR #26, 2026-07-02), but the **v2 fork ([ADR-0036](adr/ADR-0036-v2-two-branch-strategy.md),
+> [V2-VISION](V2-VISION.md), RFC-014..019) landed first and is the active frontier**. PR #26 was closed
+> unmerged; this section lands its still-applicable content. Track 9 is ratified as the **v1-compatible
+> quality queue**: its items are non-breaking, land on `main`, and are picked up between/behind v2
+> initiatives on operator request or their named triggers. Its original Q2/Q3 RFC numbers (013/014) were
+> since taken by other RFCs — future Track 9 RFCs get their numbers **at draft time**.
+
+**Fork basis (evidence, not spec):** the July-2026 agent-memory landscape survey
+([research/agent-memory-landscape-2026-07.md](research/agent-memory-landscape-2026-07.md), brain fact
+`9ebe4eaf`) — the vfkb successor to the April mykb-era market comparison. Its verified findings: (1)
+memory **maintenance** is the field's demonstrated bottleneck — agents do not supersede stale facts
+unprompted, and more memory budget does not help (the "Supersede" paper, arXiv:2606.27472, Jun 2026);
+(2) **use-feedback** (helpful/harmful signals from injection) is the load-bearing half of ACE that vfkb
+has not yet adopted (arXiv:2510.04618, ICLR 2026); (3) **AGENTS.md** became a Linux Foundation standard
+read by every major coding harness (Codex/Cursor/Copilot/Devin/Gemini CLI); (4) **lexical-first retrieval
+is validated** (BM25 beat dense embeddings head-to-head, arXiv:2604.01733; LongMemEval-V2's file-search
+agent beat embedding-RAG 72.5 vs 48.5, arXiv:2605.12493). Track theme: **extend vfkb's differentiators
+(git-native, deterministic write path, verified trust) — never dilute them.** Every shape below keeps the
+hot path deterministic (P4/P5); no LLM enters the write path (TOKI, arXiv:2606.06240).
+
+**Q0. Hygiene batch — ✅ SHIPPED (PR #27, merged 2026-07-06; 157/157 unit green)**
+Three small documented gaps, one PR, unit-gated: **(a) supersede rationale** — `supersede` (CLI) and
+`kb_supersede` (MCP) gained a `why` param via the existing `foldWhy` (closed the residual gap in gotcha
+`ebdd4b5f`); **(b) MCP server staleness** — real engine version, `VFKB_DATA_DIR` logging, `VFKB_PROJECT`
+resolution; **(c) injection load-cap Brake** — found already delivered as a tested structural invariant.
+
+**Q1. Deterministic contradiction surfacing at write time — `[RFC-012 drafted, Proposed (PR #28, merged 2026-07-06)]`**
+The highest-evidence item: agents demonstrably fail to supersede stale knowledge unprompted
+(arXiv:2606.27472 — 92%→77% on current-value questions; more budget did not help). Shape (the RFC
+decides): `kb_add`/`add` runs a **deterministic lexical conflict check** against live established entries;
+on a hit, the add result surfaces "possible conflict with `<id>` — consider `kb_supersede` or confirm the
+add." Never blocks silently, never auto-supersedes, no LLM on the write path. **Pauses at RFC acceptance**
+(operator reads [RFC-012](rfc/RFC-012-contradiction-surfacing-at-write.md)).
+- *DoD (ADR-0023/0029):* L4 `contradiction-surface` — seeded brain holds fact X; the task hands the agent
+  corrected information; the vfkb arm ends with **one live truth** (a supersede/archive edge); the contrast
+  arm accumulates contradictory duplicates. **Run RED on both harnesses before the build.** Plus the
+  deterministic conflict-check unit gate.
+
+**Q2. Injection-path use-feedback (close the ACE loop) — `[queued — RFC at draft time]`**
+The counter machinery shipped in M2b (append-only `.signals/counters.jsonl`, `curate signal`,
+`promoteIfCorroborated`) — but nothing feeds it from **use**: no signal ever says "this injected entry
+helped / misled me." Shape sketch (the RFC decides): a `kb_signal` MCP tool + a one-line invitation in the
+injected bundle/resume render; net-harmful entries get a curator **demotion proposal** (archive is
+proposed, never auto-acted). Signals stay operational/gitignored (M2b sub-decision (a)).
+- *DoD:* L4 `feedback-demotes-misleading` — a seeded misleading entry misleads s1; the agent signals
+  harmful; s2's injection no longer surfaces it (the contrast arm keeps re-injecting it). RED first. The
+  counters-never-mutate Brake already stands (unit).
+
+**Q3. AGENTS.md export projection — `[queued — RFC at draft time]`**
+Interop reach: emit a distilled, **deterministic projection** of the brain (Constitution + Map +
+established/verified knowledge + context spine) as `AGENTS.md` — the LF-standard file read by every major
+harness — via a render target over the existing `renderContext` (e.g. `vfkb export agents-md`).
+Generated-marked, regenerate-on-demand, never auto-committed.
+- *DoD:* deterministic projection unit tests + L4 `agents-md-cold-agent` — a **naive** arm (no MCP, no
+  hooks) given only the exported AGENTS.md answers a seeded project question the no-file contrast arm
+  misses. Runs on the existing claude image with vfkb integration disabled — genuinely can-fail. RED first.
+
+**Q4. Sleep-time distillation pass — `[GATED]`**
+Letta-validated pattern (sleep-time compute, arXiv:2504.13171): run consolidation off-session. But the
+distiller's input is captured **failures**, which accrue only on the pi face (claude failure-capture is
+external-blocked; PostToolUse capture is deliberately OFF in the dogfood repo) — today there is nothing to
+consolidate. *Trigger:* the first consumer/project with live passive-capture volume, **or** an explicit
+operator request. When it fires: schedule the existing deterministic `distill` + `curate dups` off-session
+(a SessionEnd step or repo hook) — scheduling only, no new engine capability.
+
+**Gated-ledger amendments (decided at this ratification):**
+- **S1 gate AMENDED — BM25 first, embeddings second.** When the S1 trigger fires (a 2nd live phrasing miss
+  / an explicit ask), the **first resort is now BM25 scoring inside `InMemoryIndex`** (stdlib,
+  deterministic, zero-dep; evidence above) — RFC-003 embeddings become the *second* resort, built only if
+  BM25 doesn't close the miss. RFC-003's locked shape is unchanged; only its queue position moves.
+- **Bi-temporal consumption — `[GATED]`** — consume `recorded_invalid_at` / world-time-vs-record-time
+  (as-of queries over the committed brain; Zep bi-temporal + TOKI evidence). *Trigger:* the first real
+  as-of query need.
+
 ---
 
 ## 4. Ratified order + execution protocol
@@ -308,7 +388,9 @@ this roadmap did not already decide) it was sequenced via RFC-008 → accept, no
 `→ ADR-0022 ✅ → T5a ✅ → T5b ✅ → Track 4 (6 core ✅) → ADR-0023 ✅ → Track 4b (role-precedence ✅ → D-i verified-filter ✅ → D-iii relabel-on-promotion ✅ → D-iv pi-capture-results ✅ → D-ii context-doc ✅ ADR-0025)`. **Track 4b COMPLETE.**
 `→ Track 6 decision-capture fork (RFC-008 → ADR-0027 hook ✅ → ADR-0028 wiring-smoke ✅ → ADR-0029 DoD ✅; decision-capture L4 DEMONSTRATED 3/3 vs 0/3)` *(re-ratified 2026-06-29)*. **Track 6 COMPLETE.**
 `→ Track 7 consumer distribution & onboarding fork (RFC-010 → ADR-0030; FR-2 bundle unknown spike-resolved ✅ before acceptance) → build FR-2 → FR-1 → FR-4 → FR-3 → CONSUMER-ONBOARDING.md` *(new fork, re-ratified 2026-06-30 on the vfwb onboarding evidence)*. **Track 7 COMPLETE.**
-`→ Track 8 session-end continuity fork (RFC-011 → ADR-0033; SessionEnd contract verified ✅ gotcha f0e913b9) → GAP 2 brain auto-commit ✅ + GAP 1 B2 handoff floor ✅ (deterministic gate green + bundle smoke + live-wired) → GAP 1 B1 higher-quality Stop nudge ✅ (RFC-011 §B settled as B1+B2 → ADR-0034; L4 quality contrast DEMONSTRATED 3/3 vs 0/3, claude-haiku-4-5, 2026-07-01)` *(new fork, re-ratified 2026-06-30)*. **Track 8 COMPLETE (GAP 2 + GAP 1 B2 floor + GAP 1 B1 nudge). In-repo frontier EXHAUSTED again.**
+`→ Track 8 session-end continuity fork (RFC-011 → ADR-0033; SessionEnd contract verified ✅ gotcha f0e913b9) → GAP 2 brain auto-commit ✅ + GAP 1 B2 handoff floor ✅ (deterministic gate green + bundle smoke + live-wired) → GAP 1 B1 higher-quality Stop nudge ✅ (RFC-011 §B settled as B1+B2 → ADR-0034; L4 quality contrast DEMONSTRATED 3/3 vs 0/3, claude-haiku-4-5, 2026-07-01)` *(new fork, re-ratified 2026-06-30)*. **Track 8 COMPLETE (GAP 2 + GAP 1 B2 floor + GAP 1 B1 nudge).**
+`→ Track 9 memory quality & interop (landscape survey 2026-07-02, brain fact 9ebe4eaf → Q0 hygiene ✅ #27 → Q1 RFC-012 drafted/Proposed ✅ #28, pauses at acceptance → Q2 use-feedback + Q3 AGENTS.md export queued, RFC numbers at draft; Q4 sleep-time + BM25-first S1 amendment + bi-temporal stay GATED)` *(reconciled ratification 2026-07-06 — v1-compatible quality queue, not the frontier)*.
+`→ **v2 fork — THE ACTIVE FRONTIER** (ADR-0036 two-branch strategy ✅ → V2-VISION ✅ → RFC-014..019 drafted/Proposed ✅ #35; each pauses at operator acceptance, then builds on the `v2` branch — RFC-014 session backbone is the foundational dependency of 015/016)` *(fork ratified 2026-07-05)*.
 **Track 4b is COMPLETE** — D-i `verified`-filter (pi/claude 2/3, 2026-06-27); D-iii relabel-on-promotion
 (`promotion-relabel` pi/claude 2/3, ADR-0024, 2026-06-27); D-iv pi live tool-result capture
 (`live-capture-result` pi 3/3, 2026-06-27; claude failure-capture EXTERNAL-BLOCKED); **D-ii context-doc +
@@ -348,7 +430,18 @@ In all three cases the response is the same: **update this roadmap and re-ratify
 — never leave the next step to an ad-hoc question. (Scope: in-repo `vfkb` only; vafi/vtaskforge
 work stays out-of-scope/HITL per H2.)
 
-### ▶ Current action — **Track 8: Session-end continuity (safe-by-default `/exit`)** (re-ratified 2026-06-30)
+### ▶ Current action — **the v2 fork (ADR-0036) + the Track 9 acceptance queue** (re-ratified 2026-07-06)
+**The v2 fork is the active frontier** ([ADR-0036](adr/ADR-0036-v2-two-branch-strategy.md),
+[V2-VISION](V2-VISION.md)): RFC-014..019 are drafted and Proposed on `main` (#35). **Each pauses at
+operator acceptance** (acceptance → ADR per ADR-0007/0009), then builds **on the `v2` branch only** —
+RFC-014 (session backbone) is the foundational dependency of RFC-015/016 and the natural first
+acceptance. In parallel, **Track 9 is the v1-compatible quality queue** (§3 Track 9): Q0 shipped (#27),
+RFC-012 awaits acceptance (#28), Q2/Q3 queued behind operator request or their triggers, Q4 + the
+gated-ledger items on their named triggers. RFC-013 (cross-project query, #29) likewise awaits
+acceptance. One build in flight (P7); no build starts without its RFC accepted.
+*(2026-07-01 Track-8 state preserved below.)*
+
+### ▶ (prior) Current action — **Track 8: Session-end continuity (safe-by-default `/exit`)** (re-ratified 2026-06-30)
 **New fork** (operator-requested, brain fact `d23912ca`): session START continuity is solid (ADR-0020
 resume digest), but session END had two gaps making `/exit` unsafe — **GAP 1** no durable handoff
 auto-capture, **GAP 2** nothing auto-commits the brain (so `/exit` leaves `entries.jsonl` uncommitted →
@@ -529,3 +622,14 @@ preserving, dual-harness) + **Track 5** (dockerized substrate) → **Track 4** (
 + sequencing forks settled by the operator this session; grounded additionally in mykb's `scripts/spike/`
 kb-spike container harness (patterns borrowed, the `vfa` dependency rejected) and the host-harness
 leak-control comments (`scenarios/l4-purpose.mjs` lines 94–102).
+**2026-07-06 re-ratification:** the July-2026 agent-memory landscape survey (successor to the April
+mykb-era comparison; delivered with the FEATURES.md verified rewrite, PR #25) surfaced ranked,
+evidence-backed adoption candidates → **Track 9** (Q0 hygiene ✅ #27 → RFC-012 Q1 contradiction-surfacing
+Proposed #28 → Q2 use-feedback / Q3 AGENTS.md export queued; Q4 + BM25-first S1 amendment + bi-temporal
+gated). Originally drafted as the active-frontier ratification (PR #26, 2026-07-02), but the **v2 fork
+(ADR-0036, 2026-07-05) landed first and holds the frontier** — PR #26 was closed unmerged and Track 9
+re-ratified here as the v1-compatible quality queue, its future RFC numbers assigned at draft time
+(the original Q2=RFC-013/Q3=RFC-014 numbering was taken by cross-project-query and session-backbone).
+Grounded in [research/agent-memory-landscape-2026-07.md](research/agent-memory-landscape-2026-07.md),
+[FEATURES.md](FEATURES.md), and brain entries `9ebe4eaf` (survey findings) / `1ad8ffbd` (Track 9
+execution handoff).
