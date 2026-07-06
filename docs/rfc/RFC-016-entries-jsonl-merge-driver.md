@@ -1,6 +1,7 @@
 # RFC-016: `entries.jsonl` stops guaranteeing a merge conflict on every second branch
 
-- **Status:** Proposed
+- **Status:** **Accepted → [ADR-0041](../adr/ADR-0041-entries-jsonl-merge-union.md)** (2026-07-06;
+  v1 = `merge=union`; the GitHub server-side check stays part of the build's Done bar)
 - **Date:** 2026-07-05 (revised 2026-07-05 after independent review — see Limitations below)
 - **Deciders:** operator + Claude
 - **Relates:** [ADR-0019](../adr/ADR-0019-self-hosted-design-brain.md) (the brain ships

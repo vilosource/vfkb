@@ -1,6 +1,7 @@
 # RFC-018: A rebuildable index — the read path stops re-scanning the whole log
 
-- **Status:** Proposed
+- **Status:** **Accepted → [ADR-0043](../adr/ADR-0043-rebuildable-index-shape.md)** (2026-07-06;
+  shape ratified, **build gated** — trigger settled in the ADR)
 - **Date:** 2026-07-05 (evidence-gated 2026-07-05 after independent review — see below)
 - **Deciders:** operator + Claude
 - **Relates:** [ADR-0014](../adr/ADR-0014-index-freshness.md) (index freshness —

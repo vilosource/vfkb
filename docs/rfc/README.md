@@ -27,17 +27,19 @@ role-attributed; options under discussion live in the RFC's Decision/text.
 | [RFC-009](RFC-009-l4-harness-and-platform-probes.md) | L4 harness & platform probes | Proposed |
 | [RFC-010](RFC-010-consumer-integration-and-distribution.md) | Consumer integration & distribution contract — `vfkb init` / portable engine / `import` / `doctor` | Accepted → [ADR-0030](../adr/ADR-0030-consumer-integration-and-distribution.md) |
 | [RFC-011](RFC-011-session-end-continuity.md) | Session-end continuity — safe-by-default `/exit` (SessionEnd auto-commit + handoff floor) | Accepted → [ADR-0033](../adr/ADR-0033-session-end-continuity.md) (GAP 2 + B2 floor; B1 open) |
-| [RFC-012](RFC-012-contradiction-surfacing-at-write.md) | Deterministic contradiction surfacing at write time — conflict candidates in the `kb_add` result, never blocking (Track 9 Q1) | Proposed |
-| [RFC-013](RFC-013-cross-project-brain-query.md) | Cross-project brain query — read-only, provenance-labeled recall from a registered sibling project's `.vfkb` (links registry + `kb_query_external`) | Proposed |
-| [RFC-014](RFC-014-session-backbone.md) | v2 — Session backbone: real session identity from hook stdin, widened for entry attribution | Proposed |
-| [RFC-015](RFC-015-native-concurrency-lock.md) | v2 — A vfkb-native concurrency lock, scoped to the read-decide-append critical section | Proposed |
-| [RFC-016](RFC-016-entries-jsonl-merge-driver.md) | v2 — `entries.jsonl` stops guaranteeing a merge conflict on every second branch (v1: `merge=union`, pending a GitHub server-side check) | Proposed |
-| [RFC-017](RFC-017-schema-honesty.md) | v2 — Schema honesty: a structural `why` field, full envelope validation, structural contradiction/supersede fields | Proposed |
-| [RFC-018](RFC-018-rebuildable-index.md) | v2 — A rebuildable index (shape ratified, build evidence-gated); `entries.jsonl` stays the source of truth | Proposed |
-| [RFC-019](RFC-019-storage-backend-abstraction.md) | v2 — A pluggable storage-backend interface; JSONL stays the shipped default | Proposed |
+| [RFC-012](RFC-012-contradiction-surfacing-at-write.md) | Deterministic contradiction surfacing at write time — conflict candidates in the `kb_add` result, never blocking (Track 9 Q1) | Accepted → [ADR-0037](../adr/ADR-0037-contradiction-surfacing-at-write.md) |
+| [RFC-013](RFC-013-cross-project-brain-query.md) | Cross-project brain query — read-only, provenance-labeled recall from a registered sibling project's `.vfkb` (links registry + `kb_query_external`) | Accepted → [ADR-0038](../adr/ADR-0038-cross-project-brain-query.md) |
+| [RFC-014](RFC-014-session-backbone.md) | v2 — Session backbone: real session identity from hook stdin, widened for entry attribution | Accepted → [ADR-0039](../adr/ADR-0039-session-backbone.md) |
+| [RFC-015](RFC-015-native-concurrency-lock.md) | v2 — A vfkb-native concurrency lock, scoped to the read-decide-append critical section | Accepted → [ADR-0040](../adr/ADR-0040-native-concurrency-lock.md) |
+| [RFC-016](RFC-016-entries-jsonl-merge-driver.md) | v2 — `entries.jsonl` stops guaranteeing a merge conflict on every second branch (v1: `merge=union`, pending a GitHub server-side check) | Accepted → [ADR-0041](../adr/ADR-0041-entries-jsonl-merge-union.md) |
+| [RFC-017](RFC-017-schema-honesty.md) | v2 — Schema honesty: a structural `why` field, full envelope validation, structural contradiction/supersede fields | Accepted → [ADR-0042](../adr/ADR-0042-schema-honesty.md) |
+| [RFC-018](RFC-018-rebuildable-index.md) | v2 — A rebuildable index (shape ratified, build evidence-gated); `entries.jsonl` stays the source of truth | Accepted → [ADR-0043](../adr/ADR-0043-rebuildable-index-shape.md) (shape; build gated) |
+| [RFC-019](RFC-019-storage-backend-abstraction.md) | v2 — A pluggable storage-backend interface; JSONL stays the shipped default | Accepted → [ADR-0044](../adr/ADR-0044-storage-backend-abstraction.md) |
 
 RFC-014..019 are the first batch of [ADR-0036](../adr/ADR-0036-v2-two-branch-strategy.md)'s
-v2 fork (`docs/V2-VISION.md`) — each builds on the `v2` branch only once accepted.
+v2 fork (`docs/V2-VISION.md`) — all accepted 2026-07-06 (→ ADR-0039..0044); each **builds on the
+`v2` branch**, in roadmap order (RFC-014 first — RFC-015/016 depend on it; RFC-018's build stays
+evidence-gated per ADR-0043; RFC-019 is sequenced last).
 
 RFC-001..003 were drafted 2026-06-15 from a study of AnythingLLM (Mintplex Labs)
 retrieval mechanics mapped onto vfkb's substrate. All three **refine

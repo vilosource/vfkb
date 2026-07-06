@@ -1,7 +1,7 @@
 # RFC-013: Cross-project brain query — read-only recall from a sibling project's `.vfkb`
 
-- **Status:** **Proposed** (operator-initiated 2026-07-02; roadmap placement TBD — needs a Track slot
-  on the next re-ratification, sibling to the Track 9 fork)
+- **Status:** **Accepted → [ADR-0038](../adr/ADR-0038-cross-project-brain-query.md)** (2026-07-06;
+  build queued in the Track 9 quality queue, scenario-contract-first)
 - **Date:** 2026-07-02
 - **Deciders:** operator + Claude
 - **Relates:** [ADR-0019](../adr/ADR-0019-self-hosted-design-brain.md) (the brain is a committed,
