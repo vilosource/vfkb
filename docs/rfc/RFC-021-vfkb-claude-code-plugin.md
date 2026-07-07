@@ -65,12 +65,12 @@ special-casing.
 
 ## Decision
 
-Ship a `vfkb` Claude Code plugin from this repo, alongside the existing npm package — not a
-separate repo — as the **primary, recommended** distribution path for the Claude Code harness
-face. `.claude-plugin/marketplace.json` sits at the repo root (as is typical); its plugin entry's
-`"source"` is scoped to a dedicated subdirectory containing `plugin.json`, the skill,
-`hooks/hooks.json`, and the bundled MCP declaration (see the verified Scoping requirement below) —
-never the repo root itself.
+Ship a `vfkb` Claude Code plugin whose marketplace source is a **dedicated, minimal repo or orphan
+branch** — not the main dev repo's tree, and not merely a subdirectory of it — containing only
+`.claude-plugin/marketplace.json` + `plugin.json`, the skill, `hooks/hooks.json`, and a copy of
+`dist/bundles/*.mjs` in its git history. This is the **primary, recommended** distribution path for
+the Claude Code harness face, published alongside the existing npm package (see the verified
+Scoping requirement below for why a same-repo subdirectory isn't sufficient).
 
 The plugin bundles exactly three things, all resolving vfkb's **existing** harness-agnostic
 engine bundles — no new engine code:
@@ -94,16 +94,35 @@ non-interactive environments, or a future harness with no plugin concept at all.
 becomes the default *recommendation* for interactive Claude Code CLI users, not the only
 supported path.
 
-**Scoping requirement — VERIFIED 2026-07-07.** A marketplace's plugin entry can set `"source"` to
-a subdirectory path (e.g. `"./plugin"`), not just the repo root. A live install test (a throwaway
-marketplace + plugin, with sibling `test/`, `scenarios/`, and `.vfkb/entries.jsonl`-equivalent
-files placed *outside* the sourced subdirectory) confirmed the installed cache
-(`~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/`) contained **only** the scoped
-subdirectory's files — none of the sibling content leaked in. No dedicated release branch/tag is
-needed: the plugin manifest, skill, `hooks/hooks.json`, and a copy of `dist/bundles/*.mjs` can live
-in a dedicated subdirectory of this same repo (exact path TBD at implementation time), with
-`marketplace.json`'s `source` scoped to it — the same effective guarantee `"files": ["dist"]`
-gives the npm package, achieved a different way.
+**Scoping requirement — VERIFIED 2026-07-07, two layers, one gap found.** There are two distinct
+steps, verified separately, with different results:
+
+1. **Plugin install → cache scoping (local `Directory` source): confirmed scoped.** A throwaway
+   local-directory marketplace with a subdirectory-scoped plugin `"source"`, with sibling `test/`,
+   `scenarios/`, and a `.vfkb/entries.jsonl` stand-in placed *outside* that subdirectory, installed
+   cleanly into `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/` containing **only** the
+   scoped subdirectory's files.
+2. **Marketplace add → local clone (real `GitHub` source): confirmed NOT scoped by default.**
+   Re-verified directly against `vilosource/okf-skill`'s real, already-configured marketplace (not
+   a synthetic test): `claude plugin marketplace add <owner/repo>` performs a full `git clone` into
+   `~/.claude/plugins/marketplaces/<name>/` *before* any plugin-level scoping applies. That clone
+   directory was observed to contain okf-skill's own `.vfkb/entries.jsonl`, `.claude/settings.json`,
+   and every other repo file — the marketplace command exposes a `--sparse <paths...>` flag
+   ("Limit checkout to specific directories via git sparse-checkout, for monorepos") specifically
+   because the default is an unscoped full clone.
+
+**Conclusion: subdirectory-scoped `"source"` alone is not sufficient.** It scopes what ends up in
+the final plugin *cache*, but does nothing to prevent a full clone landing in the marketplace
+*checkout* first — which would put this repo's own `.vfkb/entries.jsonl` and dev tree on disk at
+`~/.claude/plugins/marketplaces/vfkb/` for anyone who runs a bare `claude plugin marketplace add`
+without `--sparse`. Relying on every consumer remembering `--sparse` is the same class of mistake
+ADR-0035 already taught this repo not to make (relying on callers to get an env/path detail right
+rather than making it structurally impossible to get wrong). Revised decision: **the plugin's
+marketplace source should point at a dedicated, minimal repo or orphan branch** containing only the
+plugin manifest, skill, `hooks/hooks.json`, and a copy of `dist/bundles/*.mjs` in its git history —
+never a subdirectory of the full dev repo — so a full, unscoped clone is harmless by construction.
+This restores (for a concretely verified reason, not a hypothetical one) the "dedicated release
+branch/tag" fallback the original Decision draft anticipated before Phase 0 ran.
 
 **Explicit boundary (non-goal):** this RFC does not modify `src/engine.ts`, `src/storage.ts`,
 `src/cli.ts`, or `src/mcp-server.ts`. It is packaging only, reusing exactly what
@@ -148,9 +167,12 @@ follow exactly:
   Antigravity independently converged on an almost identical plugin shape; designing with that
   portability in mind now is low-cost and pays off if a second harness plugin is ever built.
 - **Source the plugin from the repo root with no scoping** — rejected: would ship this repo's full
-  dev tree (tests, scenarios, internal design docs, `.vfkb/entries.jsonl`) to every plugin
-  consumer. Phase 0 confirmed `marketplace.json`'s `source` field supports subdirectory scoping
-  instead, so this is avoidable without a separate repo/branch.
+  dev tree (tests, scenarios, internal design docs, `.vfkb/entries.jsonl`) to every plugin consumer.
+- **Rely on a same-repo subdirectory-scoped `"source"` alone** — rejected after Phase 0: this scopes
+  the final plugin *cache* correctly, but does not prevent a full, unscoped `git clone` of the whole
+  dev repo landing in the marketplace *checkout* first (confirmed directly against okf-skill's real
+  marketplace — its own `.vfkb/entries.jsonl` was present in the clone). Requiring every consumer to
+  remember `--sparse` is the same shape of mistake ADR-0035 already ruled out for hook paths.
 - **Bundle this RFC together with RFC-020's OKF integration as one proposal** — rejected: they are
   separable concerns (this RFC is pure distribution/packaging; RFC-020 is a knowledge-management
   layering decision) that happen to have a one-way dependency (RFC-020's `vfkb:okf` skill needs
@@ -160,18 +182,37 @@ follow exactly:
 
 ## Definition of Done
 
-- **Phase 0 — DONE, verified 2026-07-07 (CLI v2.1.202):**
-  1. Live empirical probe: hooks resolve `${CLAUDE_PROJECT_DIR}`/`${CLAUDE_PLUGIN_ROOT}` directly;
-     MCP servers need them template-substituted via the `.mcp.json` `env` field instead of reading
-     inherited process env. See the Decision section for the full result.
-  2. Install-scoping probe: `marketplace.json`'s `source` field scopes correctly to a subdirectory;
-     confirmed no sibling files leak into the installed cache. See the Scoping requirement above.
-- **Phase 1 (implementation, after acceptance):** build `.claude-plugin/marketplace.json` +
-  `plugin.json` + the skill + `hooks/hooks.json` + the bundled MCP declaration, all resolving
-  `${CLAUDE_PLUGIN_ROOT}`-relative paths into the existing `dist/bundles/*.mjs`. No engine changes.
-  Plugin version updates reuse the existing `.vfkb/manifest.json` engine/schema-version
-  compatibility contract (ADR-0030) unchanged — no new versioning scheme introduced for the
-  plugin path.
+- **Phase 0 — DONE, verified 2026-07-07 (CLI v2.1.202). Repro steps:**
+  1. **Hook/MCP env probe:** a throwaway plugin dir with `.claude-plugin/plugin.json` (bare
+     manifest), `hooks/hooks.json` containing a `SessionStart` hook whose command is
+     `echo "HOOK CLAUDE_PROJECT_DIR=${CLAUDE_PROJECT_DIR:-<unset>} CLAUDE_PLUGIN_ROOT=${CLAUDE_PLUGIN_ROOT:-<unset>}" >> <outfile>`,
+     and `.mcp.json` declaring one server with `"env": {"PROBE_PROJECT_DIR": "${CLAUDE_PROJECT_DIR}"}`
+     and a command that echoes `$PROBE_PROJECT_DIR` to the same `<outfile>`. Run from a throwaway
+     project directory: `claude --plugin-dir <plugin-dir> -p "hi" --dangerously-skip-permissions`.
+     Inspect `<outfile>` for both lines. Result: hook line shows the real project dir; MCP line
+     shows the real project dir *only* via the `env`-field-templated variable, not a bare
+     `$CLAUDE_PROJECT_DIR` read from inherited process env (which is unset there).
+  2. **Cache-scoping probe:** a throwaway local-directory marketplace (`.claude-plugin/marketplace.json`
+     with one plugin entry, `"source": "./plugin-subdir"`) with sibling `test/`, `scenarios/`,
+     `.vfkb/` files outside `plugin-subdir`. `claude plugin marketplace add <dir>` →
+     `claude plugin install <name>@<marketplace>` → inspect
+     `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/`: contains only `plugin-subdir`'s
+     files.
+  3. **Marketplace-clone probe:** re-ran `claude plugin marketplace add vilosource/okf-skill#main`
+     (this repo's own already-configured real marketplace, refreshed, not a synthetic one) and
+     inspected `~/.claude/plugins/marketplaces/okf-skill/`: contains the full repo, including its
+     own `.vfkb/entries.jsonl` — confirming the default is an unscoped clone (see Scoping
+     requirement above for why this changes the Decision).
+  All throwaway plugins/marketplaces from steps 1-2 were uninstalled and their cache/data
+  directories removed afterward; step 3 only refreshed an already-legitimate, pre-existing
+  marketplace registration and changed nothing else about it.
+- **Phase 1 (implementation, after acceptance):** set up the dedicated minimal plugin repo/branch
+  (per the revised Decision above), containing `.claude-plugin/marketplace.json` + `plugin.json` +
+  the skill + `hooks/hooks.json` + the bundled MCP declaration, all resolving
+  `${CLAUDE_PLUGIN_ROOT}`-relative paths into a copied-in `dist/bundles/*.mjs`. No changes to this
+  repo's own `src/engine.ts` et al. Plugin version updates reuse the existing
+  `.vfkb/manifest.json` engine/schema-version compatibility contract (ADR-0030) unchanged — no new
+  versioning scheme introduced for the plugin path.
 - **Full testing regimen:** unit/integration coverage for any new glue code, plus an agent-driven
   L4 scenario (ADR-0022/0029) proving a plugin-installed vfkb behaves identically to an
   `vfkb init`-wired vfkb for a real session — a fresh sandbox installs only the plugin (no
@@ -198,3 +239,6 @@ follow exactly:
   relevant only if/when a non-Claude-Code packaging is attempted; not resolved here.
 - RFC-020 (OKF) stays sequenced strictly after this RFC per the operator's explicit
   prioritization; this RFC does not restate RFC-020's content, only the dependency direction.
+- How the dedicated minimal plugin repo/branch (revised Decision, post-Phase-0) stays in sync with
+  `dist/bundles/*.mjs` as the main repo evolves — a publish step copies the built bundles in, a git
+  submodule, or something else — is left to Phase 1 implementation, not decided here.
