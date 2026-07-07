@@ -13,6 +13,13 @@ coverage/
 # local registry auth (token via env)
 .npmrc
 
+# machine-local Claude Code config + operator tooling artifacts (never committed:
+# settings.local.json / CLAUDE.local.md carry absolute per-machine paths; graphify-out/
+# is a locally generated knowledge graph)
+.claude/settings.local.json
+CLAUDE.local.md
+graphify-out/
+
 # understand-anything: commit the graph artifacts, ignore the scratch/scan caches
 .understand-anything/.trash-*/
 .understand-anything/intermediate/
