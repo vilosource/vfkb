@@ -357,7 +357,9 @@ proposed, never auto-acted). Signals stay operational/gitignored (M2b sub-decisi
 Interop reach: emit a distilled, **deterministic projection** of the brain (Constitution + Map +
 established/verified knowledge + context spine) as `AGENTS.md` — the LF-standard file read by every major
 harness — via a render target over the existing `renderContext` (e.g. `vfkb export agents-md`).
-Generated-marked, regenerate-on-demand, never auto-committed.
+Generated-marked, regenerate-on-demand, never auto-committed. [RFC-020](rfc/RFC-020-layered-knowledge-capture-understand-publish.md)
+proposes widening this render-target work to a second target (an OKF bundle) sharing the same
+engine and DoD pattern, plus how vfkb/graphify/OKF divide knowledge-management responsibilities.
 - *DoD:* deterministic projection unit tests + L4 `agents-md-cold-agent` — a **naive** arm (no MCP, no
   hooks) given only the exported AGENTS.md answers a seeded project question the no-file contrast arm
   misses. Runs on the existing claude image with vfkb integration disabled — genuinely can-fail. RED first.
