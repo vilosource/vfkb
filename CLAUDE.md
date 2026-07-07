@@ -20,7 +20,9 @@ This repo dogfoods its own **Claude Code plugin** ([vilosource/vfkb-claude-plugi
 ADR-0045) — installed at **project scope** (`.claude/settings.json`'s `extraKnownMarketplaces` +
 `enabledPlugins`), so a session here **runs on vfkb automatically**, no committed `.mcp.json` or
 hand-written hooks in this repo at all:
-- The plugin's bundled **MCP server** → the 9 `mcp__vfkb__kb_*` tools.
+- The plugin's bundled **MCP server** → the 9 `kb_*` tools. **Verified live 2026-07-07:** plugin
+  MCP tools are namespaced `mcp__plugin_vfkb_vfkb__kb_*` (plugin `vfkb`, server `vfkb`), not the
+  bare `mcp__vfkb__kb_*` of the old `.mcp.json` wiring.
 - The plugin's bundled **hooks**:
   - **`SessionStart`** → injects the resume digest + knowledge bundle (continuity, automatic).
   - **`PreToolUse`** (Write/Edit/MultiEdit) → **gates direct writes to `.vfkb/`** (forces brain
@@ -51,7 +53,10 @@ hand-written hooks in this repo at all:
   plugin updates change this repo's live wiring outside this repo's PR flow — accepted for the
   first-party plugin (ADR-0045).
 
-So prefer the **`mcp__vfkb__*` tools** in-session; the CLI (below) is the equivalent for scripting.
+So prefer the **plugin `kb_*` MCP tools** in-session (`mcp__plugin_vfkb_vfkb__kb_*`); the CLI
+(below) is the equivalent for scripting. Known cosmetic quirk: the resume/context headers render
+`project="spike"` — the plugin sets `VFKB_DATA_DIR` but (being generic) not `VFKB_PROJECT`, so the
+engine's hard-coded fallback surfaces. Display-label only; entries are not filtered by project.
 
 ## ⚠️ How we track work HERE (read first)
 
@@ -83,7 +88,7 @@ capture** (the `PostToolUse` hook records tool calls, not conceptual choices, an
 this is a **deliberate discipline**:
 
 - **When a load-bearing decision is made in a session, record it immediately** — prefer the MCP tool
-  `mcp__vfkb__kb_add` with `type=decision`, the decision text, `why=<rationale>`, `role=human`
+  `kb_add` (`mcp__plugin_vfkb_vfkb__kb_add`) with `type=decision`, the decision text, `why=<rationale>`, `role=human`
   (CLI equivalent: `vfkb add decision "…" --why "…" --role human`). Don't batch it to "later."
 - **Architectural / standard-setting decisions also get an ADR** — `docs/adr/` (Nygard format,
   immutable, ADR-0001) — and link it into the brain (`kb_add type=link → docs/adr/ADR-XXXX-….md`).
