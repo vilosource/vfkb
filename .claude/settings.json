@@ -1,45 +1,35 @@
 {
   "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "VFKB_DATA_DIR=${CLAUDE_PROJECT_DIR:-.}/.vfkb VFKB_PROJECT=vfkb node ${CLAUDE_PROJECT_DIR:-.}/.vfkb/bin/bootstrap.mjs cli hook session-start"
-          }
-        ]
-      }
-    ],
     "PreToolUse": [
       {
-        "matcher": "Write|Edit|MultiEdit",
+        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "VFKB_DATA_DIR=${CLAUDE_PROJECT_DIR:-.}/.vfkb VFKB_PROJECT=vfkb node ${CLAUDE_PROJECT_DIR:-.}/.vfkb/bin/bootstrap.mjs cli hook pre-tool-use"
+            "command": "/home/jasonvi/.local/bin/graphify hook-guard search"
           }
         ]
-      }
-    ],
-    "Stop": [
+      },
       {
+        "matcher": "Read|Glob",
         "hooks": [
           {
             "type": "command",
-            "command": "VFKB_DATA_DIR=${CLAUDE_PROJECT_DIR:-.}/.vfkb VFKB_PROJECT=vfkb node ${CLAUDE_PROJECT_DIR:-.}/.vfkb/bin/bootstrap.mjs cli hook stop"
-          }
-        ]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "VFKB_DATA_DIR=${CLAUDE_PROJECT_DIR:-.}/.vfkb VFKB_PROJECT=vfkb node ${CLAUDE_PROJECT_DIR:-.}/.vfkb/bin/bootstrap.mjs cli hook session-end"
+            "command": "/home/jasonvi/.local/bin/graphify hook-guard read"
           }
         ]
       }
     ]
+  },
+  "extraKnownMarketplaces": {
+    "vfkb": {
+      "source": {
+        "source": "github",
+        "repo": "vilosource/vfkb-claude-plugin"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "vfkb@vfkb": true
   }
 }

@@ -16,11 +16,12 @@ Repo: `git@github.com:vilosource/vfkb.git` (vilosource/vfkb). Dev working copy: 
 
 ## vfkb is wired as this session's native auto-layer
 
-This repo ships the Claude Code integration committed at the root, so a session here **runs on
-vfkb automatically** (this is vfkb's actual product surface, not just a CLI):
-- **`.mcp.json`** registers the **`vfkb` MCP server** via the committed bootstrap
-  (`node .vfkb/bin/bootstrap.mjs mcp`, `VFKB_DATA_DIR=.vfkb`) → the 9 `mcp__vfkb__kb_*` tools.
-- **`.claude/settings.json`** hooks (also via `.vfkb/bin/bootstrap.mjs cli hook …`):
+This repo dogfoods its own **Claude Code plugin** ([vilosource/vfkb-claude-plugin](https://github.com/vilosource/vfkb-claude-plugin),
+ADR-0045) — installed at **project scope** (`.claude/settings.json`'s `extraKnownMarketplaces` +
+`enabledPlugins`), so a session here **runs on vfkb automatically**, no committed `.mcp.json` or
+hand-written hooks in this repo at all:
+- The plugin's bundled **MCP server** → the 9 `mcp__vfkb__kb_*` tools.
+- The plugin's bundled **hooks**:
   - **`SessionStart`** → injects the resume digest + knowledge bundle (continuity, automatic).
   - **`PreToolUse`** (Write/Edit/MultiEdit) → **gates direct writes to `.vfkb/`** (forces brain
     writes through the engine; normal code/doc edits pass through untouched).
@@ -33,12 +34,15 @@ vfkb automatically** (this is vfkb's actual product surface, not just a CLI):
     is a floor, not a substitute. *(A higher-quality B1 Stop-hook nudge stays open — RFC-011 §B.)*
   - **`PostToolUse` auto-capture is intentionally OFF** — against the *committed* brain it would
     flood `.vfkb` with tool-call noise. Knowledge here is **deliberate** (`kb_add` / `vfkb add`).
-- **This repo now dogfoods the consumer wiring (ADR-0030/0031/0032):** the auto-layer resolves the
-  engine through **`$VFKB_BUNDLE_DIR`**, not a relative `dist/` path. So per machine, once:
-  `npm run build:bundles` then `export VFKB_BUNDLE_DIR=$PWD/dist/bundles`. **If `VFKB_BUNDLE_DIR` is
-  unset, SessionStart shows a "vfkb INACTIVE — set VFKB_BUNDLE_DIR" banner** (graceful, never blocks)
-  — set it and restart the session. On first interactive `claude`, approve the MCP server + hooks once.
-  (`dist/cli.js` from `npm run build` still works for manual CLI; the auto-layer uses the bundle.)
+- **No `$VFKB_BUNDLE_DIR` to set for this repo anymore** — the plugin vendors its own copy of the
+  engine bundles (Phase 1 of ADR-0045). `$VFKB_BUNDLE_DIR` is still relevant if you also work in
+  projects still on the old `vfkb init` mechanism (RFC-010/ADR-0030, still supported as a
+  fallback), but this repo doesn't need it. On first interactive `claude` after this migration,
+  approve the plugin's MCP server + hooks once. See
+  [`MIGRATION_GUIDE.md`](https://github.com/vilosource/vfkb-claude-plugin/blob/main/MIGRATION_GUIDE.md)
+  in the plugin repo for how this migration was done, if migrating another project the same way.
+  (`dist/cli.js` from `npm run build` still works for manual CLI in *this* repo, since it's vfkb's
+  own source — that's unrelated to the plugin, which vendors a separate built copy.)
 
 So prefer the **`mcp__vfkb__*` tools** in-session; the CLI (below) is the equivalent for scripting.
 
@@ -231,3 +235,13 @@ not `main`. Full rationale: [ADR-0036](docs/adr/ADR-0036-v2-two-branch-strategy.
 workbench that grounds against vfkb: on ratification it pushes a lossy projection to the project's
 `.vfkb/` dir (vfwb ADR-0003) and recalls from it. vfwb is a **separate repo, out of scope here**; its
 maintainer repoints it to vfkb. (vfkb runs standalone; vfwb is an overlay, not a runtime dependency.)
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
