@@ -59,4 +59,14 @@ describe('defaultProject derivation', () => {
   it('falls back to the cwd basename when nothing is set (default ~/.vfkb brain)', () => {
     expect(defaultProject()).toBe(basename(process.cwd()));
   });
+
+  it('strips characters that would deform the injected pseudo-XML header', () => {
+    process.env.VFKB_DATA_DIR = join(sep, 'x', 'evil" injected="1 <b>&', '.vfkb');
+    expect(defaultProject()).toBe('evil injected=1 b');
+  });
+
+  it('falls back to spike when stripping empties the name', () => {
+    process.env.VFKB_PROJECT = '"<>&';
+    expect(defaultProject()).toBe('spike');
+  });
 });

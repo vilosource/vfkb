@@ -30,18 +30,24 @@ export function brainDir(): string {
 // name, so derive it from where the brain lives: an explicit brain dir names its
 // project (its parent when the dir itself is dot-named, e.g. <repo>/.vfkb → repo);
 // otherwise the hook-injected $CLAUDE_PROJECT_DIR, then the cwd. The old hard-coded
-// 'spike' remains only as the last-resort literal (empty basename at fs root).
+// 'spike' remains only as the last-resort literal (empty basename at fs root, or a
+// name that is nothing but stripped characters).
 export function defaultProject(): string {
-  if (process.env.VFKB_PROJECT) return process.env.VFKB_PROJECT;
-  const explicit = process.env.VFKB_DATA_DIR || process.env.VFKB_DIR;
-  if (explicit) {
-    const abs = resolve(explicit);
-    const name = basename(abs);
-    return name.startsWith('.') ? basename(dirname(abs)) || 'spike' : name;
-  }
-  const root = process.env.CLAUDE_PROJECT_DIR;
-  if (root) return basename(resolve(root)) || 'spike';
-  return basename(process.cwd()) || 'spike';
+  const raw = (() => {
+    if (process.env.VFKB_PROJECT) return process.env.VFKB_PROJECT;
+    const explicit = process.env.VFKB_DATA_DIR || process.env.VFKB_DIR;
+    if (explicit) {
+      const abs = resolve(explicit);
+      const name = basename(abs);
+      return name.startsWith('.') ? basename(dirname(abs)) : name;
+    }
+    const root = process.env.CLAUDE_PROJECT_DIR;
+    if (root) return basename(resolve(root));
+    return basename(process.cwd());
+  })();
+  // The name lands verbatim inside the injected pseudo-XML headers
+  // (<vfkb-resume project="...">) — strip characters that would deform them.
+  return raw.replace(/["<>&]/g, '') || 'spike';
 }
 function recordsFile(): string {
   return join(brainDir(), 'entries.jsonl');
