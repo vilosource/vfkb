@@ -19,7 +19,7 @@ import {
 } from './engine.js';
 import { query, queryExplained } from './read.js';
 import type { SearchDiagnosis } from './read.js';
-import { brainDir } from './storage.js';
+import { brainDir, defaultProject } from './storage.js';
 import type { KnowledgeEntry } from './types.js';
 import { ENGINE_VERSION } from './version.js';
 
@@ -84,15 +84,10 @@ function envRole(): z.infer<typeof ROLE> | undefined {
   return p.success ? p.data : undefined;
 }
 
-// Render defaults resolve the real project name (VFKB_PROJECT, else the cwd
-// basename) — the 'spike' literal was a leftover of the spike era (Track 9 Q0).
-function projectName(): string {
-  return (
-    process.env.VFKB_PROJECT ||
-    process.cwd().split(/[/\\]/).filter(Boolean).pop() ||
-    'project'
-  );
-}
+// Render defaults resolve the real project name via the shared derivation
+// (VFKB_PROJECT, else the brain dir's owning repo, else $CLAUDE_PROJECT_DIR/cwd)
+// — the engine-wide successor of this server's Track 9 Q0 local fix.
+const projectName = defaultProject;
 
 const server = new McpServer({ name: 'vfkb', version: ENGINE_VERSION });
 
