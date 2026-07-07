@@ -4,7 +4,7 @@
 // concatenating two branches' JSONL and re-materializing is order-independent).
 
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { createHash } from 'node:crypto';
 import type { KnowledgeEntry } from './types.js';
@@ -23,6 +23,31 @@ export function isTombstone(r: StoredRecord): r is Tombstone {
 export function brainDir(): string {
   // VFKB_DATA_DIR is canonical; VFKB_DIR is a kept-working deprecated alias (ADR-0032).
   return process.env.VFKB_DATA_DIR || process.env.VFKB_DIR || join(homedir(), '.vfkb');
+}
+
+// Default project name when VFKB_PROJECT is unset. Generic wiring (the Claude Code
+// plugin, ADR-0045) can point VFKB_DATA_DIR at a brain but cannot know the project's
+// name, so derive it from where the brain lives: an explicit brain dir names its
+// project (its parent when the dir itself is dot-named, e.g. <repo>/.vfkb → repo);
+// otherwise the hook-injected $CLAUDE_PROJECT_DIR, then the cwd. The old hard-coded
+// 'spike' remains only as the last-resort literal (empty basename at fs root, or a
+// name that is nothing but stripped characters).
+export function defaultProject(): string {
+  const raw = (() => {
+    if (process.env.VFKB_PROJECT) return process.env.VFKB_PROJECT;
+    const explicit = process.env.VFKB_DATA_DIR || process.env.VFKB_DIR;
+    if (explicit) {
+      const abs = resolve(explicit);
+      const name = basename(abs);
+      return name.startsWith('.') ? basename(dirname(abs)) : name;
+    }
+    const root = process.env.CLAUDE_PROJECT_DIR;
+    if (root) return basename(resolve(root));
+    return basename(process.cwd());
+  })();
+  // The name lands verbatim inside the injected pseudo-XML headers
+  // (<vfkb-resume project="...">) — strip characters that would deform them.
+  return raw.replace(/["<>&]/g, '') || 'spike';
 }
 function recordsFile(): string {
   return join(brainDir(), 'entries.jsonl');
