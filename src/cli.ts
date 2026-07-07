@@ -16,6 +16,7 @@ import {
   deriveTrust,
 } from './engine.js';
 import { SessionState, effectiveSessionId } from './session.js';
+import { defaultProject } from './storage.js';
 import {
   promote,
   archive,
@@ -139,7 +140,7 @@ async function main() {
   }
 
   if (cmd === 'context-block') {
-    process.stdout.write(renderContextBundle(sub || 'spike'));
+    process.stdout.write(renderContextBundle(sub || defaultProject()));
     return;
   }
 
@@ -157,7 +158,7 @@ async function main() {
       process.stdout.write(`${created ? 'created' : 'exists'}\t${path}\n`);
       return;
     }
-    const project = (sub && !sub.startsWith('--') ? sub : undefined) || process.env.VFKB_PROJECT || 'spike';
+    const project = (sub && !sub.startsWith('--') ? sub : undefined) || defaultProject();
     process.stdout.write(renderContext(project));
     return;
   }
@@ -165,7 +166,7 @@ async function main() {
   // resume [project]: the session-continuity render (ADR-0020) — prior-session
   // digest (derived) + the live knowledge bundle. The MCP-pull-floor / CLI face.
   if (cmd === 'resume') {
-    const project = (sub && !sub.startsWith('--') ? sub : undefined) || process.env.VFKB_PROJECT || 'spike';
+    const project = (sub && !sub.startsWith('--') ? sub : undefined) || defaultProject();
     process.stdout.write(renderResume(project, SessionState.load()) + '\n');
     return;
   }
@@ -264,7 +265,7 @@ async function main() {
   // budget-drops-newest incident).
   if (cmd === 'context-block-naive') {
     const lim = flag([sub, ...rest], 'limit');
-    process.stdout.write(renderNaiveDump(sub && !sub.startsWith('--') ? sub : 'spike', undefined, lim ? Number(lim) : undefined));
+    process.stdout.write(renderNaiveDump(sub && !sub.startsWith('--') ? sub : defaultProject(), undefined, lim ? Number(lim) : undefined));
     return;
   }
 
@@ -333,7 +334,7 @@ async function main() {
       } catch {
         /* malformed → no harness id; env override may still apply */
       }
-      const project = process.env.VFKB_PROJECT || 'spike';
+      const project = defaultProject();
       // --naive = the mykb-v1-style flat dump (L4 contrast baseline only); --limit N truncates it.
       const lim = flag(rest, 'limit');
       // The Tier-A payload is the RESUME render (ADR-0020): prior-session digest +
