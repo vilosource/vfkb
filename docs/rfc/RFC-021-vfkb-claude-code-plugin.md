@@ -1,6 +1,7 @@
 # RFC-021: vfkb as a Claude Code plugin — the primary distribution path for the Claude Code harness face
 
-- **Status:** Proposed — Phase 0 verified 2026-07-07 (see Decision), pending operator ratification
+- **Status:** **Accepted → [ADR-0045](../adr/ADR-0045-vfkb-claude-code-plugin.md)** (2026-07-07;
+  Phase 0 precondition verified live before acceptance — see Decision)
 - **Date:** 2026-07-07
 - **Deciders:** operator + Claude
 - **Relates:** [ADR-0030](../adr/ADR-0030-consumer-integration-and-distribution.md) (`vfkb init` /
