@@ -54,9 +54,10 @@ hand-written hooks in this repo at all:
   first-party plugin (ADR-0045).
 
 So prefer the **plugin `kb_*` MCP tools** in-session (`mcp__plugin_vfkb_vfkb__kb_*`); the CLI
-(below) is the equivalent for scripting. Known cosmetic quirk: the resume/context headers render
-`project="spike"` — the plugin sets `VFKB_DATA_DIR` but (being generic) not `VFKB_PROJECT`, so the
-engine's hard-coded fallback surfaces. Display-label only; entries are not filtered by project.
+(below) is the equivalent for scripting. The resume/context headers derive their `project="…"`
+label from the brain dir (`<repo>/.vfkb` → `repo`; `VFKB_PROJECT` overrides — PR #76). Display-label
+only; entries are not filtered by project. If a session still shows `project="spike"`, the installed
+plugin predates that fix — update the plugin and restart.
 
 ## ⚠️ How we track work HERE (read first)
 
