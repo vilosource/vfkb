@@ -43,6 +43,13 @@ hand-written hooks in this repo at all:
   in the plugin repo for how this migration was done, if migrating another project the same way.
   (`dist/cli.js` from `npm run build` still works for manual CLI in *this* repo, since it's vfkb's
   own source — that's unrelated to the plugin, which vendors a separate built copy.)
+- **Dev-loop implication (know this):** the live auto-layer now runs the plugin's *vendored* engine
+  copy, **not** your local build — editing `src/` (even with `npm run build:bundles`) no longer
+  changes what this session's hooks/MCP run. To dogfood an engine change live, re-vendor + release
+  it in [vilosource/vfkb-claude-plugin](https://github.com/vilosource/vfkb-claude-plugin) and update
+  the plugin. Corollary: the plugin install is **unpinned** (tracks the plugin repo's releases), so
+  plugin updates change this repo's live wiring outside this repo's PR flow — accepted for the
+  first-party plugin (ADR-0045).
 
 So prefer the **`mcp__vfkb__*` tools** in-session; the CLI (below) is the equivalent for scripting.
 
@@ -235,13 +242,3 @@ not `main`. Full rationale: [ADR-0036](docs/adr/ADR-0036-v2-two-branch-strategy.
 workbench that grounds against vfkb: on ratification it pushes a lossy projection to the project's
 `.vfkb/` dir (vfwb ADR-0003) and recalls from it. vfwb is a **separate repo, out of scope here**; its
 maintainer repoints it to vfkb. (vfkb runs standalone; vfwb is an overlay, not a runtime dependency.)
-
-## graphify
-
-This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
-
-Rules:
-- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
-- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
-- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
-- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
