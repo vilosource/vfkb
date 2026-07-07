@@ -4,6 +4,11 @@ coverage/
 *.log
 .vfkb-spike/
 
+# graphify: derived, rebuildable structural index (RFC-020) — same treatment as
+# dist/, never committed. GRAPH_REPORT.md may be committed deliberately if the
+# team wants a point-in-time architecture snapshot in history.
+graphify-out/
+
 # vfkb's own committed design-brain (RFC-004 / ADR-0019): entries.jsonl is the
 # git-committed SoR; the derived index is rebuildable and never committed (ADR-0014).
 .vfkb/index-meta.json
