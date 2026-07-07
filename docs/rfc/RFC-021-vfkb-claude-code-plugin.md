@@ -11,7 +11,8 @@
   auto-layer — establishes the harness-face separation this RFC extends, not replaces),
   [RFC-020](RFC-020-layered-knowledge-capture-understand-publish.md) (OKF integration — explicitly
   sequenced *after* this RFC; its proposed `vfkb:okf` skill depends on the plugin scaffold this
-  RFC builds)
+  RFC builds; still on its own open [PR #71](https://github.com/vilosource/vfkb/pull/71) as of
+  this writing — if this RFC merges first, that relative link 404s on `main` until #71 also lands)
 
 ## Context
 
@@ -47,6 +48,15 @@ implicit cwd. The same pattern applies directly here: a plugin-bundled hook reso
 code* from `${CLAUDE_PLUGIN_ROOT}` (where the plugin is installed) but must still resolve the
 *data directory* (`VFKB_DATA_DIR`) from `${CLAUDE_PROJECT_DIR:-.}` (the project actually being
 worked on) — two independent path roots that must not be conflated.
+
+This repo already solved an analogous scoping problem once: the npm package's `package.json`
+`"files": ["dist"]` field ensures `npm publish` ships only the built engine, never `src/`, `test/`,
+`scenarios/`, or this repo's own `.vfkb/entries.jsonl` design brain. A Claude Code plugin sourced
+from "the repo root" has no confirmed equivalent yet — if plugin installs simply clone/fetch the
+full repository content rather than a scoped subset, every plugin consumer would receive this
+repo's entire dev tree, including its own internal decision history and gotchas recorded in
+`.vfkb/entries.jsonl`. This has not been verified either way and must be resolved before
+implementation — see the Decision's scoping requirement below.
 
 This pattern is not Claude-Code-specific. **Google Antigravity** — a second, independently-built
 coding harness (Go-based CLI + IDE, successor lineage to Gemini CLI) — converged on a nearly
@@ -85,6 +95,14 @@ non-interactive environments, or a future harness with no plugin concept at all.
 becomes the default *recommendation* for interactive Claude Code CLI users, not the only
 supported path.
 
+**Scoping requirement:** whatever a plugin install actually fetches must be limited to the plugin
+manifest, the skill, `hooks/hooks.json`, and `dist/bundles/*.mjs` — the same scope `"files":
+["dist"]` already enforces for the npm package. If Claude Code's plugin `source` field has no
+built-in mechanism to scope a marketplace entry to a subdirectory or a filtered artifact (to be
+confirmed in Phase 0, alongside the `$CLAUDE_PROJECT_DIR` probe), the plugin must be sourced from a
+dedicated release branch/tag or a generated scoped artifact containing only those files — never
+the full working tree, and never `.vfkb/`, `test/`, or `scenarios/`.
+
 **Explicit boundary (non-goal):** this RFC does not modify `src/engine.ts`, `src/storage.ts`,
 `src/cli.ts`, or `src/mcp-server.ts`. It is packaging only, reusing exactly what
 `npm run build:bundles` (ADR-0030) already produces. This is deliberate: keeping the shared engine
@@ -99,6 +117,13 @@ comment is evidence, not observation — this repo's own standard is "VERIFIED =
 asserted" (matching how RFC-014's `--resume` id-stability precondition was verified live before
 acceptance, not assumed from docs). Until this probe is run and its result recorded, this RFC
 stays **Proposed**.
+
+**If the probe fails** (`$CLAUDE_PROJECT_DIR` does not resolve correctly inside a plugin-bundled
+hook or MCP server on the CLI version in use): this RFC does not proceed to ADR as designed. The
+fallback is not silently assumed — either wait for an upstream fix and re-probe on the next CLI
+release, or fall back to requiring an explicit, user-supplied project-directory setting at plugin
+configuration time instead of automatic `${CLAUDE_PROJECT_DIR}` detection. Which of those two is
+worth pursuing is deferred until an actual failure is observed, not designed against speculatively.
 
 ## Alternatives Considered
 
@@ -115,6 +140,11 @@ stays **Proposed**.
 - **Design narrowly for Claude Code only, ignore Antigravity's parallel shape** — rejected:
   Antigravity independently converged on an almost identical plugin shape; designing with that
   portability in mind now is low-cost and pays off if a second harness plugin is ever built.
+- **Source the plugin from the repo root with no scoping** — rejected: unless verified otherwise in
+  Phase 0, this risks shipping this repo's full dev tree (tests, scenarios, internal design docs,
+  and `.vfkb/entries.jsonl` itself) to every plugin consumer, and needlessly bloats installs. The
+  npm package already solved the identical problem via `"files": ["dist"]`; the plugin needs the
+  same discipline, one way or another.
 - **Bundle this RFC together with RFC-020's OKF integration as one proposal** — rejected: they are
   separable concerns (this RFC is pure distribution/packaging; RFC-020 is a knowledge-management
   layering decision) that happen to have a one-way dependency (RFC-020's `vfkb:okf` skill needs
@@ -124,14 +154,22 @@ stays **Proposed**.
 
 ## Definition of Done
 
-- **Phase 0 (precondition, blocks acceptance):** run the live empirical probe described above —
-  a throwaway test plugin with a bundled hook and a bundled MCP server, confirming
-  `$CLAUDE_PROJECT_DIR` resolves correctly in both, on the CLI version in use. Record the result
-  (pass/fail, CLI version, repro steps) the same way ADR-0035's own gotcha was recorded, before
-  this RFC can move to ADR.
+- **Phase 0 (precondition, blocks acceptance):** two things must both be confirmed, not assumed,
+  before this RFC can move to ADR:
+  1. The live empirical probe — a throwaway test plugin with a bundled hook and a bundled MCP
+     server, confirming `$CLAUDE_PROJECT_DIR` resolves correctly in both, on the CLI version in
+     use. Record the result (pass/fail, CLI version, repro steps) the same way ADR-0035's own
+     gotcha was recorded.
+  2. What a plugin install actually fetches — confirm whether Claude Code's plugin `source` field
+     supports scoping to a subdirectory or filtered artifact, or whether a dedicated release
+     branch/tag is needed to keep `.vfkb/`, `test/`, and `scenarios/` out of every consumer's
+     install (see the Scoping requirement above).
 - **Phase 1 (implementation, after acceptance):** build `.claude-plugin/marketplace.json` +
   `plugin.json` + the skill + `hooks/hooks.json` + the bundled MCP declaration, all resolving
   `${CLAUDE_PLUGIN_ROOT}`-relative paths into the existing `dist/bundles/*.mjs`. No engine changes.
+  Plugin version updates reuse the existing `.vfkb/manifest.json` engine/schema-version
+  compatibility contract (ADR-0030) unchanged — no new versioning scheme introduced for the
+  plugin path.
 - **Full testing regimen:** unit/integration coverage for any new glue code, plus an agent-driven
   L4 scenario (ADR-0022/0029) proving a plugin-installed vfkb behaves identically to an
   `vfkb init`-wired vfkb for a real session — a fresh sandbox installs only the plugin (no
