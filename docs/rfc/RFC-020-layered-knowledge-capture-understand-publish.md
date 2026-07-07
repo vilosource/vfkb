@@ -44,27 +44,23 @@ Adopt a three-layer model — **Capture → Understand → Publish** — and ass
 exactly one layer. Knowledge flows one direction down this stack via explicit, reviewed steps; it
 is never hand-authored in parallel in two layers at once.
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ CAPTURE  —  vfkb (.vfkb/entries.jsonl)                           │
-│ Live, low-friction, session-integrated. Every fact/decision/     │
-│ gotcha/pattern/link is *born* here (kb_add, curator promotion).  │
-└───────────────────────────┬───────────────────────────────────────┘
-                             │ export, gated on verified+accepted
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ PUBLISH  —  OKF (.okf/, docs/adr/, docs/rfc/)                    │
-│ Curated, durable, portable. Zero-tooling readable by any future  │
-│ human/agent/harness. Never hand-edited in parallel with vfkb.    │
-└───────────────────────────┬───────────────────────────────────────┘
-                             │ (source + docs + .okf/, all just files)
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ UNDERSTAND  —  graphify (graphify-out/, gitignored, rebuildable) │
-│ Read-only, disposable, derived structural index over EVERYTHING  │
-│ above (code + vfkb's committed docs + the OKF bundle). Never     │
-│ originates knowledge; only computes connectivity from it.        │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph CAPTURE["CAPTURE — vfkb (.vfkb/entries.jsonl)"]
+        A["Live, low-friction, session-integrated.<br/>Every fact / decision / gotcha / pattern / link<br/>is <i>born</i> here (kb_add, curator promotion)."]
+    end
+
+    subgraph PUBLISH["PUBLISH — OKF (.okf/, docs/adr/, docs/rfc/)"]
+        B["Curated, durable, portable.<br/>Zero-tooling readable by any future<br/>human / agent / harness.<br/>Never hand-edited in parallel with vfkb."]
+    end
+
+    subgraph UNDERSTAND["UNDERSTAND — graphify (graphify-out/, gitignored, rebuildable)"]
+        C["Read-only, disposable, derived structural index<br/>over EVERYTHING above (code + vfkb's committed docs<br/>+ the OKF bundle). Never originates knowledge —<br/>only computes connectivity from it."]
+    end
+
+    A -->|"export, gated on<br/>verified + accepted"| B
+    B -->|"source + docs + .okf/,<br/>all just files"| C
+    B -.->|"link entries surface OKF docs<br/>back into live context<br/>(ships today, zero new code)"| A
 ```
 
 **The one-way ratchet (the load-bearing rule):** OKF has no confidence field of its own, so
