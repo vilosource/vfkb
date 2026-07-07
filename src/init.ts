@@ -231,6 +231,25 @@ export function initProject(root: string, opts: { project?: string } = {}): Init
     }
   }
 
+  // 4b. .gitattributes — merge=union for the append-only brain (ADR-0041), so
+  // parallel branches that both appended entries union-merge instead of conflicting.
+  // Append once; never touches the consumer's other attributes. (GitHub's server-side
+  // merge ignores it — a local `git merge` remains the documented fallback, ADR-0041.)
+  {
+    const path = join(root, '.gitattributes');
+    const line = '.vfkb/entries.jsonl merge=union';
+    const existed = existsSync(path);
+    const cur = existed ? readFileSync(path, 'utf8') : '';
+    if (cur.split(/\r?\n/).includes(line)) {
+      changes.push({ path: '.gitattributes', action: 'skipped' });
+    } else {
+      const prefix = cur && !cur.endsWith('\n') ? '\n' : '';
+      const block = `${prefix}${cur ? '\n' : ''}# vfkb — the append-only brain unions across branches (ADR-0041)\n${line}\n`;
+      writeFileSync(path, cur + block);
+      changes.push({ path: '.gitattributes', action: existed ? 'updated' : 'created' });
+    }
+  }
+
   // 5. AGENTS.md — the parameterized "how we track work HERE" snippet (append once).
   {
     const path = join(root, 'AGENTS.md');
@@ -257,6 +276,6 @@ export function approvalNotice(project: string): string {
     '  1. Set $VFKB_BUNDLE_DIR once per machine to the vfkb bundles dir, e.g.:',
     '       export VFKB_BUNDLE_DIR=/path/to/vfkb/dist/bundles   # (run `npm run build:bundles` in the vfkb repo)',
     '  2. Start `claude` in this repo and APPROVE the project MCP server + hooks when prompted (once).',
-    '  3. Commit the wiring + the empty brain: git add .mcp.json .claude .gitignore .vfkb AGENTS.md',
+    '  3. Commit the wiring + the empty brain: git add .mcp.json .claude .gitignore .gitattributes .vfkb AGENTS.md',
   ].join('\n');
 }
