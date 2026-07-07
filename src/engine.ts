@@ -14,6 +14,7 @@ import {
   contextSpinePath,
   readContextSpine,
   writeContextSpine,
+  defaultProject,
 } from './storage.js';
 import { selectIndex } from './index-store.js';
 import { testHoldForRace } from './lock.js';
@@ -435,7 +436,7 @@ function trustGlyph(e: KnowledgeEntry): string {
   return `${v}${t}`;
 }
 
-export function renderContextBundle(project = 'spike', budget = SESSION_BUDGET_CHARS): string {
+export function renderContextBundle(project = defaultProject(), budget = SESSION_BUDGET_CHARS): string {
   const all = readAll();
   const today = nowIso().slice(0, 10);
   const superseded = supersededIds(all);
@@ -511,7 +512,7 @@ export function initContextSpine(): { created: boolean; path: string } {
   return { created: true, path: p };
 }
 
-export function renderContext(project = 'spike'): string {
+export function renderContext(project = defaultProject()): string {
   const all = readAll();
   const sup = supersededIds(all);
   const out: string[] = [`# ${project} — project context`, ''];
@@ -566,7 +567,7 @@ export function renderContext(project = 'spike'): string {
 //     NO rerank, budget-cut from the end (so the newest can be dropped). Used only
 //     by the L4 scenario harness as the contrast baseline. ---
 export function renderNaiveDump(
-  project = 'spike',
+  project = defaultProject(),
   budget = SESSION_BUDGET_CHARS,
   limit?: number,
 ): string {
@@ -668,7 +669,7 @@ export function currentInjectableIds(): string[] {
 // --- Per-turn delta injection (Tier C, Pi-only — ADR-0015). Inject only entries
 //     not already injected this session (dedup via SessionState, L4). Returns ''
 //     when there is nothing new this turn. ---
-export function renderContextDelta(session: SessionState, project = 'spike'): string {
+export function renderContextDelta(session: SessionState, project = defaultProject()): string {
   const all = readAll();
   const superseded = supersededIds(all);
   const fresh = rerank(all.filter((e) => isInjectable(e, undefined, superseded))).filter(
@@ -747,7 +748,7 @@ export function renderResumeDigest(rec: SessionData, all: KnowledgeEntry[] = rea
 // The "Resume" render (ADR-0020 pt 5): the most recent PRIOR session's digest +
 // the live Tier-A knowledge bundle, budgeted to the 10k cap. Both halves are
 // derived from ground truth at call time.
-export function renderResume(project = 'spike', session: SessionState = SessionState.load()): string {
+export function renderResume(project = defaultProject(), session: SessionState = SessionState.load()): string {
   const all = readAll();
   const prior = SessionState.records().find((r) => r.sessionId !== session.sessionId);
   const digest = prior

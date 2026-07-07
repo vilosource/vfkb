@@ -61,3 +61,4 @@ Immutable records of significant vfkb architecture decisions, in
 | [ADR-0042](ADR-0042-schema-honesty.md) | Schema honesty — structural `why`, read-boundary envelope validation, `contradicts` field (accepts RFC-017) | Accepted |
 | [ADR-0043](ADR-0043-rebuildable-index-shape.md) | Rebuildable index — shape ratified, build evidence-gated (accepts RFC-018; trigger settled) | Accepted (build gated) |
 | [ADR-0044](ADR-0044-storage-backend-abstraction.md) | A pluggable storage-backend interface; JSONL stays the shipped default (accepts RFC-019) | Accepted |
+| [ADR-0045](ADR-0045-vfkb-claude-code-plugin.md) | vfkb ships as a Claude Code plugin from a dedicated repo (`vfkb-claude-plugin`) — primary distribution for the Claude Code harness face (accepts RFC-021) | Accepted |
