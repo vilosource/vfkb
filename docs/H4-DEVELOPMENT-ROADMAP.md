@@ -353,7 +353,7 @@ proposed, never auto-acted). Signals stay operational/gitignored (M2b sub-decisi
   harmful; s2's injection no longer surfaces it (the contrast arm keeps re-injecting it). RED first. The
   counters-never-mutate Brake already stands (unit).
 
-**Q3. AGENTS.md export projection — `[RFC-022 ACCEPTED → ADR-0047 2026-07-08 — build on request]`**
+**Q3. AGENTS.md export projection — `[✅ DONE 2026-07-08 — ADR-0047 built, both L4s DEMONSTRATED 3/3 vs 0/3]`**
 Interop reach: emit a distilled, **deterministic projection** of the brain (Constitution + Map +
 established/verified knowledge + context spine) as `AGENTS.md` — the LF-standard file read by every major
 harness. Scope widened by [ADR-0046](adr/ADR-0046-layered-knowledge-capture-understand-publish.md)

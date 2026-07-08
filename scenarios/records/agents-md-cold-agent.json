@@ -1,0 +1,45 @@
+{
+  "scenario": "agents-md-cold-agent",
+  "model": "claude-haiku-4-5",
+  "trials": 3,
+  "generated": "2026-07-08T13:02:37.817Z",
+  "wired": 3,
+  "contrast": 0,
+  "demonstrated": true,
+  "arms": {
+    "wired": [
+      {
+        "hit": true,
+        "out": "quartzfern-9 ",
+        "err": ""
+      },
+      {
+        "hit": true,
+        "out": "quartzfern-9 ",
+        "err": ""
+      },
+      {
+        "hit": true,
+        "out": "quartzfern-9 ",
+        "err": ""
+      }
+    ],
+    "contrast": [
+      {
+        "hit": false,
+        "out": "UNKNOWN ",
+        "err": ""
+      },
+      {
+        "hit": false,
+        "out": "UNKNOWN ",
+        "err": ""
+      },
+      {
+        "hit": false,
+        "out": "UNKNOWN ",
+        "err": ""
+      }
+    ]
+  }
+}

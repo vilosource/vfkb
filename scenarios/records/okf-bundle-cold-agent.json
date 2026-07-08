@@ -1,0 +1,45 @@
+{
+  "scenario": "okf-bundle-cold-agent",
+  "model": "claude-haiku-4-5",
+  "trials": 3,
+  "generated": "2026-07-08T13:04:38.751Z",
+  "wired": 3,
+  "contrast": 0,
+  "demonstrated": true,
+  "arms": {
+    "wired": [
+      {
+        "hit": true,
+        "out": "umbermarsh-42 ",
+        "err": ""
+      },
+      {
+        "hit": true,
+        "out": "umbermarsh-42 ",
+        "err": ""
+      },
+      {
+        "hit": true,
+        "out": "umbermarsh-42 ",
+        "err": ""
+      }
+    ],
+    "contrast": [
+      {
+        "hit": false,
+        "out": "The project does not contain documentation about cluster names for staging deployments. UNKNOWN ",
+        "err": ""
+      },
+      {
+        "hit": false,
+        "out": "UNKNOWN ",
+        "err": ""
+      },
+      {
+        "hit": false,
+        "out": "UNKNOWN ",
+        "err": ""
+      }
+    ]
+  }
+}
