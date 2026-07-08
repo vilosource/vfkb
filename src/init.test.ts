@@ -88,6 +88,24 @@ describe('vfkb init (FR-1)', () => {
     expect(agents.split('vfkb:how-we-track-work').length - 1).toBe(1);
   });
 
+  it('emits the ADR-0041 merge=union attribute for the brain, append-once (V2-3 consumer follow-up)', () => {
+    const changes = initProject(root, { project: 'demo' });
+    expect(changes.find((c) => c.path === '.gitattributes')?.action).toBe('created');
+    expect(read('.gitattributes')).toContain('.vfkb/entries.jsonl merge=union');
+
+    // appends to an existing .gitattributes without touching its content…
+    writeFileSync(join(root, '.gitattributes'), '*.png binary\n');
+    const again = initProject(root, { project: 'demo' });
+    expect(again.find((c) => c.path === '.gitattributes')?.action).toBe('updated');
+    const ga = read('.gitattributes');
+    expect(ga).toContain('*.png binary');
+    expect(ga.split('.vfkb/entries.jsonl merge=union').length - 1).toBe(1);
+
+    // …and is idempotent once present.
+    const third = initProject(root, { project: 'demo' });
+    expect(third.find((c) => c.path === '.gitattributes')?.action).toBe('skipped');
+  });
+
   it('never clobbers an existing brain', () => {
     initProject(root, { project: 'demo' });
     writeFileSync(join(root, '.vfkb', 'entries.jsonl'), '{"id":"keep"}\n');

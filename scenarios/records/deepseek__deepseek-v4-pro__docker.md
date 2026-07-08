@@ -1,11 +1,11 @@
 # vfkb L4 behavior record — harness=pi — deepseek/deepseek-v4-pro
 
 - harness: pi
-- generated: 2026-06-29T18:14:01.746Z
-- vfkb: 1361a02
+- generated: 2026-07-08T06:47:44.567Z
+- vfkb: f3ac08c
 - trials per scenario: N=3 (demonstrated = contrast holds on >=2/3)
-- image: vfkb-l4-pi:dev
-- image digest: sha256:5c37a85fc510558dc122d4260ddd95e74c3b726a624c52a1d092c27995259f8a
+- image: vfkb-l4-pi:v2
+- image digest: sha256:042c82be4d54cac3a365dc314103eb1838eccf5d43a8ef5938cea4e4d4d9c5c4
 - scenarios recorded: 33 (32 demonstrated)
 
 | scenario | dimension | demonstrated | trials | rows (label=verdict) |

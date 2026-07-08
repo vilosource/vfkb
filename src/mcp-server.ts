@@ -19,7 +19,7 @@ import {
 } from './engine.js';
 import { query, queryExplained } from './read.js';
 import type { SearchDiagnosis } from './read.js';
-import { brainDir } from './storage.js';
+import { brainDir, defaultProject } from './storage.js';
 import type { KnowledgeEntry } from './types.js';
 import { ENGINE_VERSION } from './version.js';
 
@@ -38,7 +38,9 @@ const ROLE = z.enum(['architect', 'pm', 'executor', 'judge', 'human', 'init', 'i
 function line(e: KnowledgeEntry): string {
   const adr = typeof e.adr_no === 'number' ? ` ADR-${String(e.adr_no).padStart(4, '0')}` : '';
   const st = e.status ? `/${e.status}` : '';
-  return `${e.id} [${e.type} ${deriveTrust(e.author.role)}/${e.provenance.status}${st}${adr}] ${e.text}`;
+  // ADR-0042 §3: a structural contradiction reference is surfaced on every read line.
+  const contra = e.refs?.contradicts?.length ? ` ⚔ contradicts ${e.refs.contradicts.join(',')}` : '';
+  return `${e.id} [${e.type} ${deriveTrust(e.author.role)}/${e.provenance.status}${st}${adr}]${contra} ${e.text}`;
 }
 function text(s: string) {
   return { content: [{ type: 'text' as const, text: s }] };
@@ -84,15 +86,10 @@ function envRole(): z.infer<typeof ROLE> | undefined {
   return p.success ? p.data : undefined;
 }
 
-// Render defaults resolve the real project name (VFKB_PROJECT, else the cwd
-// basename) — the 'spike' literal was a leftover of the spike era (Track 9 Q0).
-function projectName(): string {
-  return (
-    process.env.VFKB_PROJECT ||
-    process.cwd().split(/[/\\]/).filter(Boolean).pop() ||
-    'project'
-  );
-}
+// Render defaults resolve the real project name via the shared derivation
+// (VFKB_PROJECT, else the brain dir's owning repo, else $CLAUDE_PROJECT_DIR/cwd)
+// — the engine-wide successor of this server's Track 9 Q0 local fix.
+const projectName = defaultProject;
 
 const server = new McpServer({ name: 'vfkb', version: ENGINE_VERSION });
 
@@ -194,8 +191,9 @@ server.registerTool(
     inputSchema: {
       type: ENTRY_TYPE,
       text: z.string(),
-      why: z.string().optional().describe('rationale; folded into the text as a "Why: …" line (esp. for decisions)'),
+      why: z.string().optional().describe('rationale; stored structurally AND folded into the text as a "Why: …" line (esp. for decisions)'),
       tags: z.string().optional().describe('comma-separated'),
+      contradicts: z.string().optional().describe('comma-separated ids of entries this one contradicts (structural reference, ADR-0042)'),
       role: ROLE.optional().describe('author role; defaults to executor (agent)'),
       status: STATUS.optional().describe('decision family only'),
       constitutional: z.boolean().optional().describe('decision family only (ADR-0008)'),
@@ -206,6 +204,7 @@ server.registerTool(
       role: envRole() ?? a.role ?? 'executor',
       why: a.why,
       tags: tags(a.tags),
+      contradicts: tags(a.contradicts),
       status: a.status,
       constitutional: a.constitutional,
     });
@@ -224,7 +223,7 @@ server.registerTool(
       why: z
         .string()
         .optional()
-        .describe('rationale for the new decision; folded into its text as a "Why: …" line'),
+        .describe('rationale for the new decision; stored structurally AND folded into its text as a "Why: …" line'),
       role: ROLE.optional(),
     },
   },

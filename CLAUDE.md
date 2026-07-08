@@ -16,11 +16,14 @@ Repo: `git@github.com:vilosource/vfkb.git` (vilosource/vfkb). Dev working copy: 
 
 ## vfkb is wired as this session's native auto-layer
 
-This repo ships the Claude Code integration committed at the root, so a session here **runs on
-vfkb automatically** (this is vfkb's actual product surface, not just a CLI):
-- **`.mcp.json`** registers the **`vfkb` MCP server** via the committed bootstrap
-  (`node .vfkb/bin/bootstrap.mjs mcp`, `VFKB_DATA_DIR=.vfkb`) → the 9 `mcp__vfkb__kb_*` tools.
-- **`.claude/settings.json`** hooks (also via `.vfkb/bin/bootstrap.mjs cli hook …`):
+This repo dogfoods its own **Claude Code plugin** ([vilosource/vfkb-claude-plugin](https://github.com/vilosource/vfkb-claude-plugin),
+ADR-0045) — installed at **project scope** (`.claude/settings.json`'s `extraKnownMarketplaces` +
+`enabledPlugins`), so a session here **runs on vfkb automatically**, no committed `.mcp.json` or
+hand-written hooks in this repo at all:
+- The plugin's bundled **MCP server** → the 9 `kb_*` tools. **Verified live 2026-07-07:** plugin
+  MCP tools are namespaced `mcp__plugin_vfkb_vfkb__kb_*` (plugin `vfkb`, server `vfkb`), not the
+  bare `mcp__vfkb__kb_*` of the old `.mcp.json` wiring.
+- The plugin's bundled **hooks**:
   - **`SessionStart`** → injects the resume digest + knowledge bundle (continuity, automatic).
   - **`PreToolUse`** (Write/Edit/MultiEdit) → **gates direct writes to `.vfkb/`** (forces brain
     writes through the engine; normal code/doc edits pass through untouched).
@@ -33,14 +36,28 @@ vfkb automatically** (this is vfkb's actual product surface, not just a CLI):
     is a floor, not a substitute. *(A higher-quality B1 Stop-hook nudge stays open — RFC-011 §B.)*
   - **`PostToolUse` auto-capture is intentionally OFF** — against the *committed* brain it would
     flood `.vfkb` with tool-call noise. Knowledge here is **deliberate** (`kb_add` / `vfkb add`).
-- **This repo now dogfoods the consumer wiring (ADR-0030/0031/0032):** the auto-layer resolves the
-  engine through **`$VFKB_BUNDLE_DIR`**, not a relative `dist/` path. So per machine, once:
-  `npm run build:bundles` then `export VFKB_BUNDLE_DIR=$PWD/dist/bundles`. **If `VFKB_BUNDLE_DIR` is
-  unset, SessionStart shows a "vfkb INACTIVE — set VFKB_BUNDLE_DIR" banner** (graceful, never blocks)
-  — set it and restart the session. On first interactive `claude`, approve the MCP server + hooks once.
-  (`dist/cli.js` from `npm run build` still works for manual CLI; the auto-layer uses the bundle.)
+- **No `$VFKB_BUNDLE_DIR` to set for this repo anymore** — the plugin vendors its own copy of the
+  engine bundles (Phase 1 of ADR-0045). `$VFKB_BUNDLE_DIR` is still relevant if you also work in
+  projects still on the old `vfkb init` mechanism (RFC-010/ADR-0030, still supported as a
+  fallback), but this repo doesn't need it. On first interactive `claude` after this migration,
+  approve the plugin's MCP server + hooks once. See
+  [`MIGRATION_GUIDE.md`](https://github.com/vilosource/vfkb-claude-plugin/blob/main/MIGRATION_GUIDE.md)
+  in the plugin repo for how this migration was done, if migrating another project the same way.
+  (`dist/cli.js` from `npm run build` still works for manual CLI in *this* repo, since it's vfkb's
+  own source — that's unrelated to the plugin, which vendors a separate built copy.)
+- **Dev-loop implication (know this):** the live auto-layer now runs the plugin's *vendored* engine
+  copy, **not** your local build — editing `src/` (even with `npm run build:bundles`) no longer
+  changes what this session's hooks/MCP run. To dogfood an engine change live, re-vendor + release
+  it in [vilosource/vfkb-claude-plugin](https://github.com/vilosource/vfkb-claude-plugin) and update
+  the plugin. Corollary: the plugin install is **unpinned** (tracks the plugin repo's releases), so
+  plugin updates change this repo's live wiring outside this repo's PR flow — accepted for the
+  first-party plugin (ADR-0045).
 
-So prefer the **`mcp__vfkb__*` tools** in-session; the CLI (below) is the equivalent for scripting.
+So prefer the **plugin `kb_*` MCP tools** in-session (`mcp__plugin_vfkb_vfkb__kb_*`); the CLI
+(below) is the equivalent for scripting. The resume/context headers derive their `project="…"`
+label from the brain dir (`<repo>/.vfkb` → `repo`; `VFKB_PROJECT` overrides — PR #76). Display-label
+only; entries are not filtered by project. If a session still shows `project="spike"`, the installed
+plugin predates that fix — update the plugin and restart.
 
 ## ⚠️ How we track work HERE (read first)
 
@@ -72,7 +89,7 @@ capture** (the `PostToolUse` hook records tool calls, not conceptual choices, an
 this is a **deliberate discipline**:
 
 - **When a load-bearing decision is made in a session, record it immediately** — prefer the MCP tool
-  `mcp__vfkb__kb_add` with `type=decision`, the decision text, `why=<rationale>`, `role=human`
+  `kb_add` (`mcp__plugin_vfkb_vfkb__kb_add`) with `type=decision`, the decision text, `why=<rationale>`, `role=human`
   (CLI equivalent: `vfkb add decision "…" --why "…" --role human`). Don't batch it to "later."
 - **Architectural / standard-setting decisions also get an ADR** — `docs/adr/` (Nygard format,
   immutable, ADR-0001) — and link it into the brain (`kb_add type=link → docs/adr/ADR-XXXX-….md`).
@@ -85,7 +102,7 @@ this is a **deliberate discipline**:
 ## Build / test / run
 
 - `npm run build` → `tsc` → `dist/` (no native modules). `pretest` runs `tsc` first.
-- `npm test` → vitest (**157/157** as of 2026-07-06). The **fast deterministic gate**.
+- `npm test` → vitest (**199/199** as of 2026-07-08). The **fast deterministic gate**.
 - **Env caveat:** `npm install` is configured against the corporate Nexus
   (`nexus.optiscangroup.com`) → **ENOTFOUND off-VPN**. `node_modules` here was bootstrapped by
   copying from `~/GitHub/vfkb`. On VPN, a normal install works (or `--registry`).
@@ -182,21 +199,21 @@ breaking changes explicitly allowed) develops on a dedicated long-lived **`v2`**
 Before starting any v2-initiative code (not docs), confirm you're branching from `v2`,
 not `main`. Full rationale: [ADR-0036](docs/adr/ADR-0036-v2-two-branch-strategy.md).
 
-## Current state (2026-07-06)
+## Current state (2026-07-08)
 
-- `main` rebranded **vtfkb → vfkb** (ADR-0026, commit `dc1525a`); 157/157 unit green; ADRs 0001–0044,
-  RFCs 001–019.
+- **v2 SHIPPED to `main`** (PR #86, merge `5bb087e`, 2026-07-08): session backbone (ADR-0039),
+  native concurrency lock (ADR-0040), `entries.jsonl` merge=union (ADR-0041), schema honesty
+  (ADR-0042), storage seam (ADR-0044); V2-5 rebuildable index stays **GATED** (ADR-0043 trigger).
+  199/199 unit green; ADRs 0001–0045, RFCs 001–021. Ship evidence: full L4 re-pin on the ship
+  candidate (PR #84) — pi/deepseek 32/33 DEMONSTRATED, claude/haiku 31/32; sole miss both arms =
+  `tool-gating` (pi: known substrate flake; claude: guard held, contrast arm too well-behaved).
+  Post-ship distribution done: bundles rebuilt from `main` (`~/.vfkb-bundles` refreshed) + plugin
+  re-vendored as **v0.2.0** (vfkb-claude-plugin PR #5). The `v2` branch discipline section above
+  is now historical for this cycle — post-ship work follows the normal `main` PR flow until a
+  next breaking cycle reopens it.
 - **v1 (per-project tier) COMPLETE** (Phases 0–6). **H4 COMPLETE:** Tracks 1, 4, 4b, 5 (ADR-0020..0025)
   plus Track 6 (decision capture, ADR-0027..0029), Track 7 (consumer distribution, ADR-0030..0032),
   Track 8 (session-end continuity, ADR-0033/0034).
-- **▶ Active frontier: the v2 fork** ([ADR-0036](docs/adr/ADR-0036-v2-two-branch-strategy.md),
-  `docs/V2-VISION.md`, grounded by `docs/NOTES-multi-agent-concurrency-corner-cases.md`):
-  **RFC-014..019 ACCEPTED 2026-07-06 → ADR-0039..0044.** Builds go on the `v2` branch only (see the
-  "v2 development" section above), in order: **RFC-014/ADR-0039 session backbone first** (its
-  `--resume` id-stability precondition verified live, CLI v2.1.201) → 015/ADR-0040 lock →
-  016/ADR-0041 merge=union → 017/ADR-0042 schema honesty; 018/ADR-0043 shape-only (**build gated**,
-  trigger in the ADR); 019/ADR-0044 sequenced last. Scenario-contract-first (ADR-0023): RED before
-  build where the DoD names a scenario.
 - **Track 9 — memory quality & interop** (reconciled ratification 2026-07-06; roadmap §3 Track 9)
   is the **v1-compatible quality queue**, not the frontier: Q0 hygiene SHIPPED (#27);
   **RFC-012 ACCEPTED → ADR-0037** (build scenario-first, RED first, on operator request/evidence);
