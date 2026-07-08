@@ -152,6 +152,16 @@ post-plugin-migration). **Still open before the ship PR:** the full ~28-scenario
 (operator to schedule or explicitly waive) and the ship-time `$VFKB_BUNDLE_DIR` bundle
 rebuild + plugin re-vendor (ADR-0045 dev-loop).
 
+**Re-pin update (2026-07-08): the full re-pin RAN (operator chose run over waive) — DONE.**
+Both images rebuilt from the ship candidate `f3ac08c`; full suite N=3 on both arms (PR #84):
+**pi/deepseek-v4-pro 32/33 DEMONSTRATED, claude/haiku-4-5 31/32**. Sole miss on both arms is
+`tool-gating`, for opposite reasons — pi's gated arm corrupted (the known pi-0.73.1 substrate
+flake, not a regression) while claude's gated arm **held 3/3** and only the ungated contrast
+arm failed to clobber (a contrast-design limitation, not a guardrail failure). Both `__docker`
+records now honestly re-pinned (`vfkb_sha` + `image_digest` coherent with a full-suite run;
+brain fact `cf8117462bf1`). **The only gate left before the v2→`main` ship PR is the ship-time
+bundle rebuild + plugin re-vendor.**
+
 ## Parallel v1 queue (not v2 — built on `main`, tracked in the H4 roadmap)
 
 [ADR-0037](adr/ADR-0037-contradiction-surfacing-at-write.md) (contradiction surfacing) and
