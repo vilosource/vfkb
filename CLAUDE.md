@@ -102,7 +102,7 @@ this is a **deliberate discipline**:
 ## Build / test / run
 
 - `npm run build` → `tsc` → `dist/` (no native modules). `pretest` runs `tsc` first.
-- `npm test` → vitest (**157/157** as of 2026-07-06). The **fast deterministic gate**.
+- `npm test` → vitest (**199/199** as of 2026-07-08). The **fast deterministic gate**.
 - **Env caveat:** `npm install` is configured against the corporate Nexus
   (`nexus.optiscangroup.com`) → **ENOTFOUND off-VPN**. `node_modules` here was bootstrapped by
   copying from `~/GitHub/vfkb`. On VPN, a normal install works (or `--registry`).
@@ -199,21 +199,21 @@ breaking changes explicitly allowed) develops on a dedicated long-lived **`v2`**
 Before starting any v2-initiative code (not docs), confirm you're branching from `v2`,
 not `main`. Full rationale: [ADR-0036](docs/adr/ADR-0036-v2-two-branch-strategy.md).
 
-## Current state (2026-07-06)
+## Current state (2026-07-08)
 
-- `main` rebranded **vtfkb → vfkb** (ADR-0026, commit `dc1525a`); 157/157 unit green; ADRs 0001–0044,
-  RFCs 001–019.
+- **v2 SHIPPED to `main`** (PR #86, merge `5bb087e`, 2026-07-08): session backbone (ADR-0039),
+  native concurrency lock (ADR-0040), `entries.jsonl` merge=union (ADR-0041), schema honesty
+  (ADR-0042), storage seam (ADR-0044); V2-5 rebuildable index stays **GATED** (ADR-0043 trigger).
+  199/199 unit green; ADRs 0001–0045, RFCs 001–021. Ship evidence: full L4 re-pin on the ship
+  candidate (PR #84) — pi/deepseek 32/33 DEMONSTRATED, claude/haiku 31/32; sole miss both arms =
+  `tool-gating` (pi: known substrate flake; claude: guard held, contrast arm too well-behaved).
+  Post-ship distribution done: bundles rebuilt from `main` (`~/.vfkb-bundles` refreshed) + plugin
+  re-vendored as **v0.2.0** (vfkb-claude-plugin PR #5). The `v2` branch discipline section above
+  is now historical for this cycle — post-ship work follows the normal `main` PR flow until a
+  next breaking cycle reopens it.
 - **v1 (per-project tier) COMPLETE** (Phases 0–6). **H4 COMPLETE:** Tracks 1, 4, 4b, 5 (ADR-0020..0025)
   plus Track 6 (decision capture, ADR-0027..0029), Track 7 (consumer distribution, ADR-0030..0032),
   Track 8 (session-end continuity, ADR-0033/0034).
-- **▶ Active frontier: the v2 fork** ([ADR-0036](docs/adr/ADR-0036-v2-two-branch-strategy.md),
-  `docs/V2-VISION.md`, grounded by `docs/NOTES-multi-agent-concurrency-corner-cases.md`):
-  **RFC-014..019 ACCEPTED 2026-07-06 → ADR-0039..0044.** Builds go on the `v2` branch only (see the
-  "v2 development" section above), in order: **RFC-014/ADR-0039 session backbone first** (its
-  `--resume` id-stability precondition verified live, CLI v2.1.201) → 015/ADR-0040 lock →
-  016/ADR-0041 merge=union → 017/ADR-0042 schema honesty; 018/ADR-0043 shape-only (**build gated**,
-  trigger in the ADR); 019/ADR-0044 sequenced last. Scenario-contract-first (ADR-0023): RED before
-  build where the DoD names a scenario.
 - **Track 9 — memory quality & interop** (reconciled ratification 2026-07-06; roadmap §3 Track 9)
   is the **v1-compatible quality queue**, not the frontier: Q0 hygiene SHIPPED (#27);
   **RFC-012 ACCEPTED → ADR-0037** (build scenario-first, RED first, on operator request/evidence);
