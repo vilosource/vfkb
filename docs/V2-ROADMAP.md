@@ -162,6 +162,16 @@ records now honestly re-pinned (`vfkb_sha` + `image_digest` coherent with a full
 brain fact `cf8117462bf1`). **The only gate left before the v2→`main` ship PR is the ship-time
 bundle rebuild + plugin re-vendor.**
 
+**🚢 SHIPPED (2026-07-08).** The v2→`main` ship merge landed as **PR #86** (`main` = `5bb087e`),
+suite 199/199 on the exact ship head. The ADR-0045 dev-loop closed the same day: bundles rebuilt
+from shipped `main` (deterministic bundle gate 3/3; `$VFKB_BUNDLE_DIR` refreshed for
+old-mechanism consumers — note `vfkb.mjs` ~48KB→~628KB, zod now bundled per ADR-0042) and the
+plugin re-vendored + released as **v0.2.0** (vfkb-claude-plugin PR #5, vendored copies
+sandbox-verified: CLI add/resume + MCP tools/list=9). V2-1..4 and V2-6 are live in every
+distribution channel; **V2-5 stays GATED** (ADR-0043 trigger). This tracker is now historical
+for the cycle — new work follows the normal `main` PR flow; merging `main`→`v2` after each fix
+is no longer required now that the ship merge equalized the branches.
+
 ## Parallel v1 queue (not v2 — built on `main`, tracked in the H4 roadmap)
 
 [ADR-0037](adr/ADR-0037-contradiction-surfacing-at-write.md) (contradiction surfacing) and
