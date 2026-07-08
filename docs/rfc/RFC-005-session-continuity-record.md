@@ -1,3 +1,11 @@
+---
+type: RFC
+title: "RFC-005: Session continuity = a derived, append-only knowledge-continuity record (vfkb's half of the vtf/vfkb seam) — not a hand-written handoff slot"
+description: "Session continuity = a derived, append-only knowledge-continuity record (vfkb's half of the vtf/vfkb seam)"
+status: "Accepted → ADR-0020"
+timestamp: 2026-06-25
+---
+
 # RFC-005: Session continuity = a derived, append-only knowledge-continuity record (vfkb's half of the vtf/vfkb seam) — not a hand-written handoff slot
 
 - **Status:** Accepted → [ADR-0020](../adr/ADR-0020-session-continuity-record.md)

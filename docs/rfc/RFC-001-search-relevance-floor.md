@@ -1,3 +1,11 @@
+---
+type: RFC
+title: "RFC-001: Explicit search applies a relative relevance floor"
+description: "Explicit search applies a relative relevance floor"
+status: "Accepted — became ADR-0017"
+timestamp: 2026-06-15
+---
+
 # RFC-001: Explicit search applies a relative relevance floor
 
 - **Status:** Accepted — became [ADR-0017](../adr/ADR-0017-search-relevance-floor.md)

@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0035: `vfkb init` anchors the Claude Code hooks to `$CLAUDE_PROJECT_DIR`"
+description: "`vfkb init` anchors the Claude Code hooks to `$CLAUDE_PROJECT_DIR`"
+status: "Accepted"
+timestamp: 2026-07-01
+---
+
 # ADR-0035: `vfkb init` anchors the Claude Code hooks to `$CLAUDE_PROJECT_DIR`
 
 - **Status:** Accepted

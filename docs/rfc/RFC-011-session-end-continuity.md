@@ -1,3 +1,11 @@
+---
+type: RFC
+title: "RFC-011: Session-end continuity — safe-by-default `/exit`"
+description: "Session-end continuity — safe-by-default `/exit` (SessionEnd auto-commit + handoff floor)"
+status: "**Accepted → ADR-0033** (2026-06-30; GAP 2 +"
+timestamp: 2026-06-30
+---
+
 # RFC-011: Session-end continuity — safe-by-default `/exit`
 
 - **Status:** **Accepted → [ADR-0033](../adr/ADR-0033-session-end-continuity.md)** (2026-06-30; GAP 2 +

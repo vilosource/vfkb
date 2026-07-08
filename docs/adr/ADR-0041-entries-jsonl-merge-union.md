@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0041: `entries.jsonl` merges via `merge=union` (accepts RFC-016, v1 shape)"
+description: "`entries.jsonl` merges via built-in `merge=union`; custom driver deferred (accepts RFC-016 as revised)"
+status: "Accepted"
+timestamp: 2026-07-06
+---
+
 # ADR-0041: `entries.jsonl` merges via `merge=union` (accepts RFC-016, v1 shape)
 
 - **Status:** Accepted

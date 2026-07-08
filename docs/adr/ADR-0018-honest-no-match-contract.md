@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0018: Search reports a cause-distinguished, honest no-match (amends ADR-0016)"
+description: "Search reports a cause-distinguished honest no-match (empty_topic/no_match/all_filtered); amends ADR-0016"
+status: "Accepted"
+timestamp: 2026-06-15
+---
+
 # ADR-0018: Search reports a cause-distinguished, honest no-match (amends ADR-0016)
 
 - **Status:** Accepted

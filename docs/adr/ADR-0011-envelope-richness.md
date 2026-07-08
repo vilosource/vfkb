@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0011: Envelope v1 adopts a validity window + structured provenance origin; trust is derived"
+description: "Envelope v1 adopts validity window + structured provenance origin; trust is derived (D-A)"
+status: "Accepted"
+timestamp: 2026-06-03
+---
+
 # ADR-0011: Envelope v1 adopts a validity window + structured provenance origin; trust is derived
 
 - **Status:** Accepted

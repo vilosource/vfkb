@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0019: vfkb self-hosts its own design-brain (commit `.vfkb/`; ADRs link-not-copy)"
+description: "vfkb self-hosts its own design-brain (commit `.vfkb/`; ADRs link-not-copy); applies D2c + D1.4 to vfkb's repo"
+status: "Accepted"
+timestamp: 2026-06-25
+---
+
 # ADR-0019: vfkb self-hosts its own design-brain (commit `.vfkb/`; ADRs link-not-copy)
 
 - **Status:** Accepted

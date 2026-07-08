@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0015: Cross-harness auto-layer adopts a tiered parity model; per-turn injection is Pi-only on Claude Code (MCP-pull floor); a narrowed Phase 0 spike settles attention/cache/budget"
+description: "Cross-harness auto-layer = tiered parity; per-turn push Pi-only on Claude Code; narrowed Phase 0 spike (D-E)"
+status: "Accepted"
+timestamp: 2026-06-03
+---
+
 # ADR-0015: Cross-harness auto-layer adopts a tiered parity model; per-turn injection is Pi-only on Claude Code (MCP-pull floor); a narrowed Phase 0 spike settles attention/cache/budget
 
 - **Status:** Accepted

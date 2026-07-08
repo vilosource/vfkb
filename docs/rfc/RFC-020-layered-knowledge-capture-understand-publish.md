@@ -1,12 +1,20 @@
+---
+type: RFC
+title: "RFC-020: Layered knowledge management — vfkb (capture), graphify (understand), OKF (publish)"
+description: "Layered knowledge management — vfkb (capture) / graphify (understand) / OKF (publish), widening Track 9 Q3's export-target scope"
+status: "Accepted → ADR-0046 (ratified 2026-07-08)"
+timestamp: 2026-07-07
+---
+
 # RFC-020: Layered knowledge management — vfkb (capture), graphify (understand), OKF (publish)
 
-- **Status:** Proposed
+- **Status:** Accepted → [ADR-0046](../adr/ADR-0046-layered-knowledge-capture-understand-publish.md) (ratified 2026-07-08)
 - **Date:** 2026-07-07 (revised 2026-07-08 post-v2-ship: gap-review pass — ratchet scoped,
   Brakes named, okf-skill/ADR-0045 reconciled, stale refs refreshed)
 - **Deciders:** operator + Claude
 - **Relates:** [ADR-0019](../adr/ADR-0019-self-hosted-design-brain.md) (the committed brain this
   RFC exports *from*, never replaces), [ADR-0021](../adr/ADR-0021-auto-distill-and-curator.md)
-  (curator/corroboration gate this RFC reuses as its export threshold), [ADR-0001](../adr/ADR-0001-adopt-adrs.md)
+  (curator/corroboration gate this RFC reuses as its export threshold), [ADR-0001](../adr/ADR-0001-record-decisions-as-adrs.md)
   (ADR immutability, which bounds how the in-place bundle may handle supersession), [ADR-0009](../adr/ADR-0009-decision-identity-and-numbering.md)
   (ADR/RFC file shape this RFC proposes lightly retrofitting), [ADR-0045](../adr/ADR-0045-vfkb-claude-code-plugin.md)
   (the plugin distribution this RFC's export surface rides — see Integration Point 1),
@@ -91,7 +99,7 @@ distinct parts, and the ratchet binds them differently:
   proposed decisions by definition, including this one — can conformantly live in the publish
   layer without violating the ratchet: their below-`accepted` status travels *with* them,
   machine-readably, instead of being stripped at the boundary. Supersession here follows
-  [ADR-0001](../adr/ADR-0001-adopt-adrs.md), not `log.md`: ADRs are immutable and never move —
+  [ADR-0001](../adr/ADR-0001-record-decisions-as-adrs.md), not `log.md`: ADRs are immutable and never move —
   a superseded ADR stays in place with `status: superseded` frontmatter as the signal. The
   `log.md` convention applies only to the generated bundle, which has no immutability contract
   of its own.

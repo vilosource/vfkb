@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0020: Session continuity = a derived, append-only knowledge-continuity record (vfkb's half of the vtf/vfkb seam)"
+description: "Session continuity = a derived, append-only knowledge-continuity record (vfkb's half of the vtf/vfkb seam)"
+status: "Accepted"
+timestamp: 2026-06-25
+---
+
 # ADR-0020: Session continuity = a derived, append-only knowledge-continuity record (vfkb's half of the vtf/vfkb seam)
 
 - **Status:** Accepted
