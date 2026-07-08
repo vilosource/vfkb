@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0039: v2 session backbone — real session identity from hook stdin (accepts RFC-014)"
+description: "v2 session backbone — real session identity from hook stdin, entry attribution (accepts RFC-014; `--resume` id-stability precondition verified live)"
+status: "Accepted"
+timestamp: 2026-07-06
+---
+
 # ADR-0039: v2 session backbone — real session identity from hook stdin (accepts RFC-014)
 
 - **Status:** Accepted

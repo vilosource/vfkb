@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0001: Record vfkb architecture decisions as immutable ADRs"
+description: "Record vfkb architecture decisions as immutable ADRs"
+status: "Accepted"
+timestamp: 2026-06-01
+---
+
 # ADR-0001: Record vfkb architecture decisions as immutable ADRs
 
 - **Status:** Accepted

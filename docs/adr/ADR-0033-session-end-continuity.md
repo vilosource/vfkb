@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0033: Session-end continuity — SessionEnd brain auto-commit + B2 handoff floor (accepts RFC-011)"
+description: "Session-end continuity — a `SessionEnd` brain auto-commit (GAP 2; branch-guarded, pathspec-scoped) + a deterministic B2 handoff floor (GAP 1); B1 nudge open"
+status: "Accepted"
+timestamp: 2026-06-30
+---
+
 # ADR-0033: Session-end continuity — SessionEnd brain auto-commit + B2 handoff floor (accepts RFC-011)
 
 - **Status:** Accepted

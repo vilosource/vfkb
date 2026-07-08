@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0022: L4 evaluation methodology = dockerized, reproducible, contrast-based, multi-trial, dual-harness"
+description: "L4 evaluation methodology = dockerized, reproducible, contrast-based, multi-trial, dual-harness (self-contained images)"
+status: "Accepted"
+timestamp: 2026-06-27
+---
+
 # ADR-0022: L4 evaluation methodology = dockerized, reproducible, contrast-based, multi-trial, dual-harness
 
 - **Status:** Accepted

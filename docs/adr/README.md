@@ -1,3 +1,11 @@
+---
+type: Index
+title: "vfkb — Architecture Decision Records"
+description: "Index of this project's Architecture Decision Records (Nygard format, immutable once decided — ADR-0001)."
+status: living
+timestamp: 2026-07-08
+---
+
 # vfkb — Architecture Decision Records
 
 Immutable records of significant vfkb architecture decisions, in
@@ -62,3 +70,4 @@ Immutable records of significant vfkb architecture decisions, in
 | [ADR-0043](ADR-0043-rebuildable-index-shape.md) | Rebuildable index — shape ratified, build evidence-gated (accepts RFC-018; trigger settled) | Accepted (build gated) |
 | [ADR-0044](ADR-0044-storage-backend-abstraction.md) | A pluggable storage-backend interface; JSONL stays the shipped default (accepts RFC-019) | Accepted |
 | [ADR-0045](ADR-0045-vfkb-claude-code-plugin.md) | vfkb ships as a Claude Code plugin from a dedicated repo (`vfkb-claude-plugin`) — primary distribution for the Claude Code harness face (accepts RFC-021) | Accepted |
+| [ADR-0046](ADR-0046-layered-knowledge-capture-understand-publish.md) | Layered knowledge management — vfkb captures, graphify understands, OKF publishes; one-way trust ratchet with deterministic Brakes (accepts RFC-020) | Accepted (Phase 1 gated on Q3) |

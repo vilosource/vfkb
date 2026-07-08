@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0038: Cross-project brain query — read-only recall from a sibling `.vfkb` (accepts RFC-013)"
+description: "Cross-project brain query — read-only, provenance-labeled recall from a registered sibling `.vfkb` (accepts RFC-013)"
+status: "Accepted"
+timestamp: 2026-07-06
+---
+
 # ADR-0038: Cross-project brain query — read-only recall from a sibling `.vfkb` (accepts RFC-013)
 
 - **Status:** Accepted

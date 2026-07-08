@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0027: A conditional Stop-hook decision-capture reminder (accepts RFC-008)"
+description: "Reliable decision capture — a conditional end-of-turn (Stop-hook) reminder"
+status: "Accepted"
+timestamp: 2026-06-29
+---
+
 # ADR-0027: A conditional Stop-hook decision-capture reminder (accepts RFC-008)
 
 - **Status:** Accepted

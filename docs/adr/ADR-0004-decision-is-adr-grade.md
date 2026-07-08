@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0004: `decision` is a first-class, ADR-grade entry type in vfkb"
+description: "`decision` is a first-class, ADR-grade entry type in vfkb"
+status: "Accepted"
+timestamp: 2026-06-01
+---
+
 # ADR-0004: `decision` is a first-class, ADR-grade entry type in vfkb
 
 - **Status:** Accepted

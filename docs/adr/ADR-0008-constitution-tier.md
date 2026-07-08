@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0008: Constitutional rules = `constitutional`-flagged decisions + a derived Constitution"
+description: "Constitutional rules = flagged decisions + a derived Constitution"
+status: "Accepted"
+timestamp: 2026-06-01
+---
+
 # ADR-0008: Constitutional rules = `constitutional`-flagged decisions + a derived Constitution
 
 - **Status:** Accepted

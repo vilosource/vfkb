@@ -1,3 +1,11 @@
+---
+type: RFC
+title: "RFC-018: A rebuildable index — the read path stops re-scanning the whole log"
+description: "v2 — A rebuildable index (shape ratified, build evidence-gated); `entries.jsonl` stays the source of truth"
+status: "**Accepted → ADR-0043** (2026-07-06;"
+timestamp: 2026-07-05
+---
+
 # RFC-018: A rebuildable index — the read path stops re-scanning the whole log
 
 - **Status:** **Accepted → [ADR-0043](../adr/ADR-0043-rebuildable-index-shape.md)** (2026-07-06;

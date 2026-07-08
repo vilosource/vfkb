@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0009: Decision identity = nanoid; human ADR ordinal assigned at merge-to-`main`"
+description: "Decision identity = nanoid; ADR ordinal assigned at merge-to-`main`"
+status: "Accepted"
+timestamp: 2026-06-01
+---
+
 # ADR-0009: Decision identity = nanoid; human ADR ordinal assigned at merge-to-`main`
 
 - **Status:** Accepted

@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0007: RFCs are `proposed` decisions, not a new entry type"
+description: "RFCs are `proposed` decisions, not a new entry type"
+status: "Accepted"
+timestamp: 2026-06-01
+---
+
 # ADR-0007: RFCs are `proposed` decisions, not a new entry type
 
 - **Status:** Accepted
