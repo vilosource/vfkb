@@ -1,3 +1,11 @@
+---
+type: RFC
+title: "RFC-016: `entries.jsonl` stops guaranteeing a merge conflict on every second branch"
+description: "v2 — `entries.jsonl` stops guaranteeing a merge conflict on every second branch (v1: `merge=union`, pending a GitHub server-side check)"
+status: "**Accepted → ADR-0041** (2026-07-06;"
+timestamp: 2026-07-05
+---
+
 # RFC-016: `entries.jsonl` stops guaranteeing a merge conflict on every second branch
 
 - **Status:** **Accepted → [ADR-0041](../adr/ADR-0041-entries-jsonl-merge-union.md)** (2026-07-06;

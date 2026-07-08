@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0042: Schema honesty — structural `why`, envelope validation, `contradicts` (accepts RFC-017)"
+description: "Schema honesty — structural `why`, read-boundary envelope validation, `contradicts` field (accepts RFC-017)"
+status: "Accepted"
+timestamp: 2026-07-06
+---
+
 # ADR-0042: Schema honesty — structural `why`, envelope validation, `contradicts` (accepts RFC-017)
 
 - **Status:** Accepted

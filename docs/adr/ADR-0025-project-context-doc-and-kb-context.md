@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0025: The project context doc + `kb_context` — an assembled \"agent's first read\" (authored spine + derived sections)"
+description: "The project context doc + `kb_context` — an assembled \"agent's first read\" (authored spine + derived Constitution/Map/decisions), read on demand"
+status: "Accepted (← RFC-007; operator approved the recommended shape 2026-06-28)"
+timestamp: 2026-06-28
+---
+
 # ADR-0025: The project context doc + `kb_context` — an assembled "agent's first read" (authored spine + derived sections)
 
 - **Status:** Accepted (← [RFC-007](../rfc/RFC-007-project-context-doc-and-kb-context.md); operator approved the recommended shape 2026-06-28)

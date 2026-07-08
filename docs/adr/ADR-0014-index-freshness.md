@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0014: Index freshness = content-derived token + explicit rebuild, never mtime; regen is a guaranteed side-effect of every write"
+description: "Index freshness = content-derived token + explicit rebuild, never mtime (D-D)"
+status: "Accepted"
+timestamp: 2026-06-03
+---
+
 # ADR-0014: Index freshness = content-derived token + explicit rebuild, never mtime; regen is a guaranteed side-effect of every write
 
 - **Status:** Accepted

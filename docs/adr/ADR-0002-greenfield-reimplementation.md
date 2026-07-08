@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0002: vfkb is a greenfield reimplementation; mykb is a studied spike"
+description: "vfkb is a greenfield reimplementation; mykb is a studied spike"
+status: "Accepted"
+timestamp: 2026-06-01
+---
+
 # ADR-0002: vfkb is a greenfield reimplementation; mykb is a studied spike
 
 - **Status:** Accepted

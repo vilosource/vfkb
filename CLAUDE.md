@@ -71,6 +71,9 @@ plugin predates that fix — update the plugin and restart.
     - `VFKB_DATA_DIR=.vfkb node dist/cli.js add decision "…" --why "…" --role human`
     - `VFKB_DATA_DIR=.vfkb node dist/cli.js add fact|gotcha|pattern "…" --role human [--tags a,b]`
     - `VFKB_DATA_DIR=.vfkb node dist/cli.js add link "…" "<path-or-url>" --role human`
+    - `link` entries may point at **OKF concept docs** (`.okf/…`, or the in-place OKF bundle
+      `docs/adr/`/`docs/rfc/`) — the live session then surfaces that doc at the right moment
+      via the existing injection pipeline; no export tooling needed (ADR-0046 Integration Point 3).
   - **Session END** — leave continuity, then commit the brain:
     `VFKB_DATA_DIR=.vfkb node dist/cli.js resume-note "what the next session should pick up"`
     then `git add .vfkb && git commit` (the brain ships **with** the repo — ADR-0019).
@@ -161,9 +164,12 @@ this is a **deliberate discipline**:
   decision-capture build found a tagless-entry crash + a sandbox repo-leak).
 - **Four clauses for every proof form:** isolated from the live/dogfooded system · observed not
   asserted · before declaring done · capable of failing.
-- **Proof fits the capability:** agent-facing → agent-driven L4 (default); auto-layer wiring → the
-  smoke-gate (ADR-0028); external contract → a Tier-0 probe; structural invariants → unit tests (the
-  inner gate, not the capability success criterion). Canonical example: `scenarios/decision-capture.mjs`.
+- **Proof fits the capability:** agent-facing → agent-driven L4 (default); auto-layer wiring → per
+  ADR-0048: plugin `hooks.json` validation belongs to the plugin repo's release flow
+  (vfkb-claude-plugin#6, pending), fallback wiring rides the init unit tests + the
+  consumer-onboarding L4 (the in-repo smoke-gate of ADR-0028 is retired); external contract → a
+  Tier-0 probe; structural invariants → unit tests (the inner gate, not the capability success
+  criterion). Canonical example: `scenarios/decision-capture.mjs`.
 
 ## Commit rules
 

@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0037: Deterministic contradiction surfacing at write time (accepts RFC-012)"
+description: "Deterministic contradiction surfacing at write time — conflict candidates in the add result, never blocking (accepts RFC-012)"
+status: "Accepted"
+timestamp: 2026-07-06
+---
+
 # ADR-0037: Deterministic contradiction surfacing at write time (accepts RFC-012)
 
 - **Status:** Accepted

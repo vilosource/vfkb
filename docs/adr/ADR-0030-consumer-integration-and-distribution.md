@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0030: Consumer integration & distribution contract — portable engine (`$VFKB_HOME` + single-file bundles), `vfkb init`, `import`, `doctor`"
+description: "Consumer integration & distribution contract — portable engine (`$VFKB_HOME` + single-file bundles), `vfkb init`, `import`, `doctor`"
+status: "Accepted"
+timestamp: 2026-06-30
+---
+
 # ADR-0030: Consumer integration & distribution contract — portable engine (`$VFKB_HOME` + single-file bundles), `vfkb init`, `import`, `doctor`
 
 - **Status:** Accepted

@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0045: vfkb ships as a Claude Code plugin — primary distribution for the Claude Code harness face (accepts RFC-021)"
+description: "vfkb ships as a Claude Code plugin from a dedicated repo (`vfkb-claude-plugin`) — primary distribution for the Claude Code harness face (accepts RFC-021)"
+status: "Accepted"
+timestamp: 2026-07-07
+---
+
 # ADR-0045: vfkb ships as a Claude Code plugin — primary distribution for the Claude Code harness face (accepts RFC-021)
 
 - **Status:** Accepted

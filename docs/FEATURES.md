@@ -237,8 +237,9 @@ ADR-0032), `VFKB_PROJECT`, `VFKB_BUNDLE_DIR` (required by the auto-layer).
   scenario *is* the Definition of Done — named in the ADR/RFC, run RED before
   implementation, then green. Structural invariants stay deterministic unit
   tests (the fast 95+-test vitest gate).
-- Dedicated proofs exist for decision-capture, session-end handoff, consumer
-  onboarding, and candidate-wiring smoke (ADR-0028).
+- Dedicated proofs exist for decision-capture, session-end handoff, and consumer
+  onboarding. (The candidate-wiring smoke gate of ADR-0028 was retired 2026-07-08 —
+  ADR-0048; its premise ended with the plugin migration.)
 
 ### 4.9 Distribution & consumer onboarding (ADR-0030–0032, 0035)
 

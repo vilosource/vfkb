@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0005: Auto-injection filters known-stale entries; injects unverified (labeled)"
+description: "Auto-injection filters known-stale entries; injects unverified (labeled)"
+status: "Accepted"
+timestamp: 2026-06-01
+---
+
 # ADR-0005: Auto-injection filters known-stale entries; injects unverified (labeled)
 
 - **Status:** Accepted

@@ -1,3 +1,11 @@
+---
+type: RFC
+title: "RFC-006: Auto-distill + ACE curator — capture distils to `incoming`; curation is deltas + counters, never rewrites"
+description: "Auto-distill + ACE curator — capture distils to `incoming`; curation is deltas + counters, never rewrites"
+status: "Accepted → ADR-0021"
+timestamp: 2026-06-25
+---
+
 # RFC-006: Auto-distill + ACE curator — capture distils to `incoming`; curation is deltas + counters, never rewrites
 
 - **Status:** Accepted → [ADR-0021](../adr/ADR-0021-auto-distill-and-curator.md)

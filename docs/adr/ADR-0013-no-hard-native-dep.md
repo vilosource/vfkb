@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0013: No hard native dependency; pluggable `Index` with a pure-JS in-memory default, SQLite/FTS5 an optional backend"
+description: "No hard native dep; pluggable `Index`, pure-JS in-memory default, SQLite/FTS5 optional (D-C)"
+status: "Accepted"
+timestamp: 2026-06-03
+---
+
 # ADR-0013: No hard native dependency; pluggable `Index` with a pure-JS in-memory default, SQLite/FTS5 an optional backend
 
 - **Status:** Accepted

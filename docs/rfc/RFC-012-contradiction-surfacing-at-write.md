@@ -1,3 +1,11 @@
+---
+type: RFC
+title: "RFC-012: Deterministic contradiction surfacing at write time"
+description: "Deterministic contradiction surfacing at write time — conflict candidates in the `kb_add` result, never blocking (Track 9 Q1)"
+status: "**Accepted → ADR-0037** (2026-07-06; Track 9 Q1 — build is scenario-contract-first, RED before build)"
+timestamp: 2026-07-02
+---
+
 # RFC-012: Deterministic contradiction surfacing at write time
 
 - **Status:** **Accepted → [ADR-0037](../adr/ADR-0037-contradiction-surfacing-at-write.md)** (2026-07-06; Track 9 Q1 — build is scenario-contract-first, RED before build)

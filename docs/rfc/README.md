@@ -1,3 +1,11 @@
+---
+type: Index
+title: "vfkb — Requests for Comment (RFCs)"
+description: "Index of this project's RFCs — proposed decisions that become ADRs on acceptance (ADR-0007/0009)."
+status: living
+timestamp: 2026-07-08
+---
+
 # vfkb — Requests for Comment (RFCs)
 
 An **RFC is a `proposed` decision** ([ADR-0007](../adr/ADR-0007-rfc-is-proposed-decision.md)):
@@ -35,7 +43,9 @@ role-attributed; options under discussion live in the RFC's Decision/text.
 | [RFC-017](RFC-017-schema-honesty.md) | v2 — Schema honesty: a structural `why` field, full envelope validation, structural contradiction/supersede fields | Accepted → [ADR-0042](../adr/ADR-0042-schema-honesty.md) |
 | [RFC-018](RFC-018-rebuildable-index.md) | v2 — A rebuildable index (shape ratified, build evidence-gated); `entries.jsonl` stays the source of truth | Accepted → [ADR-0043](../adr/ADR-0043-rebuildable-index-shape.md) (shape; build gated) |
 | [RFC-019](RFC-019-storage-backend-abstraction.md) | v2 — A pluggable storage-backend interface; JSONL stays the shipped default | Accepted → [ADR-0044](../adr/ADR-0044-storage-backend-abstraction.md) |
+| [RFC-020](RFC-020-layered-knowledge-capture-understand-publish.md) | Layered knowledge management — vfkb (capture) / graphify (understand) / OKF (publish), widening Track 9 Q3's export-target scope | Accepted → [ADR-0046](../adr/ADR-0046-layered-knowledge-capture-understand-publish.md) |
 | [RFC-021](RFC-021-vfkb-claude-code-plugin.md) | vfkb as a Claude Code plugin — primary distribution for the Claude Code harness face, `vfkb init` kept as fallback | Accepted → [ADR-0045](../adr/ADR-0045-vfkb-claude-code-plugin.md) |
+| [RFC-022](RFC-022-brain-export-projections.md) | Brain export projections (Track 9 Q3) — `vfkb export agents-md` + `vfkb export okf`, one deterministic engine, ADR-0046 ratchet as the publish filter | Accepted → [ADR-0047](../adr/ADR-0047-brain-export-projections.md) — built 2026-07-08, L4s DEMONSTRATED |
 
 RFC-014..019 are the first batch of [ADR-0036](../adr/ADR-0036-v2-two-branch-strategy.md)'s
 v2 fork (`docs/V2-VISION.md`) — all accepted 2026-07-06 (→ ADR-0039..0044); each **builds on the

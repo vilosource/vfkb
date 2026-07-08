@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0032: Rename the env vars for clarity — `VFKB_DATA_DIR` (brain) + `VFKB_BUNDLE_DIR` (engine); old names kept as deprecated aliases"
+description: "Rename env vars for clarity — `VFKB_DATA_DIR` (brain) + `VFKB_BUNDLE_DIR` (engine); old names kept as deprecated aliases"
+status: "Accepted"
+timestamp: 2026-06-30
+---
+
 # ADR-0032: Rename the env vars for clarity — `VFKB_DATA_DIR` (brain) + `VFKB_BUNDLE_DIR` (engine); old names kept as deprecated aliases
 
 - **Status:** Accepted
