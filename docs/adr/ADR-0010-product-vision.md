@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0010: Product Vision — context-doc narrative + heuristic `pattern`s (no new type)"
+description: "Product Vision = context-doc narrative + heuristic `pattern`s (no new type)"
+status: "Accepted"
+timestamp: 2026-06-01
+---
+
 # ADR-0010: Product Vision — context-doc narrative + heuristic `pattern`s (no new type)
 
 - **Status:** Accepted

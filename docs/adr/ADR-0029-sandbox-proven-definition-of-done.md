@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0029: Definition of Done — a capability is proven by an agent-driven, sandboxed, e2e use-case simulation"
+description: "Definition of Done — a capability is proven by an agent-driven, sandboxed, e2e use-case simulation that can fail"
+status: "Accepted"
+timestamp: 2026-06-29
+---
+
 # ADR-0029: Definition of Done — a capability is proven by an agent-driven, sandboxed, e2e use-case simulation
 
 - **Status:** Accepted

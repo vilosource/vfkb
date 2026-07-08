@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0006: Context Map — a derived navigational artifact (v1 = Index/Topology)"
+description: "Context Map — a derived navigational artifact (v1 = Index/Topology)"
+status: "Accepted"
+timestamp: 2026-06-01
+---
+
 # ADR-0006: Context Map — a derived navigational artifact (v1 = Index/Topology)
 
 - **Status:** Accepted

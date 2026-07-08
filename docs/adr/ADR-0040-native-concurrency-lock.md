@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0040: A vfkb-native concurrency lock for read-decide-append (accepts RFC-015)"
+description: "A vfkb-native advisory lock scoped to the read-decide-append critical section (accepts RFC-015)"
+status: "Accepted"
+timestamp: 2026-07-06
+---
+
 # ADR-0040: A vfkb-native concurrency lock for read-decide-append (accepts RFC-015)
 
 - **Status:** Accepted

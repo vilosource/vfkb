@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0017: Explicit search applies a relative relevance floor (amends ADR-0016)"
+description: "Explicit search applies a relative relevance floor (distinct query-term ratio; default 1/3); amends ADR-0016"
+status: "Accepted"
+timestamp: 2026-06-15
+---
+
 # ADR-0017: Explicit search applies a relative relevance floor (amends ADR-0016)
 
 - **Status:** Accepted

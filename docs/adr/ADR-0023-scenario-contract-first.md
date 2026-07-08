@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0023: Agent-observable features are scenario-contract-first (the L4 scenario is the DoD, run RED before implementation)"
+description: "Agent-observable features are scenario-contract-first — the L4 scenario is the DoD, run RED before implementation (invariants stay unit tests)"
+status: "Accepted"
+timestamp: 2026-06-27
+---
+
 # ADR-0023: Agent-observable features are scenario-contract-first (the L4 scenario is the DoD, run RED before implementation)
 
 - **Status:** Accepted

@@ -1,3 +1,11 @@
+---
+type: RFC
+title: "RFC-015: A vfkb-native concurrency lock"
+description: "v2 — A vfkb-native concurrency lock, scoped to the read-decide-append critical section"
+status: "**Accepted → ADR-0040** (2026-07-06)"
+timestamp: 2026-07-05
+---
+
 # RFC-015: A vfkb-native concurrency lock
 
 - **Status:** **Accepted → [ADR-0040](../adr/ADR-0040-native-concurrency-lock.md)** (2026-07-06)

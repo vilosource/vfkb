@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0024: Corroborated promotion re-stamps provenance verified (trust elevation is agent-observable)"
+description: "Corroborated promotion re-stamps provenance verified (trust elevation is agent-observable); distiller stops baking \"(unverified)\" into text"
+status: "Accepted (self-ratified; flagged for operator glance)"
+timestamp: 2026-06-27
+---
+
 # ADR-0024: Corroborated promotion re-stamps provenance verified (trust elevation is agent-observable)
 
 - **Status:** Accepted (self-ratified; flagged for operator glance)

@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0036: v2 development uses a dedicated long-lived `v2` branch; `main` stays release-only"
+description: "v2 development uses a dedicated long-lived `v2` branch; `main` stays release-only"
+status: "Accepted"
+timestamp: 2026-07-05
+---
+
 # ADR-0036: v2 development uses a dedicated long-lived `v2` branch; `main` stays release-only
 
 - **Status:** Accepted

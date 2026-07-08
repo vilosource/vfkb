@@ -1,3 +1,11 @@
+---
+type: RFC
+title: "RFC-007: The project context doc + `kb_context` — an assembled \"agent's first read\" (authored narrative spine + derived sections)"
+description: "The project context doc + `kb_context` — an assembled \"agent's first read\" (authored spine + derived sections)"
+status: "Accepted → ADR-0025 (operator approved the recommended shape 2026-06-28)"
+timestamp: 2026-06-27
+---
+
 # RFC-007: The project context doc + `kb_context` — an assembled "agent's first read" (authored narrative spine + derived sections)
 
 - **Status:** Accepted → [ADR-0025](../adr/ADR-0025-project-context-doc-and-kb-context.md) (operator approved the recommended shape 2026-06-28)

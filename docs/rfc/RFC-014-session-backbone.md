@@ -1,3 +1,11 @@
+---
+type: RFC
+title: "RFC-014: Session backbone — real session identity from hook stdin, widened for attribution"
+description: "v2 — Session backbone: real session identity from hook stdin, widened for entry attribution"
+status: "**Accepted → ADR-0039** (2026-07-06; the"
+timestamp: 2026-07-05
+---
+
 # RFC-014: Session backbone — real session identity from hook stdin, widened for attribution
 
 - **Status:** **Accepted → [ADR-0039](../adr/ADR-0039-session-backbone.md)** (2026-07-06; the

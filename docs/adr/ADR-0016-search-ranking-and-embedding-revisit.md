@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0016: Explicit search is relevance-primary; the EmbeddingReranker is un-deferred to Planned-pending-verification (amends ADR-0012)"
+description: "Explicit search is relevance-primary; EmbeddingReranker un-deferred to Planned-pending-verification (amends ADR-0012)"
+status: "Accepted — Amended by ADR-0017,"
+timestamp: 2026-06-06
+---
+
 # ADR-0016: Explicit search is relevance-primary; the EmbeddingReranker is un-deferred to Planned-pending-verification (amends ADR-0012)
 
 - **Status:** Accepted — Amended by [ADR-0017](ADR-0017-search-relevance-floor.md),
