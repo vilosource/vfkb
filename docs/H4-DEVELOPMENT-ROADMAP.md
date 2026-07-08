@@ -280,7 +280,7 @@ this roadmap did not already decide) it was sequenced via RFC-008 → accept, no
   was **empirically verified at CLI v2.1.195** (additionalContext reaches + steers the agent; harness passes a
   native `stop_hook_active` guard — *falsifying* RFC-008's original "no guard" finding). Backed by
   deterministic unit tests + the Tier-0 probe; wired live into `.claude/settings.json`.
-- **D7-wire. Sandbox-validated auto-layer wiring — `[✅ DONE 2026-06-28]`** (ADR-0028; `scenarios/wiring-smoke.mjs`)
+- **D7-wire. Sandbox-validated auto-layer wiring — `[✅ DONE 2026-06-28 · RETIRED 2026-07-08 → ADR-0048]`** (ADR-0028; `scenarios/wiring-smoke.mjs` deleted — premise ended with the ADR-0045 plugin migration; principle re-homed to vfkb-claude-plugin#6)
   Process gap caught: the engine has unit tests, the platform contract has Tier-0 probes, agent-purpose has the
   L4 harness — but the *wiring* (`.claude/settings.json` / `.mcp.json`) was promoted straight to live (editing
   the tool while using it). Fix: a repeatable scripted smoke-gate that drives real `claude` turns against the
