@@ -1,0 +1,8 @@
+# ADR-0041 (v2): the brain's append-only log merges by UNION — two branches that both
+# appended since a common ancestor concatenate instead of conflicting. Safe because
+# materialize() collapses the log by id keeping the newest `updated` (order-independent;
+# incidental duplicate lines carry no semantic weight — src/storage.ts). Built-in git
+# driver: no external command, no per-clone installation. NOTE: applies to LOCAL merges;
+# whether GitHub's server-side PR merge honors it is answered empirically in the V2-3
+# record (docs/V2-ROADMAP.md).
+.vfkb/entries.jsonl merge=union

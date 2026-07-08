@@ -15,7 +15,7 @@ import {
   supersede,
   deriveTrust,
 } from './engine.js';
-import { SessionState } from './session.js';
+import { SessionState, effectiveSessionId } from './session.js';
 import { defaultProject } from './storage.js';
 import {
   promote,
@@ -67,6 +67,7 @@ async function main() {
         role,
         why: flag(rest, 'why'),
         tags,
+        contradicts: flag(rest, 'contradicts')?.split(',').map((t) => t.trim()).filter(Boolean),
         status: flag(rest, 'status') as any,
         provStatus: flag(rest, 'prov-status') as any,
         validUntil: flag(rest, 'valid-until'),
@@ -304,7 +305,8 @@ async function main() {
       includeSuperseded: args.includes('--superseded'),
     });
     for (const e of results) {
-      process.stdout.write(`${e.id}\t${e.type}\t${deriveTrust(e.author.role)}\t${e.text}\n`);
+      const contra = e.refs?.contradicts?.length ? `\t⚔ contradicts ${e.refs.contradicts.join(',')}` : '';
+      process.stdout.write(`${e.id}\t${e.type}\t${deriveTrust(e.author.role)}\t${e.text}${contra}\n`);
     }
     // RFC-002: an empty result is reported with its cause, not silence — so the
     // human/agent reading the CLI knows "no recorded entry" vs "all matches stale".
@@ -324,14 +326,22 @@ async function main() {
 
   if (cmd === 'hook') {
     if (sub === 'session-start') {
-      await readStdin(); // payload not needed for the bundle
+      const raw = await readStdin();
+      let payloadId: string | undefined;
+      try {
+        const p = JSON.parse(raw || '{}');
+        if (typeof p.session_id === 'string') payloadId = p.session_id;
+      } catch {
+        /* malformed → no harness id; env override may still apply */
+      }
       const project = defaultProject();
       // --naive = the mykb-v1-style flat dump (L4 contrast baseline only); --limit N truncates it.
       const lim = flag(rest, 'limit');
       // The Tier-A payload is the RESUME render (ADR-0020): prior-session digest +
       // the live knowledge bundle, both derived. Persist this session's record so the
-      // NEXT session can resume from it (append-only; no-op without KB_SESSION_ID).
-      const session = SessionState.load();
+      // NEXT session can resume from it (append-only). ADR-0039: the id comes from the
+      // hook's own stdin (KB_SESSION_ID is an optional override) — no harness wiring needed.
+      const session = SessionState.load(effectiveSessionId(payloadId));
       const additionalContext = rest.includes('--naive')
         ? renderNaiveDump(project, undefined, lim ? Number(lim) : undefined)
         : renderResume(project, session);
@@ -347,6 +357,9 @@ async function main() {
       const raw = await readStdin();
       try {
         const payload = JSON.parse(raw || '{}');
+        const sessionId = effectiveSessionId(
+          typeof payload.session_id === 'string' ? payload.session_id : undefined,
+        );
         const captured = captureToolCall({
           tool_name: payload.tool_name,
           tool_input: payload.tool_input,
@@ -358,10 +371,11 @@ async function main() {
           // synthetic seam feeds `tool_result`, so it keeps precedence.
           tool_result: payload.tool_result ?? payload.tool_response,
           call_id: payload.call_id || payload.tool_use_id,
+          session_id: sessionId,
         });
         // record the captured id into the session log (Tier-B → continuity signal).
         if (captured) {
-          const session = SessionState.load();
+          const session = SessionState.load(sessionId);
           session.recordCaptured(captured.id);
           session.save();
         }
@@ -377,7 +391,7 @@ async function main() {
     // continue the turn; `stop_hook_active` is the native loop guard (never block twice).
     if (sub === 'stop') {
       const raw = await readStdin();
-      let input: { stop_hook_active?: boolean } = {};
+      let input: { stop_hook_active?: boolean; session_id?: string } = {};
       try {
         input = JSON.parse(raw || '{}');
       } catch {
@@ -387,6 +401,17 @@ async function main() {
       if (input.stop_hook_active) {
         process.stdout.write('{}');
         return;
+      }
+      // ADR-0039: a real (non-re-entry) Stop = one turn ended — accumulate it on the
+      // session record so continuity signals survive across `--resume` turns.
+      try {
+        const session = SessionState.load(
+          effectiveSessionId(typeof input.session_id === 'string' ? input.session_id : undefined),
+        );
+        session.bumpTurn();
+        session.save();
+      } catch {
+        /* session bookkeeping must never wedge the turn */
       }
       const d = decideStop({ stop_hook_active: false }, gatherStopContext());
       process.stdout.write(
@@ -420,7 +445,7 @@ async function main() {
       }
       let systemMessage: string | undefined;
       try {
-        const r = runSessionEnd({ cwd, sessionId });
+        const r = runSessionEnd({ cwd, sessionId: effectiveSessionId(sessionId) });
         systemMessage = r.systemMessage;
       } catch {
         /* fail-open: never block exit */
