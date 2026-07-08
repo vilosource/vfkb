@@ -2,13 +2,13 @@
 type: Decision
 title: "ADR-0028: Auto-layer wiring is sandbox-validated before promotion to the live config"
 description: "Auto-layer wiring is validated in a throwaway sandbox before promotion to live (the wiring smoke-gate)"
-status: "Accepted"
+status: "Superseded by ADR-0048"
 timestamp: 2026-06-29
 ---
 
 # ADR-0028: Auto-layer wiring is sandbox-validated before promotion to the live config
 
-- **Status:** Accepted
+- **Status:** Superseded by [ADR-0048](ADR-0048-retire-wiring-smoke-gate.md) (2026-07-08 — the gate's premise ended with the ADR-0045 plugin migration)
 - **Date:** 2026-06-29
 - **Deciders:** operator + Claude
 - **Origin:** the 2026-06-29 ADR-0027 build. While wiring the Stop-hook reminder, the plan was to add
