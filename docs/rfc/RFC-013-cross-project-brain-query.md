@@ -1,3 +1,11 @@
+---
+type: RFC
+title: "RFC-013: Cross-project brain query — read-only recall from a sibling project's `.vfkb`"
+description: "Cross-project brain query — read-only, provenance-labeled recall from a registered sibling project's `.vfkb` (links registry + `kb_query_external`)"
+status: "**Accepted → ADR-0038** (2026-07-06;"
+timestamp: 2026-07-02
+---
+
 # RFC-013: Cross-project brain query — read-only recall from a sibling project's `.vfkb`
 
 - **Status:** **Accepted → [ADR-0038](../adr/ADR-0038-cross-project-brain-query.md)** (2026-07-06;

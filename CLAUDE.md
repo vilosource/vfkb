@@ -71,6 +71,9 @@ plugin predates that fix — update the plugin and restart.
     - `VFKB_DATA_DIR=.vfkb node dist/cli.js add decision "…" --why "…" --role human`
     - `VFKB_DATA_DIR=.vfkb node dist/cli.js add fact|gotcha|pattern "…" --role human [--tags a,b]`
     - `VFKB_DATA_DIR=.vfkb node dist/cli.js add link "…" "<path-or-url>" --role human`
+    - `link` entries may point at **OKF concept docs** (`.okf/…`, or the in-place OKF bundle
+      `docs/adr/`/`docs/rfc/`) — the live session then surfaces that doc at the right moment
+      via the existing injection pipeline; no export tooling needed (ADR-0046 Integration Point 3).
   - **Session END** — leave continuity, then commit the brain:
     `VFKB_DATA_DIR=.vfkb node dist/cli.js resume-note "what the next session should pick up"`
     then `git add .vfkb && git commit` (the brain ships **with** the repo — ADR-0019).

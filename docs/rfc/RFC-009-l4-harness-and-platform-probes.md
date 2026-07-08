@@ -1,3 +1,11 @@
+---
+type: RFC
+title: "RFC-009: L4 sandbox hardening + a home for Tier-0 platform-contract probes"
+description: "L4 harness & platform probes"
+status: "Proposed — **evidence-gated / parked** (no build until a trigger below fires)"
+timestamp: 2026-06-29
+---
+
 # RFC-009: L4 sandbox hardening + a home for Tier-0 platform-contract probes
 
 - **Status:** Proposed — **evidence-gated / parked** (no build until a trigger below fires)

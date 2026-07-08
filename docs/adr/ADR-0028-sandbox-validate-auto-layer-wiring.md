@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0028: Auto-layer wiring is sandbox-validated before promotion to the live config"
+description: "Auto-layer wiring is validated in a throwaway sandbox before promotion to live (the wiring smoke-gate)"
+status: "Accepted"
+timestamp: 2026-06-29
+---
+
 # ADR-0028: Auto-layer wiring is sandbox-validated before promotion to the live config
 
 - **Status:** Accepted

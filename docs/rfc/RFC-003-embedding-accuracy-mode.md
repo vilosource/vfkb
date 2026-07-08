@@ -1,3 +1,11 @@
+---
+type: RFC
+title: "RFC-003: The EmbeddingReranker ships as an opt-in \"accuracy mode\" search tier"
+description: "The EmbeddingReranker ships as an opt-in \"accuracy mode\" search tier"
+status: "Proposed"
+timestamp: 2026-06-15
+---
+
 # RFC-003: The EmbeddingReranker ships as an opt-in "accuracy mode" search tier
 
 - **Status:** Proposed

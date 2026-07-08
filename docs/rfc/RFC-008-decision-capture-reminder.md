@@ -1,3 +1,11 @@
+---
+type: RFC
+title: "RFC-008: Reliable decision capture — a conditional end-of-turn (Stop-hook) reminder"
+description: "Reliable decision capture — a conditional end-of-turn (Stop-hook) reminder"
+status: "**Accepted → ADR-0027** (2026-06-29; contract empirically verified)"
+timestamp: 2026-06-28
+---
+
 # RFC-008: Reliable decision capture — a conditional end-of-turn (Stop-hook) reminder
 
 - **Status:** **Accepted → [ADR-0027](../adr/ADR-0027-stop-hook-decision-capture-reminder.md)** (2026-06-29; contract empirically verified)

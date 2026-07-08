@@ -1,3 +1,11 @@
+---
+type: RFC
+title: "RFC-017: Schema honesty — a structural `why` field, full envelope validation, structural contradiction/supersede fields"
+description: "v2 — Schema honesty: a structural `why` field, full envelope validation, structural contradiction/supersede fields"
+status: "**Accepted → ADR-0042** (2026-07-06)"
+timestamp: 2026-07-05
+---
+
 # RFC-017: Schema honesty — a structural `why` field, full envelope validation, structural contradiction/supersede fields
 
 - **Status:** **Accepted → [ADR-0042](../adr/ADR-0042-schema-honesty.md)** (2026-07-06)

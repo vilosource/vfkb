@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0043: Rebuildable index — shape ratified, build evidence-gated (accepts RFC-018)"
+description: "Rebuildable index — shape ratified, build evidence-gated (accepts RFC-018; trigger settled)"
+status: "Accepted (shape) — **build GATED** (see trigger below)"
+timestamp: 2026-07-06
+---
+
 # ADR-0043: Rebuildable index — shape ratified, build evidence-gated (accepts RFC-018)
 
 - **Status:** Accepted (shape) — **build GATED** (see trigger below)

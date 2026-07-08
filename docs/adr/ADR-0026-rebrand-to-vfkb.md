@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0026: Rebrand vtfkb → vfkb (ViloForge KnowledgeBase) to align the VF-family naming"
+description: "Rebrand vtfkb → vfkb (ViloForge KnowledgeBase) — full hard rename (identity/env/dirs/repo) to align the VF-family with vfwb"
+status: "Accepted"
+timestamp: 2026-06-28
+---
+
 # ADR-0026: Rebrand vtfkb → vfkb (ViloForge KnowledgeBase) to align the VF-family naming
 
 - **Status:** Accepted

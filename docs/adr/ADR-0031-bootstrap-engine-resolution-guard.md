@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0031: A committed bootstrap guards engine resolution and informs the user when `$VFKB_HOME` is unset"
+description: "A committed bootstrap guards engine resolution and informs the user when `$VFKB_BUNDLE_DIR` is unset"
+status: "Accepted"
+timestamp: 2026-06-30
+---
+
 # ADR-0031: A committed bootstrap guards engine resolution and informs the user when `$VFKB_HOME` is unset
 
 - **Status:** Accepted

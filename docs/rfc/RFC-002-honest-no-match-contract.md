@@ -1,3 +1,11 @@
+---
+type: RFC
+title: "RFC-002: Search reports an explicit, cause-distinguished no-match"
+description: "Search reports an explicit, cause-distinguished no-match"
+status: "Accepted — became ADR-0018"
+timestamp: 2026-06-15
+---
+
 # RFC-002: Search reports an explicit, cause-distinguished no-match
 
 - **Status:** Accepted — became [ADR-0018](../adr/ADR-0018-honest-no-match-contract.md)

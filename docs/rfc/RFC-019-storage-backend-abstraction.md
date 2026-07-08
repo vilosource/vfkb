@@ -1,3 +1,11 @@
+---
+type: RFC
+title: "RFC-019: A pluggable storage-backend interface"
+description: "v2 — A pluggable storage-backend interface; JSONL stays the shipped default"
+status: "**Accepted → ADR-0044** (2026-07-06)"
+timestamp: 2026-07-05
+---
+
 # RFC-019: A pluggable storage-backend interface
 
 - **Status:** **Accepted → [ADR-0044](../adr/ADR-0044-storage-backend-abstraction.md)** (2026-07-06)
