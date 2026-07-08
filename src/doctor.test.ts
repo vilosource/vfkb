@@ -165,4 +165,36 @@ describe('vfkb doctor — plugin wiring (ADR-0045 / issue #77)', () => {
     expect(status(r, '.claude/settings.json')).toBe('ok');
     for (const c of r.checks) expect(c.detail).not.toContain('vfkb init');
   });
+
+  it('an explicit enabledPlugins:false disable beats a lingering registry entry — fallback advice stays intact', () => {
+    // The repo deliberately disabled the plugin and runs the init fallback; a stale
+    // registry entry must NOT make doctor advise removing the working hooks.
+    initProject(root, { project: 'demo' });
+    const settings = JSON.parse(readFileSync(join(root, '.claude', 'settings.json'), 'utf8'));
+    settings.enabledPlugins = { [PLUGIN_KEY]: false };
+    writeFileSync(join(root, '.claude', 'settings.json'), JSON.stringify(settings));
+    const file = writeRegistry({ [PLUGIN_KEY]: [{ scope: 'project', projectPath: root, version: '0.2.0' }] });
+    const r = pluginDoctor({ VFKB_BUNDLE_DIR: home }, file);
+    expect(status(r, '.mcp.json')).toBe('ok'); // real init wiring, reported as such
+    expect(status(r, '.claude/settings.json')).toBe('ok');
+    expect(r.checks.find((c) => c.name === 'plugin')).toBeUndefined();
+    expect(JSON.stringify(r.checks)).not.toMatch(/double|alongside|via plugin/i);
+  });
+
+  it('reports the install entry for THIS root, not another project\'s (and never masks not-installed with a foreign entry)', () => {
+    wirePlugin();
+    const file = writeRegistry({
+      [PLUGIN_KEY]: [
+        { scope: 'project', projectPath: '/somewhere/else', version: '0.1.0' },
+        { scope: 'project', projectPath: root, version: '0.2.0' },
+      ],
+    });
+    const r = pluginDoctor({}, file);
+    expect(r.checks.find((c) => c.name === 'plugin')?.detail).toContain('0.2.0');
+
+    // only a foreign project's entry exists → the not-installed WARN must NOT be masked
+    const foreignOnly = writeRegistry({ [PLUGIN_KEY]: [{ scope: 'project', projectPath: '/somewhere/else', version: '0.1.0' }] });
+    const r2 = pluginDoctor({}, foreignOnly);
+    expect(status(r2, 'plugin')).toBe('warn');
+  });
 });
