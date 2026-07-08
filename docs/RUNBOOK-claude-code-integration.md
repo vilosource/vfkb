@@ -233,10 +233,13 @@ echo '{"stop_hook_active":true}' | VFKB_DIR=.vfkb VFKB_PROJECT=myproject vfkb ho
 # 5. MCP server lists its 9 tools (interactive `claude` then `/mcp`, or a JSON-RPC tools/list)
 ```
 
-**Before promoting hook changes to a live config**, validate them in a throwaway sandbox with the
-repeatable wiring smoke-gate (ADR-0028): `node scenarios/wiring-smoke.mjs` (in the vfkb repo) — it
-drives real `claude` turns against the candidate `settings.json` and asserts the hooks fire and the
-loop terminates. Promote to live **only on green**.
+**Hook-wiring validation (updated 2026-07-08, ADR-0048):** the in-repo wiring smoke-gate
+(`scenarios/wiring-smoke.mjs`, ADR-0028) is **retired** — post-plugin-migration (ADR-0045) this
+repo's live config carries no hooks; the wiring lives in vfkb-claude-plugin's `hooks.json`, and
+its pre-release sandbox validation is tracked at
+[vfkb-claude-plugin#6](https://github.com/vilosource/vfkb-claude-plugin/issues/6). For repos on
+the `vfkb init` fallback, wiring coverage = the init emission unit tests + the
+`consumer-onboarding` L4.
 
 ---
 

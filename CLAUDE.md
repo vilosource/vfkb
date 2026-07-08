@@ -164,9 +164,12 @@ this is a **deliberate discipline**:
   decision-capture build found a tagless-entry crash + a sandbox repo-leak).
 - **Four clauses for every proof form:** isolated from the live/dogfooded system · observed not
   asserted · before declaring done · capable of failing.
-- **Proof fits the capability:** agent-facing → agent-driven L4 (default); auto-layer wiring → the
-  smoke-gate (ADR-0028); external contract → a Tier-0 probe; structural invariants → unit tests (the
-  inner gate, not the capability success criterion). Canonical example: `scenarios/decision-capture.mjs`.
+- **Proof fits the capability:** agent-facing → agent-driven L4 (default); auto-layer wiring → per
+  ADR-0048: plugin `hooks.json` validation belongs to the plugin repo's release flow
+  (vfkb-claude-plugin#6, pending), fallback wiring rides the init unit tests + the
+  consumer-onboarding L4 (the in-repo smoke-gate of ADR-0028 is retired); external contract → a
+  Tier-0 probe; structural invariants → unit tests (the inner gate, not the capability success
+  criterion). Canonical example: `scenarios/decision-capture.mjs`.
 
 ## Commit rules
 
