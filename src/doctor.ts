@@ -47,9 +47,13 @@ interface PluginWiring {
 
 function detectPluginWiring(settings: any, root: string, pluginsFile: string | undefined): PluginWiring | undefined {
   const registry = pluginsFile ? readJson(pluginsFile) : undefined;
+  // Prefer the install entry for THIS root; fall back to a user-scope entry; never
+  // report another project's install as ours (it would mask the not-installed WARN
+  // and can carry the wrong version).
   const findInstall = (key: string) => {
     const entries = registry?.plugins?.[key];
-    return Array.isArray(entries) ? entries[0] : undefined;
+    if (!Array.isArray(entries)) return undefined;
+    return entries.find((e: any) => e?.projectPath === root) ?? entries.find((e: any) => e?.scope === 'user');
   };
   const enabled = settings?.enabledPlugins ?? {};
   for (const [key, on] of Object.entries(enabled)) {
@@ -57,8 +61,13 @@ function detectPluginWiring(settings: any, root: string, pluginsFile: string | u
       return { key, installed: findInstall(key), registryReadable: registry !== undefined };
     }
   }
+  // Registry fallback (user-scope enablement never shows in the project file) — but an
+  // EXPLICIT `false` in the project settings is a deliberate disable and always wins:
+  // a lingering registry entry must not make doctor advise dismantling working
+  // fallback wiring (the #77 failure class, inverted).
   for (const [key, entries] of Object.entries(registry?.plugins ?? {})) {
     if (!/^vfkb@/.test(key) || !Array.isArray(entries)) continue;
+    if (enabled[key] === false) continue;
     const forRoot = entries.find((e: any) => e?.projectPath === root);
     if (forRoot) return { key, installed: forRoot, registryReadable: true };
   }
@@ -200,7 +209,7 @@ export function runDoctor(opts: DoctorOpts): DoctorReport {
     } else if (plugin.registryReadable) {
       add('plugin', 'warn', `${plugin.key} enabled in settings but not found in the local plugin registry — run \`/plugin install ${plugin.key}\` in Claude Code`);
     } else {
-      add('plugin', 'warn', `${plugin.key} enabled but the plugin registry at ${pluginsFile} is unreadable — install state unverified`);
+      add('plugin', 'warn', `${plugin.key} enabled but the plugin registry at ${pluginsFile} is missing or unreadable — install state unverified`);
     }
   }
 
