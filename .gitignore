@@ -9,6 +9,7 @@ coverage/
 .vfkb/index-meta.json
 .vfkb/.sessions/
 .vfkb/.signals/
+.vfkb/.lock
 
 # local registry auth (token via env)
 .npmrc
