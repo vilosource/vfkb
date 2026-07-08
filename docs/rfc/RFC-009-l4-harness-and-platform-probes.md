@@ -71,7 +71,9 @@ contracts).
    `scenarios/wiring-smoke.mjs`). The sandbox's second job beyond contract probes: drive real `claude`
    turns against the **candidate** `.claude/settings.json` and assert hooks fire/suppress/terminate
    **before** promoting to the live config. First case = ADR-0027's Stop wiring. Extends as new
-   hooks/MCP wiring are added.
+   hooks/MCP wiring are added. *(RETIRED 2026-07-08 — [ADR-0048](../adr/ADR-0048-retire-wiring-smoke-gate.md):
+   the gate's premise ended with the ADR-0045 plugin migration; the principle is re-homed to the
+   plugin repo's release flow, tracked at vfkb-claude-plugin#6.)*
 
 ## Alternatives
 
