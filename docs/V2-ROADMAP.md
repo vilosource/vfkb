@@ -136,6 +136,32 @@ other ~28 purpose scenarios (full honest re-pin), a live-bundle smoke of the v2 
 the zod declaration (gotcha `ffd04537d350`, needs VPN), the `vfkb init` union attribute for
 consumers, and a `$VFKB_BUNDLE_DIR` rebuild from v2 at ship time.
 
+**Pre-ship update (2026-07-07): checklist closed out except two items.** The operator chose
+the ship shape — **merge `v2`→`main`** (not promote) — and the list above resolved:
+`main`→`v2` sync landed (PR #79, bringing the ADR-0045 plugin migration + `defaultProject()`;
+the two src conflicts hand-resolved as unions, and `.vfkb/entries.jsonl` auto-unioned — V2-3
+observed working in anger); live-bundle smoke **GATE PASS** (consumer-onboarding gate, bundles
+built from the ship-candidate tree, both arms); `vfkb init` now emits the ADR-0041 union
+attribute (PR #80, RED-first); `zod ^4.4.3` declared as a direct dependency (PR #81, lockfile
+refreshed on VPN); and the **pi harness arm ALL GREEN** — image `vfkb-l4-pi:v2` built from the
+ship candidate, 5/5 scenarios DEMONSTRATED 3/3 each, every contrast arm failing as designed
+(brain fact `5e572a49acaf`) — both harnesses now hold on v2. `v2` suite: **199/199**.
+GitHub's server-side union gap bit twice during this pass and the ADR-0041 local-merge
+workaround cleared it both times. Filed en route: #82 (`wiring-smoke.mjs` is stale
+post-plugin-migration). **Still open before the ship PR:** the full ~28-scenario re-pin
+(operator to schedule or explicitly waive) and the ship-time `$VFKB_BUNDLE_DIR` bundle
+rebuild + plugin re-vendor (ADR-0045 dev-loop).
+
+**Re-pin update (2026-07-08): the full re-pin RAN (operator chose run over waive) — DONE.**
+Both images rebuilt from the ship candidate `f3ac08c`; full suite N=3 on both arms (PR #84):
+**pi/deepseek-v4-pro 32/33 DEMONSTRATED, claude/haiku-4-5 31/32**. Sole miss on both arms is
+`tool-gating`, for opposite reasons — pi's gated arm corrupted (the known pi-0.73.1 substrate
+flake, not a regression) while claude's gated arm **held 3/3** and only the ungated contrast
+arm failed to clobber (a contrast-design limitation, not a guardrail failure). Both `__docker`
+records now honestly re-pinned (`vfkb_sha` + `image_digest` coherent with a full-suite run;
+brain fact `cf8117462bf1`). **The only gate left before the v2→`main` ship PR is the ship-time
+bundle rebuild + plugin re-vendor.**
+
 ## Parallel v1 queue (not v2 — built on `main`, tracked in the H4 roadmap)
 
 [ADR-0037](adr/ADR-0037-contradiction-surfacing-at-write.md) (contradiction surfacing) and
