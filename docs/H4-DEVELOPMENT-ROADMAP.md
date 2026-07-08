@@ -353,19 +353,23 @@ proposed, never auto-acted). Signals stay operational/gitignored (M2b sub-decisi
   harmful; s2's injection no longer surfaces it (the contrast arm keeps re-injecting it). RED first. The
   counters-never-mutate Brake already stands (unit).
 
-**Q3. AGENTS.md export projection — `[queued — RFC at draft time]`**
+**Q3. AGENTS.md export projection — `[RFC-022 ACCEPTED → ADR-0047 2026-07-08 — build on request]`**
 Interop reach: emit a distilled, **deterministic projection** of the brain (Constitution + Map +
 established/verified knowledge + context spine) as `AGENTS.md` — the LF-standard file read by every major
-harness — via a render target over the existing `renderContext` (e.g. `vfkb export agents-md`).
-Generated-marked, regenerate-on-demand, never auto-committed. [RFC-020](rfc/RFC-020-layered-knowledge-capture-understand-publish.md)
-— **ACCEPTED → [ADR-0046](adr/ADR-0046-layered-knowledge-capture-understand-publish.md)
-(2026-07-08)** — widens this render-target work to a second target (an OKF bundle) sharing the
-same engine and DoD pattern (incl. the negative ratchet projection test), plus how
-vfkb/graphify/OKF divide knowledge-management responsibilities. Q3's build now delivers both
-targets; ADR-0046's Phase 1 gates on this Q3 slot being drafted/built.
-- *DoD:* deterministic projection unit tests + L4 `agents-md-cold-agent` — a **naive** arm (no MCP, no
-  hooks) given only the exported AGENTS.md answers a seeded project question the no-file contrast arm
-  misses. Runs on the existing claude image with vfkb integration disabled — genuinely can-fail. RED first.
+harness. Scope widened by [ADR-0046](adr/ADR-0046-layered-knowledge-capture-understand-publish.md)
+(2026-07-08) to two render targets sharing one engine (an OKF bundle beside AGENTS.md), then
+**decided as [RFC-022](rfc/RFC-022-brain-export-projections.md) → [ADR-0047](adr/ADR-0047-brain-export-projections.md)**
+(drafted, adversarially reviewed, accepted 2026-07-08 — this also satisfies ADR-0046's Phase 1
+"Q3 drafted" gate): `vfkb export agents-md` + `vfkb export okf`, output a pure function of the
+brain (as-of = max `updated`, no reads of prior output, id-only filenames), the ADR-0046 ratchet
+as the publish filter for **both** targets, generated-marked, never auto-committed. **Build stays
+gated on operator request** (ADR-0037/0038 pattern).
+- *DoD (per ADR-0047, binding at build):* RED-first unit gate (byte-determinism incl. dirty
+  output dir, as-of clock-independence, widened negative ratchet test, TS-ported OKF conformance,
+  AGENTS.md structure) + `validate_okf.py --strict` cross-check in the delivering PR + L4
+  `agents-md-cold-agent` **and** `okf-bundle-cold-agent` — naive arms (no MCP, no hooks) given
+  only the exported artifact answer a seeded question the contrast arms miss. Genuinely can-fail.
+  RED first.
 
 **Q4. Sleep-time distillation pass — `[GATED]`**
 Letta-validated pattern (sleep-time compute, arXiv:2504.13171): run consolidation off-session. But the
