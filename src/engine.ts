@@ -9,11 +9,15 @@ import {
   appendRecord,
   materialize,
   readRecords,
+  lastMalformed,
+  withExclusive,
   contextSpinePath,
   readContextSpine,
   writeContextSpine,
+  defaultProject,
 } from './storage.js';
 import { selectIndex } from './index-store.js';
+import { testHoldForRace } from './lock.js';
 import { assertNoSecrets } from './secrets.js';
 import { tally } from './counters.js';
 import { SessionState } from './session.js';
@@ -60,10 +64,12 @@ export function deriveTrust(role: AuthorRole): Trust {
 // --- Writes ---
 export interface AddOpts {
   role?: AuthorRole;
-  /** Rationale folded into the entry TEXT as a "Why: …" line (the envelope has no
-   *  `why` field — gotcha 91338268). Esp. for decisions. No-op if blank or if the
-   *  text already carries a "Why:" line. */
+  /** Rationale. Stored BOTH ways (ADR-0042 §1): folded into the entry TEXT as a
+   *  "Why: …" line (the pre-v2 convention, kept working) AND as the structural
+   *  `why` field, so rationale is independently queryable/renderable. */
   why?: string;
+  /** Structural contradiction references (ADR-0042 §3) → refs.contradicts. */
+  contradicts?: string[];
   tags?: string[];
   status?: KnowledgeEntry['status'];
   provStatus?: KnowledgeEntry['provenance']['status'];
@@ -72,6 +78,9 @@ export interface AddOpts {
   validUntil?: string;
   constitutional?: boolean; // ADR-0008 (decision family only)
   supersedes?: string; // refs.supersedes — set by supersede()
+  // ADR-0039 (v2): the writing session's id. Explicit value wins; falls back to
+  // $KB_SESSION_ID; omitted (not stamped) when neither is known.
+  sessionId?: string;
 }
 
 // Fold a `--why`/`why=` rationale into the entry text (gotcha 91338268: the envelope
@@ -96,7 +105,14 @@ export function addEntry(type: EntryType, text: string, opts: AddOpts = {}): Kno
     tags: opts.tags ?? [],
     zone: opts.zone ?? (deriveTrust(role) === 'operator' ? 'established' : 'incoming'),
     author: { role },
-    refs: opts.supersedes ? { supersedes: opts.supersedes } : undefined,
+    refs:
+      opts.supersedes || opts.contradicts?.length
+        ? {
+            supersedes: opts.supersedes,
+            contradicts: opts.contradicts?.length ? opts.contradicts : undefined,
+          }
+        : undefined,
+    why: opts.why?.trim() || undefined, // structural rationale (ADR-0042 §1)
     provenance: {
       status: opts.provStatus ?? (deriveTrust(role) === 'operator' ? 'verified' : 'unverified'),
       date: ts,
@@ -106,6 +122,7 @@ export function addEntry(type: EntryType, text: string, opts: AddOpts = {}): Kno
     // default a brand-new decision to `proposed` (an RFC, ADR-0007) unless told.
     status: opts.status ?? (isDecisionFamily(type) ? 'proposed' : undefined),
     constitutional: isDecisionFamily(type) ? opts.constitutional : undefined,
+    session_id: opts.sessionId ?? process.env.KB_SESSION_ID ?? undefined,
     created: ts,
     updated: ts,
   };
@@ -123,16 +140,18 @@ export function updateEntry(
   id: string,
   patch: Partial<Pick<KnowledgeEntry, 'text' | 'tags' | 'zone'>>,
 ): KnowledgeEntry {
-  const cur = readAll().find((e) => e.id === id);
-  if (!cur) throw new Error(`no such entry: ${id}`);
-  if (!FLUID_TYPES.has(cur.type)) {
-    throw new Error(
-      `entry ${id} is a ${cur.type} (decision family) — immutable; supersede it, don't edit (ADR-0004)`,
-    );
-  }
-  const next: KnowledgeEntry = { ...cur, ...patch, updated: nowIso() };
-  appendRecord(next);
-  return next;
+  return withExclusive(() => {
+    const cur = readAll().find((e) => e.id === id);
+    if (!cur) throw new Error(`no such entry: ${id}`);
+    if (!FLUID_TYPES.has(cur.type)) {
+      throw new Error(
+        `entry ${id} is a ${cur.type} (decision family) — immutable; supersede it, don't edit (ADR-0004)`,
+      );
+    }
+    const next: KnowledgeEntry = { ...cur, ...patch, updated: nowIso() };
+    appendRecord(next);
+    return next;
+  });
 }
 
 // Non-destructive provenance re-stamp (D-iii / ADR-0024). Flips the trust label
@@ -144,15 +163,17 @@ export function setProvenanceStatus(
   id: string,
   status: KnowledgeEntry['provenance']['status'],
 ): KnowledgeEntry {
-  const cur = readAll().find((e) => e.id === id);
-  if (!cur) throw new Error(`no such entry: ${id}`);
-  const next: KnowledgeEntry = {
-    ...cur,
-    provenance: { ...cur.provenance, status },
-    updated: nowIso(),
-  };
-  appendRecord(next);
-  return next;
+  return withExclusive(() => {
+    const cur = readAll().find((e) => e.id === id);
+    if (!cur) throw new Error(`no such entry: ${id}`);
+    const next: KnowledgeEntry = {
+      ...cur,
+      provenance: { ...cur.provenance, status },
+      updated: nowIso(),
+    };
+    appendRecord(next);
+    return next;
+  });
 }
 
 // Delete = additive tombstone (never rewrites; merge=union safe).
@@ -183,6 +204,9 @@ export interface ContextMap {
   byZone: Record<KnowledgeEntry['zone'], number>;
   decisions: { accepted: number; proposed: number; superseded: number; deprecated: number; constitutional: number };
   topTags: Array<{ tag: string; n: number }>;
+  // ADR-0042 §2: records excluded by read-boundary validation on the last pass —
+  // surfaced (visible in the map render), never silently dropped.
+  malformed: number;
 }
 
 export function buildContextMap(): ContextMap {
@@ -211,7 +235,7 @@ export function buildContextMap(): ContextMap {
     .slice(0, 8)
     .map(([tag, n]) => ({ tag, n }));
 
-  return { total: all.length, byType, byZone, decisions, topTags };
+  return { total: all.length, byType, byZone, decisions, topTags, malformed: lastMalformed().length };
 }
 
 export function renderContextMap(map: ContextMap = buildContextMap()): string {
@@ -231,6 +255,7 @@ export function renderContextMap(map: ContextMap = buildContextMap()): string {
     `${map.total} entries · ${types} · zones: established ${map.byZone.established}/incoming ${map.byZone.incoming}\n` +
     `${decLine}\n` +
     `top tags: ${tags}\n` +
+    (map.malformed ? `⚠ ${map.malformed} malformed record${map.malformed === 1 ? '' : 's'} excluded (ADR-0042 — inspect the brain file)\n` : '') +
     `pull more: search <terms> · filter by type/tag/status/author\n` +
     `</vfkb-map>`
   );
@@ -245,19 +270,33 @@ export function renderContextMap(map: ContextMap = buildContextMap()): string {
 
 // Supersede a decision with a new one (additive edge — the old is never edited).
 // The old entry's effective status becomes `superseded`, derived from the edge.
+// Read-decide-append → runs under the brain lock (ADR-0040): two concurrent
+// supersedes of the same target must not both act on the pre-edge snapshot and
+// fork the lineage — the second sees the first's edge and is rejected.
 export function supersede(oldId: string, text: string, opts: AddOpts = {}): KnowledgeEntry {
-  const old = readAll().find((e) => e.id === oldId);
-  if (!old) throw new Error(`no such entry: ${oldId}`);
-  if (!isDecisionFamily(old.type)) {
-    throw new Error(`entry ${oldId} is not a decision — fluid types are edited, not superseded`);
-  }
-  return addEntry('decision', text, {
-    role: opts.role ?? 'human',
-    why: opts.why,
-    tags: opts.tags,
-    status: opts.status ?? 'accepted',
-    constitutional: opts.constitutional ?? old.constitutional,
-    supersedes: oldId,
+  return withExclusive(() => {
+    const all = readAll();
+    const old = all.find((e) => e.id === oldId);
+    if (!old) throw new Error(`no such entry: ${oldId}`);
+    if (!isDecisionFamily(old.type)) {
+      throw new Error(`entry ${oldId} is not a decision — fluid types are edited, not superseded`);
+    }
+    if (supersededIds(all).has(oldId)) {
+      throw new Error(
+        `entry ${oldId} is already superseded — superseding it again would fork the lineage; ` +
+          'supersede its live successor instead',
+      );
+    }
+    testHoldForRace(); // test-only seam between the read and the append (ADR-0040 DoD)
+    return addEntry('decision', text, {
+      role: opts.role ?? 'human',
+      why: opts.why,
+      tags: opts.tags,
+      status: opts.status ?? 'accepted',
+      constitutional: opts.constitutional ?? old.constitutional,
+      supersedes: oldId,
+      sessionId: opts.sessionId,
+    });
   });
 }
 
@@ -271,14 +310,17 @@ export function transitionDecision(
   if (status === 'superseded') {
     throw new Error('`superseded` is derived from a supersession edge — use supersede()');
   }
-  const cur = readAll().find((e) => e.id === id);
-  if (!cur) throw new Error(`no such entry: ${id}`);
-  if (!isDecisionFamily(cur.type)) {
-    throw new Error(`entry ${id} is not a decision — use updateEntry() for fluid types`);
-  }
-  const next: KnowledgeEntry = { ...cur, status, updated: nowIso() };
-  appendRecord(next);
-  return next;
+  return withExclusive(() => {
+    const cur = readAll().find((e) => e.id === id);
+    if (!cur) throw new Error(`no such entry: ${id}`);
+    if (!isDecisionFamily(cur.type)) {
+      throw new Error(`entry ${id} is not a decision — use updateEntry() for fluid types`);
+    }
+    testHoldForRace();
+    const next: KnowledgeEntry = { ...cur, status, updated: nowIso() };
+    appendRecord(next);
+    return next;
+  });
 }
 
 // The set of ids superseded by some live entry (the supersession edges).
@@ -394,7 +436,7 @@ function trustGlyph(e: KnowledgeEntry): string {
   return `${v}${t}`;
 }
 
-export function renderContextBundle(project = 'spike', budget = SESSION_BUDGET_CHARS): string {
+export function renderContextBundle(project = defaultProject(), budget = SESSION_BUDGET_CHARS): string {
   const all = readAll();
   const today = nowIso().slice(0, 10);
   const superseded = supersededIds(all);
@@ -470,7 +512,7 @@ export function initContextSpine(): { created: boolean; path: string } {
   return { created: true, path: p };
 }
 
-export function renderContext(project = 'spike'): string {
+export function renderContext(project = defaultProject()): string {
   const all = readAll();
   const sup = supersededIds(all);
   const out: string[] = [`# ${project} — project context`, ''];
@@ -525,7 +567,7 @@ export function renderContext(project = 'spike'): string {
 //     NO rerank, budget-cut from the end (so the newest can be dropped). Used only
 //     by the L4 scenario harness as the contrast baseline. ---
 export function renderNaiveDump(
-  project = 'spike',
+  project = defaultProject(),
   budget = SESSION_BUDGET_CHARS,
   limit?: number,
 ): string {
@@ -553,6 +595,7 @@ export interface ToolEvent {
   tool_input?: unknown;
   tool_result?: unknown;
   call_id?: string;
+  session_id?: string; // ADR-0039: the capturing session (harness stdin id)
 }
 
 // vfkb's own knowledge tools (bare `kb_*` or harness-namespaced `mcp__vfkb__*`).
@@ -608,6 +651,7 @@ export function captureToolCall(ev: ToolEvent): KnowledgeEntry | null {
       tags: ['captured', `capture:${outcome}`],
       provStatus: 'unverified',
       origin: { kind: 'tool_call', tool: ev.tool_name, call_id: ev.call_id },
+      sessionId: ev.session_id,
     });
   } catch {
     // no-secrets lint (or any write error) → skip the capture, never crash the harness.
@@ -625,7 +669,7 @@ export function currentInjectableIds(): string[] {
 // --- Per-turn delta injection (Tier C, Pi-only — ADR-0015). Inject only entries
 //     not already injected this session (dedup via SessionState, L4). Returns ''
 //     when there is nothing new this turn. ---
-export function renderContextDelta(session: SessionState, project = 'spike'): string {
+export function renderContextDelta(session: SessionState, project = defaultProject()): string {
   const all = readAll();
   const superseded = supersededIds(all);
   const fresh = rerank(all.filter((e) => isInjectable(e, undefined, superseded))).filter(
@@ -704,7 +748,7 @@ export function renderResumeDigest(rec: SessionData, all: KnowledgeEntry[] = rea
 // The "Resume" render (ADR-0020 pt 5): the most recent PRIOR session's digest +
 // the live Tier-A knowledge bundle, budgeted to the 10k cap. Both halves are
 // derived from ground truth at call time.
-export function renderResume(project = 'spike', session: SessionState = SessionState.load()): string {
+export function renderResume(project = defaultProject(), session: SessionState = SessionState.load()): string {
   const all = readAll();
   const prior = SessionState.records().find((r) => r.sessionId !== session.sessionId);
   const digest = prior

@@ -18,6 +18,7 @@ import {
   renderResume,
 } from './engine.js';
 import { SessionState } from './session.js';
+import { defaultProject } from './storage.js';
 import { isBrainWrite, GATING_REASON } from './gating.js';
 import { save } from './git.js';
 import type {
@@ -32,7 +33,7 @@ import type {
 } from './pi-types.js';
 
 function project(): string {
-  return process.env.VFKB_PROJECT || 'spike';
+  return defaultProject();
 }
 
 // Reduce a pi tool result (AgentToolResult-ish: { content:[{text}], details } | string |
