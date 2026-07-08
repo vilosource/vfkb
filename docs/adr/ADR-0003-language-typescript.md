@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0003: Implementation language = TypeScript"
+description: "Implementation language = TypeScript"
+status: "Accepted"
+timestamp: 2026-06-01
+---
+
 # ADR-0003: Implementation language = TypeScript
 
 - **Status:** Accepted

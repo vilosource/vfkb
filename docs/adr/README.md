@@ -1,3 +1,11 @@
+---
+type: Index
+title: "vfkb — Architecture Decision Records"
+description: "Index of this project's Architecture Decision Records (Nygard format, immutable once decided — ADR-0001)."
+status: living
+timestamp: 2026-07-08
+---
+
 # vfkb — Architecture Decision Records
 
 Immutable records of significant vfkb architecture decisions, in
@@ -44,7 +52,7 @@ Immutable records of significant vfkb architecture decisions, in
 | [ADR-0025](ADR-0025-project-context-doc-and-kb-context.md) | The project context doc + `kb_context` — an assembled "agent's first read" (authored spine + derived Constitution/Map/decisions), read on demand | Accepted |
 | [ADR-0026](ADR-0026-rebrand-to-vfkb.md) | Rebrand vtfkb → vfkb (ViloForge KnowledgeBase) — full hard rename (identity/env/dirs/repo) to align the VF-family with vfwb | Accepted |
 | [ADR-0027](ADR-0027-stop-hook-decision-capture-reminder.md) | Reliable decision capture — a conditional end-of-turn (Stop-hook) reminder | Accepted |
-| [ADR-0028](ADR-0028-sandbox-validate-auto-layer-wiring.md) | Auto-layer wiring is validated in a throwaway sandbox before promotion to live (the wiring smoke-gate) | Accepted |
+| [ADR-0028](ADR-0028-sandbox-validate-auto-layer-wiring.md) | Auto-layer wiring is validated in a throwaway sandbox before promotion to live (the wiring smoke-gate) | Superseded by [ADR-0048](ADR-0048-retire-wiring-smoke-gate.md) |
 | [ADR-0029](ADR-0029-sandbox-proven-definition-of-done.md) | Definition of Done — a capability is proven by an agent-driven, sandboxed, e2e use-case simulation that can fail | Accepted |
 | [ADR-0030](ADR-0030-consumer-integration-and-distribution.md) | Consumer integration & distribution contract — portable engine (`$VFKB_HOME` + single-file bundles), `vfkb init`, `import`, `doctor` | Accepted |
 | [ADR-0031](ADR-0031-bootstrap-engine-resolution-guard.md) | A committed bootstrap guards engine resolution and informs the user when `$VFKB_BUNDLE_DIR` is unset | Accepted |
@@ -62,3 +70,6 @@ Immutable records of significant vfkb architecture decisions, in
 | [ADR-0043](ADR-0043-rebuildable-index-shape.md) | Rebuildable index — shape ratified, build evidence-gated (accepts RFC-018; trigger settled) | Accepted (build gated) |
 | [ADR-0044](ADR-0044-storage-backend-abstraction.md) | A pluggable storage-backend interface; JSONL stays the shipped default (accepts RFC-019) | Accepted |
 | [ADR-0045](ADR-0045-vfkb-claude-code-plugin.md) | vfkb ships as a Claude Code plugin from a dedicated repo (`vfkb-claude-plugin`) — primary distribution for the Claude Code harness face (accepts RFC-021) | Accepted |
+| [ADR-0046](ADR-0046-layered-knowledge-capture-understand-publish.md) | Layered knowledge management — vfkb captures, graphify understands, OKF publishes; one-way trust ratchet with deterministic Brakes (accepts RFC-020) | Accepted (Phase 1 gated on Q3) |
+| [ADR-0047](ADR-0047-brain-export-projections.md) | Brain export projections — `vfkb export agents-md` + `vfkb export okf`, pure-function-of-the-brain determinism, ratchet as publish filter (accepts RFC-022) | Accepted — **built 2026-07-08**, both L4s DEMONSTRATED |
+| [ADR-0048](ADR-0048-retire-wiring-smoke-gate.md) | Retire the in-repo wiring smoke gate — premise ended with the plugin migration; relocated check deferred to vfkb-claude-plugin#6 (supersedes ADR-0028) | Accepted |

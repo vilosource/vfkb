@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0021: Auto-distill + ACE curator — capture distils to `incoming`; curation is deltas + counters, never rewrites"
+description: "Auto-distill + ACE curator — capture distils to `incoming`; curation is deltas + counters, never rewrites"
+status: "Accepted (Amended by ADR-0024 — §4 corroborated promotion now also re-stamps provenance verified)"
+timestamp: 2026-06-25
+---
+
 # ADR-0021: Auto-distill + ACE curator — capture distils to `incoming`; curation is deltas + counters, never rewrites
 
 - **Status:** Accepted (Amended by [ADR-0024](ADR-0024-relabel-trust-on-promotion.md) — §4 corroborated promotion now also re-stamps provenance verified)

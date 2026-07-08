@@ -1,3 +1,11 @@
+---
+type: RFC
+title: "RFC-021: vfkb as a Claude Code plugin — the primary distribution path for the Claude Code harness face"
+description: "vfkb as a Claude Code plugin — primary distribution for the Claude Code harness face, `vfkb init` kept as fallback"
+status: "**Accepted → ADR-0045** (2026-07-07;"
+timestamp: 2026-07-07
+---
+
 # RFC-021: vfkb as a Claude Code plugin — the primary distribution path for the Claude Code harness face
 
 - **Status:** **Accepted → [ADR-0045](../adr/ADR-0045-vfkb-claude-code-plugin.md)** (2026-07-07;

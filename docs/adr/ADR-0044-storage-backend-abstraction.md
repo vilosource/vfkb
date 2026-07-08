@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0044: A pluggable storage-backend interface; JSONL stays the shipped default (accepts RFC-019)"
+description: "A pluggable storage-backend interface; JSONL stays the shipped default (accepts RFC-019)"
+status: "Accepted"
+timestamp: 2026-07-06
+---
+
 # ADR-0044: A pluggable storage-backend interface; JSONL stays the shipped default (accepts RFC-019)
 
 - **Status:** Accepted

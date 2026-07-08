@@ -17,6 +17,7 @@ import {
 } from './engine.js';
 import { SessionState, effectiveSessionId } from './session.js';
 import { defaultProject } from './storage.js';
+import { runExport } from './export.js';
 import {
   promote,
   archive,
@@ -75,6 +76,18 @@ async function main() {
         constitutional: rest.includes('--constitutional'),
       });
       process.stdout.write(`${e.id}\t[${e.type} ${deriveTrust(e.author.role)}]\t${e.text}\n`);
+    } catch (err) {
+      process.stderr.write(`error: ${(err as Error).message}\n`);
+      process.exit(1);
+    }
+    return;
+  }
+
+  // export <agents-md|okf> [--out <path>] — ADR-0047 brain export projections:
+  // deterministic, generated-marked, never auto-committed publish artifacts.
+  if (cmd === 'export') {
+    try {
+      process.stdout.write(runExport(sub, { out: flag(rest, 'out') }) + '\n');
     } catch (err) {
       process.stderr.write(`error: ${(err as Error).message}\n`);
       process.exit(1);

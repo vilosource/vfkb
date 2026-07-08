@@ -1,3 +1,11 @@
+---
+type: RFC
+title: "RFC-010: Consumer integration & distribution contract — `vfkb init` / portable engine / `import` / `doctor`"
+description: "Consumer integration & distribution contract — `vfkb init` / portable engine / `import` / `doctor`"
+status: "**Accepted → ADR-0030** (2026-06-30; FR-2 bundle unknown spike-resolved before acceptance)"
+timestamp: 2026-06-30
+---
+
 # RFC-010: Consumer integration & distribution contract — `vfkb init` / portable engine / `import` / `doctor`
 
 - **Status:** **Accepted → [ADR-0030](../adr/ADR-0030-consumer-integration-and-distribution.md)** (2026-06-30; FR-2 bundle unknown spike-resolved before acceptance)

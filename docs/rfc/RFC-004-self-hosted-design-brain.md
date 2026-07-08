@@ -1,3 +1,11 @@
+---
+type: RFC
+title: "RFC-004: vfkb self-hosts its own design-brain (commit `.vfkb/`; ADRs link-not-copy)"
+description: "vfkb self-hosts its own design-brain (commit `.vfkb/`; ADRs link-not-copy)"
+status: "Accepted → ADR-0019"
+timestamp: 2026-06-25
+---
+
 # RFC-004: vfkb self-hosts its own design-brain (commit `.vfkb/`; ADRs link-not-copy)
 
 - **Status:** Accepted → [ADR-0019](../adr/ADR-0019-self-hosted-design-brain.md)

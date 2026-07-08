@@ -1,3 +1,11 @@
+---
+type: Decision
+title: "ADR-0034: GAP-1 B1 — the agent-authored handoff nudge (settles RFC-011 §B)"
+description: "GAP-1 B1 — the agent-authored handoff nudge (settles RFC-011 §B)"
+status: "Accepted"
+timestamp: 2026-07-01
+---
+
 # ADR-0034: GAP-1 B1 — the agent-authored handoff nudge (settles RFC-011 §B)
 
 - **Status:** Accepted
