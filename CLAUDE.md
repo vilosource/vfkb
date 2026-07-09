@@ -151,7 +151,7 @@ this is a **deliberate discipline**:
 - **VERIFIED = observed, not asserted.** Never relay a gate's/agent's "passed/verified" as fact
   without reading ground truth. Snapshot ≠ history.
 
-## Definition of Done (capability level — ADR-0029, **non-negotiable per ADR-0050**)
+## Definition of Done (capability level — ADR-0029, **non-negotiable per ADR-0050**, amended by ADR-0051)
 
 - **⛔ NON-NEGOTIABLE (operator ruling 2026-07-09, ADR-0050):** anything a user will use ships
   only behind a **full sandboxed agent-driven L4** — committed reproducible scenario,
@@ -162,6 +162,24 @@ this is a **deliberate discipline**:
   deterministic **release-gate CI Brake** (first: vfkb-claude-plugin `release-gate.mjs`).
   This rule is also a `constitutional` brain decision (`73c6a5c1cb67`) — every session's
   injection leads with it.
+- **⛔ DELIVERY IS UNPROVEN, AND SILENCE IS THE VIOLATION (ADR-0051, amends ADR-0050).** Three
+  clauses, all binding:
+  1. **`--plugin-dir` is NOT "the real surface a user will use"** — ADR-0050's own text says it is,
+     and that is a **defect** in a constitutional rule. It loads a plugin from a source tree and
+     bypasses the marketplace clone, `marketplace.json`, the version cache, `installed_plugins.json`,
+     scope and startup resolution. It proves a **capability**, never its **delivery**. (This is how
+     plugin v0.4.0 was DEMONSTRATED 3/3 *and* unreachable in the same hour.)
+  2. **"Declared done **or shipped**" governs claims, not existence** (Reading B). Plugin releases
+     may continue with delivery unproven — but **every release note, ADR and handoff MUST say
+     "delivery is unproven"** until `scenarios/records/install-path.json` lands. Enforced by
+     vfkb-claude-plugin's `release-gate.mjs` + `DELIVERY-STATUS.json`, not by this paragraph.
+  3. **The quiet-success trap:** where a failure presents as a *successful* run lacking the
+     capability (exit 0, `is_error: false`, `"Unknown command"`), the predicate MUST be a **content
+     assertion over the output**. Exit status and error flags are not admissible evidence.
+  - *Scoped corollary:* a release-time gate **cannot** observe a consumer's stale marketplace clone
+    — CI runs before any consumer exists. That is a **detection** problem owned by `vfkb doctor`
+    (RFC-024 §1, unbuilt). It says nothing about packaging omissions, install failures, or upgrade
+    corruption, which a delivery gate *can* catch.
 - **A capability is not "done" until its real use-case is simulated end-to-end in a sandbox and
   observed to succeed.** This binds at the **epic / feature / main-group-of-tasks** level — **not**
   every change. Sub-tasks, refactors, comments, formatting, pure-doc edits are **exempt** (they ride

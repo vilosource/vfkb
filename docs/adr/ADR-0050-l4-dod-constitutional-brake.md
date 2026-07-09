@@ -2,13 +2,18 @@
 type: Decision
 title: "ADR-0050: The sandboxed agent-driven L4 Definition of Done is constitutional and mechanically enforced (amends ADR-0029)"
 description: "Operator ruling: nothing user-facing may be declared done/shipped without a full sandboxed, agent-driven, can-fail L4 (≥2/3, committed record, observed not asserted) — now a constitutional brain decision (injected every session) plus a deterministic release-gate CI Brake in every shipping repo, because the prose-only rule was observably skipped"
-status: "Accepted"
+status: "Accepted — Amended by ADR-0051 (`--plugin-dir` is not a delivery surface; 'declared done or shipped' governs claims, not existence)"
 timestamp: 2026-07-09
 ---
 
 # ADR-0050: The sandboxed agent-driven L4 Definition of Done is constitutional and mechanically enforced (amends ADR-0029)
 
-- **Status:** Accepted (operator ruling, 2026-07-09 — "non-negotiable")
+- **Status:** Accepted (operator ruling, 2026-07-09 — "non-negotiable") — **Amended by
+  [ADR-0051](ADR-0051-delivery-honesty.md)**: `--plugin-dir` is struck as an example of "the real
+  surface a user will use" (§*What counts as the full gate*, below) — it proves a capability, not
+  its delivery; and "declared done **or shipped**" governs **claims**, not existence, so releases
+  may continue with delivery unproven provided the gap is disclosed. The disclosure is enforced by
+  the release-gate Brake.
 - **Date:** 2026-07-09
 - **Amends:** [ADR-0029](ADR-0029-sandbox-proven-definition-of-done.md) (the DoD rule itself is
   unchanged; this ADR changes its **enforcement** from prose to mechanism)
