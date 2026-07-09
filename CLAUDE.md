@@ -151,8 +151,17 @@ this is a **deliberate discipline**:
 - **VERIFIED = observed, not asserted.** Never relay a gate's/agent's "passed/verified" as fact
   without reading ground truth. Snapshot ≠ history.
 
-## Definition of Done (capability level — ADR-0029)
+## Definition of Done (capability level — ADR-0029, **non-negotiable per ADR-0050**)
 
+- **⛔ NON-NEGOTIABLE (operator ruling 2026-07-09, ADR-0050):** anything a user will use ships
+  only behind a **full sandboxed agent-driven L4** — committed reproducible scenario,
+  DEMONSTRATED ≥2/3 with a can-fail arm, every load-bearing claim **observed not asserted**
+  (e.g. a pinned model must appear in `modelUsage`). A smoke check (N=1, no committed record)
+  is NOT this gate. Until the evidence exists and is named, the only honest status is
+  **"built, NOT yet verified"** — never "done/shipped/✅". Release PRs must pass the
+  deterministic **release-gate CI Brake** (first: vfkb-claude-plugin `release-gate.mjs`).
+  This rule is also a `constitutional` brain decision (`73c6a5c1cb67`) — every session's
+  injection leads with it.
 - **A capability is not "done" until its real use-case is simulated end-to-end in a sandbox and
   observed to succeed.** This binds at the **epic / feature / main-group-of-tasks** level — **not**
   every change. Sub-tasks, refactors, comments, formatting, pure-doc edits are **exempt** (they ride
