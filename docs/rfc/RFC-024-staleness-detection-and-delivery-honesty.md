@@ -1,7 +1,7 @@
 ---
 type: RFC
 title: "RFC-024: Staleness detection and delivery honesty — amend ADR-0050's `--plugin-dir` clause, build the detector and its L4, fix the Brake, gate the install proof"
-description: "Plugin v0.4.0 was DEMONSTRATED 3/3 and unreachable. The packaging was fine; the operator's clone was stale, and nothing could tell him. A release-time install L4 would have gone green that day. What is missing is a stale-clone detector in `vfkb doctor` (with its own agent-driven L4), deterministic backstops in the plugin's release gate, and an ADR-0050 that stops calling `--plugin-dir` a real surface. Leaves one constitutional question — may an unproven delivery path ship? — expressly to the operator."
+description: "Plugin v0.4.0 was DEMONSTRATED 3/3 and unreachable. The packaging was fine; the operator's clone was stale, and nothing could tell him. A release-time install L4 would have gone green that day. What is missing is a stale-clone detector in `vfkb doctor` (with its own agent-driven L4), deterministic backstops in the plugin's release gate, and an ADR-0050 that stops calling `--plugin-dir` a real surface. One constitutional question — may an unproven delivery path ship? — was extracted, put to the operator, and ratified: yes, provided the gap is named, with the disclosure enforced by a CI Brake rather than left to prose."
 status: "Proposed"
 timestamp: 2026-07-09
 ---
@@ -271,10 +271,13 @@ ADR-0050's body is **not edited** (ADR-0001). ADR-0051 states:
 > evidence that a plugin **installs**.
 >
 > **Delivery and upgrade are capabilities, distinct from the capabilities they carry.** Neither is
-> currently proven for this plugin. Every release note, ADR, and handoff MUST state that **delivery is
-> unproven** until a delivery proof exists. *(This mandates disclosure wherever delivery is described; it
-> does not license shipping. Whether an unproven delivery path may nevertheless ship is deliberately NOT
-> decided here — see "The open question.")*
+> currently proven for this plugin.
+>
+> **ADR-0050's "declared done or shipped" governs claims, not existence** (operator ruling, 2026-07-09;
+> Reading B). Delivery was never *claimed* proven, so releases may continue — but **the violation is
+> silence.** Every release note, ADR, and handoff MUST state that **delivery is unproven** until a
+> delivery proof exists, and that disclosure MUST be enforced by the release-gate Brake, never left to
+> prose. This relaxes a rule marked non-negotiable; it is relaxed by explicit ruling, on the record.
 >
 > **Corollary — the quiet-success trap.** Where a delivery failure presents as a *successful* run lacking
 > the capability (exit 0, `is_error: false`, "Unknown command"), the predicate MUST be a content assertion
@@ -335,39 +338,54 @@ them at cost:
 - Cost estimate: `3×1 (fresh) + 3×2 (upgrade, pre+post) + 3×1 (contrast)` ≈ **12 live sessions** per
   release.
 
-## The open question — for the operator, not for this RFC
+## The constitutional question — put to the operator, and answered
 
-An earlier draft settled this quietly inside the `--plugin-dir` amendment. It should not have. The
-question is constitutional, and it is yours.
+An earlier draft settled this quietly inside the `--plugin-dir` amendment. It should not have; the
+question is constitutional. It was therefore extracted, put to the operator explicitly, and **ratified
+on 2026-07-09**.
 
 **ADR-0050:44 says: *"No user-facing capability may be declared done or shipped without a full
 sandboxed, agent-driven L4."*** Installing and upgrading the plugin is something users do. By this
 RFC's own analysis, delivery has **no** L4 and never has. Two readings follow, and ADR-0050's text does
 not choose between them:
 
-- **Reading A — "or shipped" binds literally.** Delivery is a user-facing capability without an L4;
-  therefore **no further plugin release may be cut** until the gated `install-path` L4 exists and is
-  DEMONSTRATED. This is the strict reading of a rule the operator wrote, hours earlier, expressly to
-  stop shipping-without-proof.
-- **Reading B — "or shipped" governs claims, not existence.** Delivery was never *claimed* proven; the
-  violation is silence. Releases continue, provided every release note, ADR, and handoff names the gap —
-  the precedent being ADR-0048, which ships with `hooks.json` validation recorded as an acknowledged
-  open gap rather than halting.
+| | Reading A — binds literally | **Reading B — governs claims** ✅ |
+| --- | --- | --- |
+| Next plugin release | **blocked** | allowed |
+| Precondition | `install-path` L4 DEMONSTRATED | every release note, ADR and handoff names the gap |
+| Unblocking cost | adopt `claude plugin tag` (repo has **zero tags** **[probe]**), then ~12 metered sessions | a disclosure, mechanically enforced |
+| Risk accepted | a release freeze over a defect class never observed | delivery stays unproven; we rely on disclosure holding |
+| Precedent | — | ADR-0048 / vfkb-claude-plugin#6 (`hooks.json` gap: shipped, named, open) |
 
-**Recommendation: Reading B**, because ADR-0048 already established that a named, recorded gap is
-compatible with shipping, and because Reading A halts the plugin over a defect class that has never been
-observed. But this is a **weakening of a rule marked non-negotiable**, and the amend precedents cited
-above (ADR-0016→0012, ADR-0024→0021) are ordinary ADRs — none establishes that a *constitutional*
-non-negotiable may be relaxed through the ordinary amend mechanism.
+**Operator ruling (2026-07-09): Reading B.** "Or shipped" governs *claims*, not existence. Delivery was
+never claimed proven; **the violation is silence.** Releases continue, and the gap must be named
+everywhere delivery is described. This is recorded as a decision in the brain, not merely in prose.
 
-**Therefore:** ADR-0051 does **not** decide this. If the operator ratifies Reading B, it becomes an
-explicit clause (or its own ADR-0052). If the operator ratifies Reading A, part 4's gate is void and the
-`install-path` L4 blocks the next plugin release — **not immediately buildable**, since it is itself
-blocked on adopting `claude plugin tag` (part 4). Reading A therefore freezes plugin releases until tagging is adopted
-*and* the L4 is built and DEMONSTRATED. That work is finite and controllable — `claude plugin tag`
-already exists **[probe]** — but it is not zero, and the cost should be weighed now, not discovered later. **The rest of
-this RFC stands either way** — the detector, the release-gate fix, and striking `--plugin-dir` are
-unaffected by the choice.
+**This is a weakening of a rule marked non-negotiable, and it is recorded as such.** The amend
+precedents cited above (ADR-0016→0012, ADR-0024→0021) are ordinary ADRs; none establishes that a
+*constitutional* non-negotiable may be relaxed through the ordinary amend mechanism. This one is
+relaxed by explicit operator ruling, on the record, with the reasoning above — not by inference, and
+not silently.
+
+### Reading B needs a Brake, or it is just a promise
+
+vfkb's own founding lesson — the one that produced ADR-0050 the same morning — is that **a prose rule
+with no Brake gets skipped**. Reading B *is* a prose rule: "always disclose." Left there, it decays the
+first time someone cuts a release in a hurry, which is precisely how v0.4.0 shipped on a smoke check.
+
+So the disclosure gets a deterministic, CI-time enforcement, folded into part 2's `release-gate.mjs`:
+
+- The plugin repo carries a machine-readable delivery-status assertion (a `deliveryProof` field in
+  `plugin.json`, or a committed `DELIVERY-STATUS.json`), valued `unproven` or naming the record that
+  proves it.
+- `release-gate` **fails** when the value is `unproven` **and** the release-notes / README text does not
+  contain the disclosure string, **and** fails when the value claims a proof whose record is absent or
+  version-mismatched.
+- It flips to `proven` automatically and only when `scenarios/records/install-path.json` lands
+  DEMONSTRATED and version-bound.
+
+Then Reading B is not a promise; the release cannot be cut with the gap unnamed. This is the same
+architecture as the existing Brake — verify committed evidence in CI, never trust prose.
 
 ## Scope and non-goals
 
@@ -461,8 +479,8 @@ parts, not that the capability works in its real use-case."* Hence `doctor-stale
 
 ## Definition of Done
 
-Until every item holds, the honest status is **"built, NOT yet verified."** These are the six things an
-implementer can discharge; the seventh thing this RFC needs is a ratification, recorded below them.
+Until every item holds, the honest status is **"built, NOT yet verified."** All seven are discharged by building; the
+constitutional question they used to depend on was ratified separately, before acceptance.
 
 1. *(vfkb)* `doctor` honors `CLAUDE_CONFIG_DIR`, with a unit test that goes red on a fixture whose
    registry lives outside `$HOME`.
@@ -485,10 +503,14 @@ implementer can discharge; the seventh thing this RFC needs is a ratification, r
    roles shape in the same PR.
 5. *(plugin)* The structural packaging check exists and is **seen going red** on a tree with a declared
    skill removed.
-6. *(vfkb)* ADR-0051 committed; ADR-0050's status-pointer line — and nothing else in its body — records
+6. *(plugin)* The delivery-status Brake exists: `release-gate.mjs` **fails** when delivery is `unproven`
+   and the disclosure string is absent, and **fails** when a claimed proof has no matching DEMONSTRATED,
+   version-bound record. **Both failures are seen**, not assumed.
+7. *(vfkb)* ADR-0051 committed; ADR-0050's status-pointer line — and nothing else in its body — records
    the amendment; CLAUDE.md's DoD section updated to match, including the scoped staleness corollary and
    the standing "delivery is unproven" disclosure.
-**Ratification, separate from the DoD.** The open question is the operator's, and no implementer can
-discharge it by building. It is therefore *not* a DoD item. It must be answered before ADR-0051 is
-accepted — as an explicit clause, or as its own ADR-0052. If Reading A is ratified, part 4's gate is void
-and the DoD above grows the `install-path` L4 as a blocking item.
+**Ratification (done, 2026-07-09).** The constitutional question was the operator's, not an
+implementer's, so it was never a DoD item. It was put explicitly and answered: **Reading B** — releases
+continue, silence is the violation, and the disclosure is enforced by the Brake in DoD item 6. Had
+Reading A been chosen, part 4's gate would be void and the `install-path` L4 would become a blocking
+DoD item. It was not.
