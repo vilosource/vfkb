@@ -1,7 +1,7 @@
 ---
 type: RFC
-title: "RFC-024: Delivery and upgrade are capabilities — amend ADR-0050's `--plugin-dir` clause, prove the upgrade path, and teach doctor to compare currency"
-description: "Plugin v0.4.0 was DEMONSTRATED 3/3 and simultaneously unreachable. ADR-0050 explicitly names `--plugin-dir` as an acceptable real surface; that clause is wrong and this RFC amends it. Proposes an install-path L4 with an upgrade arm, a currency check in doctor, and an honest account of what each can and cannot detect."
+title: "RFC-024: Delivery and upgrade are capabilities — amend ADR-0050's `--plugin-dir` clause and ADR-0022's DEMONSTRATED rule, prove the upgrade path, and teach doctor to compare currency"
+description: "Plugin v0.4.0 was DEMONSTRATED 3/3 and simultaneously unreachable. ADR-0050 explicitly names `--plugin-dir` as an acceptable real surface; that clause is wrong and this RFC amends it, along with ADR-0022's single-contrast DEMONSTRATED rule. Proposes an install-path L4 with an upgrade arm, a currency check in doctor, a corrected release-gate, and an honest account of what each can and cannot detect."
 status: "Proposed"
 timestamp: 2026-07-09
 ---
@@ -16,13 +16,27 @@ timestamp: 2026-07-09
   counts as the full gate" (line 64) explicitly prescribes ``--plugin-dir`` as an acceptable real
   surface: *"driving the capability through the real surface a user will use (for plugin capabilities:
   a real plugin load, e.g. `--plugin-dir`; …)"*. That example is **wrong** and is the proximate cause
-  of the incident below. Per [ADR-0001](../adr/ADR-0001-record-decisions-as-adrs.md) a decided ADR is *"never
-  edited; a change of mind is a new ADR that supersedes the old one"* — so on acceptance this becomes
-  **ADR-0051**, ADR-0050's body stays untouched, and only ADR-0050's status-pointer line gains
-  *"amended by ADR-0051"* (the same lawful move ADR-0048 used).
+  of the incident below.
+
+  **Governance — why amend, not supersede.** [ADR-0001](../adr/ADR-0001-record-decisions-as-adrs.md)
+  says a decided ADR is *"never edited."* `docs/adr/README.md:19,21` supplies the lawful follow-on
+  status `Amended by ADR-XXXX` for *"refine without replacing (the original still holds, evidence or
+  scope changed)"*, and notes *"the only permitted edit to a decided ADR is this one-line status
+  pointer."* Precedent: **ADR-0016 amends ADR-0012**; **ADR-0024 amends ADR-0021**. ADR-0048 supplies
+  the *test*, not the precedent — its §"Why supersede, not amend" holds that supersede is for a mandate
+  *withdrawn entirely*, amend for a decision that still holds with changed scope or evidence.
+  ADR-0050's operative decision — the non-negotiable L4 gate — **still holds in full**; one
+  illustrative example inside it is wrong. By ADR-0048's own criterion, **amend is the honest label.**
+  On acceptance this becomes **ADR-0051**; ADR-0050's body stays untouched and only its status-pointer
+  line gains *"Amended by ADR-0051."* (ADR-0048 itself *superseded* ADR-0028 — the opposite move, for
+  a withdrawn mandate. An earlier draft of this RFC miscited it as amend precedent; both round-2
+  reviewers caught it.)
+
+  This RFC also **amends [ADR-0022](../adr/ADR-0022-l4-evaluation-methodology.md)**, whose §5 defines
+  DEMONSTRATED against a *single* contrast at ≥2/3. The three-arm criterion below is a methodology
+  extension, so ADR-0022's status-pointer line likewise gains *"Amended by ADR-0051."* ADR-0022 §8
+  (credential handling) is unchanged — and was violated by this RFC's own first draft.
   [ADR-0029](../adr/ADR-0029-sandbox-proven-definition-of-done.md) (the DoD),
-  [ADR-0022](../adr/ADR-0022-l4-evaluation-methodology.md) (≥2/3 DEMONSTRATED; §8 credential
-  handling — which this RFC's first draft violated),
   [ADR-0023](../adr/ADR-0023-scenario-contract-first.md),
   [ADR-0045](../adr/ADR-0045-vfkb-claude-code-plugin.md) (the distribution mechanism),
   [ADR-0030](../adr/ADR-0030-consumer-integration-and-distribution.md) /
@@ -31,6 +45,17 @@ timestamp: 2026-07-09
   scoping in "What this does not close"),
   [ADR-0049](../adr/ADR-0049-session-start-handoff-pinning.md) / [RFC-023](RFC-023-session-start-briefing.md)
   (`/vfkb:brief`, the capability that exposed the gap).
+
+## Repos and where each artifact lands
+
+This RFC spans two repos and two PR flows. Unqualified paths are ambiguous, so they are qualified
+throughout — and the reader should note that the one committed `[record]` cited below **does not exist
+in this repo**:
+
+| Path | Repo |
+| --- | --- |
+| `src/doctor.ts`, `docs/**` | **vfkb** (this repo) |
+| `scenarios/brief-skill.mjs`, `scenarios/release-gate.mjs`, `scenarios/records/brief-skill.json`, `scenarios/install-path.mjs` | **vfkb-claude-plugin** |
 
 ## Evidence status of this document
 
@@ -41,7 +66,7 @@ NOT this gate"* — these are **single-run, unrecorded probe observations**, suf
 done. They are labelled **[probe]** throughout. The one exception is `scenarios/records/brief-skill.json`,
 a committed record, cited as **[record]**.
 
-## Context — an observed failure, one day after the Brake was built
+## Context — an observed failure, hours after the Brake was built
 
 Hours after ADR-0050 made the L4 DoD constitutional and mechanically enforced, the operator restarted
 Claude Code to use `/vfkb:brief`, shipped in plugin v0.4.0. Its L4 record says `demonstrated: true`,
@@ -181,6 +206,11 @@ Correctness requirements the design must satisfy (each is a real defect found in
   `details` printed `0.4.0` while `plugin update` simultaneously reported *"updated from 0.3.0 to
   0.4.0"* **[probe]**. Read `installed_plugins.json`.
 
+**An asymmetry worth naming.** Axis (b) is built on a *mechanism* argument (the `--scope user` default)
+rather than an observed instance — the same standard of evidence this RFC deems insufficient to justify
+the bundle probe below. It is admitted here because it is deterministic, offline, cheap, and rides the
+same code path as axis (a), which *is* evidence-backed. Reasonable people could gate it too.
+
 **Bundle consumers (ADR-0030/0031) are out of scope.** The engine carries `ENGINE_VERSION` /
 `ENGINE_COMMIT` (`doctor.ts:91`) but there is no registry to compare against. No bundle consumer has
 been *observed* running a stale bundle, so per CLAUDE.md's evidence-gated rule (*"Don't build
@@ -230,12 +260,23 @@ Therefore:
 
 > **PASS ⇔ the sentinel appears in `result` AND `modelUsage` contains a `haiku` model.**
 
-The outer model is pinned non-Haiku, so Haiku can only be the skill's `context: fork`. If the skill is
-absent no fork occurs, so `modelUsage` is `[]` **[probe]** — and a brain-reading agent cannot forge it.
-Note that `haiku` **alone** does not discriminate: `brief-skill.json`'s contrast arm shows
+(`modelUsage` is the field name in `claude -p --output-format json`; `brief-skill.json` persists its
+keys as `models` per trial. The new record must name whichever it emits.)
+
+The outer model is pinned non-Haiku, so Haiku should only arise from the skill's `context: fork`. If
+the skill is absent no fork occurs, so `modelUsage` is `[]` **[probe]** — and a brain-reading agent
+cannot forge it. Note `haiku` **alone** does not discriminate: `brief-skill.json`'s contrast arm shows
 `haiku: true` with `sentinel: false` **[record]**, because there the skill existed and forked over a
 handoff-less brain. Only the conjunction is sound, and only for *this* scenario's failure mode.
 Assert **neither** exit code **nor** `is_error`.
+
+**Residual hazard in the conjunction.** The runs grant full tools under
+`--dangerously-skip-permissions`. An agent told the command is unknown could read `entries.jsonl` for
+the sentinel *and* spawn a `Task` subagent that happens to run on Haiku — populating `modelUsage`
+without any skill fork, and forging both conjuncts. The single stale-arm probe (`modelUsage: []`)
+shows an agent that gave up, not one that improvised; N=1 does not cover the improviser. The scenario
+MUST therefore disallow subagent spawning in the arms (restrict the tool set) or pin any subagent to a
+non-Haiku model, and DoD item 2 requires observing `contrast` hold `modelUsage == []` across trials.
 
 **DEMONSTRATED for a three-arm scenario — an explicit extension of ADR-0022, not a reading of it.**
 ADR-0022 §5 defines DEMONSTRATED against a *single* contrast at ≥2/3. This scenario needs a composite,
@@ -244,7 +285,22 @@ so it is defined here and must be ratified as part of this RFC:
 > `fresh` ≥ 2/3 **and** `upgrade` ≥ 2/3 **and** `contrast` == 0/3.
 
 `contrast == 0` (not merely "lower") because with LLM noise a 2-vs-1 split is a one-trial margin.
-**Cost: 3 arms × 3 trials = 9 live `claude -p` sessions per release**, plus credential handling.
+
+**Cost — and the pre-assert this exposes.** The `upgrade` arm's "capability absent" state cannot be
+established by an exit code (see the quiet-success corollary), so it requires its own live session.
+Each `upgrade` trial is therefore **two** `claude -p` runs, pre and post. Real cost per release:
+`3×1 (fresh) + 3×2 (upgrade) + 3×1 (contrast)` = **12 live sessions**, not the 9 an earlier draft
+claimed. If the pre-assert were downgraded to a non-live check, the arm would lose the RED→green
+evidence that is its entire purpose and collapse into `fresh` plus an upgrade command.
+
+**The post-assert is a new process, and that is the "restart."** `plugin update` prints *"Restart to
+apply changes."* The arm's validity depends on a fresh `claude -p` resolving the new version without an
+interactive restart. On-disk evidence says it will: after `plugin update --scope project`,
+`installed_plugins.json` reads `0.4.0`, `installPath` points at `cache/vfkb/vfkb/0.4.0`, and that cache
+dir contains the `brief` skill **[probe]**. But **the post-upgrade re-invocation itself has never been
+observed** — the wired column of the trap table was a clean install at v0.4.0, not a post-`update`
+in-place run. This is the RFC's central pivot and its least-evidenced step; DoD item 2 makes observing
+it mandatory.
 
 **Credentials — the first draft violated existing doctrine.** It proposed copying the whole
 `~/.claude/.credentials.json` into a host-side config dir. ADR-0022 §8 already settled this: copy
@@ -252,9 +308,18 @@ so it is defined here and must be ratified as part of this RFC:
 token refresh cannot disturb the host session's credential."* The full-file copy also carries
 `mcpOAuth`. Worse, a host-side copy shares the refresh token: **if the sandbox session refreshes, the
 server may rotate the token and invalidate the operator's live credential.** The scenario MUST follow
-ADR-0022 §8 — `claudeAiOauth` only, containerised, scrubbed in a `finally`. *(Disclosure: the probes
-behind this RFC copied the full file to a host dir. No breakage was observed, but the risk was real
-and the rule already existed.)*
+ADR-0022 §8 — `claudeAiOauth` only, containerised, scrubbed in a `finally`.
+
+> **Disclosure and remediation.** The probes behind this RFC copied the **entire**
+> `~/.claude/.credentials.json` (including `mcpOAuth`) into two sandbox config dirs under the session
+> scratchpad, and ran two authenticated `claude -p` sessions against them. This violated ADR-0022 §8,
+> which already forbade it. Both copies were deleted (`find … -name .credentials.json -delete`,
+> verified zero remaining) and the scratch dirs removed. **"No breakage was observed" is not the same
+> as "no rotation occurred"** — a silent server-side refresh-token rotation is not detectable by
+> inspecting the host file. Recommended operator action: if anything about the live session's auth
+> misbehaves, re-authenticate (`/login`); rotation, if it happened, is recoverable and low-impact on a
+> single-user machine. Recorded here rather than omitted, because an RFC arguing that unobserved
+> claims are not evidence cannot quietly assert its own safety.
 
 ### 3. Wire it into the Brake — and fix what the Brake actually checks
 
@@ -270,9 +335,25 @@ two ways:
 
 So the change is `REQUIRED = ['brief-skill', 'install-path']` **plus** teaching the gate to recompute
 the verdict from the per-arm counts rather than trust the boolean, and to handle both record shapes.
-`release-gate` is already a required status check on the plugin's `main` (`gh api
-…/branches/main/protection` → `["release-gate"]`) **[probe]**, so once the gate is honest, the binding
-is real.
+
+To make "handle both record shapes" implementable rather than aspirational, the record schema is
+pinned here. Every record carries `arms` as an object of **named arms with an explicit role**, so the
+gate never has to guess which arm is the contrast:
+
+```jsonc
+{ "scenario": "install-path", "pluginVersion": "0.5.0", "trials": 3,
+  "arms": {
+    "fresh":    { "role": "positive", "passed": 3 },
+    "upgrade":  { "role": "positive", "passed": 3 },
+    "contrast": { "role": "contrast", "passed": 0 } } }
+```
+
+Gate verdict, recomputed and never read from the record: **every `positive` arm ≥ ⌈2·trials/3⌉ and
+every `contrast` arm == 0.** `brief-skill.json`'s existing flat `wired`/`contrast` shape is migrated to
+this form (or read through a shim); without that, a lazy implementation hardcodes `brief-skill` and
+silently no-ops on `install-path`. `release-gate` is already a required status check on the plugin's
+`main` (`gh api …/branches/main/protection` → `["release-gate"]`) **[probe]**, so once the gate is
+honest, the binding is real.
 
 ### 4. Amend ADR-0050 (this RFC becomes ADR-0051)
 
@@ -360,8 +441,11 @@ the sentinel even when the skill is absent. Hence the `sentinel AND haiku` conju
 
 ## Consequences
 
-- ADR-0050 — a *constitutional* ADR — is amended eleven days into its life. That is the system working:
-  the rule was falsified by evidence and the amendment carries the evidence.
+- ADR-0050 — a *constitutional* ADR — is amended **the same day it was accepted** (both carry
+  `timestamp: 2026-07-09`). That is the system working, uncomfortably fast: the rule was falsified by
+  evidence within hours, and the amendment carries the evidence. *(An earlier draft of this section
+  claimed "eleven days," a number with no source. It was invented. Caught in round-2 review — inside
+  the very document arguing that asserted numbers are not evidence.)*
 - A plugin version bump without a fresh install-**and-upgrade** proof becomes unmergeable, once the
   gate is fixed to recompute the verdict rather than trust a boolean.
 - Releases cost 9 live agent sessions plus credential handling. Bounded, once per release.
@@ -379,17 +463,21 @@ the sentinel even when the skill is absent. Hence the `sentinel AND haiku` conju
 This RFC's build lands only when all of the following hold. Until then its honest status is
 **"built, NOT yet verified."**
 
-1. `scenarios/install-path.mjs` committed, with `fresh`, `upgrade`, `contrast` arms and **no**
-   `--plugin-dir`.
-2. Run for real: `fresh` ≥2/3, `upgrade` ≥2/3, `contrast` == 0/3; `scenarios/records/install-path.json`
-   committed with `pluginVersion` equal to the released version.
-3. `modelUsage` in the passing arms records the Haiku fork — observed, not asserted.
-4. Credentials handled per ADR-0022 §8 (`claudeAiOauth` only, containerised, scrubbed in `finally`).
-5. `release-gate.mjs` recomputes DEMONSTRATED from per-arm counts (does not trust `rec.demonstrated`),
-   handles both record shapes, and `REQUIRED` includes `install-path`. **The Brake is seen going red**
-   on a stale record and on a `demonstrated: true` record with a failing arm.
-6. `doctor` honors `CLAUDE_CONFIG_DIR`; the axis-(b) check uses the two-hop manifest resolution and a
-   semver compare, with deterministic unit tests that go red on a stale-registry fixture, on a
-   `0.10.0`-vs-`0.9.0` fixture, and on a foreign-scope fixture.
-7. ADR-0051 is committed; ADR-0050's status-pointer line — and nothing else in its body — records the
-   amendment; CLAUDE.md's DoD section is updated to match.
+1. *(plugin)* `scenarios/install-path.mjs` committed, with `fresh`, `upgrade`, `contrast` arms and
+   **no** `--plugin-dir`. Arms disallow subagent spawning (or pin subagents non-Haiku).
+2. *(plugin)* Run for real: `fresh` ≥2/3, `upgrade` ≥2/3, `contrast` == 0/3;
+   `scenarios/records/install-path.json` committed with `pluginVersion` equal to the released version.
+   Two observations are mandatory because they are the RFC's least-evidenced claims:
+   (a) the `upgrade` arm's **post-update `claude -p` resolves the new version without an interactive
+   restart**; (b) `contrast` holds `modelUsage == []` across all trials (no forged Haiku).
+3. *(plugin)* The Haiku fork appears in the passing arms' `modelUsage` — observed, not asserted.
+4. *(plugin)* Credentials handled per ADR-0022 §8 (`claudeAiOauth` only, containerised, scrubbed in
+   `finally`).
+5. *(plugin)* `release-gate.mjs` recomputes the verdict from per-arm counts and roles (never reads
+   `rec.demonstrated`), handles both record shapes, and `REQUIRED` includes `install-path`. **The Brake
+   is seen going red** on a stale record *and* on a `demonstrated: true` record with a failing arm.
+6. *(vfkb)* `doctor` honors `CLAUDE_CONFIG_DIR`; the axis-(b) check uses the two-hop manifest
+   resolution and a semver compare, with deterministic unit tests that go red on a stale-registry
+   fixture, a `0.10.0`-vs-`0.9.0` fixture, and a foreign-scope fixture.
+7. *(vfkb)* ADR-0051 committed; the status-pointer lines of **both ADR-0050 and ADR-0022** — and
+   nothing else in either body — record the amendment; CLAUDE.md's DoD section updated to match.
