@@ -436,6 +436,23 @@ function trustGlyph(e: KnowledgeEntry): string {
   return `${v}${t}`;
 }
 
+// --- Last-handoff pin (ADR-0049): the read side of Track 8 (ADR-0033). Selection is a
+// filter, not an inference: newest-by-`updated` among injectable entries tagged
+// handoff/next. A superseded/archived/expired handoff ages out via isInjectable.
+export function latestHandoff(
+  all: KnowledgeEntry[] = readAll(),
+  today = nowIso().slice(0, 10),
+  superseded: Set<string> = supersededIds(all),
+): KnowledgeEntry | null {
+  let latest: KnowledgeEntry | null = null;
+  for (const e of all) {
+    if (!(e.tags.includes('handoff') || e.tags.includes('next'))) continue;
+    if (!isInjectable(e, today, superseded)) continue;
+    if (!latest || e.updated > latest.updated) latest = e;
+  }
+  return latest;
+}
+
 export function renderContextBundle(project = defaultProject(), budget = SESSION_BUDGET_CHARS): string {
   const all = readAll();
   const today = nowIso().slice(0, 10);
@@ -458,12 +475,21 @@ export function renderContextBundle(project = defaultProject(), budget = SESSION
   }
   const constitutionalIds = new Set(constitution.map((c) => c.id));
 
+  // Last handoff (ADR-0049): pinned after the Constitution, never budget-dropped —
+  // otherwise the ADR-0012 type tiers budget-drop every fact under enough gotchas,
+  // and the Track 8 handoff is exactly the entry a fresh session cannot lose.
+  const handoff = latestHandoff(all, today, superseded);
+  if (handoff) {
+    body += `## Last handoff\n- [${handoff.type} ${trustGlyph(handoff)}] ${handoff.text}\n\n`;
+  }
+
   // Context Map (ADR-0006): the navigational index, always injected, never dropped.
   body += renderContextMap() + '\n\n';
 
   let dropped = 0;
   for (const e of injectable) {
     if (constitutionalIds.has(e.id)) continue; // already in the Constitution section
+    if (handoff && e.id === handoff.id) continue; // already pinned in Last handoff
     const line = `- [${e.type} ${trustGlyph(e)}] ${e.text}\n`;
     if (header.length + body.length + line.length + footer.length > budget) {
       dropped++;
