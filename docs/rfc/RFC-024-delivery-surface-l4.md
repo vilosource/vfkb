@@ -1,137 +1,86 @@
 ---
 type: RFC
-title: "RFC-024: Delivery and upgrade are capabilities — amend ADR-0050's `--plugin-dir` clause and ADR-0022's DEMONSTRATED rule, prove the upgrade path, and teach doctor to compare currency"
-description: "Plugin v0.4.0 was DEMONSTRATED 3/3 and simultaneously unreachable. ADR-0050 explicitly names `--plugin-dir` as an acceptable real surface; that clause is wrong and this RFC amends it, along with ADR-0022's single-contrast DEMONSTRATED rule. Proposes an install-path L4 with an upgrade arm, a currency check in doctor, a corrected release-gate, and an honest account of what each can and cannot detect."
+title: "RFC-024: Staleness is undetectable and delivery is unproven — build the detector, fix the Brake, amend ADR-0050's `--plugin-dir` clause, and gate the L4"
+description: "Plugin v0.4.0 was DEMONSTRATED 3/3 and unreachable. Adversarial review killed the obvious fix: a release-time install L4 would have gone GREEN on release day, because the packaging was fine and the operator's clone was stale. What is actually missing is a detector (doctor), a deterministic packaging check, and an honest ADR-0050 that stops calling `--plugin-dir` a real surface."
 status: "Proposed"
 timestamp: 2026-07-09
 ---
 
-# RFC-024: Delivery and upgrade are capabilities
+# RFC-024: Staleness is undetectable and delivery is unproven
 
 - **Status:** Proposed
 - **Date:** 2026-07-09
 - **Deciders:** operator + Claude
 - **Relates:**
-  [ADR-0050](../adr/ADR-0050-l4-dod-constitutional-brake.md) — **this RFC amends it.** ADR-0050 §"What
-  counts as the full gate" (line 64) explicitly prescribes ``--plugin-dir`` as an acceptable real
-  surface: *"driving the capability through the real surface a user will use (for plugin capabilities:
-  a real plugin load, e.g. `--plugin-dir`; …)"*. That example is **wrong** and is the proximate cause
-  of the incident below.
+  [ADR-0050](../adr/ADR-0050-l4-dod-constitutional-brake.md) — **this RFC amends it.** ADR-0050
+  §"What counts as the full gate" (line 64) prescribes ``--plugin-dir`` as an acceptable real surface:
+  *"driving the capability through the real surface a user will use (for plugin capabilities: a real
+  plugin load, e.g. `--plugin-dir`; …)"*. That example is wrong. It did **not** cause the incident
+  below — but it is why we cannot say whether delivery has ever worked.
 
-  **Governance — why amend, not supersede.** [ADR-0001](../adr/ADR-0001-record-decisions-as-adrs.md)
-  says a decided ADR is *"never edited."* `docs/adr/README.md:19,21` supplies the lawful follow-on
-  status `Amended by ADR-XXXX` for *"refine without replacing (the original still holds, evidence or
-  scope changed)"*, and notes *"the only permitted edit to a decided ADR is this one-line status
-  pointer."* Precedent: **ADR-0016 amends ADR-0012**; **ADR-0024 amends ADR-0021**. ADR-0048 supplies
-  the *test*, not the precedent — its §"Why supersede, not amend" holds that supersede is for a mandate
-  *withdrawn entirely*, amend for a decision that still holds with changed scope or evidence.
-  ADR-0050's operative decision — the non-negotiable L4 gate — **still holds in full**; one
-  illustrative example inside it is wrong. By ADR-0048's own criterion, **amend is the honest label.**
-  On acceptance this becomes **ADR-0051**; ADR-0050's body stays untouched and only its status-pointer
-  line gains *"Amended by ADR-0051."* (ADR-0048 itself *superseded* ADR-0028 — the opposite move, for
-  a withdrawn mandate. An earlier draft of this RFC miscited it as amend precedent; both round-2
-  reviewers caught it.)
+  **Governance — why amend, not supersede.**
+  [ADR-0001](../adr/ADR-0001-record-decisions-as-adrs.md) says a decided ADR is *"never edited."*
+  `docs/adr/README.md:18-20` supplies the lawful follow-on status `Amended by ADR-XXXX` — for a
+  decision one wishes *"to refine it without replacing (the original still holds, evidence or scope
+  changed)"* — and notes *"the only permitted edit to a decided ADR is this one-line status pointer."*
+  Precedent: **ADR-0016 amends ADR-0012**; **ADR-0024 amends ADR-0021**. ADR-0048 supplies the *test*,
+  not the precedent: its §"Why supersede, not amend" holds supersede is for a mandate *withdrawn
+  entirely* (as ADR-0048 did to ADR-0028), amend for a decision that still holds with changed scope or
+  evidence. ADR-0050's mandate — the non-negotiable L4 gate — **stands in full**; one illustrative
+  example inside it is wrong. Amend is the honest label. On acceptance this becomes **ADR-0051**;
+  ADR-0050's body stays untouched and only its status-pointer line gains *"Amended by ADR-0051."*
 
-  This RFC also **amends [ADR-0022](../adr/ADR-0022-l4-evaluation-methodology.md)**, whose §5 defines
-  DEMONSTRATED against a *single* contrast at ≥2/3. The three-arm criterion below is a methodology
-  extension, so ADR-0022's status-pointer line likewise gains *"Amended by ADR-0051."* ADR-0022 §8
-  (credential handling) is unchanged — and was violated by this RFC's own first draft.
   [ADR-0029](../adr/ADR-0029-sandbox-proven-definition-of-done.md) (the DoD),
+  [ADR-0022](../adr/ADR-0022-l4-evaluation-methodology.md) (≥2/3 DEMONSTRATED; §8 credential
+  handling — which this RFC's own probes violated, see Disclosure),
   [ADR-0023](../adr/ADR-0023-scenario-contract-first.md),
   [ADR-0045](../adr/ADR-0045-vfkb-claude-code-plugin.md) (the distribution mechanism),
   [ADR-0030](../adr/ADR-0030-consumer-integration-and-distribution.md) /
   [ADR-0031](../adr/ADR-0031-bootstrap-engine-resolution-guard.md) (the bundle consumer population),
-  [ADR-0048](../adr/ADR-0048-retire-wiring-smoke-gate.md) (**partially** related — see the honest
-  scoping in "What this does not close"),
+  [ADR-0048](../adr/ADR-0048-retire-wiring-smoke-gate.md) (its deferred `hooks.json` item stays open),
   [ADR-0049](../adr/ADR-0049-session-start-handoff-pinning.md) / [RFC-023](RFC-023-session-start-briefing.md)
   (`/vfkb:brief`, the capability that exposed the gap).
 
-## Repos and where each artifact lands
+## Repos, and where each artifact lands
 
-This RFC spans two repos and two PR flows. Unqualified paths are ambiguous, so they are qualified
-throughout — and the reader should note that the one committed `[record]` cited below **does not exist
-in this repo**:
+The one committed `[record]` cited below **does not exist in this repo.**
 
 | Path | Repo |
 | --- | --- |
 | `src/doctor.ts`, `docs/**` | **vfkb** (this repo) |
-| `scenarios/brief-skill.mjs`, `scenarios/release-gate.mjs`, `scenarios/records/brief-skill.json`, `scenarios/install-path.mjs` | **vfkb-claude-plugin** |
+| `scenarios/brief-skill.mjs`, `scenarios/release-gate.mjs`, `scenarios/records/brief-skill.json` | **vfkb-claude-plugin** |
 
-## Evidence status of this document
+## Evidence status
 
-Every mechanical claim below was executed during the investigation of 2026-07-09. **None of it is a
-committed L4 record.** Per ADR-0050's own standard — *"A smoke check (N=1, no committed record) is
-NOT this gate"* — these are **single-run, unrecorded probe observations**, sufficient to establish
-*constructibility* and to motivate a build, and explicitly **not** sufficient to declare anything
-done. They are labelled **[probe]** throughout. The one exception is `scenarios/records/brief-skill.json`,
-a committed record, cited as **[record]**.
+Every mechanical claim below was executed on 2026-07-09. **None of it is a committed L4 record.** Per
+ADR-0050's own standard — *"A smoke check (N=1, no committed record) is NOT this gate"* — these are
+**single-run, unrecorded probe observations**, labelled **[probe]**, sufficient to establish mechanism
+and motivate a build, insufficient to declare anything done. The one committed artifact cited is
+`scenarios/records/brief-skill.json`, labelled **[record]**.
 
-## Context — an observed failure, hours after the Brake was built
+## Context — what actually happened
 
-Hours after ADR-0050 made the L4 DoD constitutional and mechanically enforced, the operator restarted
-Claude Code to use `/vfkb:brief`, shipped in plugin v0.4.0. Its L4 record says `demonstrated: true`,
-`wired: 3/3`, `pluginVersion: "0.4.0"`, with `claude-haiku-4-5-20251001` in every wired arm's
-`modelUsage` **[record]**. That record is real; its predicate was audited and it is not an asserted
-claim.
+Hours after ADR-0050 made the L4 DoD constitutional, the operator restarted Claude Code to use
+`/vfkb:brief`, shipped in plugin v0.4.0. Its record says `demonstrated: true`, `wired: 3/3`,
+`pluginVersion: "0.4.0"`, with `claude-haiku-4-5-20251001` in every wired arm's `models` **[record]**.
+That record is real; its predicate was audited.
 
-The operator got:
+The operator got `Unknown command: /vfkb:brief`.
 
-```
-Unknown command: /vfkb:brief
-```
+**The proximate cause was staleness, not packaging.** The marketplace clone was pinned at `b0e6667`
+(v0.3.0 — `Skills (1)`, `Agents (0)`) while `origin/main` was `3aec82f`. **A Claude Code restart
+re-reads the cached install and never re-pulls the clone.** (Brain gotcha `112f75187029`.) Compounding
+it, `claude plugin update` defaults to `--scope user` and fails on a project-scope install.
 
-Both facts held at once. The skill was proven, and the skill was unreachable.
+**The packaging was never broken.** At `3aec82f`, `plugin/skills/brief/SKILL.md` and
+`plugin/agents/briefer.md` are both present on `origin/main` **[probe]**. A fresh install at release
+time would have succeeded. This single fact kills the obvious remedy, and is why this RFC does not
+propose it — see "The fix that does not work."
 
-### Root cause 1 — ADR-0050 sanctioned the wrong surface
+### Root cause 2 — nothing could tell the operator he was stale
 
-`scenarios/brief-skill.mjs:71` invokes:
-
-```js
-sh('claude', ['-p', '/vfkb:brief', '--plugin-dir', PLUGIN, ...])
-```
-
-This is not a scenario author cutting a corner. It is **exactly what ADR-0050 line 64 tells them to
-do.** `--plugin-dir` loads the plugin from a source tree, bypassing every step between a merged commit
-and a running session:
-
-| Step in the real chain | Exercised by `--plugin-dir`? |
-| --- | --- |
-| marketplace clone is fetched / advanced | **no** |
-| `marketplace.json` resolves the plugin entry (`source: "./plugin"`) | **no** |
-| version lands in `plugins/cache/<mp>/<plugin>/<version>/` | **no** |
-| `installed_plugins.json` records installPath + scope + sha | **no** |
-| session resolves the *installed* plugin at startup | **no** |
-| skill/agent/hook/MCP components register from it | partially |
-
-The v0.4.0 L4 proved the last row. Running it a hundred more times goes 100/100 while the operator
-still gets `Unknown command`. **This is not a "more trials" problem, and it is not a discipline
-problem — it is a defect in the constitutional rule itself.**
-
-### Root cause 2 — the failure is an *upgrade* failure; fresh-install proofs cannot see it
-
-The operator's marketplace clone was pinned at `b0e6667` (v0.3.0 — `Skills (1) vfkb`, `Agents (0)`)
-while `origin/main` was `3aec82f` with `plugin/skills/brief/SKILL.md`. **A restart re-reads the cached
-install and never re-pulls the clone.** (Brain gotcha `112f75187029`.)
-
-A scenario that installs into a clean `CLAUDE_CONFIG_DIR` **always resolves the newest version** and
-goes green regardless. **This RFC's own first draft proposed exactly that**, and would have passed
-while the operator was broken. See rejected alternative B.
-
-Two independent staleness axes, which fail differently and are **not** equally detectable:
-
-| axis | what is stale | offline-detectable? | caused the incident? |
-| --- | --- | --- | --- |
-| **(a)** clone behind its remote | the *source* never advanced | **no** — requires `git fetch` | **yes** |
-| **(b)** install behind the clone | clone advanced, `plugin update` didn't | **yes** | no (latent) |
-
-Axis (b) is not hypothetical: `claude plugin update <p>@<mp>` **defaults to `--scope user`** (confirmed
-from `--help`) and fails on a project-scope install. Run the documented upgrade, miss the scope flag,
-land in (b).
-
-### Root cause 3 — `vfkb doctor` reports the broken state as OK
-
-`src/doctor.ts:200-206` reads the installed version and declines to judge it (comment and `add()` call
-below are verbatim but **not contiguous** — a guard and a sentence are elided):
+`src/doctor.ts:200-206` reads the installed version and declines to judge it (comment and `add()` are
+verbatim but **not contiguous**; a guard and a sentence are elided):
 
 ```ts
 // Doctor cannot compare the vendored engine's currency — the version is
@@ -140,259 +89,222 @@ below are verbatim but **not contiguous** — a guard and a sentence are elided)
 add('plugin', 'ok', `${plugin.key} installed, version ${plugin.installed.version} (informational — currency not compared)`);
 ```
 
-Observed live today **[probe]**: `OK plugin — vfkb@vfkb installed, version 0.4.0 (informational —
-currency not compared)`. Yesterday the same line read `0.3.0`, still prefixed `OK`.
-`detectPluginWiring()` already parses the registry and holds the version; the comparison was simply
-never made.
+Live today **[probe]**: `OK plugin — vfkb@vfkb installed, version 0.4.0 (informational — currency not
+compared)`. Yesterday the same line read `0.3.0`, still prefixed `OK`. **The one tool whose job is
+"is my wiring healthy?" looked at the stale install and passed it.**
+
+### Root cause 3 — delivery has never been proven, by construction
+
+`scenarios/brief-skill.mjs:71` invokes `claude -p '/vfkb:brief' --plugin-dir <src>`. This is not a
+corner cut; it is what ADR-0050 line 64 instructs. `--plugin-dir` loads from a source tree, bypassing
+the marketplace clone, `marketplace.json` resolution (`source: "./plugin"`), the version cache,
+`installed_plugins.json`, scope, and startup resolution. So we have **no evidence, ever, that the
+plugin installs**. That is a latent gap the incident *revealed*. It is not what broke.
 
 ### The quiet-success trap
 
-Reproduced hermetically **[probe]** (isolated `CLAUDE_CONFIG_DIR`; marketplace pinned at the v0.3.0
-commit; same sandbox and sentinel):
+Reproduced hermetically **[probe]** (isolated `CLAUDE_CONFIG_DIR`, marketplace pinned at v0.3.0):
 
 | | wired (v0.4.0) | stale (v0.3.0) |
 | --- | --- | --- |
 | sentinel in `result` | **true** | false |
-| `modelUsage` | `claude-haiku-4-5-20251001` | `[]` |
+| `modelUsage` (CLI JSON field) | `claude-haiku-4-5-20251001` | `[]` |
 | `result` text | the five-section brief | `Unknown command: /vfkb:brief` |
 | `is_error` | false | **false** |
 | exit code | 0 | **0** |
 
-**A session that cannot find the command exits zero and reports `is_error: false`.** Any gate keyed on
-exit status or error flags passes the broken install silently. Only a content assertion catches it.
+**A session that cannot find the command exits zero and reports `is_error: false`.** Any check keyed on
+exit status or error flags passes a broken install silently. This constrains every gate below.
 
-## Problem statement
+## The fix that does not work
 
-ADR-0050 requires proof "through the real surface a user will use," then names an example that is not
-a surface any user uses. Two distinct capabilities were never proven for the plugin: that a user can
-**receive** it, and that an existing user can **upgrade into** it. A capability the user cannot
-receive is not shipped. A capability only *new* users receive is not shipped either.
+The obvious remedy — an `install-path` L4 that installs from the marketplace and exercises the skill —
+**would have gone green on release day.** The packaging was correct; only the operator's clone was
+stale. Worse, adversarial review surfaced two structural defects that make it unbuildable today:
+
+1. **Version-binding deadlock.** `marketplace add owner/repo` clones the default branch and cannot pin
+   a ref (`--help`: only `--scope`, `--sparse`) **[probe]**. To release v0.5.0 you need a record bound
+   to v0.5.0, but `origin/main` still holds v0.4.0 until the release merges — and `release-gate` is a
+   *required check* on that merge. The record can only be honest (proving 0.4.0, failing the gate) or
+   green (claiming 0.5.0 while proving 0.4.0) — the exact asserted-not-observed sin this RFC opposes.
+2. **No previous release to rewind to.** The upgrade arm needs "the previous release" commit. The
+   plugin repo has **zero git tags** **[probe]**; releases are untagged merge commits. A hardcoded SHA
+   rots at the next release. (`claude plugin tag` exists and would fix this — it is a prerequisite, not
+   an assumption.)
+
+And it would cost ~12 live metered sessions per release. Against CLAUDE.md:143 — **"Deterministic
+backstop > probabilistic gate"** — spending twelve LLM sessions on a gate that misses its own
+motivating bug is precisely the trade the doctrine forbids. **The L4 is therefore gated, not built**
+(part 4).
 
 ## Proposal
 
-Four parts. Part 4 is the doctrinal fix and is the reason this becomes an ADR.
+### 1. `vfkb doctor` gains a currency check — the actual detector *(vfkb)*
 
-### 1. `vfkb doctor` compares currency — with an honest account of what it can detect
+This is the only part that addresses the incident.
 
-Two checks, matching the two axes. **Neither is a Brake**; doctor is the consumer-facing *detector*.
+- **Axis (a) — clone behind remote. The real detector.** `git fetch` in the marketplace's
+  `installLocation`, compare `HEAD` to `origin/<default>`. Behind → **`warn`** with the remedy. This
+  is the state the operator was in. It requires the network; offline → `skip`, never `fail`. Attempted
+  by default with a short timeout, not hidden behind a flag: a detector nobody runs detects nothing.
+- **Axis (b) — install behind clone. Deterministic, offline, `fail`.** Resolve the offered version by
+  a two-hop lookup — `known_marketplaces.json[<mp>].installLocation` →
+  `.claude-plugin/marketplace.json` → the plugin entry's `source` (`"./plugin"`) →
+  `<source>/.claude-plugin/plugin.json` **[probe]**. There is **no** `plugin.json` at the clone root; a
+  naive implementation finds nothing. Compare with the installed version from
+  `installed_plugins.json`.
 
-- **Axis (b) — offline, always run, `fail`.** Compare the installed version against the version the
-  marketplace *offers*. Resolution is a two-hop lookup, not a guess:
-  `known_marketplaces.json[<mp>].installLocation` → that dir's `.claude-plugin/marketplace.json` →
-  the plugin entry's `source` (here `"./plugin"`) → `<source>/.claude-plugin/plugin.json`.**[probe]**
-  There is **no** `plugin.json` at the clone root; a naive implementation finds nothing.
-- **Axis (a) — network, opt-in `--check-remote`, `warn`.** `git fetch` in `installLocation`, compare
-  `HEAD` to `origin/<default>`. Offline → `skip`, never `fail`. Note the clone is created **shallow**
-  **[probe]**, so history-based comparisons must not assume old commits are present.
+**Honest scope.** Axis (b) fires only for the *half-upgraded* state (clone advanced, install did not) —
+reachable exactly via the `--scope user` default trap. In the operator's failure `installed == offered
+== 0.3.0`, so **axis (b) would have passed clean.** Only axis (a) sees it, and only online. *Offline,
+vfkb cannot tell you that you are running old code.* That is inherent, and it must be stated in the
+doctor output rather than papered over.
 
-**What axis (b) cannot do — stated plainly, because the first draft oversold it.** In the operator's
-actual failure the *clone itself* was stale, so `installed == available == 0.3.0` and **axis (b)
-passes clean**. The default, offline, deterministic check **would not have caught the incident that
-motivates this RFC.** Only axis (a) detects it, and axis (a) requires the network. The honest summary
-is: *doctor cannot tell you offline whether you are running old code.* Axis (b) catches the
-half-upgraded state; axis (a) catches the incident.
+Correctness requirements, each a defect found in review:
 
-Correctness requirements the design must satisfy (each is a real defect found in the first draft):
+- **Honor `CLAUDE_CONFIG_DIR`.** `doctor.ts:98-99` derives the registry from `env.HOME` alone
+  **[probe]**; Claude Code relocates the whole config, `plugins/` included. Standalone bug; prerequisite.
+- **Semver compare, not string.** `"0.10.0" < "0.9.0"` is `true` lexicographically.
+- **Never report a foreign install.** `findInstall()` falls back to any `scope: 'user'` entry.
+- **Never use `claude plugin details` to learn the installed version.** It reports the version the
+  *marketplace offers*: after advancing a directory-source marketplace, `details` printed `0.4.0` while
+  `plugin update` simultaneously said *"updated from 0.3.0 to 0.4.0"* **[probe]**. Read
+  `installed_plugins.json`.
 
-- **Honor `CLAUDE_CONFIG_DIR`.** `doctor.ts:98-99` derives the registry from `env.HOME` alone. Claude
-  Code relocates the whole config — including `plugins/` — under `CLAUDE_CONFIG_DIR` **[probe]**. As
-  written, doctor would read the host registry even when run inside a sandbox. Fix this first; it is
-  also a standalone bug.
-- **Semver compare, not string compare.** `"0.10.0" < "0.9.0"` is `true` lexicographically.
-- **Do not report another project's install.** `findInstall()` falls back to any `scope: 'user'`
-  entry; a foreign install must not produce a `fail` for this root.
-- **Do not use `claude plugin details` to learn the installed version.** It reports the version the
-  *marketplace offers*, not the one installed: after advancing a directory-source marketplace,
-  `details` printed `0.4.0` while `plugin update` simultaneously reported *"updated from 0.3.0 to
-  0.4.0"* **[probe]**. Read `installed_plugins.json`.
-
-**An asymmetry worth naming.** Axis (b) is built on a *mechanism* argument (the `--scope user` default)
-rather than an observed instance — the same standard of evidence this RFC deems insufficient to justify
-the bundle probe below. It is admitted here because it is deterministic, offline, cheap, and rides the
-same code path as axis (a), which *is* evidence-backed. Reasonable people could gate it too.
+**Evidence symmetry.** Axis (a) is backed by an observed instance. Axis (b) is backed by a *mechanism*
+argument (the documented `--scope user` default), not an observed instance — the standard this RFC
+elsewhere calls insufficient. It is admitted because it is deterministic, offline, cheap, and shares
+axis (a)'s code path. A reviewer may reasonably gate it.
 
 **Bundle consumers (ADR-0030/0031) are out of scope.** The engine carries `ENGINE_VERSION` /
-`ENGINE_COMMIT` (`doctor.ts:91`) but there is no registry to compare against. No bundle consumer has
-been *observed* running a stale bundle, so per CLAUDE.md's evidence-gated rule (*"Don't build
-speculatively"*) this RFC proposes **no** bundle-currency probe — not even the GitHub-API comparison
-its own first draft proposed while simultaneously declaring the population out of scope. Trigger for a
+`ENGINE_COMMIT` (`doctor.ts:91`) but no registry exists to compare against. No bundle consumer has been
+*observed* running stale, so per CLAUDE.md's evidence-gated rule no probe is proposed. Trigger for a
 future RFC: an observed stale-bundle consumer.
 
-### 2. An `install-path` L4 with an *upgrade* arm (vfkb-claude-plugin)
+### 2. Deterministic backstops in the plugin's release gate *(vfkb-claude-plugin)*
 
-`scenarios/install-path.mjs`, **no `--plugin-dir` anywhere**. Three arms.
+No LLM, no auth, CI-safe. Two changes.
 
-Constructibility is established **[probe]**, and the mechanics are more constrained than the first
-draft assumed:
-
-- A **directory** source (`./path`) records `{source: "directory", installLocation: <the path itself>}` —
-  **no clone is created.** A directory-sourced arm therefore *cannot* reproduce axis (a); there is
-  nothing to be stale. The first draft's local-path upgrade arm was unbuildable for its stated purpose.
-- `file://…` is **rejected**: *"Invalid marketplace source format. Try: owner/repo, https://..., or
-  ./path."* A local bare repo cannot serve as a git source.
-- A **github** source (`owner/repo`) creates a real, **shallow** clone at
-  `<config>/plugins/marketplaces/<mp>`. Axis (a) is reproduced by `git fetch --unshallow` then
-  `git reset --hard <prev-release>` inside that clone — the operator's exact state.
-- `claude plugin install --scope project` works headlessly, but needs a project dir containing
-  `.claude/settings.json`; the sandbox must create one.
-
-Full transition, executed **[probe]**: stale clone at `b0e6667` → `install` resolves `0.3.0` →
-`marketplace update` advances the clone to `3aec82f` → `plugin update --scope project` → `0.4.0 @
-3aec82f`.
-
-**Arms:**
-
-- **`fresh`** — github source at HEAD → `marketplace add` → `install --scope project` → capability
-  **present**. Proves delivery.
-- **`upgrade`** *(the arm that would have caught this bug)* — clone rewound to the previous release →
-  `install` → capability **absent** → run the *documented* upgrade verbatim (`marketplace update`;
-  `plugin update <p>@<mp> --scope project`) → capability **present**. Proves both axes and the scope
-  flag.
-- **`contrast`** *(can-fail)* — github source at HEAD with `skills/brief/` deleted → capability
-  **absent**.
-
-**Predicate — a conjunction, because the sentinel alone is not safe.** The seeded brain contains the
-sentinel in `entries.jsonl` in *every* arm, and the run uses `--dangerously-skip-permissions` with full
-tools. An agent told `/vfkb:brief` is unknown may satisfy the apparent intent by reading
-`entries.jsonl` and emitting the sentinel anyway — a false green on the can-fail arm. (The existing
-`brief-skill` contrast avoided this only because *its* contrast brain had no handoff at all.)
-Therefore:
-
-> **PASS ⇔ the sentinel appears in `result` AND `modelUsage` contains a `haiku` model.**
-
-(`modelUsage` is the field name in `claude -p --output-format json`; `brief-skill.json` persists its
-keys as `models` per trial. The new record must name whichever it emits.)
-
-The outer model is pinned non-Haiku, so Haiku should only arise from the skill's `context: fork`. If
-the skill is absent no fork occurs, so `modelUsage` is `[]` **[probe]** — and a brain-reading agent
-cannot forge it. Note `haiku` **alone** does not discriminate: `brief-skill.json`'s contrast arm shows
-`haiku: true` with `sentinel: false` **[record]**, because there the skill existed and forked over a
-handoff-less brain. Only the conjunction is sound, and only for *this* scenario's failure mode.
-Assert **neither** exit code **nor** `is_error`.
-
-**Residual hazard in the conjunction.** The runs grant full tools under
-`--dangerously-skip-permissions`. An agent told the command is unknown could read `entries.jsonl` for
-the sentinel *and* spawn a `Task` subagent that happens to run on Haiku — populating `modelUsage`
-without any skill fork, and forging both conjuncts. The single stale-arm probe (`modelUsage: []`)
-shows an agent that gave up, not one that improvised; N=1 does not cover the improviser. The scenario
-MUST therefore disallow subagent spawning in the arms (restrict the tool set) or pin any subagent to a
-non-Haiku model, and DoD item 2 requires observing `contrast` hold `modelUsage == []` across trials.
-
-**DEMONSTRATED for a three-arm scenario — an explicit extension of ADR-0022, not a reading of it.**
-ADR-0022 §5 defines DEMONSTRATED against a *single* contrast at ≥2/3. This scenario needs a composite,
-so it is defined here and must be ratified as part of this RFC:
-
-> `fresh` ≥ 2/3 **and** `upgrade` ≥ 2/3 **and** `contrast` == 0/3.
-
-`contrast == 0` (not merely "lower") because with LLM noise a 2-vs-1 split is a one-trial margin.
-
-**Cost — and the pre-assert this exposes.** The `upgrade` arm's "capability absent" state cannot be
-established by an exit code (see the quiet-success corollary), so it requires its own live session.
-Each `upgrade` trial is therefore **two** `claude -p` runs, pre and post. Real cost per release:
-`3×1 (fresh) + 3×2 (upgrade) + 3×1 (contrast)` = **12 live sessions**, not the 9 an earlier draft
-claimed. If the pre-assert were downgraded to a non-live check, the arm would lose the RED→green
-evidence that is its entire purpose and collapse into `fresh` plus an upgrade command.
-
-**The post-assert is a new process, and that is the "restart."** `plugin update` prints *"Restart to
-apply changes."* The arm's validity depends on a fresh `claude -p` resolving the new version without an
-interactive restart. On-disk evidence says it will: after `plugin update --scope project`,
-`installed_plugins.json` reads `0.4.0`, `installPath` points at `cache/vfkb/vfkb/0.4.0`, and that cache
-dir contains the `brief` skill **[probe]**. But **the post-upgrade re-invocation itself has never been
-observed** — the wired column of the trap table was a clean install at v0.4.0, not a post-`update`
-in-place run. This is the RFC's central pivot and its least-evidenced step; DoD item 2 makes observing
-it mandatory.
-
-**Credentials — the first draft violated existing doctrine.** It proposed copying the whole
-`~/.claude/.credentials.json` into a host-side config dir. ADR-0022 §8 already settled this: copy
-**only** the `claudeAiOauth` block, into the container, *"never the live host file, so a container-side
-token refresh cannot disturb the host session's credential."* The full-file copy also carries
-`mcpOAuth`. Worse, a host-side copy shares the refresh token: **if the sandbox session refreshes, the
-server may rotate the token and invalidate the operator's live credential.** The scenario MUST follow
-ADR-0022 §8 — `claudeAiOauth` only, containerised, scrubbed in a `finally`.
-
-> **Disclosure and remediation.** The probes behind this RFC copied the **entire**
-> `~/.claude/.credentials.json` (including `mcpOAuth`) into two sandbox config dirs under the session
-> scratchpad, and ran two authenticated `claude -p` sessions against them. This violated ADR-0022 §8,
-> which already forbade it. Both copies were deleted (`find … -name .credentials.json -delete`,
-> verified zero remaining) and the scratch dirs removed. **"No breakage was observed" is not the same
-> as "no rotation occurred"** — a silent server-side refresh-token rotation is not detectable by
-> inspecting the host file. Recommended operator action: if anything about the live session's auth
-> misbehaves, re-authenticate (`/login`); rotation, if it happened, is recoverable and low-impact on a
-> single-user machine. Recorded here rather than omitted, because an RFC arguing that unobserved
-> claims are not evidence cannot quietly assert its own safety.
-
-### 3. Wire it into the Brake — and fix what the Brake actually checks
-
-`scenarios/release-gate.mjs` reads only `rec.demonstrated`, `rec.pluginVersion`, and prints
-`rec.wired`/`rec.trials`. **The first draft's claim that this is a "one-line change" was wrong**, in
-two ways:
-
-1. A three-arm record has no `wired` field, so the gate would log the literal `DEMONSTRATED
-   undefined/3`. Cosmetic, but it is a lie in the CI log.
-2. More seriously, **the gate trusts a self-asserted `demonstrated` boolean.** A record with
-   `demonstrated: true` and `fresh: 1/3` passes. The gate enforces *version-binding*, not the
-   criterion. Saying it makes a bad release "mechanically impossible" overstates it.
-
-So the change is `REQUIRED = ['brief-skill', 'install-path']` **plus** teaching the gate to recompute
-the verdict from the per-arm counts rather than trust the boolean, and to handle both record shapes.
-
-To make "handle both record shapes" implementable rather than aspirational, the record schema is
-pinned here. Every record carries `arms` as an object of **named arms with an explicit role**, so the
-gate never has to guess which arm is the contrast:
+**2a. The gate must stop trusting a self-asserted boolean.** `scenarios/release-gate.mjs` reads
+`rec.demonstrated`, `rec.pluginVersion`, and prints `rec.wired`/`rec.trials`. A record with
+`demonstrated: true` and `wired: 1/3` **passes**. The gate enforces version-binding, not the criterion.
+Fix: recompute the verdict from per-arm counts. To make that implementable, records adopt named arms
+with explicit roles — note `brief-skill.json` already uses `arms` for *arrays of trial objects*, so
+this is a **breaking shape change**, and `brief-skill.json` must be migrated, not shimmed:
 
 ```jsonc
-{ "scenario": "install-path", "pluginVersion": "0.5.0", "trials": 3,
-  "arms": {
-    "fresh":    { "role": "positive", "passed": 3 },
-    "upgrade":  { "role": "positive", "passed": 3 },
-    "contrast": { "role": "contrast", "passed": 0 } } }
+{ "scenario": "brief-skill", "pluginVersion": "0.5.0", "trials": 3,
+  "arms": { "wired": { "role": "positive", "passed": 3 },
+            "contrast": { "role": "contrast", "passed": 0 } } }
 ```
 
-Gate verdict, recomputed and never read from the record: **every `positive` arm ≥ ⌈2·trials/3⌉ and
-every `contrast` arm == 0.** `brief-skill.json`'s existing flat `wired`/`contrast` shape is migrated to
-this form (or read through a shim); without that, a lazy implementation hardcodes `brief-skill` and
-silently no-ops on `install-path`. `release-gate` is already a required status check on the plugin's
-`main` (`gh api …/branches/main/protection` → `["release-gate"]`) **[probe]**, so once the gate is
-honest, the binding is real.
+Verdict, recomputed and never read from the record: **every `positive` arm ≥ ⌈2·trials/3⌉ and every
+`contrast` arm == 0.**
 
-### 4. Amend ADR-0050 (this RFC becomes ADR-0051)
+**2b. A structural packaging check.** Assert that every component the plugin *declares* is present in
+the tree that ships: each `skills/<name>/SKILL.md`, each `agents/<name>.md` referenced by a skill's
+`agent:` frontmatter, `hooks/hooks.json` parses, `.mcp.json` parses, and the vendored bundles exist and
+are non-empty. This is a deterministic unit test. It catches "released without the skill" — the class
+of defect `--plugin-dir` masks — at zero metered cost, in CI, on every PR. It does **not** prove the
+plugin installs; nothing deterministic can. It is the backstop doctrine demands before reaching for a
+probabilistic gate.
+
+`release-gate` is already a required status check on the plugin's `main` (`gh api
+…/branches/main/protection` → `["release-gate"]`) **[probe]**.
+
+### 3. Amend ADR-0050 *(vfkb)* — this RFC becomes ADR-0051
 
 ADR-0050's body is **not edited** (ADR-0001). ADR-0051 states:
 
 > **Amends ADR-0050.** Strike `--plugin-dir` as an example of "the real surface a user will use." A
-> plugin loaded with `--plugin-dir` is a *development* surface. It proves the capability and **not**
-> its delivery, and may not be cited as satisfying the gate **for a release**. It remains correct for
-> the inner loop and for per-capability L4s that are not the release canary.
+> plugin loaded with `--plugin-dir` is a *development* surface: it proves the capability and **not**
+> its delivery. It remains correct for the inner loop and for per-capability L4s. It may not be cited
+> as evidence that a plugin **installs**.
 >
-> **Delivery is a capability; upgrade is a capability distinct from install.** For anything
-> distributed to a user, a release proof must traverse the **delivery surface** (installed by the
-> mechanism the user installs it by, in an isolated environment, then exercised) and the **upgrade
-> surface** (an installation of the *previous* release, advanced by the *documented upgrade
-> procedure*, then exercised). A proof that installs into a clean environment proves delivery and
-> **not** upgrade.
+> **Delivery is a capability, and upgrade is a capability distinct from install.** Neither is currently
+> proven for this plugin. Until a delivery proof exists, the honest status of "the plugin installs" is
+> **unproven** — and ADRs, release notes, and handoffs must say so rather than inferring it from a
+> `--plugin-dir` L4.
 >
-> **Corollary — the quiet-success trap.** Where the delivery failure mode is a *successful* run that
-> merely lacks the capability (exit 0, `is_error: false`, "Unknown command"), the predicate MUST be a
+> **Corollary — the quiet-success trap.** Where a delivery failure presents as a *successful* run
+> lacking the capability (exit 0, `is_error: false`, "Unknown command"), the predicate MUST be a
 > content assertion over the output. Exit status and error flags are not admissible evidence of
 > delivery.
+>
+> **Corollary — a release-time gate cannot detect consumer staleness.** A correct release can be
+> unreachable because the consumer's clone never advanced. Staleness is a *detection* problem, owned by
+> `vfkb doctor`, not a gate problem. Do not build a release gate to catch it.
 
-**Scope discipline.** Not every capability needs an install-path L4 — that is a per-feature tax for a
-per-release risk. Delivery and upgrade are proven **once per release** by a single canary. Every other
-capability's L4 then legitimately tests the capability rather than the chain, and `--plugin-dir` is
-fine for those.
+This RFC does **not** amend ADR-0022. Its ≥2/3 single-contrast rule is untouched, because the
+three-arm scenario that would have extended it is gated below rather than built.
+
+### 4. The `install-path` L4 — designed, **gated**, not built *(vfkb-claude-plugin)*
+
+Per CLAUDE.md's evidence-gated rule (*"Don't build speculatively — an RFC decides the shape; the build
+triggers on observed evidence or an explicit request"*), the delivery L4 is **specified and parked**.
+
+**Trigger:** a delivery or upgrade defect that part 2b's structural check cannot see — e.g. the plugin
+installs but fails to load, a hook path breaks only under the installed layout, or an upgrade leaves a
+mixed-version cache. Or an explicit operator request.
+
+**Prerequisites, both blocking:** (i) `claude plugin tag` adopted so "the previous release" is
+resolvable; (ii) a way to bind a record to an unreleased version — a `ref`-pinned marketplace source,
+or running the scenario post-merge and decoupling the gate's version binding.
+
+**Design, and the traps found while probing it** — recorded so the eventual builder does not rediscover
+them at cost:
+
+- Arms: `fresh` (install from marketplace, capability present), `upgrade` (install previous release →
+  capability absent → `marketplace update` → `plugin update --scope project` → capability present),
+  `contrast` (capability removed → absent). The full transition was executed: stale clone at `b0e6667`
+  → install resolves `0.3.0` → `marketplace update` advances the clone to `3aec82f` →
+  `plugin update --scope project` → `0.4.0 @ 3aec82f` **[probe]**.
+- A **directory** source records `{source: "directory", installLocation: <the path itself>}` and creates
+  **no clone** — it cannot model a stale clone **[probe]**. `file://…` is **rejected** *("Invalid
+  marketplace source format. Try: owner/repo, https://..., or ./path")* **[probe]**. A **github** source
+  clones **shallowly**, so rewinding needs `git fetch --unshallow` first **[probe]**.
+- `claude plugin install --scope project` works headlessly but needs a project dir containing
+  `.claude/settings.json`; installing at project scope **auto-writes** `enabledPlugins` **[probe]**.
+- `plugin update` prints *"Restart to apply changes."* Whether a fresh `claude -p` suffices as that
+  restart is **unobserved**; on-disk state after update (`installed_plugins.json` → `0.4.0`, cache dir
+  containing `brief`) suggests yes **[probe]**. This is the design's least-evidenced step.
+- The `contrast` arm must delete **both** `skills/brief/` and `agents/briefer.md`. Deleting only the
+  skill leaves the Haiku briefer agent installed and `Task`-spawnable, which could forge a Haiku entry
+  in `modelUsage`.
+- Predicate: sentinel in `result` **and** a `haiku` model in `modelUsage`. `haiku` alone does not
+  discriminate — `brief-skill.json`'s contrast arm records `haiku: true, sentinel: false` **[record]**.
+  Note the observed capability-absent case produced `modelUsage: []` and no model turn at all, so the
+  sentinel may suffice; the conjunction is cheap insurance against a harness that starts running a turn.
+  Assert **neither** exit code **nor** `is_error`.
+- **The plugin's own hooks fire inside every arm.** `SessionEnd` auto-commits `.vfkb/entries.jsonl` and
+  may write a B2 auto-handoff `fact`; it no-ops only on the default branch (`src/session-end.ts`). The
+  sandbox must therefore stay on the default branch, and the `upgrade` arm's two runs **share one
+  mutable brain** — the pre-run can perturb the post-run's predicate. Any builder must handle this.
+- Credentials MUST follow ADR-0022 §8: `claudeAiOauth` only, containerised, scrubbed in a `finally`.
+- Cost estimate: `3×1 (fresh) + 3×2 (upgrade, pre+post) + 3×1 (contrast)` ≈ **12 live sessions** per
+  release.
 
 ## What this does not close
 
-ADR-0048 deferred **host-level validation of the plugin's `hooks.json`** (SessionStart / PreToolUse /
-Stop / SessionEnd), tracked as vfkb-claude-plugin#6: *"until it lands, validation of the plugin's
-`hooks.json` is an acknowledged gap."* The `install-path` scenario asserts that a **skill** is
-reachable through the install chain. **It never fires a hook.** This RFC therefore closes the
-distribution/upgrade half and leaves #6 **open**. The first draft claimed it "closes ADR-0048's
-deferred item"; that was an overreach and is withdrawn.
+ADR-0048 deferred **host-level validation of the plugin's `hooks.json`** (vfkb-claude-plugin#6):
+*"until it lands, validation of the plugin's `hooks.json` is an acknowledged gap."* Part 2b checks that
+`hooks.json` *parses*; it never fires a hook. **#6 stays open.** An earlier draft claimed this RFC
+closed it; withdrawn.
+
+## Disclosure — credential mishandling during this investigation
+
+The probes copied the **entire** `~/.claude/.credentials.json` (including `mcpOAuth`) into two sandbox
+config dirs and ran two authenticated `claude -p` sessions against them. **This violated ADR-0022 §8**,
+which already required copying only the `claudeAiOauth` block, into a container, *"never the live host
+file, so a container-side token refresh cannot disturb the host session's credential."* Both copies were
+deleted and the scratch dirs removed (verified: zero `.credentials.json` remain). **"No breakage was
+observed" is not "no rotation occurred"** — a silent server-side refresh-token rotation is not
+detectable by inspecting the host file. Operator action: if the live session's auth misbehaves,
+re-authenticate (`/login`).
 
 ## Existing projects — how they get upgraded
 
-**Plugin consumers (ADR-0045).** Two commands, and the restart is last, not first:
+**Plugin consumers (ADR-0045).** Two commands; the restart is last, not first:
 
 ```
 claude plugin marketplace update <marketplace>      # axis (a): advance the clone
@@ -400,84 +312,75 @@ claude plugin update <plugin>@<mp> --scope project  # axis (b): advance the inst
 # then restart Claude Code to apply
 ```
 
-`--scope` must match the install (`installed_plugins.json` shows it); the default `user` hard-fails on
-a project-scope install. After part 1, `doctor` **fails** on axis (b) and, **only with
-`--check-remote`**, warns on axis (a) — the axis that actually bit the operator. Offline, doctor still
-cannot tell you that you are running old code. That limitation is inherent, not an oversight.
+`--scope` must match the install (`installed_plugins.json` shows it); the default `user` hard-fails on a
+project-scope install. After part 1, `doctor` **warns** on axis (a) when online — the axis that bit the
+operator — and **fails** on axis (b). Offline, it still cannot tell you that you are stale.
 
-**Bundle consumers (ADR-0030/0031).** Upgrade is a refresh of `$VFKB_BUNDLE_DIR`. No registry exists;
-currency is unanswerable offline. Out of scope, evidence-gated (above).
+**Bundle consumers (ADR-0030/0031).** Refresh `$VFKB_BUNDLE_DIR`. No registry; currency unanswerable
+offline. Out of scope, evidence-gated.
 
-**No migration is required of either population.** Nothing here changes on-disk formats, wiring, or the
-brain.
+**No migration is required.** Nothing here changes on-disk formats, wiring, or the brain.
 
 ## Alternatives considered
 
-**A. Remember to test after releasing.** The prose-rule-without-a-Brake ADR-0050 exists to reject; it
-failed within a day of ADR-0050 being written.
+**A. Remember to test after releasing.** The prose-rule-without-a-Brake ADR-0050 exists to reject.
 
-**B. Fresh-install proof only.** **This RFC's own first draft.** A clean-config install always resolves
-newest, so it goes green in exactly the state that broke the operator. Recorded so it is not
-re-proposed.
+**B. A release-time `install-path` L4 as the primary remedy.** *This RFC's first two drafts.* It would
+have gone **green on release day**: the packaging was correct and the operator's clone was stale.
+Rejected as the primary remedy, retained as a gated build for a different defect class.
 
-**C. A local-path (`./dir`) upgrade arm.** Unbuildable for its purpose: a directory source creates no
-clone, so axis (a) has nothing to be stale **[probe]**. Also drafted, also wrong.
+**C. A fresh-install-only proof.** Also drafted, also wrong: a clean `CLAUDE_CONFIG_DIR` always resolves
+newest, so it cannot reproduce an upgrade failure.
 
-**D. Make `brief-skill.mjs` itself use the install path.** Conflates two failures — a red run would not
-say whether the skill regressed or the packaging did — and destroys the fast inner-loop gate for
-iterating on `SKILL.md`.
+**D. A local-path (`./dir`) upgrade arm.** A directory source creates no clone, so axis (a) has nothing
+to be stale **[probe]**.
 
-**E. Run the install-path L4 in CI as the Brake.** Needs live `claude` auth, is metered, and would put
-the operator's credentials in CI. The record-checking gate is the right pattern.
+**E. Make `brief-skill.mjs` use the install path.** Conflates skill regression with packaging
+regression, and destroys the fast inner-loop gate.
 
-**F. Assert on exit code / `is_error`.** Empirically broken: the stale arm exits `0` with
-`is_error: false` **[probe]**.
+**F. Run a live L4 in CI as the Brake.** Needs `claude` auth, is metered, and would put operator
+credentials in CI.
 
-**G. Predicate on the sentinel alone.** Unsafe: a tool-enabled agent can read `entries.jsonl` and emit
-the sentinel even when the skill is absent. Hence the `sentinel AND haiku` conjunction.
+**G. Assert on exit code / `is_error`.** Empirically broken **[probe]**.
 
-**H. Predicate on `haiku` alone.** Non-discriminating: `brief-skill`'s contrast arm records
-`haiku: true, sentinel: false` **[record]**.
+**H. Surface staleness at session start rather than in `doctor`.** Attractive — it reaches the operator
+without being asked — but a network `git fetch` on every `SessionStart` is a latency and offline-failure
+hazard on the hot path. Deferred; revisit if the doctor warning proves insufficient.
 
 ## Consequences
 
 - ADR-0050 — a *constitutional* ADR — is amended **the same day it was accepted** (both carry
-  `timestamp: 2026-07-09`). That is the system working, uncomfortably fast: the rule was falsified by
-  evidence within hours, and the amendment carries the evidence. *(An earlier draft of this section
-  claimed "eleven days," a number with no source. It was invented. Caught in round-2 review — inside
-  the very document arguing that asserted numbers are not evidence.)*
-- A plugin version bump without a fresh install-**and-upgrade** proof becomes unmergeable, once the
-  gate is fixed to recompute the verdict rather than trust a boolean.
-- Releases cost 9 live agent sessions plus credential handling. Bounded, once per release.
-- The scenario needs an authenticated `claude` in a container per ADR-0022 §8. This is the reason the
-  L4 stays local and CI checks only the record.
-- `vfkb doctor` gains its first `fail` about the *environment* rather than the brain. Consumers on a
-  half-upgraded plugin start seeing red where they saw green. That is the point — but they will still
-  see green when their clone is stale and they are offline.
+  `timestamp: 2026-07-09`). The rule was falsified by evidence within hours; the amendment carries the
+  evidence. *(An earlier draft of this section claimed "eleven days," a number with no source.)*
+- The headline remedy is a **detector**, not a gate. That is an uncomfortable conclusion for a project
+  whose doctrine is gate-shaped, and it follows directly from the packaging having been correct.
+- `vfkb doctor` gains its first `fail` about the *environment* rather than the brain, plus a network
+  `warn`. Consumers on a half-upgraded plugin see red where they saw green; consumers offline with a
+  stale clone still see green, and doctor must say so.
+- The plugin's release gate stops trusting a self-asserted boolean. `brief-skill.json`'s shape changes
+  (breaking); the record must be regenerated or rewritten.
 - Fixing `doctor` to honor `CLAUDE_CONFIG_DIR` is a prerequisite and a standalone bug fix.
-- Brain: gotcha `112f75187029` (restart ≠ update; `plugin update` scope default), fact `5e6f88502243`
-  (the `CLAUDE_PLUGIN_ROOT` false alarm).
+- "The plugin installs" remains **unproven** and must be described that way until the gated L4 runs.
+- Brain: gotchas `112f75187029`, `3c5ac5414d7a`, `b1f4272e605f`; fact `5e6f88502243`.
 
 ## Definition of Done
 
-This RFC's build lands only when all of the following hold. Until then its honest status is
-**"built, NOT yet verified."**
+Until every item holds, the honest status is **"built, NOT yet verified."**
 
-1. *(plugin)* `scenarios/install-path.mjs` committed, with `fresh`, `upgrade`, `contrast` arms and
-   **no** `--plugin-dir`. Arms disallow subagent spawning (or pin subagents non-Haiku).
-2. *(plugin)* Run for real: `fresh` ≥2/3, `upgrade` ≥2/3, `contrast` == 0/3;
-   `scenarios/records/install-path.json` committed with `pluginVersion` equal to the released version.
-   Two observations are mandatory because they are the RFC's least-evidenced claims:
-   (a) the `upgrade` arm's **post-update `claude -p` resolves the new version without an interactive
-   restart**; (b) `contrast` holds `modelUsage == []` across all trials (no forged Haiku).
-3. *(plugin)* The Haiku fork appears in the passing arms' `modelUsage` — observed, not asserted.
-4. *(plugin)* Credentials handled per ADR-0022 §8 (`claudeAiOauth` only, containerised, scrubbed in
-   `finally`).
-5. *(plugin)* `release-gate.mjs` recomputes the verdict from per-arm counts and roles (never reads
-   `rec.demonstrated`), handles both record shapes, and `REQUIRED` includes `install-path`. **The Brake
-   is seen going red** on a stale record *and* on a `demonstrated: true` record with a failing arm.
-6. *(vfkb)* `doctor` honors `CLAUDE_CONFIG_DIR`; the axis-(b) check uses the two-hop manifest
-   resolution and a semver compare, with deterministic unit tests that go red on a stale-registry
-   fixture, a `0.10.0`-vs-`0.9.0` fixture, and a foreign-scope fixture.
-7. *(vfkb)* ADR-0051 committed; the status-pointer lines of **both ADR-0050 and ADR-0022** — and
-   nothing else in either body — record the amendment; CLAUDE.md's DoD section updated to match.
+1. *(vfkb)* `doctor` honors `CLAUDE_CONFIG_DIR`, with a unit test that goes red on a fixture whose
+   registry lives outside `$HOME`.
+2. *(vfkb)* Axis (b): two-hop manifest resolution + semver compare, with deterministic unit tests that
+   go red on a stale-registry fixture, a `0.10.0`-vs-`0.9.0` fixture, and a foreign-scope fixture.
+3. *(vfkb)* Axis (a): `warn` when the clone is behind, `skip` when offline — with a unit test over a
+   fixture pair (local git repo ahead of a clone) and an offline fixture asserting `skip`, never `fail`.
+   Doctor's output states plainly that offline staleness is undetectable.
+4. *(plugin)* `release-gate.mjs` recomputes the verdict from per-arm counts and roles, never reading
+   `rec.demonstrated`. **The Brake is seen going red** on a stale record *and* on a `demonstrated: true`
+   record with a failing arm. `brief-skill.json` is migrated to the roles shape.
+5. *(plugin)* The structural packaging check exists, and is **seen going red** on a tree with a declared
+   skill removed.
+6. *(vfkb)* ADR-0051 committed; ADR-0050's status-pointer line — and nothing else in its body — records
+   the amendment; CLAUDE.md's DoD section updated to match, including the "a release gate cannot detect
+   consumer staleness" corollary.
+7. The `install-path` L4 is **not** built. Its trigger and prerequisites are recorded above. Building it
+   without the trigger is the speculative build this RFC declines.
