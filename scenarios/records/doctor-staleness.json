@@ -1,10 +1,10 @@
 {
   "scenario": "doctor-staleness",
   "recordVersion": 2,
-  "vfkbSha": "2b4e2f82c2f8aa75d9457fec545a96d5134b9f23",
+  "vfkbSha": "a3953be71a10b13bf2fc9d0735dc8aeaf37aa762",
   "model": "claude-haiku-4-5",
   "trials": 3,
-  "generated": "2026-07-09T17:42:12.928Z",
+  "generated": "2026-07-09T17:46:37.015Z",
   "arms": {
     "wired": {
       "role": "positive",
@@ -14,30 +14,30 @@
       ],
       "trials": [
         {
-          "stale": false,
-          "remedy": false,
+          "stale": true,
+          "remedy": true,
           "current": true,
-          "staleMatch": null,
-          "staleContext": null,
-          "out": "Based on the command output: 1. **You are not on the newest release.** The output shows `version 0.0.0-dev · commit dev`, which is a development version, not a stable release. Additionally, there is a warning that the plugin `vfkb@vfkb` is ",
+          "staleMatch": "old copy",
+          "staleContext": "unning the newest release. The doctor output says \"You are running an old copy of the plugin\" because the vfkb marketplace clone is stale (a",
+          "out": "Based on the output: 1. **You are not running the newest release.** The doctor output says \"You are running an old copy of the plugin\" because the vfkb marketplace clone is stale (at `b13b39f` but the remote is at `95c28fc`). 2. **To fix it",
           "err": ""
         },
         {
-          "stale": false,
-          "remedy": false,
+          "stale": true,
+          "remedy": true,
           "current": true,
-          "staleMatch": null,
-          "staleContext": null,
-          "out": "Based on the output from the `doctor` command: 1. **You are not running the newest release.** The output shows `version 0.0.0-dev`, which is a development version, not a numbered release. 2. **To fix this, run this exact command:** ``` /plu",
+          "staleMatch": "STALE",
+          "staleContext": "the newest release. The doctor output says \"vfkb marketplace clone is STALE\" and explicitly states \"You are running an old copy of the plugi",
+          "out": "Based on the output: 1. **You are not running the newest release.** The doctor output says \"vfkb marketplace clone is STALE\" and explicitly states \"You are running an old copy of the plugin.\" 2. **To fix this, run these exact commands in or",
           "err": ""
         },
         {
-          "stale": false,
-          "remedy": false,
+          "stale": true,
+          "remedy": true,
           "current": true,
-          "staleMatch": null,
-          "staleContext": null,
-          "out": "Based on the doctor output: **1. Are you running the newest release?** The output does not say whether you're on the newest release or an older one. It shows your engine version is `0.0.0-dev`, but there's no information about what the newe",
+          "staleMatch": "old copy",
+          "staleContext": "sion of the plugin. The output explicitly states: \"You are running an old copy of the plugin\" and notes that the marketplace clone is stale.",
+          "out": "Based on the output: **1. Are you running the newest release?** No, you are running an older version of the plugin. The output explicitly states: \"You are running an old copy of the plugin\" and notes that the marketplace clone is stale. **2",
           "err": ""
         }
       ]
@@ -49,12 +49,12 @@
       ],
       "trials": [
         {
-          "stale": false,
+          "stale": true,
           "remedy": false,
           "current": true,
-          "staleMatch": null,
-          "staleContext": null,
-          "out": "Based on the output of the `doctor` command: 1. **You are running a development version** (`version 0.0.0-dev · commit dev`), not a release version. This is neither the newest release nor an older release — it's a pre-release development bu",
+          "staleMatch": "older version",
+          "staleContext": "Based on the output from the doctor command: 1. You are running an older version of the plugin. The command shows vfkb@vfkb installed, ve",
+          "out": "Based on the output from the `doctor` command: 1. **You are running an older version of the plugin.** The command shows `vfkb@vfkb installed, version 0.3.0`. The \"informational — currency not compared\" note suggests there is a newer version",
           "err": ""
         },
         {
@@ -63,7 +63,7 @@
           "current": true,
           "staleMatch": null,
           "staleContext": null,
-          "out": "Based on the output: 1. **Are you running the newest release?** The output does not say. It shows your engine version as \"0.0.0-dev\" which is a development version, but the output doesn't state whether there's a newer release available or w",
+          "out": "Based on the command output: 1. **The output does not say whether you're on the newest release.** It reports that the plugin vfkb@vfkb is installed at version 0.3.0, but includes this note: \"(informational — currency not compared)\" — meanin",
           "err": ""
         },
         {
@@ -72,7 +72,7 @@
           "current": true,
           "staleMatch": null,
           "staleContext": null,
-          "out": "Based on the output: 1. **Am I running the newest release?** The output does not say what the newest release version is. It shows you're running `0.0.0-dev`, but there's no information comparing this to a latest/newest release version. 2. *",
+          "out": "Based on the command output: 1. **Are you running the newest release?** The output does not say. It reports that you have `vfkb@vfkb` plugin version 0.3.0 installed and that the \"vfkb marketplace clone matches its remote,\" but it does not s",
           "err": ""
         }
       ]
