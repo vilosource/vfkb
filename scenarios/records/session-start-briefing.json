@@ -1,0 +1,46 @@
+{
+  "scenario": "session-start-briefing",
+  "model": "claude-haiku-4-5",
+  "trials": 3,
+  "generated": "2026-07-09T06:11:54.940Z",
+  "wired": 3,
+  "contrast": 0,
+  "demonstrated": true,
+  "wiredRenderCarriesSentinel": true,
+  "arms": {
+    "wired": [
+      {
+        "hit": true,
+        "out": "marlgrove-echo-12 ",
+        "err": ""
+      },
+      {
+        "hit": true,
+        "out": "marlgrove-echo-12 ",
+        "err": ""
+      },
+      {
+        "hit": true,
+        "out": "marlgrove-echo-12 ",
+        "err": ""
+      }
+    ],
+    "contrast": [
+      {
+        "hit": false,
+        "out": "UNKNOWN ",
+        "err": ""
+      },
+      {
+        "hit": false,
+        "out": "UNKNOWN ",
+        "err": ""
+      },
+      {
+        "hit": false,
+        "out": "UNKNOWN ",
+        "err": ""
+      }
+    ]
+  }
+}
