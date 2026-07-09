@@ -1,7 +1,7 @@
 ---
 type: RFC
 title: "RFC-024: Staleness detection and delivery honesty — amend ADR-0050's `--plugin-dir` clause, build the detector and its L4, fix the Brake, gate the install proof"
-description: "Plugin v0.4.0 was DEMONSTRATED 3/3 and unreachable. The packaging was fine; the operator's clone was stale, and nothing could tell him. A release-time install L4 would have gone green that day. What is missing is a detector in `vfkb doctor` (with its own agent-driven L4), deterministic backstops in the plugin's release gate, and an ADR-0050 that stops calling `--plugin-dir` a real surface."
+description: "Plugin v0.4.0 was DEMONSTRATED 3/3 and unreachable. The packaging was fine; the operator's clone was stale, and nothing could tell him. A release-time install L4 would have gone green that day. What is missing is a stale-clone detector in `vfkb doctor` (with its own agent-driven L4), deterministic backstops in the plugin's release gate, and an ADR-0050 that stops calling `--plugin-dir` a real surface. Leaves one constitutional question — may an unproven delivery path ship? — expressly to the operator."
 status: "Proposed"
 timestamp: 2026-07-09
 ---
@@ -57,7 +57,8 @@ tracking issue.
 ## Evidence status
 
 Every mechanical claim below was executed on 2026-07-09. **None of it is a committed L4 record.** Per
-ADR-0050's own standard — *"A smoke check (N=1, no committed record) is NOT this gate"* — these are
+`CLAUDE.md:159` — *"A smoke check (N=1, no committed record) is NOT this gate"* (ADR-0050 says it
+differently, at line 26: *"1-trial smoke check with no committed scenario or record"*) — these are
 **single-run, unrecorded probe observations**, labelled **[probe]**: enough to establish mechanism,
 never enough to declare anything done. The one committed artifact cited is
 `scenarios/records/brief-skill.json`, labelled **[record]**.
@@ -73,7 +74,7 @@ The operator got `Unknown command: /vfkb:brief`.
 
 **The proximate cause was staleness, not packaging.** The marketplace clone was pinned at `b0e6667`
 (v0.3.0 — `Skills (1)`, `Agents (0)`) while `origin/main` was `3aec82f`. **A Claude Code restart
-re-reads the cached install and never re-pulls the clone.** (Brain gotcha `112f75187029`.) Compounding
+re-reads the cached install and never re-pulls the clone.** (Brain gotcha `112f75187029`, recorded on branch `chore/brain-plugin-update-gotchas` — **PR #100, not yet merged**; it is not resolvable from this branch.) Compounding
 it, `claude plugin update` defaults to `--scope user` and fails on a project-scope install.
 
 **The packaging was never broken.** At `3aec82f`, `plugin/skills/brief/SKILL.md`,
@@ -125,8 +126,10 @@ exit status or error flags passes a broken install silently. This constrains eve
 The obvious remedy — an `install-path` L4 that installs from the marketplace and exercises the skill —
 **would have gone green on release day.** The packaging was correct; only the operator's clone was
 stale. A release-time gate runs in CI, before any consumer exists; it cannot observe a future
-consumer's clone. Twelve metered sessions per release would buy a gate that misses the bug that
-motivated it, against CLAUDE.md:143 — **"Deterministic backstop > probabilistic gate."**
+consumer's clone. It would buy, for twelve metered sessions per release, a gate that misses the bug that motivated it. The
+decisive objection is not cost but evidence: **no delivery defect has ever been observed**, and
+CLAUDE.md's evidence-gated rule says do not build for one. CLAUDE.md:143 — *"Deterministic backstop >
+probabilistic gate"* — points the same way: part 2b's free structural check first.
 
 The L4 is therefore **gated, not built** (part 4). An earlier draft justified this partly on a
 "version-binding deadlock" — the claim that `marketplace add` cannot pin a ref. **That claim was
@@ -134,80 +137,89 @@ false.** `marketplace add owner/repo@ref` parses and records `{"source":"github"
 the `okf-skill` marketplace already uses it **[probe]**. Ref-pinning works, so a pre-merge record bound
 to an unreleased version *is* constructible. The gating rests on the surviving reasons, not on that one.
 
-## The governing principle this RFC applies
-
-Made explicit, because the RFC builds some things on a mechanism argument and gates others for want of
-an observed instance — an asymmetry that needs a rule rather than a mood:
-
-> **A cheap, deterministic, offline check may be built on a mechanism argument.** An **expensive,
-> metered, probabilistic gate requires an observed instance** of the defect it would catch.
-
-Under it: doctor's axis (b) and the plugin's structural packaging check are **built** (deterministic,
-free, no LLM); the install-path L4 is **gated** (twelve live sessions, no observed delivery defect); the
-bundle-consumer currency probe is **gated** (networked, no observed stale-bundle consumer).
-
 ## Proposal
 
-### 1. `vfkb doctor` gains a currency check — the detector *(vfkb)*
+### 1. `vfkb doctor` detects a stale clone — the only part that addresses the incident *(vfkb)*
 
-This is the only part that addresses the incident.
+**One axis, not two.** Compare the marketplace clone's `HEAD` to its remote default branch with
+**`git ls-remote`** — read-only. Behind → **`warn`**, naming the two remedy commands. Offline,
+unreachable, or a `directory`-source marketplace (which has no clone and no remote **[probe]**) →
+`skip`, never `fail`. Attempted by default with a short timeout: a detector nobody runs detects nothing.
 
-- **Axis (a) — clone behind remote. The real detector.** Compare the marketplace clone's `HEAD` to its
-  remote default branch using **`git ls-remote`** — read-only. Behind → **`warn`** with the remedy.
-  `git fetch` is **rejected**: it mutates the user's clone (writes refs and objects; github sources are
-  shallow, so a correct fetch may need `--unshallow`) and can contend on the repo lock with a running
-  Claude Code. A diagnostic must not write. Offline / unreachable → `skip`, never `fail`. Attempted by
-  default with a short timeout: a detector nobody runs detects nothing.
-- **Axis (b) — install behind clone. Deterministic, offline, `fail`.** Resolve the offered version by a
-  two-hop lookup — `known_marketplaces.json[<mp>].installLocation` → `.claude-plugin/marketplace.json` →
-  the plugin entry's `source` (`"./plugin"`) → `<source>/.claude-plugin/plugin.json` **[probe]**. There
-  is **no** `plugin.json` at the clone root; a naive implementation finds nothing. Compare against
-  `installed_plugins.json`.
-- **`directory`-source marketplaces have no clone and no remote** **[probe]**. Axis (a) must report
-  `skip` for them — not `warn`, not error. Axis (b) still applies, reading the live directory.
+`git fetch` is **rejected**: it mutates the user's clone (writes refs and objects; github sources are
+shallow, so a correct fetch may need `--unshallow`) and can contend on the repo lock with a running
+Claude Code. A diagnostic must not write.
 
-**Honest scope.** Axis (b) fires only for the *half-upgraded* state (clone advanced, install did not) —
-reachable exactly via the `--scope user` default trap. In the operator's failure `installed == offered
-== 0.3.0`, so **axis (b) would have passed clean.** Only axis (a) sees it, and only online. *Offline,
+**What an earlier draft also proposed, and this one gates.** A second, offline "axis (b)" comparing the
+*installed* version to the version the clone *offers* (a two-hop lookup:
+`known_marketplaces.json[<mp>].installLocation` → `.claude-plugin/marketplace.json` → the plugin entry's
+`source` → `<source>/.claude-plugin/plugin.json`; there is **no** `plugin.json` at the clone root
+**[probe]**). It is dropped from this RFC for two reasons that took three review rounds to see:
+
+1. **It targets a defect nobody has observed.** In the operator's failure the clone itself was stale, so
+   `installed == offered == 0.3.0` and axis (b) **would have passed clean.** It fires only for a
+   *half-upgraded* install, reachable via the `--scope user` trap — a mechanism argument, not an
+   instance. CLAUDE.md's evidence-gated rule says don't build that.
+2. **It emits a user-facing `fail`**, so by this RFC's own reading of ADR-0050 it would need its own
+   agent-driven L4 — which is not free, so "it's cheap and deterministic" does not excuse it.
+
+Gated. Trigger: someone actually lands in the half-upgraded state. The two-hop resolution and the
+semver/foreign-install traps below are recorded so the eventual builder does not rediscover them.
+
+**Reach.** The check fires only when the operator runs `vfkb doctor`. Someone who restarts and never runs
+it sees the same silent failure. A proactive `SessionStart` check is alternative H, deferred. *Offline,
 vfkb cannot tell you that you are running old code*, and doctor's output must say so rather than imply
-health. Axis (b) is **decided and built** under the governing principle above, on a mechanism argument.
-
-**Reach.** Both axes fire only when the operator runs `vfkb doctor`. Someone who restarts and never runs
-it sees the same silent failure. A proactive `SessionStart` check is alternative H, deferred.
+health.
 
 Correctness requirements, each a defect found in review:
 
 - **Honor `CLAUDE_CONFIG_DIR`.** `doctor.ts:98-99` derives the registry from `env.HOME` alone
   **[probe]**; Claude Code relocates the whole config, `plugins/` included. Standalone bug; prerequisite.
-- **Semver compare, not string.** `"0.10.0" < "0.9.0"` is `true` lexicographically.
+- **Resolve the clone from `known_marketplaces.json[<mp>].installLocation`**, never a hardcoded
+  `~/.claude/plugins/marketplaces/<mp>`.
 - **Never report a foreign install.** `findInstall()` falls back to any `scope: 'user'` entry.
 - **Never use `claude plugin details` to learn the installed version.** It reports the version the
   *marketplace offers*: after advancing a directory-source marketplace, `details` printed `0.4.0` while
   `plugin update` simultaneously said *"updated from 0.3.0 to 0.4.0"* **[probe]**. Read
   `installed_plugins.json`.
+- *(Gated with axis (b): semver compare — `"0.10.0" < "0.9.0"` is `true` lexicographically.)*
 
 **Proof form — this capability gets an L4, not an exemption.** `vfkb doctor` is user-facing, so
 ADR-0050's gate binds (*"anything a user will use"*), and ADR-0029's Alternatives **explicitly reject** a
 unit-tests-only DoD: *"unit tests prove the parts, not that the capability works in its real use-case."*
-Unit tests are the inner gate (ADR-0029 §5: structural invariants *"stay deterministic unit tests … the
-inner gate, not the capability-level success criterion"*). The capability-level proof is a new
-agent-driven scenario, **`scenarios/doctor-staleness.mjs`**, which reproduces the incident:
+Unit tests remain the inner gate (ADR-0029 §5: structural invariants *"stay deterministic unit tests …
+the inner gate, not the capability-level success criterion"*). The capability-level proof is a new
+agent-driven scenario, **`scenarios/doctor-staleness.mjs`**.
 
-- **wired arm** — hermetic `CLAUDE_CONFIG_DIR`; `marketplace add vilosource/vfkb-claude-plugin`;
-  `git fetch --unshallow` then `git reset --hard <prev-release>` inside the clone; install; an agent is
-  asked *"am I running the current plugin?"*, runs `vfkb doctor`, and must report **stale** and name the
-  remedy commands.
-- **contrast arm (can-fail)** — identical, clone left at `HEAD`; the agent must report **current**.
-- The hermetic setup is already executed **[probe]**: stale clone at `b0e6667` → install resolves
-  `0.3.0` → `marketplace update` advances to `3aec82f` → `plugin update --scope project` → `0.4.0`.
+**Substrate: a host-level tmpdir sandbox, offline, with hand-built fixtures.** ADR-0022's
+container-with-egress-allowlist (decision #1/#4) governs the `l4-purpose` harness; **six of vfkb's nine
+scenarios are not dockerized** (`decision-capture`, `consumer-onboarding`, `session-start-briefing`,
+`session-end-handoff`, `okf-bundle-cold-agent`, `compare`), and this one follows that in-repo precedent.
+It must **not** clone from GitHub: an earlier draft's arm did, which needs SSH keys and network egress
+that ADR-0022's model forbids, and which would make the "current" arm depend on live `origin/main` —
+destroying reproducibility. Instead the scenario builds its own fixtures, which is possible because
+doctor only reads registry JSON and shells `git`:
 
-Cheap (six sessions, no `--plugin-dir`, no plugin-release coupling), two-armed so ADR-0022's ≥2/3 rule
-applies unchanged, and the **only** proposed proof that reproduces the operator's actual failure.
+- a **local bare repo** as the marketplace's `origin`, with two commits;
+- a clone of it, plus a `known_marketplaces.json` naming that clone as `installLocation`, plus an
+  `installed_plugins.json`. No `claude plugin` CLI, no GitHub, no network, no credentials beyond the
+  agent's own model API.
+
+Because nothing is installed into the sandbox, **the plugin's own hooks never fire there** — so the
+`SessionEnd` auto-commit hazard that afflicts the gated `install-path` design does not apply here.
+
+- **wired arm** — clone parked one commit behind the bare repo's `main`. An agent is asked *"am I running
+  the current plugin?"*, runs `vfkb doctor`, and must report **stale** and name the remedy commands.
+- **contrast arm (can-fail)** — identical, clone at `main`. The agent must report **current**.
+
+Two arms, so ADR-0022's DEMONSTRATED rule applies **unchanged**. Six sessions. No `--plugin-dir`, no
+plugin-release coupling, no network. It is the **only** proposed proof that reproduces the operator's
+actual failure.
 
 **Bundle consumers (ADR-0030/0031) are out of scope.** The engine carries `ENGINE_VERSION` /
 `ENGINE_COMMIT` (`doctor.ts:91`) but no registry exists to compare against. No bundle consumer has been
-*observed* running stale, and a currency probe for them is networked, not cheap — so under the governing
-principle it is **gated**. Trigger: an observed stale-bundle consumer.
+*observed* running stale, so per CLAUDE.md's evidence-gated rule it is **gated**. Trigger: an observed
+stale-bundle consumer.
 
 ### 2. Deterministic backstops in the plugin's release gate *(vfkb-claude-plugin)*
 
@@ -227,15 +239,19 @@ PR, which leaves no red window since both land together:
             "contrast": { "role": "contrast", "passed": 0 } } }
 ```
 
-Verdict, recomputed and never read from the record: **every `positive` arm ≥ ⌈2·trials/3⌉ and every
-`contrast` arm == 0.**
+Verdict, recomputed and never read from the record, and matching ADR-0022:72 exactly (*"`demonstrated`
+requires the contrast to hold on **≥2/3**"*): **every `positive` arm ≥ ⌈2·trials/3⌉ and every `contrast`
+arm ≤ ⌊trials/3⌋.** An earlier draft wrote `contrast == 0`, which is *stricter* than ADR-0022 — a silent
+tightening of a rule this RFC claims not to touch. It does not.
 
 **2b. A structural packaging check.** Assert every component the plugin *declares* exists in the tree
 that ships: each `skills/<name>/SKILL.md`; each `agents/<name>.md` named by a skill's `agent:`
 frontmatter; `hooks/hooks.json` parses; `.mcp.json` parses; vendored bundles exist and are non-empty. It
 catches "released without the skill" at zero cost, in CI, on every PR. It **would not** have caught the
 motivating bug — the packaging was fine — and it does **not** prove the plugin installs. Nothing
-deterministic can. It is the backstop doctrine demands *before* reaching for a probabilistic gate.
+deterministic can. It is a structural invariant, so ADR-0029 §5 routes its proof to deterministic tests and it carries no
+L4 — an inner-gate test, not a speculative build. It is the backstop CLAUDE.md:143 demands *before*
+reaching for a probabilistic gate.
 
 `release-gate` is already a required status check on the plugin's `main` (`gh api
 …/branches/main/protection` → `["release-gate"]`) **[probe]**.
@@ -250,11 +266,9 @@ ADR-0050's body is **not edited** (ADR-0001). ADR-0051 states:
 > evidence that a plugin **installs**.
 >
 > **Delivery and upgrade are capabilities, distinct from the capabilities they carry.** Neither is
-> currently proven for this plugin. ADR-0050's "declared done **or shipped**" clause is satisfied for the
-> plugin's *skills* — each has its own L4 — and is **not** satisfied for *delivery*. Releases may
-> therefore continue, and every release note, ADR, and handoff MUST state that **delivery is unproven**,
-> exactly as ADR-0048 records `hooks.json` validation as an acknowledged open gap. Silence is the
-> violation; shipping with a named, recorded gap is not.
+> currently proven for this plugin. Every release note, ADR, and handoff MUST state that **delivery is
+> unproven** until a delivery proof exists. *(Whether an unproven delivery path may nevertheless ship is
+> deliberately NOT decided here — see "The open question."*)
 >
 > **Corollary — the quiet-success trap.** Where a delivery failure presents as a *successful* run lacking
 > the capability (exit 0, `is_error: false`, "Unknown command"), the predicate MUST be a content assertion
@@ -273,7 +287,7 @@ gated below.
 
 ### 4. The `install-path` L4 — designed, **gated**, not built *(vfkb-claude-plugin)*
 
-Per the governing principle and CLAUDE.md's evidence-gated rule (*"Don't build speculatively"*), the
+Per CLAUDE.md's evidence-gated rule (*"Don't build speculatively"*), the
 delivery L4 is **specified and parked**.
 
 **Trigger:** a delivery or upgrade defect that 2b's structural check cannot see — the plugin installs but
@@ -315,10 +329,42 @@ them at cost:
 - Cost estimate: `3×1 (fresh) + 3×2 (upgrade, pre+post) + 3×1 (contrast)` ≈ **12 live sessions** per
   release.
 
+## The open question — for the operator, not for this RFC
+
+An earlier draft settled this quietly inside the `--plugin-dir` amendment. It should not have. The
+question is constitutional, and it is yours.
+
+**ADR-0050:44 says: *"No user-facing capability may be declared done or shipped without a full
+sandboxed, agent-driven L4."*** Installing and upgrading the plugin is something users do. By this
+RFC's own analysis, delivery has **no** L4 and never has. Two readings follow, and ADR-0050's text does
+not choose between them:
+
+- **Reading A — "or shipped" binds literally.** Delivery is a user-facing capability without an L4;
+  therefore **no further plugin release may be cut** until the gated `install-path` L4 exists and is
+  DEMONSTRATED. This is the strict reading of a rule the operator wrote, hours earlier, expressly to
+  stop shipping-without-proof.
+- **Reading B — "or shipped" governs claims, not existence.** Delivery was never *claimed* proven; the
+  violation is silence. Releases continue, provided every release note, ADR, and handoff names the gap —
+  the precedent being ADR-0048, which ships with `hooks.json` validation recorded as an acknowledged
+  open gap rather than halting.
+
+**Recommendation: Reading B**, because ADR-0048 already established that a named, recorded gap is
+compatible with shipping, and because Reading A halts the plugin over a defect class that has never been
+observed. But this is a **weakening of a rule marked non-negotiable**, and the amend precedents cited
+above (ADR-0016→0012, ADR-0024→0021) are ordinary ADRs — none establishes that a *constitutional*
+non-negotiable may be relaxed through the ordinary amend mechanism.
+
+**Therefore:** ADR-0051 does **not** decide this. If the operator ratifies Reading B, it becomes an
+explicit clause (or its own ADR-0052). If the operator ratifies Reading A, part 4's gate is void and the
+`install-path` L4 becomes an immediate blocking prerequisite for the next plugin release. **The rest of
+this RFC stands either way** — the detector, the release-gate fix, and striking `--plugin-dir` are
+unaffected by the choice.
+
 ## Scope and non-goals
 
 - The `install-path` L4 is **not** built. Building it without its trigger is the speculative build this
   RFC declines.
+- Doctor's "axis (b)" (install behind clone) is **not** built. Trigger: an observed half-upgraded install.
 - Bundle-consumer currency detection is **not** built.
 - A `SessionStart` staleness check is **not** built (alternative H).
 - `hooks.json` host-level validation is **not** built; ADR-0048's vfkb-claude-plugin#6 stays open. Part 2b
@@ -399,7 +445,8 @@ parts, not that the capability works in its real use-case."* Hence `doctor-stale
   (breaking); the record is migrated in the same PR as the gate.
 - Fixing `doctor` to honor `CLAUDE_CONFIG_DIR` is a prerequisite and a standalone bug fix.
 - **"The plugin installs" remains unproven**, and every release note must say so until the gated L4 runs.
-- Brain: gotchas `112f75187029`, `3c5ac5414d7a`, `b1f4272e605f`; fact `5e6f88502243`.
+- Brain: gotchas `3c5ac5414d7a`, `b1f4272e605f` (this branch); gotcha `112f75187029` and fact
+  `5e6f88502243` land via **PR #100** and are not resolvable here until it merges.
 
 ## Definition of Done
 
@@ -407,18 +454,25 @@ Until every item holds, the honest status is **"built, NOT yet verified."**
 
 1. *(vfkb)* `doctor` honors `CLAUDE_CONFIG_DIR`, with a unit test that goes red on a fixture whose
    registry lives outside `$HOME`.
-2. *(vfkb)* Axis (b): two-hop manifest resolution + semver compare, with deterministic unit tests going
-   red on a stale-registry fixture, a `0.10.0`-vs-`0.9.0` fixture, and a foreign-scope fixture.
-3. *(vfkb)* Axis (a): `git ls-remote` only — a test asserts no writes occur in the clone; `warn` when
-   behind, `skip` when offline or when the source is a `directory`, never `fail`.
-4. *(vfkb)* `scenarios/doctor-staleness.mjs` committed; DEMONSTRATED ≥2/3 wired with contrast 0 per
-   ADR-0022; a committed record binds it to the engine version. The agent is **observed** naming the stale
-   version and the remedy — not merely exiting non-zero.
-5. *(plugin)* `release-gate.mjs` recomputes the verdict from per-arm counts and roles, never reading
-   `rec.demonstrated`. **The Brake is seen going red** on a stale record *and* on a `demonstrated: true`
-   record carrying a failing arm. `brief-skill.json` is migrated to the roles shape.
-6. *(plugin)* The structural packaging check exists and is **seen going red** on a tree with a declared
+2. *(vfkb)* The staleness check resolves the clone from `known_marketplaces.json[<mp>].installLocation`,
+   uses **`git ls-remote` only**, and never `fail`s. Git is invoked through an injected runner seam (the
+   pattern `src/session-end.ts` already uses), and a unit test asserts the only git subcommand issued is
+   `ls-remote` — that is how "no writes" is observed rather than assumed. Fixtures cover: clone behind
+   remote → `warn`; clone level → `ok`; unreachable remote → `skip`; `directory` source → `skip`.
+3. *(vfkb)* `scenarios/doctor-staleness.mjs` committed: host-level tmpdir sandbox, offline, hand-built
+   fixtures (local bare repo + clone + registry JSON), **no GitHub, no `claude plugin` CLI**. DEMONSTRATED
+   per ADR-0022:72 — wired ≥2/3, contrast holds ≥2/3. The agent is **observed** naming the stale state
+   and the remedy, not merely exiting non-zero. The committed record binds to the **vfkb git sha**
+   (`vfkb_sha`, as existing records do); `ENGINE_VERSION` is `0.0.0-dev` in `dist` and near-static in the
+   bundle, so it is not a usable binding.
+4. *(plugin)* `release-gate.mjs` recomputes the verdict from per-arm counts and roles, never reading
+   `rec.demonstrated`, applying ADR-0022:72 unchanged. **The Brake is seen going red** on a stale record
+   *and* on a `demonstrated: true` record carrying a failing arm. `brief-skill.json` is migrated to the
+   roles shape in the same PR.
+5. *(plugin)* The structural packaging check exists and is **seen going red** on a tree with a declared
    skill removed.
-7. *(vfkb)* ADR-0051 committed; ADR-0050's status-pointer line — and nothing else in its body — records
+6. *(vfkb)* ADR-0051 committed; ADR-0050's status-pointer line — and nothing else in its body — records
    the amendment; CLAUDE.md's DoD section updated to match, including the scoped staleness corollary and
    the standing "delivery is unproven" disclosure.
+7. *(operator)* **The open question is answered.** Reading A or Reading B is ratified explicitly. If A,
+   part 4's gate is void and the `install-path` L4 blocks the next release.
