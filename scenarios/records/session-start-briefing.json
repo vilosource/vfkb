@@ -2,26 +2,26 @@
   "scenario": "session-start-briefing",
   "model": "claude-haiku-4-5",
   "trials": 3,
-  "generated": "2026-07-09T05:50:51.177Z",
-  "wired": 0,
+  "generated": "2026-07-09T05:54:12.703Z",
+  "wired": 3,
   "contrast": 0,
-  "demonstrated": false,
-  "wiredRenderCarriesSentinel": false,
+  "demonstrated": true,
+  "wiredRenderCarriesSentinel": true,
   "arms": {
     "wired": [
       {
-        "hit": false,
-        "out": "UNKNOWN The resume indicates this is the first recorded session with no prior continuity. ",
+        "hit": true,
+        "out": "marlgrove-echo-12 ",
         "err": ""
       },
       {
-        "hit": false,
-        "out": "UNKNOWN ",
+        "hit": true,
+        "out": "marlgrove-echo-12 ",
         "err": ""
       },
       {
-        "hit": false,
-        "out": "UNKNOWN ",
+        "hit": true,
+        "out": "marlgrove-echo-12 ",
         "err": ""
       }
     ],
