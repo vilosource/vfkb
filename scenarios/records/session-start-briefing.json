@@ -1,0 +1,46 @@
+{
+  "scenario": "session-start-briefing",
+  "model": "claude-haiku-4-5",
+  "trials": 3,
+  "generated": "2026-07-09T05:50:51.177Z",
+  "wired": 0,
+  "contrast": 0,
+  "demonstrated": false,
+  "wiredRenderCarriesSentinel": false,
+  "arms": {
+    "wired": [
+      {
+        "hit": false,
+        "out": "UNKNOWN The resume indicates this is the first recorded session with no prior continuity. ",
+        "err": ""
+      },
+      {
+        "hit": false,
+        "out": "UNKNOWN ",
+        "err": ""
+      },
+      {
+        "hit": false,
+        "out": "UNKNOWN ",
+        "err": ""
+      }
+    ],
+    "contrast": [
+      {
+        "hit": false,
+        "out": "UNKNOWN ",
+        "err": ""
+      },
+      {
+        "hit": false,
+        "out": "UNKNOWN ",
+        "err": ""
+      },
+      {
+        "hit": false,
+        "out": "UNKNOWN ",
+        "err": ""
+      }
+    ]
+  }
+}
