@@ -1,0 +1,81 @@
+{
+  "scenario": "doctor-staleness",
+  "recordVersion": 2,
+  "vfkbSha": "a3953be71a10b13bf2fc9d0735dc8aeaf37aa762",
+  "model": "claude-haiku-4-5",
+  "trials": 3,
+  "generated": "2026-07-09T17:46:37.015Z",
+  "arms": {
+    "wired": {
+      "role": "positive",
+      "predicate": [
+        "stale",
+        "remedy"
+      ],
+      "trials": [
+        {
+          "stale": true,
+          "remedy": true,
+          "current": true,
+          "staleMatch": "old copy",
+          "staleContext": "unning the newest release. The doctor output says \"You are running an old copy of the plugin\" because the vfkb marketplace clone is stale (a",
+          "out": "Based on the output: 1. **You are not running the newest release.** The doctor output says \"You are running an old copy of the plugin\" because the vfkb marketplace clone is stale (at `b13b39f` but the remote is at `95c28fc`). 2. **To fix it",
+          "err": ""
+        },
+        {
+          "stale": true,
+          "remedy": true,
+          "current": true,
+          "staleMatch": "STALE",
+          "staleContext": "the newest release. The doctor output says \"vfkb marketplace clone is STALE\" and explicitly states \"You are running an old copy of the plugi",
+          "out": "Based on the output: 1. **You are not running the newest release.** The doctor output says \"vfkb marketplace clone is STALE\" and explicitly states \"You are running an old copy of the plugin.\" 2. **To fix this, run these exact commands in or",
+          "err": ""
+        },
+        {
+          "stale": true,
+          "remedy": true,
+          "current": true,
+          "staleMatch": "old copy",
+          "staleContext": "sion of the plugin. The output explicitly states: \"You are running an old copy of the plugin\" and notes that the marketplace clone is stale.",
+          "out": "Based on the output: **1. Are you running the newest release?** No, you are running an older version of the plugin. The output explicitly states: \"You are running an old copy of the plugin\" and notes that the marketplace clone is stale. **2",
+          "err": ""
+        }
+      ]
+    },
+    "contrast": {
+      "role": "contrast",
+      "predicate": [
+        "stale"
+      ],
+      "trials": [
+        {
+          "stale": true,
+          "remedy": false,
+          "current": true,
+          "staleMatch": "older version",
+          "staleContext": "Based on the output from the doctor command: 1. You are running an older version of the plugin. The command shows vfkb@vfkb installed, ve",
+          "out": "Based on the output from the `doctor` command: 1. **You are running an older version of the plugin.** The command shows `vfkb@vfkb installed, version 0.3.0`. The \"informational — currency not compared\" note suggests there is a newer version",
+          "err": ""
+        },
+        {
+          "stale": false,
+          "remedy": false,
+          "current": true,
+          "staleMatch": null,
+          "staleContext": null,
+          "out": "Based on the command output: 1. **The output does not say whether you're on the newest release.** It reports that the plugin vfkb@vfkb is installed at version 0.3.0, but includes this note: \"(informational — currency not compared)\" — meanin",
+          "err": ""
+        },
+        {
+          "stale": false,
+          "remedy": false,
+          "current": true,
+          "staleMatch": null,
+          "staleContext": null,
+          "out": "Based on the command output: 1. **Are you running the newest release?** The output does not say. It reports that you have `vfkb@vfkb` plugin version 0.3.0 installed and that the \"vfkb marketplace clone matches its remote,\" but it does not s",
+          "err": ""
+        }
+      ]
+    }
+  }
+}
