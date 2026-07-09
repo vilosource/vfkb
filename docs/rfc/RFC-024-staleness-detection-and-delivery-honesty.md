@@ -74,7 +74,7 @@ The operator got `Unknown command: /vfkb:brief`.
 
 **The proximate cause was staleness, not packaging.** The marketplace clone was pinned at `b0e6667`
 (v0.3.0 — `Skills (1)`, `Agents (0)`) while `origin/main` was `3aec82f` **[probe]**. **A Claude Code restart
-re-reads the cached install and never re-pulls the clone.** (Brain gotcha `112f75187029`, recorded on branch `chore/brain-plugin-update-gotchas` — **PR #100, not yet merged**; it is not resolvable from this branch.) Compounding
+re-reads the cached install and never re-pulls the clone** **[probe]**. (Brain gotcha `112f75187029`, recorded on branch `chore/brain-plugin-update-gotchas` — **PR #100, not yet merged**; it is not resolvable from this branch.) Compounding
 it, `claude plugin update` defaults to `--scope user` (per `--help`) and fails on a project-scope
 install **[probe]**.
 
@@ -101,7 +101,8 @@ my wiring healthy?" looked at the stale install and passed it.**
 
 ### Root cause 3 — delivery has never been proven, by construction
 
-`scenarios/brief-skill.mjs:71` invokes `claude -p '/vfkb:brief' --plugin-dir <src>`. This is not a
+`scenarios/brief-skill.mjs:71` (vfkb-claude-plugin) invokes `claude -p '/vfkb:brief' --plugin-dir <src>`
+**[probe]**. This is not a
 corner cut; it is what ADR-0050 line 64 instructs. `--plugin-dir` loads from a source tree, bypassing
 the marketplace clone, `marketplace.json` resolution (`source: "./plugin"`), the version cache,
 `installed_plugins.json`, scope, and startup resolution. **We have no evidence, ever, that the plugin
@@ -195,9 +196,9 @@ the inner gate, not the capability-level success criterion"*). The capability-le
 agent-driven scenario, **`scenarios/doctor-staleness.mjs`**.
 
 **Substrate: a host-level tmpdir sandbox, offline, with hand-built fixtures.** ADR-0022's
-container-with-egress-allowlist (decision #1/#4) governs the `l4-purpose` harness; **six of vfkb's nine
-scenarios are not dockerized** (`decision-capture`, `consumer-onboarding`, `session-start-briefing`,
-`session-end-handoff`, `okf-bundle-cold-agent`, `compare`), and this one follows that in-repo precedent.
+container-with-egress-allowlist (decision #1/#4) governs the `l4-purpose` harness; **eight of vfkb's
+nine scenarios spawn no container at all** — only `l4-purpose.mjs` does **[probe]** — and this one
+follows that in-repo precedent.
 It must **not** clone from GitHub: an earlier draft's arm did, which needs SSH keys and network egress
 that ADR-0022's model forbids, and which would make the "current" arm depend on live `origin/main` —
 destroying reproducibility. Instead the scenario builds its own fixtures, which is possible because doctor reads registry JSON and
@@ -362,8 +363,9 @@ non-negotiable may be relaxed through the ordinary amend mechanism.
 **Therefore:** ADR-0051 does **not** decide this. If the operator ratifies Reading B, it becomes an
 explicit clause (or its own ADR-0052). If the operator ratifies Reading A, part 4's gate is void and the
 `install-path` L4 blocks the next plugin release — **not immediately buildable**, since it is itself
-blocked on adopting `claude plugin tag` (part 4). Reading A therefore implies a plugin release freeze of
-unbounded length. That cost should be weighed, not discovered later. **The rest of
+blocked on adopting `claude plugin tag` (part 4). Reading A therefore freezes plugin releases until tagging is adopted
+*and* the L4 is built and DEMONSTRATED. That work is finite and controllable — `claude plugin tag`
+already exists **[probe]** — but it is not zero, and the cost should be weighed now, not discovered later. **The rest of
 this RFC stands either way** — the detector, the release-gate fix, and striking `--plugin-dir` are
 unaffected by the choice.
 
