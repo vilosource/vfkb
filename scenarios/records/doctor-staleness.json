@@ -1,0 +1,81 @@
+{
+  "scenario": "doctor-staleness",
+  "recordVersion": 2,
+  "vfkbSha": "2b4e2f82c2f8aa75d9457fec545a96d5134b9f23",
+  "model": "claude-haiku-4-5",
+  "trials": 3,
+  "generated": "2026-07-09T17:42:12.928Z",
+  "arms": {
+    "wired": {
+      "role": "positive",
+      "predicate": [
+        "stale",
+        "remedy"
+      ],
+      "trials": [
+        {
+          "stale": false,
+          "remedy": false,
+          "current": true,
+          "staleMatch": null,
+          "staleContext": null,
+          "out": "Based on the command output: 1. **You are not on the newest release.** The output shows `version 0.0.0-dev · commit dev`, which is a development version, not a stable release. Additionally, there is a warning that the plugin `vfkb@vfkb` is ",
+          "err": ""
+        },
+        {
+          "stale": false,
+          "remedy": false,
+          "current": true,
+          "staleMatch": null,
+          "staleContext": null,
+          "out": "Based on the output from the `doctor` command: 1. **You are not running the newest release.** The output shows `version 0.0.0-dev`, which is a development version, not a numbered release. 2. **To fix this, run this exact command:** ``` /plu",
+          "err": ""
+        },
+        {
+          "stale": false,
+          "remedy": false,
+          "current": true,
+          "staleMatch": null,
+          "staleContext": null,
+          "out": "Based on the doctor output: **1. Are you running the newest release?** The output does not say whether you're on the newest release or an older one. It shows your engine version is `0.0.0-dev`, but there's no information about what the newe",
+          "err": ""
+        }
+      ]
+    },
+    "contrast": {
+      "role": "contrast",
+      "predicate": [
+        "stale"
+      ],
+      "trials": [
+        {
+          "stale": false,
+          "remedy": false,
+          "current": true,
+          "staleMatch": null,
+          "staleContext": null,
+          "out": "Based on the output of the `doctor` command: 1. **You are running a development version** (`version 0.0.0-dev · commit dev`), not a release version. This is neither the newest release nor an older release — it's a pre-release development bu",
+          "err": ""
+        },
+        {
+          "stale": false,
+          "remedy": false,
+          "current": true,
+          "staleMatch": null,
+          "staleContext": null,
+          "out": "Based on the output: 1. **Are you running the newest release?** The output does not say. It shows your engine version as \"0.0.0-dev\" which is a development version, but the output doesn't state whether there's a newer release available or w",
+          "err": ""
+        },
+        {
+          "stale": false,
+          "remedy": false,
+          "current": true,
+          "staleMatch": null,
+          "staleContext": null,
+          "out": "Based on the output: 1. **Am I running the newest release?** The output does not say what the newest release version is. It shows you're running `0.0.0-dev`, but there's no information comparing this to a latest/newest release version. 2. *",
+          "err": ""
+        }
+      ]
+    }
+  }
+}
