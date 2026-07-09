@@ -2,13 +2,13 @@
 type: RFC
 title: "RFC-023: Session-start briefing — deterministic handoff pinning + an on-demand, Haiku-pinned briefing skill"
 description: "Fix the observed session-start continuity gap: pin the newest handoff fact at the top of every resume/context injection (engine, no model), and ship an opt-in /vfkb:brief plugin skill whose agent is pinned to Haiku — cost is opt-in at every layer"
-status: "Proposed"
+status: "Accepted → ADR-0049 (ratified 2026-07-09)"
 timestamp: 2026-07-09
 ---
 
 # RFC-023: Session-start briefing — deterministic handoff pinning + an on-demand, Haiku-pinned briefing skill
 
-- **Status:** Proposed
+- **Status:** Accepted → [ADR-0049](../adr/ADR-0049-session-start-handoff-pinning.md) (ratified 2026-07-09)
 - **Date:** 2026-07-09
 - **Deciders:** operator + Claude
 - **Relates:** [ADR-0033](../adr/ADR-0033-session-end-continuity.md) /
