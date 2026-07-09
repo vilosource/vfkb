@@ -72,8 +72,14 @@ superseded/archived handoffs excluded) are deterministic unit tests.
 
 ## Consequences
 
-- Session start answers "what's next" in every clone, on every surface, at zero marginal cost;
-  Track 8's write discipline finally pays out automatically at read time.
+- Session start answers "what's next" in every clone, on every **session-start** surface
+  (`resume` / `kb_resume` / context-block / the SessionStart hook), at zero marginal cost;
+  Track 8's write discipline finally pays out automatically at read time. `kb_context` /
+  `vfkb context` (ADR-0025, the on-demand project doc) is deliberately not a pin surface.
+- The pinned section is **bounded** (truncated at a cap, naming the entry id for `kb_get`):
+  unlike the short curated Constitution, a handoff is free text and may be machine-generated
+  (the ADR-0033 B2 fallback), so it must not unbound the budgeted render. A constitutional
+  handoff-tagged decision is not pinned twice — the Constitution section already leads.
 - The injected bundle spends ~one line of its budget on the pinned section when a handoff
   exists; ranked entries yield exactly that much room — accepted, the handoff is worth more
   at session start than the marginal ranked entry.
