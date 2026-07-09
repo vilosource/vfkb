@@ -439,6 +439,7 @@ function trustGlyph(e: KnowledgeEntry): string {
 // --- Last-handoff pin (ADR-0049): the read side of Track 8 (ADR-0033). Selection is a
 // filter, not an inference: newest-by-`updated` among injectable entries tagged
 // handoff/next. A superseded/archived/expired handoff ages out via isInjectable.
+const HANDOFF_PIN_CAP_CHARS = 2000; // bound the pinned section; the live 07-08 handoff ≈ 1.5k
 export function latestHandoff(
   all: KnowledgeEntry[] = readAll(),
   today = nowIso().slice(0, 10),
@@ -448,7 +449,17 @@ export function latestHandoff(
   for (const e of all) {
     if (!(e.tags.includes('handoff') || e.tags.includes('next'))) continue;
     if (!isInjectable(e, today, superseded)) continue;
-    if (!latest || e.updated > latest.updated) latest = e;
+    if (!latest) {
+      latest = e;
+      continue;
+    }
+    // Total order (adversarial-review finding): updated, then created, then append
+    // position — `>= 0` keeps the LATER entry on a full timestamp tie, which in an
+    // append-only log is the newest write. A strict `>` here silently favored the
+    // oldest entry on same-millisecond stamps (bulk adds, imports).
+    const cmp =
+      e.updated.localeCompare(latest.updated) || e.created.localeCompare(latest.created);
+    if (cmp >= 0) latest = e;
   }
   return latest;
 }
@@ -478,9 +489,18 @@ export function renderContextBundle(project = defaultProject(), budget = SESSION
   // Last handoff (ADR-0049): pinned after the Constitution, never budget-dropped —
   // otherwise the ADR-0012 type tiers budget-drop every fact under enough gotchas,
   // and the Track 8 handoff is exactly the entry a fresh session cannot lose.
+  // Bounded pin (adversarial-review finding): a handoff is free text and may be
+  // machine-generated (the B2 fallback enumerates entries), so unlike the short
+  // curated Constitution it must not unbound the render — truncate at the cap and
+  // name the id so the rest stays one kb_get away. A constitutional handoff is
+  // already pinned in the Constitution section; don't render it twice.
   const handoff = latestHandoff(all, today, superseded);
-  if (handoff) {
-    body += `## Last handoff\n- [${handoff.type} ${trustGlyph(handoff)}] ${handoff.text}\n\n`;
+  if (handoff && !constitutionalIds.has(handoff.id)) {
+    const text =
+      handoff.text.length > HANDOFF_PIN_CAP_CHARS
+        ? `${handoff.text.slice(0, HANDOFF_PIN_CAP_CHARS)}… (truncated — kb_get ${handoff.id} for the rest)`
+        : handoff.text;
+    body += `## Last handoff\n- [${handoff.type} ${trustGlyph(handoff)}] ${text}\n\n`;
   }
 
   // Context Map (ADR-0006): the navigational index, always injected, never dropped.

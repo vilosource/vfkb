@@ -78,4 +78,41 @@ describe('last-handoff pin (ADR-0049)', () => {
     const out = renderContextBundle('t');
     expect(out.match(/step delta-4/g)).toHaveLength(1);
   });
+
+  it('the pin renders after the Constitution section (ADR-0049 placement)', () => {
+    addEntry('decision', 'constitutional rule: never do Z', {
+      role: 'human',
+      status: 'accepted',
+      constitutional: true,
+    });
+    addEntry('fact', 'handoff: step epsilon-5', { role: 'human', tags: ['handoff'] });
+    const out = renderContextBundle('t');
+    expect(out.indexOf('## Constitution')).toBeGreaterThan(-1);
+    expect(out.indexOf('## Constitution')).toBeLessThan(out.indexOf('## Last handoff'));
+  });
+
+  it('a pathological handoff is truncated at the cap — the pin cannot unbound the render', () => {
+    const huge = addEntry('fact', `HANDOFF: step zeta-6. ${'x'.repeat(16000)}`, {
+      role: 'human',
+      tags: ['handoff'],
+    });
+    gotchaWall();
+    const out = renderContextBundle('t');
+    expect(out).toContain('step zeta-6'); // the head survives
+    expect(out).toContain(`(truncated — kb_get ${huge.id} for the rest)`);
+    // bounded: cap (2000) + marker + map + budgeted ranked remainder — never 16k+
+    expect(out.length).toBeLessThan(11000);
+  });
+
+  it('a constitutional handoff-tagged decision is not pinned twice', () => {
+    addEntry('decision', 'constitutional handoff: do W next', {
+      role: 'human',
+      status: 'accepted',
+      constitutional: true,
+      tags: ['handoff'],
+    });
+    const out = renderContextBundle('t');
+    expect(out).not.toContain('## Last handoff'); // already leads in the Constitution
+    expect(out.match(/do W next/g)).toHaveLength(1);
+  });
 });

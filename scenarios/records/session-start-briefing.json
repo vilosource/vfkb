@@ -2,7 +2,7 @@
   "scenario": "session-start-briefing",
   "model": "claude-haiku-4-5",
   "trials": 3,
-  "generated": "2026-07-09T05:54:12.703Z",
+  "generated": "2026-07-09T06:11:54.940Z",
   "wired": 3,
   "contrast": 0,
   "demonstrated": true,
