@@ -3,12 +3,17 @@
 // or inconsistent wiring, and the dual-clone drift signal (a brain last stamped by
 // a different engine build). Deterministic; unit-tested (the inner gate per ADR-0023).
 
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { SCHEMA_VERSION, ENGINE_VERSION, ENGINE_COMMIT } from './version.js';
 import { readManifest } from './manifest.js';
+import type { GitRunner } from './session-end.js';
 
-export type DoctorStatus = 'ok' | 'warn' | 'fail';
+// `skip` = could not determine, and that is not a defect (offline, no clone,
+// directory-source marketplace). RFC-024 §1: this check must NEVER `fail`, and
+// must never imply health it did not verify.
+export type DoctorStatus = 'ok' | 'warn' | 'fail' | 'skip';
 export interface DoctorCheck {
   name: string;
   status: DoctorStatus;
@@ -74,12 +79,61 @@ function detectPluginWiring(settings: any, root: string, pluginsFile: string | u
   return undefined;
 }
 
+// Claude Code relocates its ENTIRE config dir via CLAUDE_CONFIG_DIR, `plugins/`
+// included. Deriving the registry from $HOME alone makes doctor inspect HOST
+// state even when pointed at a sandbox — observed 2026-07-09, and a prerequisite
+// for any currency check (RFC-024 §1).
+function claudeConfigDir(env: Record<string, string | undefined>): string | undefined {
+  if (env.CLAUDE_CONFIG_DIR) return env.CLAUDE_CONFIG_DIR;
+  return env.HOME ? join(env.HOME, '.claude') : undefined;
+}
+
+// Read the clone's checked-out sha WITHOUT shelling git: `ls-remote` must be the
+// only subcommand this module ever issues, so that "the diagnostic does not
+// write" is observable rather than promised.
+function localHeadSha(cloneDir: string): string | undefined {
+  const head = readFileMaybe(join(cloneDir, '.git', 'HEAD'));
+  if (!head) return undefined;
+  const ref = head.trim().match(/^ref:\s*(\S+)$/)?.[1];
+  if (!ref) return /^[0-9a-f]{40}$/.test(head.trim()) ? head.trim() : undefined; // detached HEAD
+  const loose = readFileMaybe(join(cloneDir, '.git', ...ref.split('/')));
+  if (loose) return loose.trim();
+  const packed = readFileMaybe(join(cloneDir, '.git', 'packed-refs'));
+  for (const line of packed?.split('\n') ?? []) {
+    const [sha, name] = line.trim().split(/\s+/);
+    if (name === ref) return sha;
+  }
+  return undefined;
+}
+
+function readFileMaybe(path: string): string | undefined {
+  try {
+    return readFileSync(path, 'utf8');
+  } catch {
+    return undefined;
+  }
+}
+
+// Read-only, short-timeout. `git fetch` is rejected: it writes refs and objects
+// into the user's clone and can contend on the repo lock with a running Claude
+// Code. A diagnostic must not write.
+const realGit: GitRunner = (args, cwd) =>
+  execFileSync('git', args, {
+    cwd,
+    encoding: 'utf8',
+    timeout: 5000,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_SSH_COMMAND: 'ssh -oBatchMode=yes' },
+  });
+
 export interface DoctorOpts {
   root: string;
   brainDir: string;
   env: Record<string, string | undefined>;
   // Injectable for tests; defaults to the machine's Claude Code plugin registry.
   pluginsFile?: string;
+  knownMarketplacesFile?: string;
+  git?: GitRunner; // injectable for tests (the src/session-end.ts seam)
 }
 
 export function runDoctor(opts: DoctorOpts): DoctorReport {
@@ -95,8 +149,9 @@ export function runDoctor(opts: DoctorOpts): DoctorReport {
   // what "healthy" means for the wiring checks AND which advice is safe to give
   // (`vfkb init` on a plugin-wired repo scaffolds double wiring — issue #77).
   const settings = readJson(join(root, '.claude', 'settings.json'));
+  const configDir = claudeConfigDir(env);
   const pluginsFile =
-    opts.pluginsFile ?? (env.HOME ? join(env.HOME, '.claude', 'plugins', 'installed_plugins.json') : undefined);
+    opts.pluginsFile ?? (configDir ? join(configDir, 'plugins', 'installed_plugins.json') : undefined);
   const plugin = detectPluginWiring(settings, root, pluginsFile);
 
   // 2. Brain ↔ engine compat (the load-bearing check).
@@ -213,6 +268,62 @@ export function runDoctor(opts: DoctorOpts): DoctorReport {
     }
   }
 
+  // 5d. Plugin currency (RFC-024 §1) — the check that would have caught the
+  // 2026-07-09 incident: the plugin was correctly packaged and correctly
+  // installed, but the operator's MARKETPLACE CLONE never advanced, so
+  // `plugin update` had nothing newer to install and nothing said so.
+  //
+  // One axis: compare the clone's checked-out sha to its remote's HEAD via
+  // `git ls-remote` (read-only). Behind → warn, naming the remedy. Offline,
+  // unreachable, no clone, or a directory-source marketplace → skip, NEVER fail.
+  // A detector nobody runs detects nothing, so it is attempted by default with
+  // a short timeout.
+  if (plugin) {
+    const marketplace = plugin.key.split('@')[1];
+    const kmFile =
+      opts.knownMarketplacesFile ?? (configDir ? join(configDir, 'plugins', 'known_marketplaces.json') : undefined);
+    const entry = kmFile ? readJson(kmFile)?.[marketplace] : undefined;
+    const skip = (detail: string) => add('plugin currency', 'skip', detail);
+
+    if (!entry) {
+      skip(`no marketplace "${marketplace}" in ${kmFile ?? 'the plugin registry'} — cannot check currency`);
+    } else if (entry.source?.source !== 'github') {
+      // A directory source records the path itself and creates no clone —
+      // there is nothing that can be stale.
+      skip(`marketplace "${marketplace}" is a ${entry.source?.source ?? 'unknown'}-source — no clone to compare`);
+    } else if (!entry.installLocation || !existsSync(join(entry.installLocation, '.git'))) {
+      skip(`marketplace clone not found at ${entry.installLocation ?? '(unset installLocation)'}`);
+    } else {
+      const clone: string = entry.installLocation;
+      const local = localHeadSha(clone);
+      let remote: string | undefined;
+      try {
+        remote = (opts.git ?? realGit)(['ls-remote', 'origin', 'HEAD'], clone).trim().split(/\s+/)[0];
+      } catch {
+        remote = undefined;
+      }
+      if (!local) {
+        skip(`cannot read the checked-out revision of ${clone}`);
+      } else if (!remote || !/^[0-9a-f]{7,40}$/.test(remote)) {
+        // Offline is the common case. Say so plainly: vfkb cannot tell you that
+        // you are running old code, and must not imply health it did not verify.
+        skip(`remote unreachable (offline?) — cannot tell whether ${marketplace} is current`);
+      } else if (remote === local) {
+        add('plugin currency', 'ok', `${marketplace} marketplace clone matches its remote (${local.slice(0, 7)})`);
+      } else {
+        add(
+          'plugin currency',
+          'warn',
+          `${marketplace} marketplace clone is STALE — it sits at ${local.slice(0, 7)} but the remote is at ` +
+            `${remote.slice(0, 7)}. You are running an old copy of the plugin, and \`claude plugin update\` ` +
+            `will find nothing newer until the clone advances. Remedy: ` +
+            `\`claude plugin marketplace update ${marketplace}\` then \`claude plugin update ${plugin.key}\`, ` +
+            `then restart Claude Code.`,
+        );
+      }
+    }
+  }
+
   // 6. VFKB_PROJECT consistency across the two wiring files.
   const settingsProject = projectFromSettings(settings);
   if (mcpProject && settingsProject && mcpProject !== settingsProject) {
@@ -224,7 +335,7 @@ export function runDoctor(opts: DoctorOpts): DoctorReport {
   return { checks, ok: !checks.some((c) => c.status === 'fail') };
 }
 
-const ICON: Record<DoctorStatus, string> = { ok: 'OK  ', warn: 'WARN', fail: 'FAIL' };
+const ICON: Record<DoctorStatus, string> = { ok: 'OK  ', warn: 'WARN', fail: 'FAIL', skip: 'SKIP' };
 
 export function renderDoctor(report: DoctorReport): string {
   const lines = report.checks.map((c) => `${ICON[c.status]}  ${c.name} — ${c.detail}`);
