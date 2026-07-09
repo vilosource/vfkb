@@ -73,9 +73,10 @@ That record is real; its predicate was audited.
 The operator got `Unknown command: /vfkb:brief`.
 
 **The proximate cause was staleness, not packaging.** The marketplace clone was pinned at `b0e6667`
-(v0.3.0 — `Skills (1)`, `Agents (0)`) while `origin/main` was `3aec82f`. **A Claude Code restart
+(v0.3.0 — `Skills (1)`, `Agents (0)`) while `origin/main` was `3aec82f` **[probe]**. **A Claude Code restart
 re-reads the cached install and never re-pulls the clone.** (Brain gotcha `112f75187029`, recorded on branch `chore/brain-plugin-update-gotchas` — **PR #100, not yet merged**; it is not resolvable from this branch.) Compounding
-it, `claude plugin update` defaults to `--scope user` and fails on a project-scope install.
+it, `claude plugin update` defaults to `--scope user` (per `--help`) and fails on a project-scope
+install **[probe]**.
 
 **The packaging was never broken.** At `3aec82f`, `plugin/skills/brief/SKILL.md`,
 `plugin/agents/briefer.md`, a `plugin.json` reading `0.4.0`, and both vendored bundles are all present
@@ -156,10 +157,12 @@ Claude Code. A diagnostic must not write.
 `source` → `<source>/.claude-plugin/plugin.json`; there is **no** `plugin.json` at the clone root
 **[probe]**). It is dropped from this RFC for two reasons that took three review rounds to see:
 
-1. **It targets a defect nobody has observed.** In the operator's failure the clone itself was stale, so
-   `installed == offered == 0.3.0` and axis (b) **would have passed clean.** It fires only for a
-   *half-upgraded* install, reachable via the `--scope user` trap — a mechanism argument, not an
-   instance. CLAUDE.md's evidence-gated rule says don't build that.
+1. **It is a user-facing capability targeting a defect nobody has observed.** In the operator's failure
+   the clone itself was stale, so `installed == offered == 0.3.0` and axis (b) **would have passed
+   clean.** It fires only for a *half-upgraded* install, reachable via the `--scope user` trap — a
+   mechanism argument, not an instance. (The qualifier matters: part 2b's structural check also targets
+   an unobserved defect, but it is a CI-time inner-gate test, not a user-facing capability. Reason 2 is
+   what actually separates them.)
 2. **It emits a user-facing `fail`**, so by this RFC's own reading of ADR-0050 it would need its own
    agent-driven L4 — which is not free, so "it's cheap and deterministic" does not excuse it.
 
@@ -197,8 +200,8 @@ scenarios are not dockerized** (`decision-capture`, `consumer-onboarding`, `sess
 `session-end-handoff`, `okf-bundle-cold-agent`, `compare`), and this one follows that in-repo precedent.
 It must **not** clone from GitHub: an earlier draft's arm did, which needs SSH keys and network egress
 that ADR-0022's model forbids, and which would make the "current" arm depend on live `origin/main` —
-destroying reproducibility. Instead the scenario builds its own fixtures, which is possible because
-doctor only reads registry JSON and shells `git`:
+destroying reproducibility. Instead the scenario builds its own fixtures, which is possible because doctor reads registry JSON and
+(after this RFC — it shells no git today **[probe]**) will invoke only `git ls-remote`:
 
 - a **local bare repo** as the marketplace's `origin`, with two commits;
 - a clone of it, plus a `known_marketplaces.json` naming that clone as `installLocation`, plus an
@@ -239,8 +242,9 @@ PR, which leaves no red window since both land together:
             "contrast": { "role": "contrast", "passed": 0 } } }
 ```
 
-Verdict, recomputed and never read from the record, and matching ADR-0022:72 exactly (*"`demonstrated`
-requires the contrast to hold on **≥2/3**"*): **every `positive` arm ≥ ⌈2·trials/3⌉ and every `contrast`
+Verdict, recomputed and never read from the record. ADR-0022:72 constrains only the contrast
+(*"`demonstrated` requires the contrast to hold on **≥2/3**"*); the positive threshold below formalizes
+what "demonstrated" has always meant in practice, and for `trials=3` the two agree: **every `positive` arm ≥ ⌈2·trials/3⌉ and every `contrast`
 arm ≤ ⌊trials/3⌋.** An earlier draft wrote `contrast == 0`, which is *stricter* than ADR-0022 — a silent
 tightening of a rule this RFC claims not to touch. It does not.
 
@@ -267,8 +271,9 @@ ADR-0050's body is **not edited** (ADR-0001). ADR-0051 states:
 >
 > **Delivery and upgrade are capabilities, distinct from the capabilities they carry.** Neither is
 > currently proven for this plugin. Every release note, ADR, and handoff MUST state that **delivery is
-> unproven** until a delivery proof exists. *(Whether an unproven delivery path may nevertheless ship is
-> deliberately NOT decided here — see "The open question."*)
+> unproven** until a delivery proof exists. *(This mandates disclosure wherever delivery is described; it
+> does not license shipping. Whether an unproven delivery path may nevertheless ship is deliberately NOT
+> decided here — see "The open question.")*
 >
 > **Corollary — the quiet-success trap.** Where a delivery failure presents as a *successful* run lacking
 > the capability (exit 0, `is_error: false`, "Unknown command"), the predicate MUST be a content assertion
@@ -356,7 +361,9 @@ non-negotiable may be relaxed through the ordinary amend mechanism.
 
 **Therefore:** ADR-0051 does **not** decide this. If the operator ratifies Reading B, it becomes an
 explicit clause (or its own ADR-0052). If the operator ratifies Reading A, part 4's gate is void and the
-`install-path` L4 becomes an immediate blocking prerequisite for the next plugin release. **The rest of
+`install-path` L4 blocks the next plugin release — **not immediately buildable**, since it is itself
+blocked on adopting `claude plugin tag` (part 4). Reading A therefore implies a plugin release freeze of
+unbounded length. That cost should be weighed, not discovered later. **The rest of
 this RFC stands either way** — the detector, the release-gate fix, and striking `--plugin-dir` are
 unaffected by the choice.
 
@@ -392,8 +399,9 @@ claude plugin update <plugin>@<mp> --scope project  # axis (b): advance the inst
 ```
 
 `--scope` must match the install (`installed_plugins.json` shows it); the default `user` hard-fails on a
-project-scope install. After part 1, `doctor` **warns** on axis (a) when online — the axis that bit the
-operator — and **fails** on axis (b). Offline, it still cannot tell you that you are stale.
+project-scope install. After part 1, `doctor` **warns** when online that your clone is behind — the failure that bit the
+operator. It emits no `fail`: the install-behind-clone check that would have is gated. Offline, doctor
+still cannot tell you that you are stale.
 
 **Bundle consumers (ADR-0030/0031).** Refresh `$VFKB_BUNDLE_DIR`. No registry; currency unanswerable
 offline. Gated.
@@ -439,8 +447,9 @@ parts, not that the capability works in its real use-case."* Hence `doctor-stale
   evidence.
 - The headline remedy is a **detector**, not a gate — an uncomfortable conclusion for a gate-shaped
   doctrine, and it follows directly from the packaging having been correct.
-- `vfkb doctor` gains its first `fail` about the *environment* rather than the brain, plus a network
-  `warn`, plus vfkb's first scenario that tests vfkb's own diagnostic.
+- `vfkb doctor` gains a network `warn` about the *environment* rather than the brain — and **no new
+  `fail`**, since the only check that would emit one is gated. It also gains vfkb's first scenario that
+  tests vfkb's own diagnostic.
 - The plugin's release gate stops trusting a self-asserted boolean. `brief-skill.json`'s shape changes
   (breaking); the record is migrated in the same PR as the gate.
 - Fixing `doctor` to honor `CLAUDE_CONFIG_DIR` is a prerequisite and a standalone bug fix.
@@ -450,7 +459,8 @@ parts, not that the capability works in its real use-case."* Hence `doctor-stale
 
 ## Definition of Done
 
-Until every item holds, the honest status is **"built, NOT yet verified."**
+Until every item holds, the honest status is **"built, NOT yet verified."** These are the six things an
+implementer can discharge; the seventh thing this RFC needs is a ratification, recorded below them.
 
 1. *(vfkb)* `doctor` honors `CLAUDE_CONFIG_DIR`, with a unit test that goes red on a fixture whose
    registry lives outside `$HOME`.
@@ -462,9 +472,11 @@ Until every item holds, the honest status is **"built, NOT yet verified."**
 3. *(vfkb)* `scenarios/doctor-staleness.mjs` committed: host-level tmpdir sandbox, offline, hand-built
    fixtures (local bare repo + clone + registry JSON), **no GitHub, no `claude plugin` CLI**. DEMONSTRATED
    per ADR-0022:72 — wired ≥2/3, contrast holds ≥2/3. The agent is **observed** naming the stale state
-   and the remedy, not merely exiting non-zero. The committed record binds to the **vfkb git sha**
-   (`vfkb_sha`, as existing records do); `ENGINE_VERSION` is `0.0.0-dev` in `dist` and near-static in the
-   bundle, so it is not a usable binding.
+   and the remedy, not merely exiting non-zero. The committed record binds to the **vfkb git sha**. Note this is a *new* convention for a
+   per-scenario record: only the `l4-purpose` aggregate records carry `vfkb_sha` today; the five
+   standalone records (`decision-capture`, `session-start-briefing`, `session-end-handoff`,
+   `okf-bundle-cold-agent`, `agents-md-cold-agent`) carry none **[probe]**. `ENGINE_VERSION` is
+   `0.0.0-dev` in `dist` and near-static in the bundle, so it is not a usable binding.
 4. *(plugin)* `release-gate.mjs` recomputes the verdict from per-arm counts and roles, never reading
    `rec.demonstrated`, applying ADR-0022:72 unchanged. **The Brake is seen going red** on a stale record
    *and* on a `demonstrated: true` record carrying a failing arm. `brief-skill.json` is migrated to the
@@ -474,5 +486,7 @@ Until every item holds, the honest status is **"built, NOT yet verified."**
 6. *(vfkb)* ADR-0051 committed; ADR-0050's status-pointer line — and nothing else in its body — records
    the amendment; CLAUDE.md's DoD section updated to match, including the scoped staleness corollary and
    the standing "delivery is unproven" disclosure.
-7. *(operator)* **The open question is answered.** Reading A or Reading B is ratified explicitly. If A,
-   part 4's gate is void and the `install-path` L4 blocks the next release.
+**Ratification, separate from the DoD.** The open question is the operator's, and no implementer can
+discharge it by building. It is therefore *not* a DoD item. It must be answered before ADR-0051 is
+accepted — as an explicit clause, or as its own ADR-0052. If Reading A is ratified, part 4's gate is void
+and the DoD above grows the `install-path` L4 as a blocking item.
