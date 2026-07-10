@@ -1,0 +1,40 @@
+{
+  "recordVersion": 1,
+  "sha": "de2aca5ebb151373fffc5665bbad675fe36856f4",
+  "governing": [
+    "docs/adr/ADR-0052-review-gate.md",
+    "docs/adr/ADR-0050-l4-dod-constitutional-brake.md",
+    "docs/adr/ADR-0029-sandbox-proven-definition-of-done.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "opus", "rounds": 6 },
+  "generated": "2026-07-10T11:39:50Z",
+  "findings": [
+    { "id": "B1", "severity": "blocking", "status": "fixed",
+      "summary": "git show --name-only prints nothing for a merge commit, so [].every(isReviewRecord) was vacuously true: candidateShas walked through merges down the first-parent lineage and accepted another PR's review record, passing a merge of unreviewed code. Its other half: actions/checkout defaults to GitHub's synthetic merge ref, whose second parent carries the reviewed commit, so a correctly filed record would never be found. As wired it would have blocked every honest PR while passing merges of unreviewed code." },
+    { "id": "GITDIR-ESCAPE", "severity": "major", "status": "fixed",
+      "summary": "The selftest's git fixtures spread process.env, and git's cwd does not win over an ambient GIT_DIR. Running the selftest with GIT_DIR set wrote 8 commits into a repository the test does not own. The same hole existed in the gate's own git adapter, where candidateShas could have read history from a repository it was never pointed at. Observed, not theorised." },
+    { "id": "M2", "severity": "major", "status": "fixed",
+      "summary": "acceptedBy was checked for truthiness only, so an author could waive their own blocking finding with acceptedBy: 'me' while ADR-0052 claimed only the operator could. Waivers now require a name in reviews/OPERATORS, itself an implementation path." },
+    { "id": "M3", "severity": "major", "status": "fixed",
+      "summary": "scenarios/ matched wholesale, so a PR committing nothing but L4 evidence -- the project's own DoD workflow -- was forced to carry an adversarial code review. A gate that blocks honest work is a defect." },
+    { "id": "m5", "severity": "minor", "status": "fixed", "summary": "Two validateRecord rules (no findings array; finding without id/summary) had no selftest case." },
+    { "id": "m6", "severity": "minor", "status": "fixed", "summary": "Implementation path regexes were case-sensitive; a variant-cased path dodged the gate." },
+    { "id": "m7", "severity": "minor", "status": "fixed", "summary": "docs/V2-ROADMAP.md still instructed the reader to run the deleted /v2-review command." },
+    { "id": "m8", "severity": "minor", "status": "fixed", "summary": "REDESIGN could not be recorded, and the bidirectional mismatch check would have rejected an honest FIX-FIRST over major findings alone." },
+    { "id": "N1", "severity": "minor", "status": "fixed", "summary": "A non-string acceptedBy threw TypeError out of isOperator: fail-closed, but a stack trace instead of a finding." },
+    { "id": "N3", "severity": "minor", "status": "fixed",
+      "summary": "Six of seven EXEMPT_PATHS entries were inert; deleting them reddened nothing, and the baseline case named 'reviews/ is exempt' passed for an unrelated reason. A list that read as protection and did nothing, with a test that read as coverage and proved nothing." },
+    { "id": "N4", "severity": "minor", "status": "fixed", "summary": "isImplementation did not normalise a leading ./ nor fail closed on a path containing a .. segment." },
+    { "id": "FIXTURE-IDENTITY", "severity": "minor", "status": "fixed", "summary": "Three of four fixture git call sites passed -c user.email; the fourth did not, and CI runners have no global git identity. Green locally, red on CI." },
+    { "id": "UNTESTED-PROD-GUARD", "severity": "minor", "status": "fixed",
+      "summary": "The GIT_DIR strip added to the gate's own adapter had no test: reverting it reddened nothing. The assertion written for it checked the FIXTURE env object's keys, not the production adapter that decides which commits count as reviewed." },
+    { "id": "STRUCTURAL-VACUOUS", "severity": "minor", "status": "fixed",
+      "summary": "That fixture key-assertion was itself conditionally vacuous: it reddened only when the test runner's own environment already set GIT_DIR. Under env -i and on CI it delivered zero coverage while reading as proof of hermeticity. Found by the reviewer executing the exact regression it claimed to catch." },
+    { "id": "SNAPSHOT-VACUOUS", "severity": "minor", "status": "fixed",
+      "summary": "The behavioural replacement was ALSO vacuous: GIT_ENV was a const built at module load, before any test could set GIT_DIR, so a snapshot could not leak a variable that did not yet exist and the guard could not fail in-process. Two vacuous guards stacked, both written to close a vacuity. The env is now built per call, and each guard reddens exactly its own regression, independent of the ambient environment." },
+    { "id": "N2", "severity": "minor", "status": "open",
+      "summary": "candidateShas guards a parentless-root rev-parse throw, but the guard has no fixture: it is unreachable through the wired adapter, since base is always a merge-base and therefore an ancestor of HEAD. Disclosed rather than covered by a fixture written only to move a number. The reviewer's exhaustive 26-rule mutation sweep confirms this is the ONLY rule whose revert reddens no case." }
+  ],
+  "findingsCount": 16,
+  "verdict": "MERGE"
+}
