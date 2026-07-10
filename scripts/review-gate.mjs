@@ -45,21 +45,16 @@ export const IMPL_PATHS = [
   /^reviews\/OPERATORS$/,
 ];
 
-// Exempt paths WIN over the implementation list — that is the only way this list
-// can do any work.
-//   scenarios/records/ — committing L4 evidence is the project's own DoD workflow
-//     (ADR-0022/0029). Forcing an adversarial code review onto a PR that adds
-//     nothing but a scenario record blocks honest work.
-//   reviews/<sha>.json — the review records themselves, and their README.
-const EXEMPT_PATHS = [
-  /^docs\//i,
-  /^\.vfkb\//i,
-  /^README\.md$/i,
-  /^CLAUDE\.md$/i,
-  /^reviews\/[0-9a-f]{40}\.json$/i,
-  /^reviews\/README\.md$/i,
-  /^scenarios\/records\//i,
-];
+// Exempt paths WIN over the implementation list. This list contains ONLY entries
+// that actually shadow an IMPL_PATHS match — anything else would be dead code
+// that reads as protection. `docs/`, `.vfkb/`, `README.md`, `CLAUDE.md` and the
+// review records are exempt because no IMPL rule matches them, and the selftest
+// asserts that BEHAVIOUR rather than trusting an inert regex to express it.
+//
+//   scenarios/records/ shadows scenarios/ — committing L4 evidence is the
+//   project's own DoD workflow (ADR-0022/0029), and forcing an adversarial code
+//   review onto a PR that adds nothing but a scenario record blocks honest work.
+const EXEMPT_PATHS = [/^scenarios\/records\//i];
 
 /** Only a review record may be stripped from the tip when locating the reviewed sha. */
 const isReviewRecord = (f) => /^reviews\/[0-9a-f]{40}\.json$/i.test(f);
@@ -69,7 +64,13 @@ const STATUS = ['fixed', 'accepted', 'open'];
 // A reviewer may return any of these. Only MERGE lets the PR through.
 const VERDICTS = ['MERGE', 'FIX-FIRST', 'REDESIGN'];
 
-export const isImplementation = (f) => !EXEMPT_PATHS.some((r) => r.test(f)) && IMPL_PATHS.some((r) => r.test(f));
+export const isImplementation = (raw) => {
+  const f = String(raw).replace(/^\.\//, '');
+  // `git diff --name-only` never emits these, but a path that escapes its
+  // directory is not something to reason about — treat it as implementation.
+  if (f.split('/').includes('..')) return true;
+  return !EXEMPT_PATHS.some((r) => r.test(f)) && IMPL_PATHS.some((r) => r.test(f));
+};
 
 /**
  * Recompute the verdict from the findings. The record's own `verdict` field is a
@@ -108,8 +109,11 @@ function validateRecord(rec, sha, docExists, isOperator) {
     // the author waive their own blocker with `acceptedBy: "me"` — which is what
     // the first version of this gate did, while its ADR claimed otherwise.
     if (f.severity === 'blocking' && f.status === 'accepted') {
-      if (!f.acceptedBy) bad.push(`finding ${f.id} waives a BLOCKING finding with no \`acceptedBy\``);
-      else if (!isOperator(f.acceptedBy)) {
+      if (!f.acceptedBy || typeof f.acceptedBy !== 'string') {
+        // A non-string here used to throw a TypeError out of isOperator: still
+        // fail-closed, but a stack trace instead of a finding.
+        bad.push(`finding ${f.id} waives a BLOCKING finding with no \`acceptedBy\` string`);
+      } else if (!isOperator(f.acceptedBy)) {
         bad.push(
           `finding ${f.id} waives a BLOCKING finding as "${f.acceptedBy}", who is not listed in reviews/OPERATORS — ` +
             `only an operator may accept a blocking finding, on the record`,
@@ -211,7 +215,13 @@ export function candidateShas(repo, base, head = 'HEAD') {
     const touched = git(repo, 'show', '--name-only', '--format=', sha).split('\n').filter(Boolean);
     if (touched.length === 0) break; // empty commit: proves nothing, strips nothing
     if (!touched.every(isReviewRecord)) break;
-    shas.push(git(repo, 'rev-parse', `${sha}^`));
+    let parent;
+    try {
+      parent = git(repo, 'rev-parse', `${sha}^`);
+    } catch {
+      break; // a root commit has no parent to fall back to
+    }
+    shas.push(parent);
   }
   return shas;
 }
