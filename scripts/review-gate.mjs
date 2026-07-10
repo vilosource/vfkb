@@ -193,7 +193,15 @@ export function runReviewGate(ctx) {
 // ---------------------------------------------------------------------------
 // Git adapter: the only impure part.
 // ---------------------------------------------------------------------------
-const git = (repo, ...args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8' }).trim();
+// `cwd` does not win over an ambient GIT_DIR / GIT_WORK_TREE: those redirect git
+// at another repository entirely, so the gate would read history it was never
+// pointed at. Strip them; keep the rest of the environment (ssh agent, proxies).
+const gitEnv = () => {
+  const env = { ...process.env };
+  for (const k of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_OBJECT_DIRECTORY', 'GIT_NAMESPACE', 'GIT_ALTERNATE_OBJECT_DIRECTORIES']) delete env[k];
+  return env;
+};
+const git = (repo, ...args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8', env: gitEnv() }).trim();
 
 /**
  * HEAD, plus each sha reachable by stripping trailing commits that touch ONLY
