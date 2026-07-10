@@ -1,0 +1,39 @@
+{
+  "recordVersion": 1,
+  "sha": "66548106524d77afd4c305bdaaec965458459b26",
+  "governing": [
+    "docs/rfc/RFC-024-staleness-detection-and-delivery-honesty.md",
+    "docs/adr/ADR-0051-delivery-honesty.md",
+    "docs/adr/ADR-0050-l4-dod-constitutional-brake.md",
+    "docs/adr/ADR-0029-sandbox-proven-definition-of-done.md",
+    "docs/adr/ADR-0022-l4-evaluation-methodology.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "inherit (claude-sonnet-5)", "rounds": 4 },
+  "generated": "2026-07-10T18:34:26Z",
+  "findings": [
+    { "id": "R1-F1", "severity": "major", "status": "fixed",
+      "summary": "Round 1: the L4 predicate's NEG_CUE regex scanned the whole preceding clause for a negation word rather than words adjacent to the matched staleness term. The question's disjunctive phrasing invited \"No, it has fallen behind\" -- where \"No\" answers the disjunction's first half and does not negate \"behind\" six words later -- but the scan negated the match anyway. 3 of 5 committed wired trials used this construction and were rescued only by a lucky second match elsewhere in the same answer." },
+    { "id": "R2-F1", "severity": "major", "status": "fixed",
+      "summary": "Round 2: the attempted fix (a 4-word negation window) did not close R1-F1, it only narrowed it -- reproduced the identical bug with a one-word-shorter phrasing (\"No, it has fallen behind.\", 4 words back, still inside the window)." },
+    { "id": "R2-F2", "severity": "major", "status": "fixed",
+      "summary": "Round 2: the same 4-word window introduced a symmetric regression -- legitimate negations 5+ words before the term (\"Nothing in the output suggests the clone is behind.\") now scored as false staleness leaks, which the prior whole-clause scan used to catch correctly." },
+    { "id": "R2-F3", "severity": "major", "status": "fixed",
+      "summary": "Round 2: confirmed the negation-scan architecture was backward-only (only ever inspected text preceding a match) -- \"Is it stale? Not at all, it's current.\" still leaked, since the negation appeared after the term. HEDGE_CUE had the identical unfixed problem, reproducible with \"whether\", a word taken directly from the question text." },
+    { "id": "R2-F4", "severity": "minor", "status": "fixed",
+      "summary": "Round 2: the rewritten L4 question itself still contained \"fallen behind\" (a STALE-list term), violating the file's own documented design principle (\"the question must contain none of the words the predicate scores on\"). A contrast trial echoed the question's conditional (\"If it had fallen behind... Not applicable, since it is current\") and leaked on the echo." },
+    { "id": "R3-F1", "severity": "major", "status": "fixed",
+      "summary": "Round 3: the STATUS/EVIDENCE/REMEDY redesign (commit 279f806) used an unanchored regex, matching the FIRST STATUS:/EVIDENCE:/REMEDY: occurrence anywhere in the answer. Since the question text itself contains the literal string STATUS: <one word, either \"current\" or \"diverged\">, a model musing before its real answer could hijack the match via first-occurrence semantics and hide a genuine leak -- the same failure direction as R1-F1/R2-F1/R2-F3, via a different mechanism." },
+    { "id": "R3-F2", "severity": "major", "status": "fixed",
+      "summary": "Round 3: the grounding check verified only that the EVIDENCE line contained the marker word (\"STALE\"/\"CURRENT\"), not that it was actually quoted from doctor's real output. \"EVIDENCE: it is STALE\" (fabricated, no genuine quote) scored a full hit." },
+    { "id": "R3-M1", "severity": "minor", "status": "open",
+      "summary": "Round 3: anchoring the answer to the whole trimmed response means any off-format preamble or trailing text discards the entire trial (status: null) rather than scoring it -- a legitimate but fully-compliant answer would still pass, but a mostly-compliant answer with stray text reads as \"didn't answer\" rather than \"answered with noise\". Reduces the informativeness of a not-demonstrated verdict; does not create a false hit or hidden leak. Not actioned -- accepted as the correct trade-off for closing R3-F1." },
+    { "id": "R3-M2", "severity": "minor", "status": "open",
+      "summary": "Round 3: constraining the test agent's answer to a fixed three-line format narrows the capability under test from \"communicates staleness understandably in free prose\" to \"can extract and restate a closed-vocabulary fact from doctor's prose\". doctor's own output is untouched and remains free prose; only the L4 harness's grading format changed. Judged a reasonable methodological trade-off, not a defect -- noted for the scenario's header comment, not actioned in this branch." },
+    { "id": "R4-F1", "severity": "minor", "status": "open",
+      "summary": "Round 4: src/doctor.ts's offline/unreachable-remote skip message (\"cannot tell whether ... is current\") contains the bare word \"current\" despite reaching no currency verdict. If ground-truth capture ever hit this branch during a wired trial (not reproduced live -- the fixture's origin is a local filesystem path, effectively always reachable), a model quoting that sentence could pass the current-arm grounding check without a genuine verdict having been reached. Design fragility, not a demonstrated exploit." },
+    { "id": "R4-F2", "severity": "minor", "status": "open",
+      "summary": "Round 4: confirms R3-M1's framing from the contrast side -- the anchor's discard-on-malformed-input behavior means the \"not a leak\" bucket can contain \"we don't know\" trials alongside genuine clean passes. Verified this cannot misattribute a well-formed wrong claim (the anchor only ever discards, never reclassifies) -- statistical-power cost only, not a security gap." }
+  ],
+  "findingsCount": 11,
+  "verdict": "MERGE"
+}
