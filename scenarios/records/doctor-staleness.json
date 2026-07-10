@@ -1,10 +1,10 @@
 {
   "scenario": "doctor-staleness",
   "recordVersion": 2,
-  "vfkbSha": "65f34e32c120c17a8ebca24b82e1b7bf16613bea",
+  "vfkbSha": "3ef085b99aca6b5b42035e2232f361d987be41d9",
   "model": "claude-haiku-4-5",
   "trials": 5,
-  "generated": "2026-07-10T17:19:33.178Z",
+  "generated": "2026-07-10T17:53:30.441Z",
   "arms": {
     "wired": {
       "role": "positive",
@@ -16,46 +16,46 @@
         {
           "stale": true,
           "remedy": true,
-          "current": true,
+          "current": false,
           "staleMatch": "STALE",
-          "staleContext": "llen behind. The output explicitly states: \"vfkb marketplace clone is STALE — it sits at b91effb but the remote is at 145a2b7.\" 2. What com",
-          "out": "Based on the output: **1. Is your local copy up to date?** No, your local copy has fallen behind. The output explicitly states: \"vfkb marketplace clone is STALE — it sits at b91effb but the remote is at 145a2b7.\" **2. What commands must you",
+          "staleContext": " refreshing. The output explicitly states: \"vfkb marketplace clone is STALE — it sits at e640a86 but the remote is at 7c7e132.\" 2. What com",
+          "out": "Based on the output: **1. Has your local copy diverged?** Yes, your local copy of the plugin's marketplace has diverged and needs refreshing. The output explicitly states: \"vfkb marketplace clone is STALE — it sits at e640a86 but the remote",
           "err": ""
         },
         {
           "stale": true,
           "remedy": true,
-          "current": true,
+          "current": false,
+          "staleMatch": "stale",
+          "staleContext": ". Has your local copy diverged? Yes. Your local marketplace clone is stale. It's at commit 94cb053 but the remote is at 6251a18. 2. What e",
+          "out": "Based on the command output: **1. Has your local copy diverged?** Yes. Your local marketplace clone is stale. It's at commit `94cb053` but the remote is at `6251a18`. **2. What exact commands must you run to sync?** The output gives you the",
+          "err": ""
+        },
+        {
+          "stale": true,
+          "remedy": true,
+          "current": false,
           "staleMatch": "STALE",
-          "staleContext": "llen behind. The output explicitly states: \"vfkb marketplace clone is STALE — it sits at 3087db1 but the remote is at 8e32e98.\" 2. What com",
-          "out": "Based on the output: **1. Is your local copy up to date?** No, it has fallen behind. The output explicitly states: \"vfkb marketplace clone is STALE — it sits at 3087db1 but the remote is at 8e32e98.\" **2. What commands must you run to bring",
+          "staleContext": "as diverged. The output states explicitly: \"vfkb marketplace clone is STALE — it sits at 3b8b84a but the remote is at 945fda3.\" 2. What exa",
+          "out": "Based on the output: **1. Does your local copy match its source?** No, it has diverged. The output states explicitly: \"vfkb marketplace clone is STALE — it sits at 3b8b84a but the remote is at 945fda3.\" **2. What exact commands must you run",
           "err": ""
         },
         {
           "stale": true,
           "remedy": true,
-          "current": true,
-          "staleMatch": "behind",
-          "staleContext": "Based on the command output: 1. Your local copy has fallen behind. The output explicitly states \"vfkb marketplace clone is STALE ",
-          "out": "Based on the command output: 1. **Your local copy has fallen behind.** The output explicitly states \"vfkb marketplace clone is STALE — it sits at ce440f3 but the remote is at a4668b6.\" 2. **To bring it current, run these exact commands:** `",
+          "current": false,
+          "staleMatch": "stale",
+          "staleContext": "atch its source? No, it has diverged. The local marketplace clone is stale — it's at commit e2cc10d while the remote is at 561a6fe. ## 2. ",
+          "out": "Based on the `doctor` command output: ## 1. Does your local copy match its source? **No, it has diverged.** The local marketplace clone is stale — it's at commit `e2cc10d` while the remote is at `561a6fe`. ## 2. What commands must you run t",
           "err": ""
         },
         {
           "stale": true,
           "remedy": true,
-          "current": true,
-          "staleMatch": "STALE",
-          "staleContext": "fallen behind. The doctor command reports: \"vfkb marketplace clone is STALE — it sits at 419866b but the remote is at bba0590.\" 2. What com",
-          "out": "Based on the output: **1. Is your local copy up to date?** No, your local copy has fallen behind. The doctor command reports: \"vfkb marketplace clone is STALE — it sits at 419866b but the remote is at bba0590.\" **2. What commands must you r",
-          "err": ""
-        },
-        {
-          "stale": true,
-          "remedy": true,
-          "current": true,
-          "staleMatch": "behind",
-          "staleContext": "Based on the output: 1. Your local copy has fallen behind. The output explicitly states \"vfkb marketplace clone is STALE ",
-          "out": "Based on the output: 1. **Your local copy has fallen behind.** The output explicitly states \"vfkb marketplace clone is STALE — it sits at 761a423 but the remote is at e07b3a6.\" 2. **To bring it current, run these commands in order:** - `cla",
+          "current": false,
+          "staleMatch": "stale",
+          "staleContext": "tch its source? No, it has diverged. Your local marketplace clone is stale — it's at commit 0ef22a8 but the remote is at 3bb7f42. 2. What ",
+          "out": "Based on the command output: **1. Does your local copy match its source?** No, it has diverged. Your local marketplace clone is **stale** — it's at commit `0ef22a8` but the remote is at `3bb7f42`. **2. What exact commands must you run to br",
           "err": ""
         }
       ]
@@ -72,7 +72,7 @@
           "current": true,
           "staleMatch": null,
           "staleContext": null,
-          "out": "Based on the output: 1. **Your local copy of the plugin's marketplace is up to date.** The output explicitly states: \"vfkb marketplace clone is CURRENT — level with its remote (edbe1f7)\". This means your local copy has not fallen behind its",
+          "out": "Based on the command output: 1. **Yes, your local copy matches its source.** The output explicitly states: \"vfkb marketplace clone is CURRENT — level with its remote (5bee5df)\". Your local marketplace copy is synchronized with its source. 2",
           "err": ""
         },
         {
@@ -81,7 +81,7 @@
           "current": true,
           "staleMatch": null,
           "staleContext": null,
-          "out": "Based on the output from the `doctor` command: 1. **Your local copy of the plugin's marketplace IS up to date.** The output explicitly states: \"vfkb marketplace clone is CURRENT — level with its remote (edf61dc)\". This means your local copy",
+          "out": "Based on the command output: 1. **Your local copy does NOT need refreshing.** The output states \"vfkb marketplace clone is CURRENT — level with its remote (70c3e38)\", meaning your local copy still matches its source. 2. **No commands are ne",
           "err": ""
         },
         {
@@ -90,7 +90,7 @@
           "current": true,
           "staleMatch": null,
           "staleContext": null,
-          "out": "Based on the command output: 1. **Is your local copy up to date?** Yes. Your local copy of the plugin's marketplace is current and level with its remote source (commit `5d7f722`). 2. **Do you need to run any commands?** No. The output expli",
+          "out": "Based on the output: 1. **Yes, your local copy matches its source.** The doctor output explicitly states: \"vfkb marketplace clone is CURRENT — level with its remote (32c0a47)\". The clone is in sync. 2. **No refresh is needed.** The output s",
           "err": ""
         },
         {
@@ -99,7 +99,7 @@
           "current": true,
           "staleMatch": null,
           "staleContext": null,
-          "out": "Based on the output of the `vfkb doctor` command: 1. **Is your local copy up to date?** Yes. The output states: \"vfkb marketplace clone is CURRENT — level with its remote (93c631a)\". Your local marketplace copy has not fallen behind. 2. **D",
+          "out": "Based on the output: 1. **Yes, your local copy matches its source.** The command reports `plugin currency — vfkb marketplace clone is CURRENT — level with its remote (414c4ff)`. This means your local marketplace clone is in sync with its re",
           "err": ""
         },
         {
@@ -108,7 +108,7 @@
           "current": true,
           "staleMatch": null,
           "staleContext": null,
-          "out": "Based on the output: 1. **Your local copy is up to date.** The command reports `vfkb marketplace clone is CURRENT — level with its remote (2ae4bc9)`, which means your local marketplace copy has not fallen behind its source. 2. **No refresh ",
+          "out": "Based on the output, here are the answers: 1. **Your local copy of the plugin's marketplace still matches its source** — it has not diverged. The output explicitly states: \"vfkb marketplace clone is CURRENT — level with its remote (f580a5b)",
           "err": ""
         }
       ]
