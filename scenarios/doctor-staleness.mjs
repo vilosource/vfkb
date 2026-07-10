@@ -152,6 +152,24 @@ function runArm(stale) {
   const { root, proj, cfg } = buildSandbox(stale);
   const cmd = `CLAUDE_CONFIG_DIR=${cfg} VFKB_DATA_DIR=.vfkb node ${CLI} doctor`;
   const prompt = QUESTION.replace('{CMD}', cmd);
+
+  // Ground truth, independent of what the agent reports: run doctor ourselves
+  // against the identical, untouched sandbox (read-only, deterministic — the
+  // sha values come from the fixture's own git history, not from anything
+  // time-dependent). Round-3 review finding: checking EVIDENCE for the word
+  // "STALE" lets a model assert the word without quoting anything real
+  // ("EVIDENCE: it is STALE" scored a full hit). EVIDENCE is now checked
+  // against this captured text instead of a bare marker-word regex.
+  let rawDoctorOut = '';
+  try {
+    rawDoctorOut = sh('node', [CLI, 'doctor'], {
+      cwd: proj,
+      env: { ...process.env, CLAUDE_CONFIG_DIR: cfg, VFKB_DATA_DIR: '.vfkb' },
+    });
+  } catch (e) {
+    rawDoctorOut = String(e.stdout || '') + String(e.stderr || '');
+  }
+
   let out = '';
   let err = '';
   try {
@@ -172,22 +190,39 @@ function runArm(stale) {
   // clause for a negation word to modify, so there is nothing for a "No," /
   // "not" / "whether" to ambiguously scope over. Markdown emphasis is stripped
   // first so `**STATUS:** diverged` still matches the label.
-  const flat = out.replace(/[*_`~]/g, '');
-  const statusHit = flat.match(/\bSTATUS\s*:\s*["']?(current|diverged|unclear)\b/i);
-  const evidenceHit = flat.match(/\bEVIDENCE\s*:\s*(.+)/i);
-  const remedyHit = flat.match(/\bREMEDY\s*:\s*(.+)/i);
-  const status = statusHit?.[1]?.toLowerCase() ?? null;
-  const evidence = evidenceHit?.[1]?.trim() ?? '';
-  const remedyLine = remedyHit?.[1]?.trim() ?? '';
+  const flat = out.replace(/[*_`~]/g, '').trim();
 
-  // A STATUS label counts only if EVIDENCE quotes doctor's own STALE/CURRENT
-  // marker text — ties the label back to something actually printed, not a
-  // guess that happens to fill in the right word. This is the sole grounding
-  // check now that there's no negation scan to leak through: a model that
-  // never reads the output fails here even if it names the right label.
-  const saysStale = status === 'diverged' && /\bSTALE\b/i.test(evidence);
-  const saysCurrent = status === 'current' && /\bCURRENT\b/i.test(evidence);
-  const namesRemedy = /marketplace update/i.test(remedyLine) || /marketplace update/i.test(out);
+  // Round-3 review finding: an UNANCHORED match returns the FIRST
+  // STATUS:/EVIDENCE:/REMEDY: occurrence anywhere in the answer. The question
+  // itself contains the literal string `STATUS: <one word, either "current"
+  // or "diverged">`, so a model that muses before its real answer ("I need to
+  // check STATUS: current vs diverged...") could have a genuine leak scored
+  // as a miss — the same "hide a real leak" failure direction as every prior
+  // round, via first-match hijacking instead of negation scanning. Anchoring
+  // the three-line block to the ENTIRE trimmed answer (start to end) closes
+  // this: any preamble or trailing text fails the match outright, which
+  // scores as unclear/invalid — a miss, never a hidden leak.
+  const shapeMatch = flat.match(
+    /^STATUS\s*:\s*["']?(current|diverged|unclear)["']?\s*\n+EVIDENCE\s*:\s*(.+?)\s*\n+REMEDY\s*:\s*(.+?)\s*$/is,
+  );
+  const status = shapeMatch?.[1]?.toLowerCase() ?? null;
+  const evidence = shapeMatch?.[2]?.trim() ?? '';
+  const remedyLine = shapeMatch?.[3]?.trim() ?? '';
+
+  // Genuine-quotation check: EVIDENCE must appear, modulo whitespace/
+  // punctuation, as a substring of what doctor ACTUALLY printed in this
+  // trial's sandbox — not merely contain the right word. A minimum length
+  // blocks trivial gaming ("EVIDENCE: STALE" alone would trivially be a
+  // substring of the real output too) while real quoted lines (~80+ chars)
+  // clear it easily.
+  const normalize = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const evidenceNorm = normalize(evidence);
+  const rawNorm = normalize(rawDoctorOut);
+  const evidenceQuoted = evidenceNorm.length >= 20 && rawNorm.includes(evidenceNorm);
+
+  const saysStale = status === 'diverged' && evidenceQuoted && /\bstale\b/.test(evidenceNorm);
+  const saysCurrent = status === 'current' && evidenceQuoted && /\bcurrent\b/.test(evidenceNorm);
+  const namesRemedy = /marketplace update/i.test(remedyLine);
 
   return {
     stale: saysStale,
