@@ -53,39 +53,40 @@ const git = (cwd, ...args) =>
     env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_TERMINAL_PROMPT: '0' },
   });
 
-// The question must contain NONE of the words the predicate scores on. An
-// earlier draft asked "is it stale/behind?" and an agent that merely restated
-// the question scored as reporting staleness — the predicate was measuring the
-// prompt, not the answer. Observed 2026-07-09: a contrast trial came back with
-// BOTH stale=true and current=true.
-// The capability under test (RFC-024 §1) is stale-CLONE detection — axis (a),
-// clone-vs-remote. It deliberately does NOT compare the installed version to
-// what the marketplace offers (axis (b), explicitly gated by the RFC). An
-// earlier version of this question asked "am I running the newest release?",
-// which is an axis-(b) question: an honest axis-(a) check cannot answer it, and
-// the only doctor wording that made the contrast arm clean was an axis-(b)
-// OVERCLAIM the review gate ruled a blocking delivery-honesty defect. The
-// question now asks what doctor actually checks and what the 2026-07-09 incident
-// was actually about: whether the local marketplace copy is behind its source.
-//
-// Review gate (fix/doctor-currency-line) finding: this rewrite still used
-// "fallen behind" in the question text itself, and one contrast trial leaked
-// on it — the agent echoed the question's own conditional ("If it had fallen
-// behind, what commands...? Not applicable, since it is current"), and the
-// STALE match landed on that echo, ahead of its own negation. This is the
-// exact "question leaked into the predicate" class documented above (2026-07-
-// 09): the question must contain NONE of the STALE-list words. Rephrased to
-// "matches its source" / "diverged" — neither is in the STALE term list.
+// HISTORY (fix/doctor-currency-line): this question went through three
+// designs, each defeated by a different variant of the same problem — scoring
+// free prose for staleness language is inherently ambiguous once the question
+// itself must mention staleness/currency at all:
+//   v1 asked "am I running the newest release?" — an axis-(b) question an
+//      honest axis-(a) check cannot answer; the only doctor wording that made
+//      the contrast arm clean was an axis-(b) OVERCLAIM the review gate ruled
+//      a blocking delivery-honesty defect.
+//   v2 asked "...has it fallen behind...?" — a contrast trial echoed the
+//      question's own conditional ("If it had fallen behind... Not
+//      applicable, since it is current"), and the STALE regex matched that
+//      echo ahead of a negation the scanner (backward-only) never saw. A
+//      narrower negation-scan window fixed the RECORDED case but a fresh
+//      review reproduced the identical bug with a one-word-shorter phrasing
+//      ("No, it has fallen behind") and found the narrower window broke
+//      legitimate long-distance negations the old scan used to catch.
+// v3 (current) does not parse negation in prose AT ALL. The agent must answer
+// in a fixed three-line format; STATUS is a closed-vocabulary label, not a
+// clause a negation word can modify, so "no negation-scope bug" is true by
+// construction rather than by another regex heuristic. EVIDENCE still ties
+// the label back to doctor's actual output text (ADR-0051's quiet-success
+// corollary: a content assertion, not a bare claim) — a model that fills in
+// the format without reading the output fails the evidence check, not the
+// (now trivial) status check.
 const QUESTION =
   'I use the vfkb Claude Code plugin. It is installed from a local copy of a marketplace ' +
-  'that I refresh periodically, and I want to know whether that local copy still matches ' +
-  'its source. Run this exact command:\n\n' +
+  'that I refresh periodically. Run this exact command:\n\n' +
   '  {CMD}\n\n' +
-  'Then, based ONLY on what that command printed, answer in plain prose:\n' +
-  "  1. Does my local copy of the plugin's marketplace still match its source, or has it " +
-  'diverged and need refreshing?\n' +
-  '  2. If it has diverged, what exact command(s) must I run to bring it back in sync?\n' +
-  'Do not guess. If the output does not say, tell me it does not say.';
+  'Then, based ONLY on what that command printed, answer in EXACTLY this three-line format ' +
+  'and nothing else — no other text before or after it:\n\n' +
+  'STATUS: <one word, either "current" or "diverged">\n' +
+  'EVIDENCE: <the exact line from the command output that tells you>\n' +
+  'REMEDY: <the exact command(s) to run to fix it, or "none needed">\n\n' +
+  'Do not guess. If the output does not say, put "unclear" as the STATUS.';
 
 /**
  * Build one sandbox: a bare `origin` with two commits, a clone parked either at
@@ -166,76 +167,36 @@ function runArm(stale) {
   rmSync(root, { recursive: true, force: true });
 
   // Content assertions (ADR-0051's quiet-success corollary: exit status is not
-  // admissible). Negated forms — "not stale", "isn't behind", "no longer out of
-  // date" — are struck before scoring, so a clean report cannot register as a
-  // stale one. The surviving match is recorded, so a leak can be audited later
-  // instead of taken on faith.
-  // A staleness word counts only when the agent ASSERTS it. Two ways that fails,
-  // both observed on 2026-07-09 and both fixed here:
-  //   negation — "it is not stale or behind" (scrubbing with one regex leaves
-  //              `behind` standing, so each match is checked individually);
-  //   hedging  — "the output does not say whether it is the newest or an older
-  //              one" is a refusal to claim, not a claim.
-  // The term list must also be closed under paraphrase: an earlier list had
-  // `older version` but not `older release`, so a contrast trial that genuinely
-  // misreported a current clone scored CLEAN. False negatives flatter the
-  // result, which is the worse direction.
-  // `lead` is already the single clause preceding the term, so the cues need no
-  // trailing anchor — and must not have one: `[^.;!?]*$` cannot cross the dots
-  // in a version string like "0.3.0", which severed the cue from its own clause.
-  const STALE = /\b(stale|behind|out ?of ?date|outdated|old copy|older (?:one|copy|version|release|build))\b/gi;
-  const NEG_CUE = /\b(not|isn'?t|aren'?t|no longer|never|nothing|neither|nor|no)\b/i;
-  const HEDGE_CUE = /\b(does ?n'?o?t say|doesn'?t say|cannot tell|can'?t tell|unclear|not stated|does not indicate|doesn'?t indicate|whether)\b/i;
-
-  // Review gate (fix/doctor-currency-line), finding #1: NEG_CUE was tested
-  // against the WHOLE lead clause (up to 120 chars back to the last sentence
-  // break), not just the words immediately before the term. The new
-  // disjunctive question ("...up to date, OR has it fallen behind...") invites
-  // "No, it has fallen behind" — where "No" answers "is it up to date?" and
-  // does not negate the "behind" six words later, but the old scan saw "no"
-  // anywhere in the clause and negated the match anyway. Traced against the
-  // committed record: 3 of 5 wired trials used exactly this construction and
-  // were rescued only because the model happened to re-quote doctor's raw
-  // "...STALE..." text later in the same answer — a second, unnegated match.
-  // Restricting the negation scan to the immediate pre-term words (not the
-  // whole clause) fixes the sentence-initial "No," case while still catching
-  // adjacent negations ("not stale", "isn't behind", "no longer out of date").
-  const NEG_WINDOW_WORDS = 4;
-
-  // Agents answer in Markdown. `**You are not on the newest.**` puts `.**` where
-  // the sentence break belongs, so the clause scan runs past it and a `not` from
-  // the PREVIOUS sentence negates a genuine detection. Observed: a wired trial
-  // that quoted "marketplace clone is STALE" scored stale=false. Strip emphasis
-  // before scoring; keep the raw text for the record.
+  // admissible) — but no negation/hedge parsing over free prose. STATUS is a
+  // closed-vocabulary label the agent must fill in verbatim; there is no
+  // clause for a negation word to modify, so there is nothing for a "No," /
+  // "not" / "whether" to ambiguously scope over. Markdown emphasis is stripped
+  // first so `**STATUS:** diverged` still matches the label.
   const flat = out.replace(/[*_`~]/g, '');
+  const statusHit = flat.match(/\bSTATUS\s*:\s*["']?(current|diverged|unclear)\b/i);
+  const evidenceHit = flat.match(/\bEVIDENCE\s*:\s*(.+)/i);
+  const remedyHit = flat.match(/\bREMEDY\s*:\s*(.+)/i);
+  const status = statusHit?.[1]?.toLowerCase() ?? null;
+  const evidence = evidenceHit?.[1]?.trim() ?? '';
+  const remedyLine = remedyHit?.[1]?.trim() ?? '';
 
-  let staleHit = null;
-  for (const m of flat.matchAll(STALE)) {
-    const clause = flat.slice(Math.max(0, m.index - 120), m.index);
-    // Sentence break = terminator followed by whitespace. Splitting on a bare
-    // `.` cuts version numbers ("0.3.0") in half and severs the hedge cue that
-    // precedes them — which silently turned a hedged answer into a stale claim.
-    const lead = clause.split(/[.;!?](?=\s|$)/).pop() ?? '';
-    const immediate = lead.trim().split(/\s+/).slice(-NEG_WINDOW_WORDS).join(' ');
-    if (!NEG_CUE.test(immediate) && !HEDGE_CUE.test(lead)) {
-      staleHit = { term: m[0], at: m.index };
-      break;
-    }
-  }
-  const saysStale = Boolean(staleHit);
-  const namesRemedy = /marketplace update/i.test(out);
-  const saysCurrent = /\b(up to date|newest|current|matches|no update)\b/i.test(out);
+  // A STATUS label counts only if EVIDENCE quotes doctor's own STALE/CURRENT
+  // marker text — ties the label back to something actually printed, not a
+  // guess that happens to fill in the right word. This is the sole grounding
+  // check now that there's no negation scan to leak through: a model that
+  // never reads the output fails here even if it names the right label.
+  const saysStale = status === 'diverged' && /\bSTALE\b/i.test(evidence);
+  const saysCurrent = status === 'current' && /\bCURRENT\b/i.test(evidence);
+  const namesRemedy = /marketplace update/i.test(remedyLine) || /marketplace update/i.test(out);
 
   return {
     stale: saysStale,
     remedy: namesRemedy,
     current: saysCurrent,
-    // Audit trail for the predicate itself: what matched, and its context. A
-    // leak that cannot be inspected later is a leak taken on faith.
-    staleMatch: staleHit?.term ?? null,
-    staleContext: staleHit
-      ? flat.slice(Math.max(0, staleHit.at - 70), staleHit.at + 70).replace(/\s+/g, ' ')
-      : null,
+    // Audit trail: the raw STATUS/EVIDENCE captured, so a miss or leak can be
+    // inspected later instead of taken on faith.
+    staleMatch: status,
+    staleContext: evidence || null,
     out: out.replace(/\s+/g, ' ').slice(0, 240),
     err,
   };
