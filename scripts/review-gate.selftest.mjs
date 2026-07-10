@@ -50,9 +50,11 @@ const CASES = [
     ctx: () => ctx({ changedFiles: ['docs/adr/ADR-0052.md', 'CLAUDE.md', '.vfkb/entries.jsonl'], readRecord: () => undefined }),
   },
   {
-    name: 'a review record itself needs no review (reviews/ is exempt)',
+    // NOT a test of EXEMPT_PATHS: `reviews/*.json` matches no IMPL rule, so it
+    // would pass with the exempt list empty. Named honestly.
+    name: 'a review record matches no implementation rule',
     expect: null,
-    ctx: () => ctx({ changedFiles: ['reviews/abc.json'], readRecord: () => undefined }),
+    ctx: () => ctx({ changedFiles: [`reviews/${'a'.repeat(40)}.json`], readRecord: () => undefined }),
   },
   {
     name: 'zero findings is allowed when the record says what it ruled out',
@@ -71,6 +73,13 @@ const CASES = [
     name: 'a BLOCKING finding waived by someone not on the operator allowlist',
     expect: /\[review\].*not listed in reviews\/OPERATORS/s,
     ctx: () => ctx({ readRecord: () => record({ findings: [{ id: 'F1', severity: 'blocking', status: 'accepted', acceptedBy: 'me-myself', summary: 'x' }] }) }),
+  },
+  {
+    // A non-string `acceptedBy` threw a TypeError out of isOperator — fail-closed,
+    // but a stack trace instead of a finding.
+    name: 'a BLOCKING finding waived by a non-string `acceptedBy`',
+    expect: /\[review\].*no `acceptedBy` string/s,
+    ctx: () => ctx({ readRecord: () => record({ findings: [{ id: 'F1', severity: 'blocking', status: 'accepted', acceptedBy: 123, summary: 'x' }] }) }),
   },
   {
     name: 'no operator allowlist at all ⇒ nobody may waive a blocking finding',
@@ -228,9 +237,22 @@ const units = [
   ['deriveVerdict: open major → MERGE', deriveVerdict([{ severity: 'major', status: 'open' }]) === 'MERGE'],
   ['deriveVerdict: empty → MERGE', deriveVerdict([]) === 'MERGE'],
   ['isImplementation: src/x.ts', isImplementation('src/x.ts') === true],
-  ['isImplementation: docs/x.md', isImplementation('docs/x.md') === false],
-  ['isImplementation: reviews/x.json', isImplementation('reviews/x.json') === false],
   ['isImplementation: scripts/x.mjs', isImplementation('scripts/x.mjs') === true],
+  ['isImplementation: reviews/OPERATORS', isImplementation('reviews/OPERATORS') === true],
+  // The ONE exemption that does any work: it shadows an IMPL match. Asserted as
+  // a pair, so it cannot pass for an unrelated reason.
+  ['EXEMPT shadows IMPL: scenarios/x.ts is implementation', isImplementation('scenarios/x.ts') === true],
+  ['EXEMPT shadows IMPL: scenarios/records/x.json is not', isImplementation('scenarios/records/x.json') === false],
+  // These match no IMPL rule at all. Asserted as behaviour, not as an inert regex.
+  ['not implementation: docs/x.md', isImplementation('docs/x.md') === false],
+  ['not implementation: .vfkb/entries.jsonl', isImplementation('.vfkb/entries.jsonl') === false],
+  ['not implementation: README.md', isImplementation('README.md') === false],
+  ['not implementation: CLAUDE.md', isImplementation('CLAUDE.md') === false],
+  ['not implementation: a review record', isImplementation(`reviews/${'a'.repeat(40)}.json`) === false],
+  // Case variants and path oddities fail CLOSED.
+  ['case variant: Src/x.ts is implementation', isImplementation('Src/x.ts') === true],
+  ['leading ./ is normalised: ./src/x.ts', isImplementation('./src/x.ts') === true],
+  ['a path escaping its directory is implementation', isImplementation('scenarios/records/../a.ts') === true],
 ];
 total += units.length;
 for (const [label, ok] of units) {
