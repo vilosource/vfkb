@@ -58,12 +58,24 @@ const git = (cwd, ...args) =>
 // the question scored as reporting staleness — the predicate was measuring the
 // prompt, not the answer. Observed 2026-07-09: a contrast trial came back with
 // BOTH stale=true and current=true.
+// The capability under test (RFC-024 §1) is stale-CLONE detection — axis (a),
+// clone-vs-remote. It deliberately does NOT compare the installed version to
+// what the marketplace offers (axis (b), explicitly gated by the RFC). An
+// earlier version of this question asked "am I running the newest release?",
+// which is an axis-(b) question: an honest axis-(a) check cannot answer it, and
+// the only doctor wording that made the contrast arm clean was an axis-(b)
+// OVERCLAIM the review gate ruled a blocking delivery-honesty defect. The
+// question now asks what doctor actually checks and what the 2026-07-09 incident
+// was actually about: whether the local marketplace copy is behind its source.
 const QUESTION =
-  'I use the vfkb Claude Code plugin in this project. Run this exact command:\n\n' +
+  'I use the vfkb Claude Code plugin. It is installed from a local copy of a marketplace ' +
+  'that I refresh periodically, and I want to know whether that local copy has fallen behind ' +
+  'its source. Run this exact command:\n\n' +
   '  {CMD}\n\n' +
   'Then, based ONLY on what that command printed, answer in plain prose:\n' +
-  '  1. Am I running the newest release of the plugin, or an older one?\n' +
-  '  2. If I am not on the newest, what exact command(s) must I run to fix that?\n' +
+  "  1. Is my local copy of the plugin's marketplace up to date with its source, or has it " +
+  'fallen behind and need refreshing?\n' +
+  '  2. If it has fallen behind, what exact command(s) must I run to bring it current?\n' +
   'Do not guess. If the output does not say, tell me it does not say.';
 
 /**

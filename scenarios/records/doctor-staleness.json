@@ -1,10 +1,10 @@
 {
   "scenario": "doctor-staleness",
   "recordVersion": 2,
-  "vfkbSha": "6a207ada06bf711c5d005f14a64f7f2f5f0911fe",
+  "vfkbSha": "6e908f766c5ac60f39ff0accad0265964cf09c45",
   "model": "claude-haiku-4-5",
   "trials": 5,
-  "generated": "2026-07-10T15:20:04.590Z",
+  "generated": "2026-07-10T16:16:13.791Z",
   "arms": {
     "wired": {
       "role": "positive",
@@ -17,45 +17,45 @@
           "stale": true,
           "remedy": true,
           "current": true,
-          "staleMatch": "stale",
-          "staleContext": "st release. The plugin currency check shows your marketplace clone is stale (at commit 563081c when the remote is at 49b7102). 2. To fix it",
-          "out": "Based on the output: 1. **You are not running the newest release.** The plugin currency check shows your marketplace clone is stale (at commit 563081c when the remote is at 49b7102). 2. **To fix it, run these commands in order:** - `claude ",
-          "err": ""
-        },
-        {
-          "stale": true,
-          "remedy": true,
-          "current": false,
-          "staleMatch": "older version",
-          "staleContext": "Based on the output: 1. You are running an older version of the plugin. The output states: \"You are running an ol",
-          "out": "Based on the output: 1. **You are running an older version of the plugin.** The output states: \"You are running an old copy of the plugin, and `claude plugin update` will find nothing newer until the clone advances.\" 2. **To fix it, run the",
-          "err": ""
-        },
-        {
-          "stale": true,
-          "remedy": true,
-          "current": false,
-          "staleMatch": "older version",
-          "staleContext": "Based on the doctor command output: 1. You are running an older version of the plugin. The output states: \"You are running an ol",
-          "out": "Based on the `doctor` command output: 1. **You are running an older version of the plugin.** The output states: \"You are running an old copy of the plugin, and `claude plugin update` will find nothing newer until the clone advances.\" 2. **T",
-          "err": ""
-        },
-        {
-          "stale": true,
-          "remedy": true,
-          "current": false,
-          "staleMatch": "older version",
-          "staleContext": "Based on the doctor output: 1. You are running an older version of the plugin. You have vfkb@vfkb version 0.3.0 installe",
-          "out": "Based on the `doctor` output: 1. **You are running an older version of the plugin.** You have vfkb@vfkb version 0.3.0 installed, and the plugin marketplace is stale — it sits at commit 1c9a619 but the remote is at efd98e3. 2. **To fix this,",
+          "staleMatch": "old copy",
+          "staleContext": "west release? No, you are not. The output states: \"You are running an old copy of the plugin\" and shows that the marketplace clone is STALE,",
+          "out": "Based on the output: 1. **Are you running the newest release?** No, you are not. The output states: \"You are running an old copy of the plugin\" and shows that the marketplace clone is STALE, sitting at commit `3be1c1a` while the remote is a",
           "err": ""
         },
         {
           "stale": true,
           "remedy": true,
           "current": true,
-          "staleMatch": "stale",
-          "staleContext": " is at version 0.3.0, but the warning states the marketplace clone is stale and sitting at an older commit than the remote. 2. To fix this,",
-          "out": "Based on the output: 1. **You are not running the newest release.** The plugin is at version 0.3.0, but the warning states the marketplace clone is stale and sitting at an older commit than the remote. 2. **To fix this, run these exact comm",
+          "staleMatch": "old copy",
+          "staleContext": "est release? No, you are not. The output states: \"You are running an old copy of the plugin\" — the marketplace clone is at commit cb07574 b",
+          "out": "Based on the output: **1. Are you on the newest release?** No, you are not. The output states: \"You are running an old copy of the plugin\" — the marketplace clone is at commit `cb07574` but the remote is at `943e67a`. **2. What exact comman",
+          "err": ""
+        },
+        {
+          "stale": true,
+          "remedy": true,
+          "current": true,
+          "staleMatch": "older one",
+          "staleContext": " the output: 1. Am I running the newest release of the plugin, or an older one? You are running an older release. The command shows a warn",
+          "out": "Based on the output: **1. Am I running the newest release of the plugin, or an older one?** You are running an older release. The command shows a warning that the plugin marketplace clone is \"STALE\" — you're at commit `1f740bf` but the remo",
+          "err": ""
+        },
+        {
+          "stale": true,
+          "remedy": true,
+          "current": true,
+          "staleMatch": "old copy",
+          "staleContext": "ewest release. The plugin currency line warns that you are running an old copy of the plugin. Your current version is vfkb@vfkb version 0.3.",
+          "out": "Based on the output: 1. **You are not on the newest release.** The `plugin currency` line warns that you are running an old copy of the plugin. Your current version is `vfkb@vfkb version 0.3.0`, and the remote has a newer version available.",
+          "err": ""
+        },
+        {
+          "stale": true,
+          "remedy": true,
+          "current": true,
+          "staleMatch": "old copy",
+          "staleContext": "the newest release. The plugin currency check shows you're running an old copy — the marketplace clone is stale (at commit 4f8c5f4 while the",
+          "out": "Based on the output: 1. **You are not running the newest release.** The plugin currency check shows you're running an old copy — the marketplace clone is stale (at commit 4f8c5f4 while the remote is at 91d68a8). 2. **To fix it, run these ex",
           "err": ""
         }
       ]
@@ -69,10 +69,19 @@
         {
           "stale": false,
           "remedy": false,
-          "current": true,
+          "current": false,
           "staleMatch": null,
           "staleContext": null,
-          "out": "Based on the output: 1. **You are running the newest release.** The doctor command reports `vfkb@vfkb is CURRENT — you are running the newest published version` and explicitly confirms that the marketplace clone matches its remote. 2. **No ",
+          "out": "",
+          "err": "spawnSync claude ETIMEDOUT"
+        },
+        {
+          "stale": true,
+          "remedy": false,
+          "current": true,
+          "staleMatch": "older release",
+          "staleContext": "Based on the output: 1. You are running an older release of the plugin. The output states your installed version ",
+          "out": "Based on the output: 1. **You are running an older release of the plugin.** The output states your installed version is `0.3.0`, but the marketplace clone is \"CURRENT — level with its remote.\" This means there may be a newer version availab",
           "err": ""
         },
         {
@@ -81,7 +90,7 @@
           "current": true,
           "staleMatch": null,
           "staleContext": null,
-          "out": "1. **You are running the newest release** of the plugin. The output states \"vfkb@vfkb is CURRENT — you are running the newest published version.\" 2. **Not applicable** — since you're already on the newest version, no commands are needed to ",
+          "out": "Based on the output: 1. **Are you running the newest release?** The output does not say whether you are on the newest release. It tells you that your installed version is 0.3.0, and that the plugin marketplace clone is current with its remo",
           "err": ""
         },
         {
@@ -90,25 +99,16 @@
           "current": true,
           "staleMatch": null,
           "staleContext": null,
-          "out": "Based on the output: 1. **You are running the newest release** — the command states \"vfkb@vfkb is CURRENT — you are running the newest published version.\" 2. **No fix is needed** — there is no command to run. The output confirms the marketp",
+          "out": "Based on the output: 1. **You are running version 0.3.0 of the plugin.** The output does not state whether this is the newest release. It only reports that your installed version is 0.3.0 and that the marketplace clone is current with its r",
           "err": ""
         },
         {
-          "stale": false,
+          "stale": true,
           "remedy": false,
           "current": true,
-          "staleMatch": null,
-          "staleContext": null,
-          "out": "Based on the command output: **1. Are you running the newest release?** Yes, you are running the newest release. The output explicitly states: \"vfkb@vfkb is CURRENT — you are running the newest published version.\" **2. What commands must yo",
-          "err": ""
-        },
-        {
-          "stale": false,
-          "remedy": false,
-          "current": true,
-          "staleMatch": null,
-          "staleContext": null,
-          "out": "Based on the `doctor` output: 1. **You are running the newest release.** The command states \"vfkb@vfkb is CURRENT — you are running the newest published version\" (version 0.3.0). 2. **No commands need to be run.** Since you're already on th",
+          "staleMatch": "older release",
+          "staleContext": "Based on the output: 1. You are running an older release of the plugin. The installed version is 0.3.0, but the c",
+          "out": "Based on the output: 1. **You are running an older release of the plugin.** The installed version is `0.3.0`, but the command does not state what the newest version is. However, the line \"plugin currency — vfkb marketplace clone is CURRENT ",
           "err": ""
         }
       ]
