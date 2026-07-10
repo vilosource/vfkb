@@ -1,0 +1,37 @@
+{
+  "recordVersion": 1,
+  "sha": "a73247a47ef9292c268df899f1bf0bfb236abbf6",
+  "governing": [
+    "docs/adr/ADR-0052-review-gate.md",
+    "docs/adr/ADR-0050-l4-dod-constitutional-brake.md",
+    "docs/adr/ADR-0029-sandbox-proven-definition-of-done.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "opus", "rounds": 3 },
+  "generated": "2026-07-10T06:46:02Z",
+  "findings": [
+    { "id": "B1", "severity": "blocking", "status": "fixed",
+      "summary": "git show --name-only prints nothing for a merge commit, so [].every(isReviewRecord) was vacuously true: candidateShas walked through merges down the first-parent lineage and accepted another PR's review record, passing a merge of unreviewed code. The same finding's other half: actions/checkout defaults to GitHub's synthetic merge ref, whose second parent carries the reviewed commit, so the gate would have red-lighted every honest PR." },
+    { "id": "M2", "severity": "major", "status": "fixed",
+      "summary": "acceptedBy was checked for truthiness only, so an author could waive their own blocking finding with acceptedBy: 'me' while ADR-0052 claimed only the operator could. Waivers now require a name in reviews/OPERATORS, itself an implementation path." },
+    { "id": "M3", "severity": "major", "status": "fixed",
+      "summary": "scenarios/ matched wholesale, so a PR committing nothing but L4 evidence (the project's own DoD workflow) was forced to carry an adversarial code review. A gate that blocks honest work is a defect." },
+    { "id": "m5", "severity": "minor", "status": "fixed",
+      "summary": "Two validateRecord rules (no findings array; finding without id/summary) had no selftest case." },
+    { "id": "m6", "severity": "minor", "status": "fixed",
+      "summary": "Implementation path regexes were case-sensitive; a variant-cased path dodged the gate." },
+    { "id": "m7", "severity": "minor", "status": "fixed",
+      "summary": "docs/V2-ROADMAP.md still instructed the reader to run the deleted /v2-review command." },
+    { "id": "m8", "severity": "minor", "status": "fixed",
+      "summary": "REDESIGN could not be recorded at all, and the bidirectional mismatch check would have rejected an honest FIX-FIRST over major findings alone. The invariant is now only that MERGE may not be asserted over an unresolved blocking finding." },
+    { "id": "N1", "severity": "minor", "status": "fixed",
+      "summary": "A non-string acceptedBy threw TypeError out of isOperator: fail-closed, but a stack trace instead of a finding." },
+    { "id": "N3", "severity": "minor", "status": "fixed",
+      "summary": "Six of seven EXEMPT_PATHS entries were inert (disjoint from IMPL_PATHS); deleting them reddened nothing, and the baseline case named 'reviews/ is exempt' passed for an unrelated reason. A list that read as protection and did nothing, with a test that read as coverage and proved nothing -- inside the gate built to catch that. EXEMPT_PATHS now holds only the entry that shadows an IMPL match; the rest are asserted as behaviour." },
+    { "id": "N4", "severity": "minor", "status": "fixed",
+      "summary": "isImplementation did not normalise a leading ./ and did not fail closed on a path containing a .. segment." },
+    { "id": "N2", "severity": "minor", "status": "open",
+      "summary": "candidateShas guards a parentless-root rev-parse throw, but the guard has no fixture: it is unreachable through the wired adapter, since base is always a merge-base and therefore an ancestor of HEAD. Disclosed rather than covered by a fixture written only to move a number. The reviewer's exhaustive mutation sweep of all 26 rules found this to be the ONLY rule whose revert reddens no case." }
+  ],
+  "findingsCount": 11,
+  "verdict": "MERGE"
+}
