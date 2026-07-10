@@ -27,7 +27,11 @@ import { runReviewGate, deriveVerdict, isImplementation, candidateShas } from '.
 // `GIT_DIR` set to another repository, running this selftest wrote 8 commits
 // into it. Observed, not theorised. A test that mutates a repo it does not own
 // is worse than a test that fails.
-export const GIT_ENV = {
+// Built PER CALL, not once at module load. A snapshot taken at load time cannot
+// leak a GIT_DIR that a test sets afterwards — which meant the guard covering
+// this could never fail in-process, and passed while the regression it named was
+// live. Evaluating per call is what makes the hostile-GIT_DIR fixture below real.
+export const gitEnv = () => ({
   PATH: process.env.PATH,
   HOME: '/nonexistent',
   GIT_CONFIG_GLOBAL: '/dev/null',
@@ -36,8 +40,8 @@ export const GIT_ENV = {
   GIT_AUTHOR_EMAIL: 't@t',
   GIT_COMMITTER_NAME: 't',
   GIT_COMMITTER_EMAIL: 't@t',
-};
-const gitIn = (cwd) => (...a) => execFileSync('git', a, { cwd, encoding: 'utf8', env: GIT_ENV }).trim();
+});
+const gitIn = (cwd) => (...a) => execFileSync('git', a, { cwd, encoding: 'utf8', env: gitEnv() }).trim();
 
 const SHA = 'a'.repeat(40);
 const OLD = 'b'.repeat(40);
@@ -256,9 +260,6 @@ const units = [
   ['deriveVerdict: fixed blocking → MERGE', deriveVerdict([{ severity: 'blocking', status: 'fixed' }]) === 'MERGE'],
   ['deriveVerdict: open major → MERGE', deriveVerdict([{ severity: 'major', status: 'open' }]) === 'MERGE'],
   ['deriveVerdict: empty → MERGE', deriveVerdict([]) === 'MERGE'],
-  // The fixtures create commits. If the environment they run under can be
-  // redirected, they mutate a repository they do not own.
-  ['fixture env inherits no GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE', !['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_OBJECT_DIRECTORY', 'GIT_NAMESPACE'].some((k) => k in GIT_ENV)],
   ['isImplementation: src/x.ts', isImplementation('src/x.ts') === true],
   ['isImplementation: scripts/x.mjs', isImplementation('scripts/x.mjs') === true],
   ['isImplementation: reviews/OPERATORS', isImplementation('reviews/OPERATORS') === true],
@@ -353,7 +354,43 @@ for (const [label, ok] of units) {
       'candidateShas ignores an ambient GIT_DIR (reads the repo it was given)',
       got.length === expected.length && got.every((s, i) => s === expected[i]),
     ]);
+
+    // And the FIXTURES, behaviourally. An earlier structural assertion checked
+    // that GIT_ENV's keys omit GIT_DIR — but that only reddens when the RUNNER's
+    // own environment already sets GIT_DIR, which it never does on CI or under
+    // `env -i`. It read as coverage and delivered none: re-adding
+    // `...process.env` to GIT_ENV left the suite green. This sets the hostile
+    // GIT_DIR itself, so it reddens regardless of the ambient environment.
+    const decoy2 = mkdtempSync(join(tmpdir(), 'review-gate-decoy2-'));
+    const gd2 = gitIn(decoy2);
+    gd2('init', '-q', '-b', 'main');
+    writeFileSync(join(decoy2, 'unrelated.txt'), 'decoy\n');
+    gd2('add', '-A');
+    gd2('commit', '-q', '-m', 'a repository the fixtures do not own');
+    const before = gd2('rev-list', '--count', 'HEAD');
+
+    const saved2 = process.env.GIT_DIR;
+    process.env.GIT_DIR = join(decoy2, '.git');
+    let victimUntouched;
+    try {
+      const scratch = mkdtempSync(join(tmpdir(), 'review-gate-scratch-'));
+      const gs = gitIn(scratch);
+      gs('init', '-q', '-b', 'main');
+      writeFileSync(join(scratch, 'a.txt'), 'x\n');
+      gs('add', '-A');
+      gs('commit', '-q', '-m', 'a fixture commit that must land in the scratch repo');
+      rmSync(scratch, { recursive: true, force: true });
+      victimUntouched = gd2('rev-list', '--count', 'HEAD') === before;
+    } catch {
+      victimUntouched = false; // a fixture that cannot commit is also a failure
+    } finally {
+      if (saved2 === undefined) delete process.env.GIT_DIR;
+      else process.env.GIT_DIR = saved2;
+    }
+    checks.push(['the fixtures never commit into a repo they do not own (hostile GIT_DIR)', victimUntouched]);
+
     rmSync(decoy, { recursive: true, force: true });
+    rmSync(decoy2, { recursive: true, force: true });
   }
 
   // THE MERGE COMMIT. `git show --name-only` prints NOTHING for a merge, so
