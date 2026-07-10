@@ -9,6 +9,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # On `pull_request`, checkout defaults to GitHub's synthetic MERGE ref.
+          # Its sha is server-generated, and the commit the author actually
+          # reviewed sits on the second parent — so a correctly filed
+          # reviews/<head-sha>.json would never be found, and the gate would
+          # red-light every honest PR. Check out the real head commit.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           # The gate diffs against the merge-base with the base branch, and walks
           # commits to decide which shas a record may be filed against. A shallow
           # clone has neither.

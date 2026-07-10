@@ -56,8 +56,13 @@ The author had watched his own gate go red 18 times and believed it worked.
 
 **Every change to implementation paths gets an adversarial, fresh-eyes review before merge.** Not
 "every v2 initiative." Implementation paths are `src/`, `test/`, `scenarios/`, `scripts/`,
-`.claude/commands/`, `.github/workflows/`. Exempt: `docs/`, `.vfkb/`, `README.md`, `CLAUDE.md`,
-`reviews/` — the same carve-out ADR-0029 makes for pure-doc edits and sub-tasks.
+`.claude/commands/`, `.github/workflows/`, and `reviews/OPERATORS`. Exempt: `docs/`, `.vfkb/`,
+`README.md`, `CLAUDE.md`, the review records themselves (`reviews/<sha>.json`, `reviews/README.md`),
+and **`scenarios/records/`** — the same carve-out ADR-0029 makes for pure-doc edits and sub-tasks.
+
+`scenarios/records/` is exempt deliberately: committing L4 evidence *is* the project's DoD workflow
+(ADR-0022/0029), and forcing an adversarial code review onto a PR that adds nothing but a scenario
+record would block honest work. A gate that blocks honest work is a defect, not caution.
 
 The command is `.claude/commands/review.md`. Its base ref is the merge-base with `main`; its
 authority is the change's own governing ADR/RFC, named explicitly or inferred, and *a change with no
@@ -68,15 +73,37 @@ governing document stops the review* — a review with no standard to review aga
 `scripts/review-gate.mjs` fails a PR that touches implementation paths and carries no
 `reviews/<sha>.json` for the code being merged. The record is bound to the sha that was **reviewed**;
 because filing it changes the head sha, the gate accepts a record whose sha is HEAD, or HEAD with
-trailing `reviews/`-only commits stripped. A commit touching code after the review invalidates it.
+trailing commits stripped when those commits add *nothing but review records*. A commit touching code
+after the review invalidates it.
+
+**A merge commit is never stripped.** `git show --name-only` prints nothing for a merge, so
+`[].every(isReviewRecord)` is vacuously true; the first version of this walked straight through
+merges down the first-parent line until it found some *other* pull request's review record, and
+passed a merge of entirely unreviewed code. An empty file list now stops the walk, and so does a
+second parent. (The same vacuous-truth bug — a predicate over an empty set — had already appeared in
+the release gate's contrast arm. It is worth knowing that this class recurs.)
+
+CI must also check out the pull request's **real head sha**. GitHub's `pull_request` event checks out
+a synthetic merge ref by default, whose sha is server-generated and whose second parent carries the
+reviewed commit — so a correctly filed record would never be found and every honest PR would be
+red-lighted.
 
 ### 3. The verdict is recomputed, never read
 
 The record's `verdict` is a **claim**; its `findings` are the **evidence**. The gate derives the
-verdict — an unresolved `blocking` finding derives `FIX-FIRST` — and fails on any mismatch, in both
-directions. A `blocking` finding may be waived, but only by a named human (`acceptedBy`), on the
-record. `FIX-FIRST` blocks the merge; the fix lands as a new commit and earns a fresh review against
-the new head sha. Otherwise the verdict is advisory, and we are back to prose.
+verdict — an unresolved `blocking` finding derives `FIX-FIRST` — and a record may not assert `MERGE`
+while carrying one. (The reverse is *not* an error: a reviewer may honestly return `FIX-FIRST` over
+`major` findings alone, and `REDESIGN` must be recordable at all. An earlier draft failed those as a
+"mismatch", which would have red-lighted a correct review.)
+
+A `blocking` finding may be waived, but only by an operator named in **`reviews/OPERATORS`** — a
+committed allowlist, itself an implementation path, so an agent cannot add itself to it. An earlier
+version accepted any truthy `acceptedBy`, which meant the author could waive their own blocker with
+`acceptedBy: "me"` while this ADR claimed only the operator could. That was prose asserting a
+property the code lacked; it was caught by the first review this gate ever received.
+
+`FIX-FIRST` and `REDESIGN` block the merge; the fix lands as a new commit and earns a fresh review
+against the new head sha. Otherwise the verdict is advisory, and we are back to prose.
 
 This is the same architecture as ADR-0051's release gate, and it is the same lesson: a record that
 asserts its own verdict is not evidence (RFC-024 §2a).

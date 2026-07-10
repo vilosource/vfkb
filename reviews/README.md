@@ -4,15 +4,27 @@ One file per reviewed commit: `reviews/<full-head-sha>.json`. Written by `/revie
 adversarial subagent has read the diff; verified in CI by `scripts/review-gate.mjs` (ADR-0052).
 
 A PR that touches implementation paths (`src/`, `test/`, `scenarios/`, `scripts/`,
-`.claude/commands/`, `.github/workflows/`) fails CI without one. Docs, `.vfkb/`, `README.md`,
-`CLAUDE.md` and `reviews/` itself are exempt.
+`.claude/commands/`, `.github/workflows/`, `reviews/OPERATORS`) fails CI without one. Exempt:
+`docs/`, `.vfkb/`, `README.md`, `CLAUDE.md`, `scenarios/records/` (committing L4 evidence is the
+DoD workflow, not a code change), and the review records themselves.
 
 ## Which sha?
 
 The sha of the commit that was **reviewed**. Adding the record changes the head sha, so the gate
-accepts a record filed against `HEAD` *or* against the commit you get by stripping trailing
-commits that touch only `reviews/`. A commit that touches code after the review invalidates it —
+accepts a record filed against `HEAD` *or* against the commit you get by stripping trailing commits
+that add **nothing but review records**. A commit that touches code after the review invalidates it —
 re-review.
+
+A **merge commit is never stripped**, and neither is an empty one. `git show --name-only` prints
+nothing for a merge, so "every file is a review record" would be vacuously true of it — and the walk
+would continue down the first-parent line until it found some other PR's record, passing a merge of
+unreviewed code.
+
+## Waiving a blocking finding
+
+Set `status: "accepted"` and `acceptedBy: "<name>"`, where the name appears in
+[`reviews/OPERATORS`](OPERATORS). That file is an implementation path: adding yourself to it is
+itself a reviewed change.
 
 ## Schema
 
