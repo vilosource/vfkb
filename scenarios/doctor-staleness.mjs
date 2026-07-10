@@ -67,15 +67,24 @@ const git = (cwd, ...args) =>
 // OVERCLAIM the review gate ruled a blocking delivery-honesty defect. The
 // question now asks what doctor actually checks and what the 2026-07-09 incident
 // was actually about: whether the local marketplace copy is behind its source.
+//
+// Review gate (fix/doctor-currency-line) finding: this rewrite still used
+// "fallen behind" in the question text itself, and one contrast trial leaked
+// on it — the agent echoed the question's own conditional ("If it had fallen
+// behind, what commands...? Not applicable, since it is current"), and the
+// STALE match landed on that echo, ahead of its own negation. This is the
+// exact "question leaked into the predicate" class documented above (2026-07-
+// 09): the question must contain NONE of the STALE-list words. Rephrased to
+// "matches its source" / "diverged" — neither is in the STALE term list.
 const QUESTION =
   'I use the vfkb Claude Code plugin. It is installed from a local copy of a marketplace ' +
-  'that I refresh periodically, and I want to know whether that local copy has fallen behind ' +
+  'that I refresh periodically, and I want to know whether that local copy still matches ' +
   'its source. Run this exact command:\n\n' +
   '  {CMD}\n\n' +
   'Then, based ONLY on what that command printed, answer in plain prose:\n' +
-  "  1. Is my local copy of the plugin's marketplace up to date with its source, or has it " +
-  'fallen behind and need refreshing?\n' +
-  '  2. If it has fallen behind, what exact command(s) must I run to bring it current?\n' +
+  "  1. Does my local copy of the plugin's marketplace still match its source, or has it " +
+  'diverged and need refreshing?\n' +
+  '  2. If it has diverged, what exact command(s) must I run to bring it back in sync?\n' +
   'Do not guess. If the output does not say, tell me it does not say.';
 
 /**
@@ -178,6 +187,21 @@ function runArm(stale) {
   const NEG_CUE = /\b(not|isn'?t|aren'?t|no longer|never|nothing|neither|nor|no)\b/i;
   const HEDGE_CUE = /\b(does ?n'?o?t say|doesn'?t say|cannot tell|can'?t tell|unclear|not stated|does not indicate|doesn'?t indicate|whether)\b/i;
 
+  // Review gate (fix/doctor-currency-line), finding #1: NEG_CUE was tested
+  // against the WHOLE lead clause (up to 120 chars back to the last sentence
+  // break), not just the words immediately before the term. The new
+  // disjunctive question ("...up to date, OR has it fallen behind...") invites
+  // "No, it has fallen behind" — where "No" answers "is it up to date?" and
+  // does not negate the "behind" six words later, but the old scan saw "no"
+  // anywhere in the clause and negated the match anyway. Traced against the
+  // committed record: 3 of 5 wired trials used exactly this construction and
+  // were rescued only because the model happened to re-quote doctor's raw
+  // "...STALE..." text later in the same answer — a second, unnegated match.
+  // Restricting the negation scan to the immediate pre-term words (not the
+  // whole clause) fixes the sentence-initial "No," case while still catching
+  // adjacent negations ("not stale", "isn't behind", "no longer out of date").
+  const NEG_WINDOW_WORDS = 4;
+
   // Agents answer in Markdown. `**You are not on the newest.**` puts `.**` where
   // the sentence break belongs, so the clause scan runs past it and a `not` from
   // the PREVIOUS sentence negates a genuine detection. Observed: a wired trial
@@ -192,7 +216,8 @@ function runArm(stale) {
     // `.` cuts version numbers ("0.3.0") in half and severs the hedge cue that
     // precedes them — which silently turned a hedged answer into a stale claim.
     const lead = clause.split(/[.;!?](?=\s|$)/).pop() ?? '';
-    if (!NEG_CUE.test(lead) && !HEDGE_CUE.test(lead)) {
+    const immediate = lead.trim().split(/\s+/).slice(-NEG_WINDOW_WORDS).join(' ');
+    if (!NEG_CUE.test(immediate) && !HEDGE_CUE.test(lead)) {
       staleHit = { term: m[0], at: m.index };
       break;
     }
