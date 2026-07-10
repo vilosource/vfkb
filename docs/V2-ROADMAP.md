@@ -194,12 +194,14 @@ everything accepted-but-unbuilt.
 
 ## Update protocol
 
-- **Review gate (added 2026-07-06, operator-requested):** after every major implementation and
-  **before its merge into `v2`**, launch an independent review agent via the `/v2-review`
-  project command (`.claude/commands/v2-review.md`) — adversarial, fresh-eyes, checking ADR
-  conformance, that the proof can fail (ADR-0029), repo protocols, and correctness. Blocking
-  findings are fixed before merge; the outcome is recorded in the brain and noted in the PR.
-  An initiative is not DONE until its gate has run.
+- **Review gate (added 2026-07-06, operator-requested; superseded 2026-07-10 by
+  [ADR-0052](adr/ADR-0052-review-gate.md)):** the gate is no longer scoped to v2 initiative
+  branches — v2 shipped to `main` on 2026-07-08, and the command's base ref, authority, and
+  trigger dissolved with it. It now runs on **every** implementation change, via the `/review`
+  project command (`.claude/commands/review.md`), and is enforced in CI by
+  `scripts/review-gate.mjs`: a PR touching implementation paths fails without a review record
+  bound to its head sha. Blocking findings are fixed before merge; the outcome is recorded in the
+  brain and noted in the PR.
 - **Status flips:** when an initiative's PR merges into `v2` with its DoD observed, flip its row to
   DONE in the same working session (docs PR to `main` → routine sync to `v2`) and record the
   completion in the brain.
