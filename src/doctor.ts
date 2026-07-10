@@ -126,6 +126,71 @@ const realGit: GitRunner = (args, cwd) =>
     env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_SSH_COMMAND: 'ssh -oBatchMode=yes' },
   });
 
+/**
+ * Plugin currency (RFC-024 §1) — the check that would have caught the 2026-07-09
+ * incident: the plugin was correctly packaged and correctly installed, but the
+ * operator's MARKETPLACE CLONE never advanced, so `plugin update` had nothing
+ * newer to install and nothing said so.
+ *
+ * One axis: compare the clone's checked-out sha to its remote's HEAD via
+ * `git ls-remote` (read-only). Behind → warn, naming the remedy. Offline,
+ * unreachable, no clone, or a directory-source marketplace → skip, NEVER fail.
+ * A detector nobody runs detects nothing, so it is attempted by default with a
+ * short timeout.
+ *
+ * Returns the verdict rather than emitting it, so the install-state line above
+ * can say whether currency was compared instead of asserting it was not.
+ */
+function checkCurrency(
+  plugin: PluginWiring,
+  opts: DoctorOpts,
+  configDir: string | undefined,
+): { status: DoctorStatus; detail: string } {
+  const marketplace = plugin.key.split('@')[1];
+  const kmFile =
+    opts.knownMarketplacesFile ?? (configDir ? join(configDir, 'plugins', 'known_marketplaces.json') : undefined);
+  const entry = kmFile ? readJson(kmFile)?.[marketplace] : undefined;
+  const skip = (detail: string) => ({ status: 'skip' as const, detail });
+
+  if (!entry) return skip(`no marketplace "${marketplace}" in ${kmFile ?? 'the plugin registry'} — cannot check currency`);
+  // A directory source records the path itself and creates no clone — there is
+  // nothing that can be stale.
+  if (entry.source?.source !== 'github') {
+    return skip(`marketplace "${marketplace}" is a ${entry.source?.source ?? 'unknown'}-source — no clone to compare`);
+  }
+  if (!entry.installLocation || !existsSync(join(entry.installLocation, '.git'))) {
+    return skip(`marketplace clone not found at ${entry.installLocation ?? '(unset installLocation)'}`);
+  }
+
+  const clone: string = entry.installLocation;
+  const local = localHeadSha(clone);
+  let remote: string | undefined;
+  try {
+    remote = (opts.git ?? realGit)(['ls-remote', 'origin', 'HEAD'], clone).trim().split(/\s+/)[0];
+  } catch {
+    remote = undefined;
+  }
+
+  if (!local) return skip(`cannot read the checked-out revision of ${clone}`);
+  // Offline is the common case. Say so plainly: vfkb cannot tell you that you
+  // are running old code, and must not imply health it did not verify.
+  if (!remote || !/^[0-9a-f]{7,40}$/.test(remote)) {
+    return skip(`remote unreachable (offline?) — cannot tell whether ${marketplace} is current`);
+  }
+  if (remote === local) {
+    return { status: 'ok', detail: `${marketplace} marketplace clone matches its remote (${local.slice(0, 7)})` };
+  }
+  return {
+    status: 'warn',
+    detail:
+      `${marketplace} marketplace clone is STALE — it sits at ${local.slice(0, 7)} but the remote is at ` +
+      `${remote.slice(0, 7)}. You are running an old copy of the plugin, and \`claude plugin update\` ` +
+      `will find nothing newer until the clone advances. Remedy: ` +
+      `\`claude plugin marketplace update ${marketplace}\` then \`claude plugin update ${plugin.key}\`, ` +
+      `then restart Claude Code.`,
+  };
+}
+
 export interface DoctorOpts {
   root: string;
   brainDir: string;
@@ -252,13 +317,30 @@ export function runDoctor(opts: DoctorOpts): DoctorReport {
     add('bootstrap', 'warn', 'wiring present but .vfkb/bin/bootstrap.mjs is missing — run `vfkb init`');
   }
 
-  // 5c. Plugin install state (best-effort, informational; ADR-0045). Doctor cannot
-  // compare the vendored engine's currency — the version is reported as information,
-  // never as "up to date". Soft-skipped when the machine's plugin registry can't even
-  // be located (doctor may run where Claude Code isn't installed).
+  // 5c/5d. Plugin install state, and whether that installed copy is CURRENT.
+  //
+  // These are computed together because they used to contradict each other. The
+  // install line said "(informational — currency not compared)" while the very
+  // next line compared it. An agent reading the report inferred staleness from
+  // the bare version number plus that hedge, and reported a level clone as "an
+  // older version" — the sole contrast leak in the doctor-staleness L4, sitting
+  // exactly at ADR-0022's error budget. Every individual line was true; the
+  // report as a whole misled. That is a defect in a diagnostic.
+  //
+  // So the currency verdict is computed FIRST, and the install line says
+  // "currency not compared" only when it genuinely was not.
+  const currency = plugin ? checkCurrency(plugin, opts, configDir) : undefined;
+
   if (plugin && pluginsFile) {
     if (plugin.installed?.version) {
-      add('plugin', 'ok', `${plugin.key} installed, version ${plugin.installed.version} (informational — currency not compared)`);
+      const compared = currency && currency.status !== 'skip';
+      add(
+        'plugin',
+        'ok',
+        compared
+          ? `${plugin.key} installed, version ${plugin.installed.version} — see \`plugin currency\` below`
+          : `${plugin.key} installed, version ${plugin.installed.version} (currency not compared)`,
+      );
     } else if (plugin.installed) {
       add('plugin', 'ok', `${plugin.key} installed (version unknown)`);
     } else if (plugin.registryReadable) {
@@ -268,61 +350,7 @@ export function runDoctor(opts: DoctorOpts): DoctorReport {
     }
   }
 
-  // 5d. Plugin currency (RFC-024 §1) — the check that would have caught the
-  // 2026-07-09 incident: the plugin was correctly packaged and correctly
-  // installed, but the operator's MARKETPLACE CLONE never advanced, so
-  // `plugin update` had nothing newer to install and nothing said so.
-  //
-  // One axis: compare the clone's checked-out sha to its remote's HEAD via
-  // `git ls-remote` (read-only). Behind → warn, naming the remedy. Offline,
-  // unreachable, no clone, or a directory-source marketplace → skip, NEVER fail.
-  // A detector nobody runs detects nothing, so it is attempted by default with
-  // a short timeout.
-  if (plugin) {
-    const marketplace = plugin.key.split('@')[1];
-    const kmFile =
-      opts.knownMarketplacesFile ?? (configDir ? join(configDir, 'plugins', 'known_marketplaces.json') : undefined);
-    const entry = kmFile ? readJson(kmFile)?.[marketplace] : undefined;
-    const skip = (detail: string) => add('plugin currency', 'skip', detail);
-
-    if (!entry) {
-      skip(`no marketplace "${marketplace}" in ${kmFile ?? 'the plugin registry'} — cannot check currency`);
-    } else if (entry.source?.source !== 'github') {
-      // A directory source records the path itself and creates no clone —
-      // there is nothing that can be stale.
-      skip(`marketplace "${marketplace}" is a ${entry.source?.source ?? 'unknown'}-source — no clone to compare`);
-    } else if (!entry.installLocation || !existsSync(join(entry.installLocation, '.git'))) {
-      skip(`marketplace clone not found at ${entry.installLocation ?? '(unset installLocation)'}`);
-    } else {
-      const clone: string = entry.installLocation;
-      const local = localHeadSha(clone);
-      let remote: string | undefined;
-      try {
-        remote = (opts.git ?? realGit)(['ls-remote', 'origin', 'HEAD'], clone).trim().split(/\s+/)[0];
-      } catch {
-        remote = undefined;
-      }
-      if (!local) {
-        skip(`cannot read the checked-out revision of ${clone}`);
-      } else if (!remote || !/^[0-9a-f]{7,40}$/.test(remote)) {
-        // Offline is the common case. Say so plainly: vfkb cannot tell you that
-        // you are running old code, and must not imply health it did not verify.
-        skip(`remote unreachable (offline?) — cannot tell whether ${marketplace} is current`);
-      } else if (remote === local) {
-        add('plugin currency', 'ok', `${marketplace} marketplace clone matches its remote (${local.slice(0, 7)})`);
-      } else {
-        add(
-          'plugin currency',
-          'warn',
-          `${marketplace} marketplace clone is STALE — it sits at ${local.slice(0, 7)} but the remote is at ` +
-            `${remote.slice(0, 7)}. You are running an old copy of the plugin, and \`claude plugin update\` ` +
-            `will find nothing newer until the clone advances. Remedy: ` +
-            `\`claude plugin marketplace update ${marketplace}\` then \`claude plugin update ${plugin.key}\`, ` +
-            `then restart Claude Code.`,
-        );
-      }
-    }
-  }
+  if (currency) add('plugin currency', currency.status, currency.detail);
 
   // 6. VFKB_PROJECT consistency across the two wiring files.
   const settingsProject = projectFromSettings(settings);
