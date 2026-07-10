@@ -19,10 +19,19 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { runReviewGate, deriveVerdict, isImplementation, candidateShas } from './review-gate.mjs';
 
-// CI runners have no global git identity. Setting it in the environment means a
-// fixture commit cannot fail merely because one call site forgot `-c user.name`.
-const GIT_ENV = {
-  ...process.env,
+// CI runners have no global git identity, so identity comes from the environment
+// rather than from `-c` flags a call site can forget.
+//
+// The environment is built from NOTHING but PATH. Spreading `process.env` here
+// inherited any ambient `GIT_DIR`, and these fixtures create commits: with
+// `GIT_DIR` set to another repository, running this selftest wrote 8 commits
+// into it. Observed, not theorised. A test that mutates a repo it does not own
+// is worse than a test that fails.
+export const GIT_ENV = {
+  PATH: process.env.PATH,
+  HOME: '/nonexistent',
+  GIT_CONFIG_GLOBAL: '/dev/null',
+  GIT_CONFIG_SYSTEM: '/dev/null',
   GIT_AUTHOR_NAME: 't',
   GIT_AUTHOR_EMAIL: 't@t',
   GIT_COMMITTER_NAME: 't',
@@ -247,6 +256,9 @@ const units = [
   ['deriveVerdict: fixed blocking → MERGE', deriveVerdict([{ severity: 'blocking', status: 'fixed' }]) === 'MERGE'],
   ['deriveVerdict: open major → MERGE', deriveVerdict([{ severity: 'major', status: 'open' }]) === 'MERGE'],
   ['deriveVerdict: empty → MERGE', deriveVerdict([]) === 'MERGE'],
+  // The fixtures create commits. If the environment they run under can be
+  // redirected, they mutate a repository they do not own.
+  ['fixture env inherits no GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE', !['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_OBJECT_DIRECTORY', 'GIT_NAMESPACE'].some((k) => k in GIT_ENV)],
   ['isImplementation: src/x.ts', isImplementation('src/x.ts') === true],
   ['isImplementation: scripts/x.mjs', isImplementation('scripts/x.mjs') === true],
   ['isImplementation: reviews/OPERATORS', isImplementation('reviews/OPERATORS') === true],
