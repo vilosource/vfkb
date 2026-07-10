@@ -1,6 +1,6 @@
 {
   "recordVersion": 1,
-  "sha": "c4e398af5ce118b152c24117b38c024c811b8650",
+  "sha": "66548106524d77afd4c305bdaaec965458459b26",
   "governing": [
     "docs/rfc/RFC-024-staleness-detection-and-delivery-honesty.md",
     "docs/adr/ADR-0051-delivery-honesty.md",
