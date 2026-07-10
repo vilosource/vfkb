@@ -178,18 +178,28 @@ function checkCurrency(
     return skip(`remote unreachable (offline?) — cannot tell whether ${marketplace} is current`);
   }
   if (remote === local) {
-    // Say the ANSWER, not the mechanism. "the marketplace clone matches its
-    // remote" is a fact about a clone; the reader asked whether their plugin is
-    // current. Three of five contrast trials in the doctor-staleness L4 read the
-    // mechanism, found no statement of the newest version, and reported a
-    // level clone as "an older release". The stale branch below always said
-    // "You are running an old copy of the plugin" in plain words; the healthy
-    // branch never said the converse.
+    // Answer the reader's question, but only as far as the check actually goes.
+    //
+    // An earlier version said "you are running the newest published version".
+    // That is axis (b) — installed-vs-offered — which RFC-024 §1 explicitly
+    // GATES and this code never performs. All that is compared here is the
+    // marketplace clone against its remote (axis (a)). In the half-upgraded
+    // `--scope user` state the RFC documents, the clone is level while the
+    // INSTALL lags, and that wording would have told an operator running old
+    // code that they were current. It made the L4's contrast arm clean by being
+    // more confident, not by being more true.
+    //
+    // So: state the clone's currency plainly, and name the limit in the same
+    // breath. The stale branch says "you are running an old copy" because in
+    // that state the clone cannot be ahead of itself; the healthy branch cannot
+    // honestly say the converse about the install.
     return {
       status: 'ok',
       detail:
-        `${plugin.key} is CURRENT — you are running the newest published version. The ${marketplace} ` +
-        `marketplace clone matches its remote (${local.slice(0, 7)}), so there is nothing newer to install.`,
+        `${marketplace} marketplace clone is CURRENT — level with its remote (${local.slice(0, 7)}), so ` +
+        `\`claude plugin update\` will find nothing newer to install from it. Note: this compares the clone ` +
+        `to its remote; it does not compare your INSTALLED version (${plugin.installed?.version ?? 'unknown'}) ` +
+        `against what the clone offers.`,
     };
   }
   return {

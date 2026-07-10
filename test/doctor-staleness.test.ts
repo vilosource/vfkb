@@ -135,7 +135,7 @@ describe('RFC-024 §1 — staleness detection (DoD 2)', () => {
     expect(report.ok).toBe(true); // never a FAIL
   });
 
-  it('clone level with the remote → ok, and it SAYS you are current', () => {
+  it('clone level with the remote → ok, says the CLONE is current, and claims nothing about the install', () => {
     const { proj, cfg } = setup({ installLocation: makeClone(join(root, 'clone'), LOCAL) });
     const report = runDoctor({
       root: proj,
@@ -144,12 +144,16 @@ describe('RFC-024 §1 — staleness detection (DoD 2)', () => {
       git: () => `${LOCAL}\tHEAD\n`,
     });
     expect(currency(report)!.status).toBe('ok');
-    // The stale branch says "You are running an old copy" in plain words. The
-    // healthy branch must say the converse in plain words, or a reader with only
-    // a version number and a fact about a clone infers staleness — three of five
-    // contrast trials did exactly that.
-    expect(currency(report)!.detail).toMatch(/is CURRENT/);
-    expect(currency(report)!.detail).toMatch(/nothing newer to install/);
+    // It must say the clone is current in plain words — a reader given only a
+    // version number and a fact about a clone infers staleness (three of five
+    // contrast trials did exactly that).
+    expect(currency(report)!.detail).toMatch(/clone is CURRENT/);
+    // And it must NOT claim the INSTALLED plugin is newest. That is axis (b),
+    // which RFC-024 §1 gates and this check never performs: in the half-upgraded
+    // `--scope user` state the clone is level while the install lags. An earlier
+    // wording asserted it, and this test defended the overclaim.
+    expect(currency(report)!.detail).not.toMatch(/newest published version/);
+    expect(currency(report)!.detail).toMatch(/does not compare your INSTALLED version/);
   });
 
   it('resolves the sha through packed-refs too', () => {
