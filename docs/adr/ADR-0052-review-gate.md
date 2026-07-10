@@ -128,10 +128,21 @@ produces exactly that.
 
 - Every implementation PR costs one review cycle. Given fifteen defects in one day's work, that cost
   is the product working as specified, not overhead to optimise away.
-- `review-gate` becomes a required status check on `main`. As with the plugin's `release-gate`,
-  `enforce_admins` is `false`: the Brake binds agents and remains advisory for the operator.
-- The `v2` branch (0 commits ahead of `main`, 63 behind) is deleted. While it exists it invites
-  another command to be written against a topology that has ended.
+- `review-gate` is a required status check on `main` (verified live, 2026-07-10). **Unlike** the
+  plugin's `release-gate`, vfkb's `main` sets `enforce_admins: true`, so this Brake binds the
+  operator as well as the agent — there is no admin escape hatch. An earlier draft of this line
+  asserted the opposite, copied from the plugin's settings without reading vfkb's. It was prose
+  asserting a property the repository did not have, in an ADR about enforcing what prose cannot;
+  it was caught by reading the protection back after writing it.
+
+  The operational cost of that is real and worth naming: if `review-gate` ever fails for a reason
+  unrelated to review quality — a runner outage, a bug in the gate itself — nothing merges to
+  `main` until it is fixed or protection is relaxed. That is the trade a non-bypassable Brake
+  makes, and it is the trade the constitutional DoD rule (ADR-0050) already accepted.
+- The `v2` branch (0 commits ahead of `main`, 63 behind) is deleted, after tagging its tip
+  **`v2-shipped`** (`3fb110e`) so the history stays findable. It was a strict ancestor of `main`,
+  so nothing is lost. While it existed it invited another command to be written against a topology
+  that had ended — which is precisely how this ADR's context begins.
 - A reviewer that returns `MERGE` on its first pass deserves scrutiny, not relief. The nine-round
   history is the calibration: the first pass found two false-greens in a gate already believed sound.
 
