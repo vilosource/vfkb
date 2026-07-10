@@ -1,10 +1,10 @@
 {
   "scenario": "doctor-staleness",
   "recordVersion": 2,
-  "vfkbSha": "32f66eadc177959cc1f83a3f8c482fb7a166add2",
+  "vfkbSha": "6a207ada06bf711c5d005f14a64f7f2f5f0911fe",
   "model": "claude-haiku-4-5",
   "trials": 5,
-  "generated": "2026-07-10T14:58:04.921Z",
+  "generated": "2026-07-10T15:20:04.590Z",
   "arms": {
     "wired": {
       "role": "positive",
@@ -17,27 +17,9 @@
           "stale": true,
           "remedy": true,
           "current": true,
-          "staleMatch": "STALE",
-          "staleContext": "lease. The command shows \"plugin currency — vfkb marketplace clone is STALE — it sits at e839981 but the remote is at 73c34eb,\" which means ",
-          "out": "Based on the output: 1. **You are not on the newest release.** The command shows \"plugin currency — vfkb marketplace clone is STALE — it sits at e839981 but the remote is at 73c34eb,\" which means your installed version (0.3.0) is outdated. ",
-          "err": ""
-        },
-        {
-          "stale": true,
-          "remedy": true,
-          "current": true,
-          "staleMatch": "old copy",
-          "staleContext": "the newest release. The output explicitly states: \"You are running an old copy of the plugin\" and the marketplace clone is STALE — at commit",
-          "out": "Based on the command output: 1. **You are not running the newest release.** The output explicitly states: \"You are running an old copy of the plugin\" and the marketplace clone is STALE — at commit 88fad27 but the remote is at 7d0c581. 2. **",
-          "err": ""
-        },
-        {
-          "stale": true,
-          "remedy": true,
-          "current": true,
-          "staleMatch": "old copy",
-          "staleContext": "No, you are not on the newest. The output states: \"You are running an old copy of the plugin.\" 2. What exact commands must you run to fix i",
-          "out": "Based on the command output: **1. Are you running the newest release?** No, you are not on the newest. The output states: \"You are running an old copy of the plugin.\" **2. What exact commands must you run to fix it?** Run these commands in ",
+          "staleMatch": "stale",
+          "staleContext": "st release. The plugin currency check shows your marketplace clone is stale (at commit 563081c when the remote is at 49b7102). 2. To fix it",
+          "out": "Based on the output: 1. **You are not running the newest release.** The plugin currency check shows your marketplace clone is stale (at commit 563081c when the remote is at 49b7102). 2. **To fix it, run these commands in order:** - `claude ",
           "err": ""
         },
         {
@@ -45,17 +27,35 @@
           "remedy": true,
           "current": false,
           "staleMatch": "older version",
-          "staleContext": "Based on the command output: 1. You are running an older version of the plugin. The doctor output says: \"You are running ",
-          "out": "Based on the command output: 1. **You are running an older version of the plugin.** The doctor output says: \"You are running an old copy of the plugin, and `claude plugin update` will find nothing newer until the clone advances.\" 2. **To fi",
+          "staleContext": "Based on the output: 1. You are running an older version of the plugin. The output states: \"You are running an ol",
+          "out": "Based on the output: 1. **You are running an older version of the plugin.** The output states: \"You are running an old copy of the plugin, and `claude plugin update` will find nothing newer until the clone advances.\" 2. **To fix it, run the",
+          "err": ""
+        },
+        {
+          "stale": true,
+          "remedy": true,
+          "current": false,
+          "staleMatch": "older version",
+          "staleContext": "Based on the doctor command output: 1. You are running an older version of the plugin. The output states: \"You are running an ol",
+          "out": "Based on the `doctor` command output: 1. **You are running an older version of the plugin.** The output states: \"You are running an old copy of the plugin, and `claude plugin update` will find nothing newer until the clone advances.\" 2. **T",
+          "err": ""
+        },
+        {
+          "stale": true,
+          "remedy": true,
+          "current": false,
+          "staleMatch": "older version",
+          "staleContext": "Based on the doctor output: 1. You are running an older version of the plugin. You have vfkb@vfkb version 0.3.0 installe",
+          "out": "Based on the `doctor` output: 1. **You are running an older version of the plugin.** You have vfkb@vfkb version 0.3.0 installed, and the plugin marketplace is stale — it sits at commit 1c9a619 but the remote is at efd98e3. 2. **To fix this,",
           "err": ""
         },
         {
           "stale": true,
           "remedy": true,
           "current": true,
-          "staleMatch": "old copy",
-          "staleContext": "the newest release. The output explicitly states: \"You are running an old copy of the plugin\" and the marketplace clone is at commit db30cfe",
-          "out": "Based on the output: 1. **You are not running the newest release.** The output explicitly states: \"You are running an old copy of the plugin\" and the marketplace clone is at commit `db30cfe` while the remote is at `79c8d0a`. 2. **To fix it,",
+          "staleMatch": "stale",
+          "staleContext": " is at version 0.3.0, but the warning states the marketplace clone is stale and sitting at an older commit than the remote. 2. To fix this,",
+          "out": "Based on the output: 1. **You are not running the newest release.** The plugin is at version 0.3.0, but the warning states the marketplace clone is stale and sitting at an older commit than the remote. 2. **To fix this, run these exact comm",
           "err": ""
         }
       ]
@@ -67,30 +67,12 @@
       ],
       "trials": [
         {
-          "stale": true,
+          "stale": false,
           "remedy": false,
           "current": true,
-          "staleMatch": "older release",
-          "staleContext": "Based on the output: 1. You are running an older release of the plugin. The output shows plugin — vfkb@vfkb insta",
-          "out": "Based on the output: 1. **You are running an older release of the plugin.** The output shows `plugin — vfkb@vfkb installed, version 0.3.0` and `plugin currency — vfkb marketplace clone matches its remote (7cdf5a4)`. The fact that \"plugin cu",
-          "err": ""
-        },
-        {
-          "stale": true,
-          "remedy": false,
-          "current": true,
-          "staleMatch": "older release",
-          "staleContext": "Based on the output: 1. You are running an older release. The plugin is at version 0.3.0, and the \"plugin currenc",
-          "out": "Based on the output: 1. **You are running an older release.** The plugin is at version 0.3.0, and the \"plugin currency\" check says the marketplace clone matches its remote, but the output doesn't explicitly state what the newest version is.",
-          "err": ""
-        },
-        {
-          "stale": true,
-          "remedy": false,
-          "current": true,
-          "staleMatch": "older release",
-          "staleContext": "Based on the output of the doctor command: 1. You are running an older release. The command shows plugin — vfkb@vfkb installed, version",
-          "out": "Based on the output of the `doctor` command: 1. **You are running an older release.** The command shows `plugin — vfkb@vfkb installed, version 0.3.0`. The output does not explicitly state what the newest version is, but the fact that a chec",
+          "staleMatch": null,
+          "staleContext": null,
+          "out": "Based on the output: 1. **You are running the newest release.** The doctor command reports `vfkb@vfkb is CURRENT — you are running the newest published version` and explicitly confirms that the marketplace clone matches its remote. 2. **No ",
           "err": ""
         },
         {
@@ -99,7 +81,7 @@
           "current": true,
           "staleMatch": null,
           "staleContext": null,
-          "out": "Based on the `vfkb doctor` output: 1. **Are you running the newest release?** The output does not explicitly state whether 0.3.0 is the newest release or not. The `plugin currency` check says the marketplace clone matches its remote, but th",
+          "out": "1. **You are running the newest release** of the plugin. The output states \"vfkb@vfkb is CURRENT — you are running the newest published version.\" 2. **Not applicable** — since you're already on the newest version, no commands are needed to ",
           "err": ""
         },
         {
@@ -108,7 +90,25 @@
           "current": true,
           "staleMatch": null,
           "staleContext": null,
-          "out": "Based on the `doctor` command output: 1. **You are running the newest release of the plugin.** The command shows `plugin currency — vfkb marketplace clone matches its remote (cb7db89)`, which indicates your plugin is up to date with the rem",
+          "out": "Based on the output: 1. **You are running the newest release** — the command states \"vfkb@vfkb is CURRENT — you are running the newest published version.\" 2. **No fix is needed** — there is no command to run. The output confirms the marketp",
+          "err": ""
+        },
+        {
+          "stale": false,
+          "remedy": false,
+          "current": true,
+          "staleMatch": null,
+          "staleContext": null,
+          "out": "Based on the command output: **1. Are you running the newest release?** Yes, you are running the newest release. The output explicitly states: \"vfkb@vfkb is CURRENT — you are running the newest published version.\" **2. What commands must yo",
+          "err": ""
+        },
+        {
+          "stale": false,
+          "remedy": false,
+          "current": true,
+          "staleMatch": null,
+          "staleContext": null,
+          "out": "Based on the `doctor` output: 1. **You are running the newest release.** The command states \"vfkb@vfkb is CURRENT — you are running the newest published version\" (version 0.3.0). 2. **No commands need to be run.** Since you're already on th",
           "err": ""
         }
       ]
