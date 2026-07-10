@@ -1,0 +1,28 @@
+name: review-gate
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  review-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The gate diffs against the merge-base with the base branch, and walks
+          # commits to decide which shas a record may be filed against. A shallow
+          # clone has neither.
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # A Brake nobody has watched fail is a Brake nobody knows is connected.
+      - name: The gate is connected — negative checks go red
+        run: node scripts/review-gate.selftest.mjs
+
+      - name: An implementation change carries a review record (ADR-0052)
+        run: |
+          BASE="origin/${{ github.base_ref || 'main' }}"
+          git fetch origin "${{ github.base_ref || 'main' }}" --quiet || true
+          node scripts/review-gate.mjs --base "$BASE"
