@@ -19,6 +19,17 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { runReviewGate, deriveVerdict, isImplementation, candidateShas } from './review-gate.mjs';
 
+// CI runners have no global git identity. Setting it in the environment means a
+// fixture commit cannot fail merely because one call site forgot `-c user.name`.
+const GIT_ENV = {
+  ...process.env,
+  GIT_AUTHOR_NAME: 't',
+  GIT_AUTHOR_EMAIL: 't@t',
+  GIT_COMMITTER_NAME: 't',
+  GIT_COMMITTER_EMAIL: 't@t',
+};
+const gitIn = (cwd) => (...a) => execFileSync('git', a, { cwd, encoding: 'utf8', env: GIT_ENV }).trim();
+
 const SHA = 'a'.repeat(40);
 const OLD = 'b'.repeat(40);
 
@@ -270,7 +281,7 @@ for (const [label, ok] of units) {
 // ---------------------------------------------------------------------------
 {
   const dir = mkdtempSync(join(tmpdir(), 'review-gate-git-'));
-  const g = (...a) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...a], { cwd: dir, encoding: 'utf8' }).trim();
+  const g = gitIn(dir);
   const commit = (path, msg) => {
     mkdirSync(join(dir, path, '..'), { recursive: true });
     writeFileSync(join(dir, path), `${msg}\n`);
@@ -307,7 +318,7 @@ for (const [label, ok] of units) {
   // This fixture is the case the original suite never built.
   {
     const d2 = mkdtempSync(join(tmpdir(), 'review-gate-merge-'));
-    const g2 = (...a) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...a], { cwd: d2, encoding: 'utf8' }).trim();
+    const g2 = gitIn(d2);
     const c2 = (path, msg) => {
       mkdirSync(join(d2, path, '..'), { recursive: true });
       writeFileSync(join(d2, path), `${msg}\n`);
@@ -338,7 +349,7 @@ for (const [label, ok] of units) {
     g2('checkout', '-q', '-b', 'side2', impl2);
     c2('src/more-evil.ts', 'more unreviewed code');
     g2('checkout', '-q', 'main');
-    execFileSync('git', ['merge', '--no-ff', '--no-commit', 'side2'], { cwd: d2 });
+    g2('merge', '--no-ff', '--no-commit', 'side2');
     writeFileSync(join(d2, 'reviews', `${'e'.repeat(40)}.json`), '{}\n');
     g2('add', '-A');
     g2('commit', '-q', '-m', 'Merge, resolving only a review record');
@@ -353,7 +364,7 @@ for (const [label, ok] of units) {
     // (b) an EMPTY commit at the tip. One parent, zero files — `[].every()` is
     //     vacuously true, so only the empty-list guard can stop the walk.
     const d3 = mkdtempSync(join(tmpdir(), 'review-gate-empty-'));
-    const g3 = (...a) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...a], { cwd: d3, encoding: 'utf8' }).trim();
+    const g3 = gitIn(d3);
     g3('init', '-q', '-b', 'main');
     mkdirSync(join(d3, 'src'), { recursive: true });
     writeFileSync(join(d3, 'README.md'), 'base\n');
