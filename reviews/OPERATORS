@@ -1,0 +1,10 @@
+# Who may waive a `blocking` review finding (ADR-0052 §3).
+#
+# `scripts/review-gate.mjs` accepts `status: "accepted"` on a blocking finding
+# ONLY when its `acceptedBy` names someone on this list. Without this file, no
+# blocking finding can be waived at all.
+#
+# An agent must never add itself here. Changing this file is an implementation
+# change and is itself reviewed.
+vilosource
+Jason Viloria

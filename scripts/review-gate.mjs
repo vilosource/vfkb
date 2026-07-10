@@ -30,13 +30,44 @@ import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // Changing any of these is an implementation change and needs a review.
-// Docs, the brain, and this repo's prose are exempt — the same carve-out
-// ADR-0029 makes for sub-tasks and pure-doc edits.
-export const IMPL_PATHS = [/^src\//, /^test\//, /^scenarios\//, /^scripts\//, /^\.claude\/commands\//, /^\.github\/workflows\//];
-const EXEMPT_PATHS = [/^docs\//, /^\.vfkb\//, /^README\.md$/, /^CLAUDE\.md$/, /^reviews\//];
+// Case-insensitive: a file at `Src/` is a mistake, and failing closed on it is
+// the safe direction.
+export const IMPL_PATHS = [
+  /^src\//i,
+  /^test\//i,
+  /^scenarios\//i,
+  /^scripts\//i,
+  /^\.claude\/commands\//i,
+  /^\.github\/workflows\//i,
+  // The waiver allowlist decides who may merge over a blocking finding. Editing
+  // it is an implementation change, and is itself reviewed — otherwise an agent
+  // could simply add itself.
+  /^reviews\/OPERATORS$/,
+];
+
+// Exempt paths WIN over the implementation list — that is the only way this list
+// can do any work.
+//   scenarios/records/ — committing L4 evidence is the project's own DoD workflow
+//     (ADR-0022/0029). Forcing an adversarial code review onto a PR that adds
+//     nothing but a scenario record blocks honest work.
+//   reviews/<sha>.json — the review records themselves, and their README.
+const EXEMPT_PATHS = [
+  /^docs\//i,
+  /^\.vfkb\//i,
+  /^README\.md$/i,
+  /^CLAUDE\.md$/i,
+  /^reviews\/[0-9a-f]{40}\.json$/i,
+  /^reviews\/README\.md$/i,
+  /^scenarios\/records\//i,
+];
+
+/** Only a review record may be stripped from the tip when locating the reviewed sha. */
+const isReviewRecord = (f) => /^reviews\/[0-9a-f]{40}\.json$/i.test(f);
 
 const SEVERITY = ['blocking', 'major', 'minor'];
 const STATUS = ['fixed', 'accepted', 'open'];
+// A reviewer may return any of these. Only MERGE lets the PR through.
+const VERDICTS = ['MERGE', 'FIX-FIRST', 'REDESIGN'];
 
 export const isImplementation = (f) => !EXEMPT_PATHS.some((r) => r.test(f)) && IMPL_PATHS.some((r) => r.test(f));
 
@@ -51,7 +82,7 @@ export function deriveVerdict(findings) {
   return unresolved.length ? 'FIX-FIRST' : 'MERGE';
 }
 
-function validateRecord(rec, sha, docExists) {
+function validateRecord(rec, sha, docExists, isOperator) {
   const bad = [];
   if (rec.recordVersion !== 1) bad.push(`recordVersion is ${rec.recordVersion}, expected 1`);
   if (rec.sha !== sha) bad.push(`record says sha ${rec.sha} but it is filed as ${sha}`);
@@ -72,9 +103,18 @@ function validateRecord(rec, sha, docExists) {
     if (!f.id || !f.summary) bad.push(`finding ${i} has no id/summary`);
     if (!SEVERITY.includes(f.severity)) bad.push(`finding ${f.id ?? i} has severity ${JSON.stringify(f.severity)}`);
     if (!STATUS.includes(f.status)) bad.push(`finding ${f.id ?? i} has status ${JSON.stringify(f.status)}`);
-    // A blocking finding may be waived, but only on the record, by a named human.
-    if (f.severity === 'blocking' && f.status === 'accepted' && !f.acceptedBy) {
-      bad.push(`finding ${f.id} waives a BLOCKING finding with no \`acceptedBy\` — only the operator may accept one, on the record`);
+    // A blocking finding may be waived, but only on the record, by an operator
+    // named in `reviews/OPERATORS`. Accepting any truthy string here would let
+    // the author waive their own blocker with `acceptedBy: "me"` — which is what
+    // the first version of this gate did, while its ADR claimed otherwise.
+    if (f.severity === 'blocking' && f.status === 'accepted') {
+      if (!f.acceptedBy) bad.push(`finding ${f.id} waives a BLOCKING finding with no \`acceptedBy\``);
+      else if (!isOperator(f.acceptedBy)) {
+        bad.push(
+          `finding ${f.id} waives a BLOCKING finding as "${f.acceptedBy}", who is not listed in reviews/OPERATORS — ` +
+            `only an operator may accept a blocking finding, on the record`,
+        );
+      }
     }
   }
   // "No findings" must say what was checked and ruled out (the rubric's rule).
@@ -86,15 +126,23 @@ function validateRecord(rec, sha, docExists) {
     bad.push(`record claims findingsCount ${rec.findingsCount} but carries ${rec.findings.length} findings`);
   }
 
-  const derived = deriveVerdict(rec.findings);
-  if (rec.verdict !== derived) {
-    bad.push(
-      `record asserts verdict ${JSON.stringify(rec.verdict)} but its findings derive ${derived}` +
-        (derived === 'FIX-FIRST' ? ' — an unresolved blocking finding cannot be merged over' : ''),
-    );
+  if (!VERDICTS.includes(rec.verdict)) {
+    bad.push(`record asserts verdict ${JSON.stringify(rec.verdict)}; expected one of ${VERDICTS.join(' / ')}`);
+    return bad;
   }
-  if (derived !== 'MERGE') {
-    bad.push(`review verdict is ${derived}: fix the blocking findings and re-review against the new head sha`);
+  // The verdict is a CLAIM; the findings are the evidence. A record may not
+  // assert MERGE while carrying an unresolved blocking finding.
+  //
+  // The reverse is NOT an error: a reviewer may honestly return FIX-FIRST over
+  // `major` findings alone. An earlier version failed that as a "mismatch",
+  // which would have red-lighted a correct review — and made REDESIGN, which the
+  // rubric asks reviewers to use, impossible to record at all.
+  const derived = deriveVerdict(rec.findings);
+  if (rec.verdict === 'MERGE' && derived === 'FIX-FIRST') {
+    bad.push('record asserts verdict "MERGE" while carrying an unresolved `blocking` finding — that cannot be merged over');
+  }
+  if (rec.verdict !== 'MERGE') {
+    bad.push(`review verdict is ${rec.verdict}: fix the findings and re-review against the new head sha`);
   }
   return bad;
 }
@@ -118,7 +166,7 @@ export function runReviewGate(ctx) {
   for (const sha of ctx.candidates) {
     const rec = ctx.readRecord(sha);
     if (!rec) continue;
-    const bad = validateRecord(rec, sha, ctx.docExists);
+    const bad = validateRecord(rec, sha, ctx.docExists, ctx.isOperator ?? (() => false));
     if (bad.length) return { failures: bad.map((m) => `[review] ${m}`), notes };
     notes.push(
       `review ok: ${sha.slice(0, 7)} reviewed by ${rec.reviewer.agent}/${rec.reviewer.model} over ${rec.reviewer.rounds} round(s), ` +
@@ -143,14 +191,27 @@ export function runReviewGate(ctx) {
 // ---------------------------------------------------------------------------
 const git = (repo, ...args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8' }).trim();
 
-/** HEAD, plus each sha reachable by stripping trailing commits that touch ONLY reviews/. */
+/**
+ * HEAD, plus each sha reachable by stripping trailing commits that touch ONLY
+ * `reviews/`. That is what lets a review of commit X be filed as `reviews/X.json`
+ * without the act of filing invalidating itself.
+ *
+ * A MERGE COMMIT IS NEVER STRIPPED. `git show --name-only` prints nothing for a
+ * merge, so `[].every(isReviewPath)` is vacuously TRUE — the first version of
+ * this walked straight through merges down the first-parent line until it found
+ * some *other* PR's review record, and passed a merge of unreviewed code. Same
+ * vacuous-truth bug as a contrast arm whose predicate names a field no trial
+ * carries. An empty file list now stops the walk.
+ */
 export function candidateShas(repo, base, head = 'HEAD') {
   const shas = [git(repo, 'rev-parse', head)];
   for (const sha of git(repo, 'rev-list', `${base}..${head}`).split('\n').filter(Boolean)) {
+    const parents = git(repo, 'rev-list', '--parents', '-n', '1', sha).split(/\s+/).length - 1;
+    if (parents > 1) break; // a merge commit brings in code from another lineage
     const touched = git(repo, 'show', '--name-only', '--format=', sha).split('\n').filter(Boolean);
-    // Walk back while the tip commits only add review records.
-    if (touched.every((f) => /^reviews\//.test(f))) shas.push(git(repo, 'rev-parse', `${sha}^`));
-    else break;
+    if (touched.length === 0) break; // empty commit: proves nothing, strips nothing
+    if (!touched.every(isReviewRecord)) break;
+    shas.push(git(repo, 'rev-parse', `${sha}^`));
   }
   return shas;
 }
@@ -169,6 +230,15 @@ if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import
       return existsSync(p) ? JSON.parse(readFileSync(p, 'utf8')) : undefined;
     },
     docExists: (d) => existsSync(join(repo, d)),
+    isOperator: (name) => {
+      const p = join(repo, 'reviews', 'OPERATORS');
+      if (!existsSync(p)) return false; // no allowlist ⇒ nobody may waive
+      return readFileSync(p, 'utf8')
+        .split('\n')
+        .map((l) => l.replace(/#.*$/, '').trim())
+        .filter(Boolean)
+        .includes(name.trim());
+    },
   };
 
   const { failures, notes } = runReviewGate(ctx);
