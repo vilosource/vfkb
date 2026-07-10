@@ -323,6 +323,39 @@ for (const [label, ok] of units) {
   const ops = commit('reviews/OPERATORS', 'add an operator');
   checks.push(['candidateShas does NOT strip a commit touching reviews/OPERATORS', candidateShas(dir, base)[0] === ops && candidateShas(dir, base).length === 1]);
 
+  // THE PRODUCTION ADAPTER, under a hostile GIT_DIR. `cwd` does not win over an
+  // ambient GIT_DIR: without the strip in `gitEnv()`, candidateShas reads history
+  // from a repository it was never pointed at, and decides which commits were
+  // "reviewed" from that. Asserting the fixture env's KEYS does not test this —
+  // reverting the production strip left the suite green. This drives the real
+  // adapter and compares against the answer from a clean environment.
+  {
+    const decoy = mkdtempSync(join(tmpdir(), 'review-gate-decoy-'));
+    const gd = gitIn(decoy);
+    gd('init', '-q', '-b', 'main');
+    writeFileSync(join(decoy, 'unrelated.txt'), 'decoy\n');
+    gd('add', '-A');
+    gd('commit', '-q', '-m', 'a repository the gate was never pointed at');
+
+    const expected = candidateShas(dir, base);
+    const saved = process.env.GIT_DIR;
+    process.env.GIT_DIR = join(decoy, '.git');
+    let got;
+    try {
+      got = candidateShas(dir, base);
+    } catch (e) {
+      got = [`THREW: ${e.message}`];
+    } finally {
+      if (saved === undefined) delete process.env.GIT_DIR;
+      else process.env.GIT_DIR = saved;
+    }
+    checks.push([
+      'candidateShas ignores an ambient GIT_DIR (reads the repo it was given)',
+      got.length === expected.length && got.every((s, i) => s === expected[i]),
+    ]);
+    rmSync(decoy, { recursive: true, force: true });
+  }
+
   // THE MERGE COMMIT. `git show --name-only` prints NOTHING for a merge, so
   // `[].every(isReviewRecord)` was vacuously true: the walk sailed through the
   // merge, down the first-parent line, and accepted a review record belonging to
