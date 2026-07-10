@@ -53,18 +53,40 @@ const git = (cwd, ...args) =>
     env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_TERMINAL_PROMPT: '0' },
   });
 
-// The question must contain NONE of the words the predicate scores on. An
-// earlier draft asked "is it stale/behind?" and an agent that merely restated
-// the question scored as reporting staleness — the predicate was measuring the
-// prompt, not the answer. Observed 2026-07-09: a contrast trial came back with
-// BOTH stale=true and current=true.
+// HISTORY (fix/doctor-currency-line): this question went through three
+// designs, each defeated by a different variant of the same problem — scoring
+// free prose for staleness language is inherently ambiguous once the question
+// itself must mention staleness/currency at all:
+//   v1 asked "am I running the newest release?" — an axis-(b) question an
+//      honest axis-(a) check cannot answer; the only doctor wording that made
+//      the contrast arm clean was an axis-(b) OVERCLAIM the review gate ruled
+//      a blocking delivery-honesty defect.
+//   v2 asked "...has it fallen behind...?" — a contrast trial echoed the
+//      question's own conditional ("If it had fallen behind... Not
+//      applicable, since it is current"), and the STALE regex matched that
+//      echo ahead of a negation the scanner (backward-only) never saw. A
+//      narrower negation-scan window fixed the RECORDED case but a fresh
+//      review reproduced the identical bug with a one-word-shorter phrasing
+//      ("No, it has fallen behind") and found the narrower window broke
+//      legitimate long-distance negations the old scan used to catch.
+// v3 (current) does not parse negation in prose AT ALL. The agent must answer
+// in a fixed three-line format; STATUS is a closed-vocabulary label, not a
+// clause a negation word can modify, so "no negation-scope bug" is true by
+// construction rather than by another regex heuristic. EVIDENCE still ties
+// the label back to doctor's actual output text (ADR-0051's quiet-success
+// corollary: a content assertion, not a bare claim) — a model that fills in
+// the format without reading the output fails the evidence check, not the
+// (now trivial) status check.
 const QUESTION =
-  'I use the vfkb Claude Code plugin in this project. Run this exact command:\n\n' +
+  'I use the vfkb Claude Code plugin. It is installed from a local copy of a marketplace ' +
+  'that I refresh periodically. Run this exact command:\n\n' +
   '  {CMD}\n\n' +
-  'Then, based ONLY on what that command printed, answer in plain prose:\n' +
-  '  1. Am I running the newest release of the plugin, or an older one?\n' +
-  '  2. If I am not on the newest, what exact command(s) must I run to fix that?\n' +
-  'Do not guess. If the output does not say, tell me it does not say.';
+  'Then, based ONLY on what that command printed, answer in EXACTLY this three-line format ' +
+  'and nothing else — no other text before or after it:\n\n' +
+  'STATUS: <one word, either "current" or "diverged">\n' +
+  'EVIDENCE: <the exact line from the command output that tells you>\n' +
+  'REMEDY: <the exact command(s) to run to fix it, or "none needed">\n\n' +
+  'Do not guess. If the output does not say, put "unclear" as the STATUS.';
 
 /**
  * Build one sandbox: a bare `origin` with two commits, a clone parked either at
@@ -130,6 +152,24 @@ function runArm(stale) {
   const { root, proj, cfg } = buildSandbox(stale);
   const cmd = `CLAUDE_CONFIG_DIR=${cfg} VFKB_DATA_DIR=.vfkb node ${CLI} doctor`;
   const prompt = QUESTION.replace('{CMD}', cmd);
+
+  // Ground truth, independent of what the agent reports: run doctor ourselves
+  // against the identical, untouched sandbox (read-only, deterministic — the
+  // sha values come from the fixture's own git history, not from anything
+  // time-dependent). Round-3 review finding: checking EVIDENCE for the word
+  // "STALE" lets a model assert the word without quoting anything real
+  // ("EVIDENCE: it is STALE" scored a full hit). EVIDENCE is now checked
+  // against this captured text instead of a bare marker-word regex.
+  let rawDoctorOut = '';
+  try {
+    rawDoctorOut = sh('node', [CLI, 'doctor'], {
+      cwd: proj,
+      env: { ...process.env, CLAUDE_CONFIG_DIR: cfg, VFKB_DATA_DIR: '.vfkb' },
+    });
+  } catch (e) {
+    rawDoctorOut = String(e.stdout || '') + String(e.stderr || '');
+  }
+
   let out = '';
   let err = '';
   try {
@@ -145,60 +185,53 @@ function runArm(stale) {
   rmSync(root, { recursive: true, force: true });
 
   // Content assertions (ADR-0051's quiet-success corollary: exit status is not
-  // admissible). Negated forms — "not stale", "isn't behind", "no longer out of
-  // date" — are struck before scoring, so a clean report cannot register as a
-  // stale one. The surviving match is recorded, so a leak can be audited later
-  // instead of taken on faith.
-  // A staleness word counts only when the agent ASSERTS it. Two ways that fails,
-  // both observed on 2026-07-09 and both fixed here:
-  //   negation — "it is not stale or behind" (scrubbing with one regex leaves
-  //              `behind` standing, so each match is checked individually);
-  //   hedging  — "the output does not say whether it is the newest or an older
-  //              one" is a refusal to claim, not a claim.
-  // The term list must also be closed under paraphrase: an earlier list had
-  // `older version` but not `older release`, so a contrast trial that genuinely
-  // misreported a current clone scored CLEAN. False negatives flatter the
-  // result, which is the worse direction.
-  // `lead` is already the single clause preceding the term, so the cues need no
-  // trailing anchor — and must not have one: `[^.;!?]*$` cannot cross the dots
-  // in a version string like "0.3.0", which severed the cue from its own clause.
-  const STALE = /\b(stale|behind|out ?of ?date|outdated|old copy|older (?:one|copy|version|release|build))\b/gi;
-  const NEG_CUE = /\b(not|isn'?t|aren'?t|no longer|never|nothing|neither|nor|no)\b/i;
-  const HEDGE_CUE = /\b(does ?n'?o?t say|doesn'?t say|cannot tell|can'?t tell|unclear|not stated|does not indicate|doesn'?t indicate|whether)\b/i;
+  // admissible) — but no negation/hedge parsing over free prose. STATUS is a
+  // closed-vocabulary label the agent must fill in verbatim; there is no
+  // clause for a negation word to modify, so there is nothing for a "No," /
+  // "not" / "whether" to ambiguously scope over. Markdown emphasis is stripped
+  // first so `**STATUS:** diverged` still matches the label.
+  const flat = out.replace(/[*_`~]/g, '').trim();
 
-  // Agents answer in Markdown. `**You are not on the newest.**` puts `.**` where
-  // the sentence break belongs, so the clause scan runs past it and a `not` from
-  // the PREVIOUS sentence negates a genuine detection. Observed: a wired trial
-  // that quoted "marketplace clone is STALE" scored stale=false. Strip emphasis
-  // before scoring; keep the raw text for the record.
-  const flat = out.replace(/[*_`~]/g, '');
+  // Round-3 review finding: an UNANCHORED match returns the FIRST
+  // STATUS:/EVIDENCE:/REMEDY: occurrence anywhere in the answer. The question
+  // itself contains the literal string `STATUS: <one word, either "current"
+  // or "diverged">`, so a model that muses before its real answer ("I need to
+  // check STATUS: current vs diverged...") could have a genuine leak scored
+  // as a miss — the same "hide a real leak" failure direction as every prior
+  // round, via first-match hijacking instead of negation scanning. Anchoring
+  // the three-line block to the ENTIRE trimmed answer (start to end) closes
+  // this: any preamble or trailing text fails the match outright, which
+  // scores as unclear/invalid — a miss, never a hidden leak.
+  const shapeMatch = flat.match(
+    /^STATUS\s*:\s*["']?(current|diverged|unclear)["']?\s*\n+EVIDENCE\s*:\s*(.+?)\s*\n+REMEDY\s*:\s*(.+?)\s*$/is,
+  );
+  const status = shapeMatch?.[1]?.toLowerCase() ?? null;
+  const evidence = shapeMatch?.[2]?.trim() ?? '';
+  const remedyLine = shapeMatch?.[3]?.trim() ?? '';
 
-  let staleHit = null;
-  for (const m of flat.matchAll(STALE)) {
-    const clause = flat.slice(Math.max(0, m.index - 120), m.index);
-    // Sentence break = terminator followed by whitespace. Splitting on a bare
-    // `.` cuts version numbers ("0.3.0") in half and severs the hedge cue that
-    // precedes them — which silently turned a hedged answer into a stale claim.
-    const lead = clause.split(/[.;!?](?=\s|$)/).pop() ?? '';
-    if (!NEG_CUE.test(lead) && !HEDGE_CUE.test(lead)) {
-      staleHit = { term: m[0], at: m.index };
-      break;
-    }
-  }
-  const saysStale = Boolean(staleHit);
-  const namesRemedy = /marketplace update/i.test(out);
-  const saysCurrent = /\b(up to date|newest|current|matches|no update)\b/i.test(out);
+  // Genuine-quotation check: EVIDENCE must appear, modulo whitespace/
+  // punctuation, as a substring of what doctor ACTUALLY printed in this
+  // trial's sandbox — not merely contain the right word. A minimum length
+  // blocks trivial gaming ("EVIDENCE: STALE" alone would trivially be a
+  // substring of the real output too) while real quoted lines (~80+ chars)
+  // clear it easily.
+  const normalize = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const evidenceNorm = normalize(evidence);
+  const rawNorm = normalize(rawDoctorOut);
+  const evidenceQuoted = evidenceNorm.length >= 20 && rawNorm.includes(evidenceNorm);
+
+  const saysStale = status === 'diverged' && evidenceQuoted && /\bstale\b/.test(evidenceNorm);
+  const saysCurrent = status === 'current' && evidenceQuoted && /\bcurrent\b/.test(evidenceNorm);
+  const namesRemedy = /marketplace update/i.test(remedyLine);
 
   return {
     stale: saysStale,
     remedy: namesRemedy,
     current: saysCurrent,
-    // Audit trail for the predicate itself: what matched, and its context. A
-    // leak that cannot be inspected later is a leak taken on faith.
-    staleMatch: staleHit?.term ?? null,
-    staleContext: staleHit
-      ? flat.slice(Math.max(0, staleHit.at - 70), staleHit.at + 70).replace(/\s+/g, ' ')
-      : null,
+    // Audit trail: the raw STATUS/EVIDENCE captured, so a miss or leak can be
+    // inspected later instead of taken on faith.
+    staleMatch: status,
+    staleContext: evidence || null,
     out: out.replace(/\s+/g, ' ').slice(0, 240),
     err,
   };

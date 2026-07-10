@@ -80,6 +80,44 @@ describe('RFC-024 §1 — doctor honors CLAUDE_CONFIG_DIR (DoD 1)', () => {
   });
 });
 
+// The report as a whole must not mislead, even when every line is true. The
+// install line used to say "(informational — currency not compared)" right beside
+// the currency check that compared it — and an agent reading the report inferred
+// staleness from the bare version plus that hedge, leaking the doctor-staleness
+// L4's only contrast trial.
+describe('RFC-024 §1 — the install line does not contradict the currency line', () => {
+  const pluginLine = (r: DoctorReport) => r.checks.find((c) => c.name === 'plugin')!;
+
+  it('currency compared (ok) → the install line does not claim it was not', () => {
+    const { proj, cfg } = setup({ installLocation: makeClone(join(root, 'clone'), LOCAL) });
+    const report = runDoctor({ root: proj, brainDir: join(proj, '.vfkb'), env: { CLAUDE_CONFIG_DIR: cfg }, git: () => `${LOCAL}\tHEAD\n` });
+    expect(currency(report)!.status).toBe('ok');
+    expect(pluginLine(report).detail).not.toMatch(/currency not compared/);
+    expect(pluginLine(report).detail).toContain('plugin currency');
+  });
+
+  it('currency compared (stale) → the install line does not claim it was not', () => {
+    const { proj, cfg } = setup({ installLocation: makeClone(join(root, 'clone'), LOCAL) });
+    const report = runDoctor({ root: proj, brainDir: join(proj, '.vfkb'), env: { CLAUDE_CONFIG_DIR: cfg }, git: () => `${REMOTE}\tHEAD\n` });
+    expect(currency(report)!.status).toBe('warn');
+    expect(pluginLine(report).detail).not.toMatch(/currency not compared/);
+  });
+
+  it('currency genuinely skipped → the install line says so, and that is honest', () => {
+    const { proj, cfg } = setup({ source: { source: 'directory' }, installLocation: join(root, 'x') });
+    const report = runDoctor({ root: proj, brainDir: join(proj, '.vfkb'), env: { CLAUDE_CONFIG_DIR: cfg }, git: () => '' });
+    expect(currency(report)!.status).toBe('skip');
+    expect(pluginLine(report).detail).toContain('(currency not compared)');
+  });
+
+  it('the currency line still comes after the install line', () => {
+    const { proj, cfg } = setup({ installLocation: makeClone(join(root, 'clone'), LOCAL) });
+    const report = runDoctor({ root: proj, brainDir: join(proj, '.vfkb'), env: { CLAUDE_CONFIG_DIR: cfg }, git: () => `${LOCAL}\tHEAD\n` });
+    const names = report.checks.map((c) => c.name);
+    expect(names.indexOf('plugin')).toBeLessThan(names.indexOf('plugin currency'));
+  });
+});
+
 describe('RFC-024 §1 — staleness detection (DoD 2)', () => {
   it('clone behind the remote → warn, naming both remedy commands', () => {
     const { proj, cfg } = setup({ installLocation: makeClone(join(root, 'clone'), LOCAL) });
@@ -97,7 +135,7 @@ describe('RFC-024 §1 — staleness detection (DoD 2)', () => {
     expect(report.ok).toBe(true); // never a FAIL
   });
 
-  it('clone level with the remote → ok', () => {
+  it('clone level with the remote → ok, says the CLONE is current, and claims nothing about the install', () => {
     const { proj, cfg } = setup({ installLocation: makeClone(join(root, 'clone'), LOCAL) });
     const report = runDoctor({
       root: proj,
@@ -106,6 +144,16 @@ describe('RFC-024 §1 — staleness detection (DoD 2)', () => {
       git: () => `${LOCAL}\tHEAD\n`,
     });
     expect(currency(report)!.status).toBe('ok');
+    // It must say the clone is current in plain words — a reader given only a
+    // version number and a fact about a clone infers staleness (three of five
+    // contrast trials did exactly that).
+    expect(currency(report)!.detail).toMatch(/clone is CURRENT/);
+    // And it must NOT claim the INSTALLED plugin is newest. That is axis (b),
+    // which RFC-024 §1 gates and this check never performs: in the half-upgraded
+    // `--scope user` state the clone is level while the install lags. An earlier
+    // wording asserted it, and this test defended the overclaim.
+    expect(currency(report)!.detail).not.toMatch(/newest published version/);
+    expect(currency(report)!.detail).toMatch(/does not compare your INSTALLED version/);
   });
 
   it('resolves the sha through packed-refs too', () => {
