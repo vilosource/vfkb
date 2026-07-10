@@ -135,7 +135,7 @@ describe('RFC-024 §1 — staleness detection (DoD 2)', () => {
     expect(report.ok).toBe(true); // never a FAIL
   });
 
-  it('clone level with the remote → ok', () => {
+  it('clone level with the remote → ok, and it SAYS you are current', () => {
     const { proj, cfg } = setup({ installLocation: makeClone(join(root, 'clone'), LOCAL) });
     const report = runDoctor({
       root: proj,
@@ -144,6 +144,12 @@ describe('RFC-024 §1 — staleness detection (DoD 2)', () => {
       git: () => `${LOCAL}\tHEAD\n`,
     });
     expect(currency(report)!.status).toBe('ok');
+    // The stale branch says "You are running an old copy" in plain words. The
+    // healthy branch must say the converse in plain words, or a reader with only
+    // a version number and a fact about a clone infers staleness — three of five
+    // contrast trials did exactly that.
+    expect(currency(report)!.detail).toMatch(/is CURRENT/);
+    expect(currency(report)!.detail).toMatch(/nothing newer to install/);
   });
 
   it('resolves the sha through packed-refs too', () => {

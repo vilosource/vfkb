@@ -178,7 +178,19 @@ function checkCurrency(
     return skip(`remote unreachable (offline?) — cannot tell whether ${marketplace} is current`);
   }
   if (remote === local) {
-    return { status: 'ok', detail: `${marketplace} marketplace clone matches its remote (${local.slice(0, 7)})` };
+    // Say the ANSWER, not the mechanism. "the marketplace clone matches its
+    // remote" is a fact about a clone; the reader asked whether their plugin is
+    // current. Three of five contrast trials in the doctor-staleness L4 read the
+    // mechanism, found no statement of the newest version, and reported a
+    // level clone as "an older release". The stale branch below always said
+    // "You are running an old copy of the plugin" in plain words; the healthy
+    // branch never said the converse.
+    return {
+      status: 'ok',
+      detail:
+        `${plugin.key} is CURRENT — you are running the newest published version. The ${marketplace} ` +
+        `marketplace clone matches its remote (${local.slice(0, 7)}), so there is nothing newer to install.`,
+    };
   }
   return {
     status: 'warn',
