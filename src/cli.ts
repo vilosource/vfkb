@@ -39,6 +39,19 @@ import { fromMykb, fromAdr, fromMarkdown, resolveMykbArea } from './import.js';
 import { parseArgs, flagValue, flagList, flagInt, UsageError } from './args.js';
 import { ENTRY_TYPES, DECISION_STATUSES } from './types.js';
 import type { AuthorRole, EntryType, Zone, DecisionStatus } from './types.js';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+// The package's OWN version, read from ITS OWN package.json at runtime — never
+// hardcoded (ADR-0057 step 1). Resolved relative to this module file so it works
+// from dist/cli.js inside an `npm i -g` install: bin -> dist/cli.js, package.json
+// is one level up from dist/, in both the tsc dev build and the packed tarball.
+function packageVersion(): string {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const pkg = JSON.parse(readFileSync(join(here, '..', 'package.json'), 'utf8')) as { version?: string };
+  return pkg.version || '0.0.0';
+}
 
 function readStdin(): Promise<string> {
   return new Promise((resolve) => {
@@ -84,7 +97,7 @@ async function main() {
 
 const USAGE =
   'usage: vfkb <add|list|search|query|map|context|context init|resume|resume-note|curate|distill|save|' +
-  'export|import|init|doctor|supersede|context-block|context-block-naive|' +
+  'export|import|init|doctor|supersede|context-block|context-block-naive|--version|' +
   'hook session-start|hook pre-tool-use|hook post-tool-use|hook stop|hook session-end>\n';
 
 async function dispatch() {
@@ -92,6 +105,14 @@ async function dispatch() {
 
   if (cmd === '--help' || cmd === '-h' || cmd === 'help') {
     process.stdout.write(USAGE);
+    return;
+  }
+
+  // --version / -v / version: the package's own version, nothing else on stdout
+  // (ADR-0057 step 1 — needed by the install proof, RFC-030's update check, and
+  // every future bug report).
+  if (cmd === '--version' || cmd === '-v' || cmd === 'version') {
+    process.stdout.write(`${packageVersion()}\n`);
     return;
   }
 
