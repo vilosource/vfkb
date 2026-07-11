@@ -263,16 +263,21 @@ export interface NpmCurrencyOpts {
   // Injectable for tests (mirrors the `git` seam above); defaults to the
   // machine's real global `fetch`.
   fetch?: NpmFetch;
-  // Injectable cache-file path for tests; defaults under brainDir (the
-  // established derived/gitignored-state location, alongside index-meta.json
-  // and .sessions/ — ADR-0019/ADR-0041).
+  // Injectable cache-file path for tests; defaults to
+  // <brainDir>/.signals/npm-currency-cache.json. `.signals/` — NOT the brain
+  // dir root: consumers COMMIT the brain dir, and only `.signals/` (plus
+  // .sessions/ and index-meta.json) is in init's .gitignore stanza, which
+  // existing consumers never re-run. A root-level cache file would land in
+  // their history and churn on every refresh. Nothing enumerates .signals/
+  // (counters.ts reads only counters.jsonl by name), so a sibling file there
+  // is inert.
   cacheFile?: string;
   timeoutMs?: number; // default 4000ms — bounded, "a few seconds"
   now?: () => number; // injectable clock for cache-age tests; defaults to Date.now
 }
 
 function npmCacheFilePath(opts: NpmCurrencyOpts): string {
-  return opts.cacheFile ?? join(opts.brainDir, NPM_CACHE_FILE);
+  return opts.cacheFile ?? join(opts.brainDir, '.signals', NPM_CACHE_FILE);
 }
 
 // Corrupt or missing cache is treated as absent, silently — never an error
@@ -327,14 +332,14 @@ function renderCurrencyVerdict(
   if (cmp === 0) {
     return {
       status: 'ok',
-      detail: `npm currency: installed ${installed} matches the npmjs latest dist-tag (${latest}) ${sourceSuffix}`,
+      detail: `installed ${installed} matches the npmjs latest dist-tag (${latest}) ${sourceSuffix}`,
     };
   }
   if (cmp < 0) {
     return {
       status: 'warn',
       detail:
-        `npm currency: installed ${installed}; npmjs latest dist-tag is ${latest} — a newer version is ` +
+        `installed ${installed}; npmjs latest dist-tag is ${latest} — a newer version is ` +
         `published. Remedy: npm i -g ${NPM_PACKAGE_NAME}@latest ${sourceSuffix}`,
     };
   }
@@ -345,7 +350,7 @@ function renderCurrencyVerdict(
   return {
     status: 'ok',
     detail:
-      `npm currency: installed ${installed} is newer than the npmjs latest dist-tag (${latest}) — normal ` +
+      `installed ${installed} is newer than the npmjs latest dist-tag (${latest}) — normal ` +
       `right after a release ${sourceSuffix}`,
   };
 }
@@ -371,20 +376,20 @@ export async function checkNpmCurrency(opts: NpmCurrencyOpts): Promise<{ status:
   try {
     const res = await fetchImpl(NPM_REGISTRY_URL, { signal: controller.signal });
     if (res.status === 404) {
-      return { status: 'skip', detail: 'npm currency: skipped (package not on npmjs)' };
+      return { status: 'skip', detail: 'skipped (package not on npmjs)' };
     }
     if (!res.ok) {
-      return { status: 'skip', detail: 'npm currency: skipped (registry unreachable)' };
+      return { status: 'skip', detail: 'skipped (registry unreachable)' };
     }
     const body = await res.json();
     const latest = typeof body?.version === 'string' ? body.version : undefined;
     if (!latest) {
-      return { status: 'skip', detail: 'npm currency: skipped (registry unreachable)' };
+      return { status: 'skip', detail: 'skipped (registry unreachable)' };
     }
     writeNpmCache(cachePath, { version: latest, fetchedAt: new Date(nowMs).toISOString() });
     return renderCurrencyVerdict(opts.installedVersion, latest, '(live)');
   } catch {
-    return { status: 'skip', detail: 'npm currency: skipped (registry unreachable)' };
+    return { status: 'skip', detail: 'skipped (registry unreachable)' };
   } finally {
     clearTimeout(timer);
   }
