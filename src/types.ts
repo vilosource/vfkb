@@ -14,6 +14,8 @@ export type DecisionStatus =
   | 'accepted'
   | 'deprecated'
   | 'superseded';
+// Runtime companion for validating user-supplied status strings (issue #95).
+export const DECISION_STATUSES: readonly DecisionStatus[] = ['proposed', 'accepted', 'deprecated', 'superseded'];
 
 // Review/verification signal (orthogonal to author identity).
 export type ProvenanceStatus = 'verified' | 'unverified' | 'stale' | 'expired';

@@ -210,6 +210,11 @@ server.registerTool(
     if (a.path !== undefined && a.type !== 'link') {
       throw new Error(`kb_add: 'path' is only valid with type=link (got type=${a.type})`);
     }
+    if (a.path !== undefined && !a.path.trim()) {
+      // An empty target would silently record a link pointing nowhere — the
+      // exact instance-5 failure this parameter exists to prevent.
+      throw new Error("kb_add: 'path' must be a non-empty path or URL");
+    }
     const body = a.path !== undefined ? `${a.text.trim()} → ${a.path.trim()}` : a.text;
     const e = addEntry(a.type, body, {
       role: envRole() ?? a.role ?? 'executor',
