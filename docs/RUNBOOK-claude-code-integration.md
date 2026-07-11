@@ -83,8 +83,8 @@ verified in this runbook** — treat the following as a sketch, not a tested ins
 `npm install @vilosource/vfkb` → bins at `node_modules/.bin/vfkb` / server at
 `node_modules/@vilosource/vfkb/dist/mcp-server.js`. Verify before relying on it.
 
-> **Off-VPN caveat (this machine):** `npm install` here targets the corporate Nexus
-> (`nexus.optiscangroup.com`) → `ENOTFOUND` off-VPN. vfkb itself only needs `npm run build` + its two
+> **Off-VPN caveat (this machine):** `npm install` here targets a corporate npm mirror →
+> `ENOTFOUND` off-VPN. vfkb itself only needs `npm run build` + its two
 > deps (`@modelcontextprotocol/sdk`, `zod`); `node_modules` was bootstrapped by copying from another
 > clone. On VPN a normal install works.
 
@@ -272,7 +272,7 @@ distill | save | hook session-start | hook pre-tool-use | hook post-tool-use | h
 - **Stop hook doesn't steer / loops.** The contract is verified at **CLI v2.1.195**; other versions may
   differ. Re-verify that `decision:block` + `additionalContext` reaches the agent and that
   `stop_hook_active` flips on re-entry before relying on it.
-- **`npm install` fails off-VPN (`ENOTFOUND nexus…`).** vfkb only needs `npm run build` + its two deps;
+- **`npm install` fails off-VPN (`ENOTFOUND <corporate mirror>`).** vfkb only needs `npm run build` + its two deps;
   on VPN a normal install works, or bootstrap `node_modules` from another clone (see §2 Mode D caveat).
 - **Brain writes blocked unexpectedly.** That's the PreToolUse gate working — write through
   `vfkb add` / `mcp__vfkb__kb_add`, not by editing `.vfkb/` files directly.

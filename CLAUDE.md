@@ -106,9 +106,9 @@ this is a **deliberate discipline**:
 
 - `npm run build` → `tsc` → `dist/` (no native modules). `pretest` runs `tsc` first.
 - `npm test` → vitest (**199/199** as of 2026-07-08). The **fast deterministic gate**.
-- **Env caveat:** `npm install` is configured against the corporate Nexus
-  (`nexus.optiscangroup.com`) → **ENOTFOUND off-VPN**. `node_modules` here was bootstrapped by
-  copying from `~/GitHub/vfkb`. On VPN, a normal install works (or `--registry`).
+- **Env caveat:** this machine's `npm install` is configured against a corporate npm mirror →
+  **ENOTFOUND off-VPN**. `node_modules` here was bootstrapped by copying from `~/GitHub/vfkb`.
+  On VPN, a normal install works (or `--registry`).
 - **CLI:** `node dist/cli.js <cmd>` — `add|list|search|query|map|context|context init|resume|`
   `resume-note|curate|distill|save|init|import|doctor|hook (session-start|pre-tool-use|post-tool-use|stop|session-end)`.
   Env: `VFKB_DATA_DIR` (brain/data dir; default `~/.vfkb`), `VFKB_PROJECT`, and `VFKB_BUNDLE_DIR`
