@@ -2,6 +2,9 @@
 // Implements ADR-0011 (validity window + structured provenance.origin; trust derived).
 
 export type EntryType = 'fact' | 'decision' | 'gotcha' | 'pattern' | 'link';
+// Runtime companion for validating user-supplied type strings (issue #95).
+export const ENTRY_TYPES: readonly EntryType[] = ['fact', 'decision', 'gotcha', 'pattern', 'link'];
+
 
 export type Zone = 'incoming' | 'established' | 'archive';
 
@@ -11,6 +14,8 @@ export type DecisionStatus =
   | 'accepted'
   | 'deprecated'
   | 'superseded';
+// Runtime companion for validating user-supplied status strings (issue #95).
+export const DECISION_STATUSES: readonly DecisionStatus[] = ['proposed', 'accepted', 'deprecated', 'superseded'];
 
 // Review/verification signal (orthogonal to author identity).
 export type ProvenanceStatus = 'verified' | 'unverified' | 'stale' | 'expired';
