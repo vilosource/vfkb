@@ -1,0 +1,88 @@
+{
+  "scenario": "npm-install-path",
+  "adr": "ADR-0057",
+  "rfc": "RFC-029",
+  "generated": "2026-07-11T11:14:10.893Z",
+  "container": "node:20",
+  "notes": "Re-run after PR #122 review fixes: prepack rebuilds dist on npm pack (F1, sabotage-probe verified), init scaffold check added (F2), MCP assertion strengthened to serverInfo.version === package.json version (F4).",
+  "arms": {
+    "fresh": {
+      "arm": "fresh",
+      "expectedVersion": "0.1.0",
+      "checks": [
+        {
+          "name": "vfkb --version equals package.json version (0.1.0)",
+          "ok": true,
+          "observed": "0.1.0"
+        },
+        {
+          "name": "vfkb -v equals package.json version (0.1.0)",
+          "ok": true,
+          "observed": "0.1.0"
+        },
+        {
+          "name": "vfkb version equals package.json version (0.1.0)",
+          "ok": true,
+          "observed": "0.1.0"
+        },
+        {
+          "name": "vfkb init scaffolds a fresh dir (created .vfkb/entries.jsonl + approval notice)",
+          "ok": true,
+          "observed": "created\t.vfkb/entries.jsonl\ncreated\t.vfkb/manifest.json\ncreated\t.vfkb/bin/bootstrap.mjs\ncreated\t.mcp.json\ncreated\t.claude/settings.json\ncreated\t.gitignore\ncreated\t.gitattributes\ncreated\tAGENTS.md\n\nvfkb wired for project \"initproof\".\n\nNext (one-time, manual):\n  1. Set $VFKB_BUNDLE_DIR once per machine to the vfkb bundles dir, e.g.:\n       export VFKB_BUNDLE_DIR=/path/to/vfkb/dist/bundles   # (run `"
+        },
+        {
+          "name": "vfkb add + vfkb list round-trips the sentinel fact",
+          "ok": true,
+          "observed": "27092135cf8a\t[fact operator]\tinstall-proof sentinel IP-7Q4\n27092135cf8a\tfact\toperator\tverified\tinstall-proof sentinel IP-7Q4"
+        },
+        {
+          "name": "vfkb-mcp completes an MCP initialize handshake (result + serverInfo.name \"vfkb\" + serverInfo.version 0.1.0)",
+          "ok": true,
+          "observed": "vfkb MCP server up (v0.1.0, brain: /root/.vfkb)\n{\"result\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{\"tools\":{\"listChanged\":true}},\"serverInfo\":{\"name\":\"vfkb\",\"version\":\"0.1.0\"}},\"jsonrpc\":\"2.0\",\"id\":1}"
+        }
+      ],
+      "verdict": "GREEN",
+      "verdictLine": "NPM-INSTALL-PATH: GREEN (fresh)",
+      "ts": "2026-07-11T11:13:40.316Z"
+    },
+    "contrast": {
+      "arm": "contrast",
+      "expectedVersion": "0.1.0",
+      "checks": [
+        {
+          "name": "vfkb --version equals package.json version (0.1.0)",
+          "ok": false,
+          "observed": "/run.sh: line 12: vfkb: command not found"
+        },
+        {
+          "name": "vfkb -v equals package.json version (0.1.0)",
+          "ok": false,
+          "observed": "/run.sh: line 16: vfkb: command not found"
+        },
+        {
+          "name": "vfkb version equals package.json version (0.1.0)",
+          "ok": false,
+          "observed": "/run.sh: line 20: vfkb: command not found"
+        },
+        {
+          "name": "vfkb init scaffolds a fresh dir (created .vfkb/entries.jsonl + approval notice)",
+          "ok": false,
+          "observed": "/run.sh: line 25: vfkb: command not found"
+        },
+        {
+          "name": "vfkb add + vfkb list round-trips the sentinel fact",
+          "ok": false,
+          "observed": "/run.sh: line 31: vfkb: command not found\n/run.sh: line 32: vfkb: command not found"
+        },
+        {
+          "name": "vfkb-mcp completes an MCP initialize handshake (result + serverInfo.name \"vfkb\" + serverInfo.version 0.1.0)",
+          "ok": false,
+          "observed": "timeout: failed to run command 'vfkb-mcp': No such file or directory"
+        }
+      ],
+      "verdict": "GREEN",
+      "verdictLine": "NPM-INSTALL-PATH: GREEN (contrast) — broken pack correctly detected as broken",
+      "ts": "2026-07-11T11:13:57.540Z"
+    }
+  }
+}

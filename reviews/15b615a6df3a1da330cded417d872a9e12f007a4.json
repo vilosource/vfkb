@@ -1,0 +1,51 @@
+{
+  "recordVersion": 1,
+  "sha": "15b615a6df3a1da330cded417d872a9e12f007a4",
+  "governing": [
+    "docs/adr/ADR-0057-npm-delivery-channel.md",
+    "docs/rfc/RFC-029-npm-delivery-channel.md",
+    "docs/adr/ADR-0023-scenario-contract-first.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "claude-fable-5", "rounds": 2 },
+  "generated": "2026-07-11T12:05:00Z",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "npm pack ran no build, so the proof packed stale dist/ — a live sabotage of src/cli.ts stayed GREEN (false green decoupled from source); fixed with a prepack script replacing prepublishOnly, sabotage replicated post-fix and observed RED with the sabotaged string",
+      "acceptedBy": null
+    },
+    {
+      "id": "F2",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "silent scope drop of vfkb init from the ADR-0057 fresh-arm contract — added as a content-asserted check (scaffold line + approval notice verified against src/init.ts output), observed PASS in fresh and FAIL in contrast",
+      "acceptedBy": null
+    },
+    {
+      "id": "F3",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "PR body overclaimed the MCP assertion ('fields present' vs actual result+name equality) — corrected by PR comment; assertion itself now strengthened to version equality",
+      "acceptedBy": null
+    },
+    {
+      "id": "F4",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "ENGINE_VERSION fell back to 0.0.0-dev under tsc builds so the npm-installed MCP server misreported its version — fallback now reads the package's own manifest; scenario asserts serverInfo.version equals package.json (observed 0.1.0 in-container); unit test added",
+      "acceptedBy": null
+    },
+    {
+      "id": "F5",
+      "severity": "minor",
+      "status": "accepted",
+      "summary": "--version with a trailing arg ignores the extra token, matching pre-existing --help behavior; no data-affecting flag is dropped so not the #95 class",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 5,
+  "ruledOut": [],
+  "verdict": "MERGE"
+}

@@ -30,7 +30,7 @@
     "pretest": "tsc",
     "test": "vitest run",
     "clean": "rm -rf dist",
-    "prepublishOnly": "npm run build && npm run build:bundles"
+    "prepack": "npm run build && npm run build:bundles"
   },
   "engines": {
     "node": ">=20"
