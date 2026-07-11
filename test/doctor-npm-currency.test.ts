@@ -67,7 +67,7 @@ describe('ADR-0058 — offline-silent paths (never WARN, never nonzero-implying)
     };
     const r = await checkNpmCurrency({ brainDir, installedVersion: '0.1.0', fetch });
     expect(r.status).toBe('skip');
-    expect(r.detail).toBe('npm currency: skipped (registry unreachable)');
+    expect(r.detail).toBe('skipped (registry unreachable)');
   });
 
   it('registry times out (abort) → skipped note', async () => {
@@ -77,21 +77,21 @@ describe('ADR-0058 — offline-silent paths (never WARN, never nonzero-implying)
       });
     const r = await checkNpmCurrency({ brainDir, installedVersion: '0.1.0', fetch, timeoutMs: 20 });
     expect(r.status).toBe('skip');
-    expect(r.detail).toBe('npm currency: skipped (registry unreachable)');
+    expect(r.detail).toBe('skipped (registry unreachable)');
   });
 
   it('package not on npmjs (404) → its own skipped note, distinct from unreachable', async () => {
     const fetch: NpmFetch = async () => jsonResponse({}, 404);
     const r = await checkNpmCurrency({ brainDir, installedVersion: '0.1.0', fetch });
     expect(r.status).toBe('skip');
-    expect(r.detail).toBe('npm currency: skipped (package not on npmjs)');
+    expect(r.detail).toBe('skipped (package not on npmjs)');
   });
 
   it('malformed registry body (no version field) → skipped, not a crash', async () => {
     const fetch: NpmFetch = async () => jsonResponse({ nonsense: true });
     const r = await checkNpmCurrency({ brainDir, installedVersion: '0.1.0', fetch });
     expect(r.status).toBe('skip');
-    expect(r.detail).toBe('npm currency: skipped (registry unreachable)');
+    expect(r.detail).toBe('skipped (registry unreachable)');
   });
 });
 
@@ -135,6 +135,17 @@ describe('ADR-0058 — 24h cache', () => {
     const written = JSON.parse(readFileSync(cacheFile, 'utf8'));
     expect(written.version).toBe('0.5.0');
     expect(typeof written.fetchedAt).toBe('string');
+  });
+
+  // Review round 1 (PR #125): the default MUST be under .signals/, never the
+  // brain-dir root — consumers COMMIT the brain dir, and .signals/ is the one
+  // location init's .gitignore stanza already covers in every initialized
+  // consumer. A root-level default would get committed and churn.
+  it('the DEFAULT cache path is <brainDir>/.signals/npm-currency-cache.json, not the brain-dir root', async () => {
+    const fetch: NpmFetch = async () => jsonResponse({ version: '0.5.0' });
+    await checkNpmCurrency({ brainDir, installedVersion: '0.5.0', fetch });
+    expect(existsSync(join(brainDir, '.signals', 'npm-currency-cache.json'))).toBe(true);
+    expect(existsSync(join(brainDir, 'npm-currency-cache.json'))).toBe(false);
   });
 
   it('corrupt cache file → treated as absent, falls through to a live fetch silently', async () => {
