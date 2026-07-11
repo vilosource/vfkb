@@ -61,6 +61,17 @@ Constraints this proposal honors, because they are what makes vfkb vfkb:
 Five workstreams. **W0 gates the visibility flip**; W1–W4 are ordered by dependency but can all
 land while the repo is still private. Each numbered item is one PR unless noted.
 
+**Decomposition (ASDLC):** this RFC is the **umbrella** — it holds the shared context, the
+sequencing, and the cross-cutting rejected alternatives. Each workstream is its own decidable
+RFC, ratified and built independently, each carrying its own proof contract:
+[RFC-026](RFC-026-pre-public-disclosure-gate.md) (W0) ·
+[RFC-027](RFC-027-public-ci-and-community-hygiene.md) (W1) ·
+[RFC-028](RFC-028-versioning-and-release-automation.md) (W2) ·
+[RFC-029](RFC-029-npm-delivery-channel.md) (W3) ·
+[RFC-030](RFC-030-update-awareness.md) (W4).
+Where a child refines a detail below, **the child governs**. On acceptance the children become
+ADRs; this umbrella is accepted as the sequencing decision itself.
+
 ### W0 — Pre-public disclosure audit (the gate; operator-heavy)
 
 1. **History sweep**: run a secrets scanner over *full history* (e.g. `gitleaks` locally — result
