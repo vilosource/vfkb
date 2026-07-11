@@ -1,146 +1,289 @@
 # vfkb — ViloForge KnowledgeBase
 
-**ViloForge KnowledgeBase (vfkb)** — the per-project knowledge substrate for the
-ViloForge software factory; the memory engine that [ViloForge WorkBench (vfwb)](https://github.com/vilosource/vfwb)
-and the agent fleet ground against. Greenfield TypeScript reimplementation of a
-per-project knowledge memory. **One engine, two harness faces** (Claude Code hooks +
-Pi in-process extension) over an append-only JSONL brain. **Zero runtime
-dependencies** (pure Node stdlib) — drops into any node container with no install.
+> Decision-grade, git-native memory for AI coding agents.
+> *They remember what was said. vfkb remembers what your project decided — with rationale, lifecycle, and receipts.*
 
-Design + decisions live in [`docs/`](docs/): [`DESIGN.md`](docs/DESIGN.md),
-[`FEATURES.md`](docs/FEATURES.md), [`IMPLEMENTATION-PLAN.md`](docs/IMPLEMENTATION-PLAN.md),
-and the ADR log [`docs/adr/` (ADR-0001…0015)](docs/adr/). Ecosystem-level and
-cross-project context (e.g. the ingest↔vfkb design) remains in
-[`vilosource/viloforge-research` → `ViloForge-PRD/`](https://github.com/vilosource/viloforge-research/tree/develop/ViloForge-PRD).
+[![review-gate](https://github.com/vilosource/vfkb/actions/workflows/review-gate.yml/badge.svg)](https://github.com/vilosource/vfkb/actions/workflows/review-gate.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Node](https://img.shields.io/badge/node-%E2%89%A520-brightgreen.svg)](package.json)
 
-## Status
+vfkb is a **per-project knowledge substrate for coding agents**: an append-only JSONL brain
+(`.vfkb/entries.jsonl`) that lives *inside your repo*, travels with every clone and branch, and is
+injected into agent sessions automatically. One TypeScript engine — **zero runtime dependencies**
+(Node stdlib; only the MCP server adds `@modelcontextprotocol/sdk` + `zod`) — exposed through
+three faces: **Claude Code hooks**, an in-process **[Pi](https://github.com/earendil-works/pi)
+extension**, and a **9-tool MCP server** any MCP client can pull from.
 
-| Phase | What | State |
-|---|---|---|
-| **0** | Deployment + cross-harness auto-layer spike | ✅ **DONE** — inject+attention+capture proven LIVE on Claude Code **and** Pi; container proof; cache confirmed. See [`spike/PHASE0-REPORT.md`](spike/PHASE0-REPORT.md). |
-| **1** | Storage kernel — append-only JSONL + tombstones, LWW, content-hash freshness, pluggable index | ✅ **DONE** (`storage.ts`, `index-store.ts`) |
-| **2** | Decision family — immutable-supersede, status lifecycle, Constitution, ADR ordinals, vision patterns | ✅ **DONE** (`engine.ts`) |
-| **3** | Read layer — D5c filters, BM25-lite search, Context Map (ADR-0006); Stark-FQDN E2E | ✅ **DONE** (`read.ts`); bundle live-verified |
-| **4** | MCP server — 9 scoped tools (cross-harness pull baseline, D5a); protocol e2e | ✅ **DONE** (`mcp-server.ts`); live-verified in Claude Code |
-| **5** | Auto-layer polish — session isolation (`KB_SESSION_ID`, L4), per-turn Tier-C delta, tool-gating | ✅ **DONE** (`session.ts`, `gating.ts`); gating live-verified in Claude Code |
-| **6** | Guardrails + git — no-secrets write-time lint (D6e), `save`/`saveAndPush` lifecycle | ✅ **DONE** (`secrets.ts`, `git.ts`) |
+This repo dogfoods itself: [`.vfkb/`](.vfkb/) is vfkb's own committed brain — 200+ entries of the
+decisions, gotchas and handoffs that built it.
 
-**v1 per-project tier feature-complete (Phases 0–6).** Since v1, the **H4 in-repo frontier** also shipped (2026-06-27/28): session continuity + auto-distill/ACE curator (ADR-0020/0021), the dockerized L4 eval substrate (ADR-0022), full Track-1 L4 coverage, and Track 4b — the `verified` trust filter, relabel-on-promotion (ADR-0024), pi live tool-result capture, and the project context doc + `kb_context` (ADR-0025). **In-repo H4 frontier exhausted.** Still deferred to later tiers: global served tier + promotion, Context Map Glossary/Routing, embedding reranker (RFC-003), SQLite/FTS5 backend.
+---
 
-## Layout
+## Contents
 
-```
-src/types.ts        ADR-0011 envelope (validity window + provenance.origin; trust derived)
-src/storage.ts      append-only JSONL kernel; tombstones; LWW; content-hash freshness (ADR-0013/0014)
-src/index-store.ts  pluggable KbIndex; pure-JS in-memory default; SQLite/FTS5 optional (ADR-0013)
-src/engine.ts       facade: filter (ADR-0005) · tiered reranker (ADR-0012) · render (ADR-0015) ·
-                    decision family (ADR-0004/0007/0008/0009) · capture
-src/cli.ts          Claude Code face — `hook session-start` / `hook pre-tool-use` / `hook post-tool-use`; `context`/`context init`
-src/pi-extension.ts Pi face — before_agent_start inject · context (Tier C) · tool_execution_end result capture (D-iv)
-spike/              Phase-0 settings, Dockerfile, container smoke, report
-test/               vitest (engine · storage · decision-family · context · hook · mcp) — 95 tests
-```
+- [Why vfkb](#why-vfkb)
+- [How it compares](#how-it-compares)
+- [Install](#install)
+- [Quick start](#quick-start)
+- [How it works](#how-it-works)
+- [Proving it works](#proving-it-works)
+- [Key concepts](#key-concepts)
+- [Requirements](#requirements)
+- [Documentation](#documentation)
+- [Project status](#project-status)
+- [Lineage & acknowledgements](#lineage--acknowledgements)
+- [License](#license)
 
-## Build & test
+---
 
-```
+## Why vfkb
+
+AI coding agents start every session from zero. The architect that plans your payment system knows
+nothing about your payment system. An executor discovers "money needs Postgres `NUMERIC`, not
+float," fixes it, ships — and the next task makes the same mistake, because the lesson was never
+written anywhere an agent will read. The human ends up being the only shared memory between
+agents, which makes the human the bottleneck.
+
+Most "AI memory" products attack this by remembering **conversations** — extract facts from chat,
+embed them, retrieve them semantically. vfkb attacks a different problem: preserving a project's
+**engineering judgment**. That demands properties conversation-recall systems don't have:
+
+|                                                        | Chat history | `CLAUDE.md` / `AGENTS.md` | Hosted memory platforms | Vector RAG | **vfkb** |
+|--------------------------------------------------------|:---:|:---:|:---:|:---:|:---:|
+| Structured entries (type, tags, provenance)            | ✗ | ✗ | ~ | ~ | **✓** |
+| Decision lifecycle (immutable, supersede-only, status)  | ✗ | ✗ | ✗ | ✗ | **✓** |
+| Trust model: operator-verified ≠ agent-asserted         | ✗ | ✗ | ✗ | ✗ | **✓** |
+| Stale / superseded knowledge filtered out at inject     | ✗ | ✗ | ~ | ✗ | **✓** |
+| Git-native: diffable, branchable, reviewed in PRs       | ✗ | ✓ | ✗ | ✗ | **✓** |
+| Auto-injected at session start (no retrieval round-trip)| ✗ | ✓ (always on) | ~ | ✗ | **✓** |
+| Deterministic & offline — no embeddings, server, or API keys | ✓ | ✓ | ✗ | ✗ | **✓** |
+| Says "no recorded entry" instead of guessing            | ✗ | ✗ | ✗ | ✗ | **✓** |
+
+Two things follow from the git-native choice that no external memory store can offer:
+
+1. **Memory rides code review.** Knowledge changes are diffs; a wrong "fact" is caught in a PR like
+   a wrong line of code. Branches carry their own knowledge, and concurrent sessions merge
+   conflict-free (`merge=union` on the append-only log, plus a cross-process lock).
+2. **Memory has provenance you can audit.** Every entry records who wrote it (human / agent /
+   import), whether it was verified, when it expires, and — for decisions — *why*, what it
+   superseded, and its lifecycle status. Trust is **derived**, never self-declared.
+
+## How it compares
+
+Feature-level differences against the systems we studied, per their public docs as of mid-2026 —
+these are good tools solving a *different* problem:
+
+- **[mem0](https://github.com/mem0ai/mem0)** — a universal memory layer: an LLM extraction
+  pipeline over conversations, stored in your choice of ~20 vector stores or a managed platform,
+  retrieved semantically. Optimized for user/session personalization at scale. vfkb stores what a
+  *human or agent deliberately recorded* about a *project* — no extraction step, no embeddings, no
+  hosted service, and agent-written entries are explicitly second-class until verified.
+- **[Zep / Graphiti](https://github.com/getzep/graphiti)** — a temporal knowledge graph where
+  facts carry validity windows; strong at "what was true when." vfkb's validity is explicit rather
+  than inferred (validity windows, `stale`/`expired` provenance, and supersede chains an operator
+  can read as an ADR log), and it needs no graph service — the brain is a text file in your repo.
+- **[Letta (MemGPT)](https://github.com/letta-ai/letta)** — an agent runtime with OS-style memory
+  tiers managed by the agent itself. vfkb is the opposite shape: not a runtime, but a substrate
+  *under* whatever harness you already run (Claude Code, Pi, anything speaking MCP).
+- **[MemPalace](https://github.com/MemPalace/mempalace)** — local-first, verbatim conversation
+  storage with scoped semantic search. Shares vfkb's local-first stance; differs on what's worth
+  keeping (verbatim transcripts vs. curated, typed judgment) and on retrieval (embeddings vs.
+  deterministic lexical search with an honest no-match).
+- **`CLAUDE.md` / `AGENTS.md` files** — the right instinct (project knowledge in the repo), but
+  flat prose: no types, no provenance, no lifecycle, no queries, always fully in context. vfkb
+  *generates* an `AGENTS.md` projection from the brain (`vfkb export agents-md`) so you can have
+  both.
+
+## Install
+
+### From source
+
+```bash
+git clone https://github.com/vilosource/vfkb.git
+cd vfkb
 npm install
-npm run build      # tsc -> dist/ (no native modules)
-npm test           # vitest: 95 unit/integration/protocol tests
+npm run build      # tsc → dist/ (no native modules)
+npm test           # vitest — 265 deterministic tests
+
+node dist/cli.js --help          # the CLI
+node dist/mcp-server.js          # the MCP server (stdio)
 ```
 
-## pi MCP capability (bridge extension)
+### As a Claude Code plugin (the auto-layer)
 
-pi ships **no MCP** by design ("build an extension that adds MCP support"). `src/pi-mcp-bridge.ts`
-is that extension: it reads a **Claude-compatible `mcpServers` config** (`VFKB_MCP_CONFIG`),
-connects to each stdio MCP server with the official SDK, lists their tools, and registers
-each as a native pi tool named **`mcp__<server>__<tool>`** (same naming Claude Code uses).
-It connects **per call** (open→call→close) so no child process lingers to block `pi -p` exit.
+The [vfkb-claude-plugin](https://github.com/vilosource/vfkb-claude-plugin) bundles the engine,
+MCP server, and hooks so a Claude Code session runs on vfkb automatically — session-start
+injection, brain-write gating, end-of-turn decision reminders, and session-end auto-commit.
+See that repo for install instructions and its current, mechanically-tracked
+[delivery status](https://github.com/vilosource/vfkb-claude-plugin/blob/main/DELIVERY-STATUS.json).
 
-```
-cat > mcp.json <<'JSON'
+### As an MCP server (any harness)
+
+Point any MCP client at `dist/mcp-server.js` with `VFKB_DATA_DIR` set to the brain directory:
+
+```json
 { "mcpServers": { "vfkb": { "command": "node", "args": ["dist/mcp-server.js"],
-                             "env": { "VFKB_DATA_DIR": "/path/to/brain" } } } }
-JSON
-VFKB_MCP_CONFIG=$PWD/mcp.json pi -p -e dist/pi-mcp-bridge.js \
-  --provider deepseek --model deepseek-v4-pro "Use kb_search to find X; reply only the value"
-```
-Verified: a real pi/DeepSeek-V4 agent calls `mcp__vfkb__kb_search` against the vfkb MCP
-server and retrieves brain-only data. This puts pi on par with Claude Code for MCP pull.
-
-## Proving the purpose (comprehensive L4 scenario harness)
-
-Unit tests prove the modules are correct; the L4 harness proves vfkb fulfils its
-**purpose** — that a real agent behaves *better because of it*. Every scenario drives
-a real agent (**DeepSeek-V4 via `pi` by default**; `claude` for the MCP/parity ones),
-asserts on **observable effects** (the agent's output or the brain's state — never
-self-report), and **contrasts against a baseline** so the win is shown to be *caused*
-by vfkb:
-- `naive` = a mykb-v1-style flat, load-order, unfiltered memory (surfaces stale);
-- `none` = no memory at all;
-- `ungated` / `no-mcp` = the same harness without vfkb's guardrail / tools.
-
-Live + costs tokens + nondeterministic → NOT part of `npm test`. Override the agent
-with `VFKB_L4_MODEL` / `VFKB_L4_PROVIDER`.
-
-```
-node scenarios/l4-purpose.mjs            # all (run in batches if your runner has a wall-clock cap)
-node scenarios/l4-purpose.mjs --list     # list scenario ids
-node scenarios/l4-purpose.mjs capture-recall mcp-pull   # subset
+                            "env": { "VFKB_DATA_DIR": ".vfkb" } } } }
 ```
 
-**24 scenarios** across every dimension (DeepSeek-V4-pro: **24/24 demonstrated**, 2026-06-03):
+Nine tools: `kb_add` · `kb_get` · `kb_list` · `kb_map` · `kb_context` · `kb_search` ·
+`kb_supersede` · `kb_transition` · `kb_resume`. For Pi there is also
+`dist/pi-mcp-bridge.js`, an extension that gives Pi Claude-compatible MCP support
+(`mcp__<server>__<tool>` naming).
 
-- **Stale-exclusion (the core value):** supersession, `valid_until` expiry, deprecated
-  status, provenance-stale, supersession-**chain**, and precedence-amid-distractors.
-- **Constitution / constraints:** single rule, aggregate (many rules at once),
-  prohibition (forbidden term + required prefix).
-- **Knowledge delivery:** fact, gotcha, vision-pattern, decision, link, and
-  multi-fact **synthesis** (combine two entries); unverified-but-delivered (trust).
-- **Memory:** passive capture → cross-session **recall**.
-- **Guardrails:** tool-gating (brain stays intact vs an ungated clobber) and
-  no-secrets (the agent's `kb_add` of a key is refused).
-- **MCP (cross-harness pull, claude):** pull via `kb_search`, filtered search,
-  map-then-search navigation.
-- **Cross-harness parity:** exclusion + constitution also hold on Claude Code.
+## Quick start
 
-### Recording behavior + comparing models
+```bash
+alias vfkb='VFKB_DATA_DIR=.vfkb node /path/to/vfkb/dist/cli.js'
 
-Every run **records each model's behavior** to `scenarios/records/<provider>__<model>.{json,md}`
-(per-scenario verdicts + the agent's full output, merged across batched runs). Run the
-identical suite against another model and compare:
+vfkb init                    # scaffold this repo as a vfkb consumer (.vfkb/ + wiring)
 
+# Record knowledge — deliberate, typed, attributed
+vfkb add fact "The API gateway strips the X-Request-Id header" --tag networking --role human
+vfkb add gotcha "pgbouncer in transaction mode breaks LISTEN/NOTIFY" --tag database --role human
+vfkb add decision "Use NUMERIC for money columns" \
+  --why "float rounding lost cents in reconciliation" --role human
+vfkb add link "Payment flow design" "docs/design/payments.md" --role human
+
+# Query it
+vfkb list --tag networking --limit 5     # newest 5 entries carrying the tag
+vfkb search "money columns" --type decision --verified
+vfkb map                                 # what knowledge exists, at a glance
+vfkb context                             # the project context doc — an agent's first read
+
+# Session continuity
+vfkb resume                              # what the last session did + the live knowledge bundle
+vfkb resume-note "next: wire the ALB target group"
+
+# Lifecycle — decisions are immutable; supersede, never edit
+vfkb supersede <id> "Use NUMERIC(19,4) for money columns" --why "scale fixed by audit" --role human
+
+# Health + delivery
+vfkb doctor                              # brain/engine/wiring diagnosis, incl. plugin staleness
+vfkb save                                # commit the brain (it ships with your repo)
+vfkb export agents-md                    # generate an AGENTS.md projection for non-vfkb tooling
 ```
-VFKB_L4_MODEL=deepseek-v4-pro   node scenarios/l4-purpose.mjs          # baseline record
-VFKB_L4_MODEL=deepseek-v4-flash node scenarios/l4-purpose.mjs <subset> # another model
-node scenarios/compare.mjs                                              # cross-model report card
-```
 
-Recorded so far: `deepseek-v4-pro` 24/24; `deepseek-v4-flash` 8/8 (subset); **no
-divergences** on shared scenarios.
+Unknown or repeated flags **error loudly** — silent argument drops are treated as bugs here
+(see [issue #95](https://github.com/vilosource/vfkb/issues/95) for the class this killed).
 
-### Why the baselines are trustworthy (isolation discipline)
+## How it works
 
-A contrast only proves causation if the baseline **reliably fails** and is genuinely
-knowledge-free. The harness spawns the real `claude` CLI as the agent, so by default
-it inherits the **user's global config** — every connected MCP server and the global
-`CLAUDE.md`. The **proven** leak was the **filesystem**: an un-restricted `claude`
-baseline used its default tools to read the brain's `entries.jsonl` in `/tmp` (it cited
-the brain dir name in its answer). So every `claude` run now **denies all filesystem/
-exec tools** (`--disallowedTools …`) — that is the fix that stops the leak — and also
-uses `--strict-mcp-config` + an empty MCP config to disable the user's global MCP
-servers (Atlassian/Gmail/Calendar/etc.) so the test can't touch real services and has
-no out-of-band knowledge. The MCP variant keeps only `mcp__vfkb__*`, so it is *forced*
-to answer via `kb_search`. Archive-zone exclusion is **table-stakes** (any memory drops
-it) and is omitted from L4 (unit-tested instead).
+### The entry envelope
 
-## Try the auto-layer (against a throwaway brain)
+The atomic unit is a typed entry: **fact**, **decision**, **gotcha**, **pattern**, or **link** —
+with tags, a lifecycle **zone** (`incoming` → `established` → `archive`), **provenance**
+(`verified` / `unverified` / `stale` / `expired`, plus a validity window), and an author role from
+which **trust is derived** (operator / agent / import). Decisions additionally carry rationale
+(`why`), a status (`proposed` → `accepted` → `deprecated` / `superseded`), optional
+**constitutional** weight (always injected, leads every session), and supersede references — an
+ADR log the engine can execute.
 
-```
-export VFKB_DATA_DIR=/tmp/vfkb && rm -rf "$VFKB_DATA_DIR"
-node dist/cli.js add fact "the canary token is BANANA-42." --role human
-# Claude Code:
-claude -p "what is the canary token? reply with only the token" --settings spike/settings.json
-# Pi:
-pi -p -e dist/pi-extension.js --no-tools "what is the canary token? reply with only the token"
-```
+### The storage kernel
+
+One append-only JSONL file, materialized last-write-wins with tombstones. No database, no
+server, no native modules. `merge=union` in `.gitattributes` makes concurrent branch writes
+merge conflict-free by construction; a cross-process lock serializes the read-decide-append
+critical section for same-machine concurrency. The search index is derived and rebuildable —
+the log is the only source of truth.
+
+### Injection, not retrieval
+
+At session start the harness face injects a **resume digest** (what the last session added,
+superseded, captured — *recomputed from the brain*, never a stale summary) plus a **knowledge
+bundle**: constitutional decisions first, then the pinned handoff, then relevance-filtered
+entries. Stale, expired, superseded, and archived knowledge is filtered out *before* the agent
+sees it. On-demand search is a deterministic two-stage lexical retriever with a relevance floor
+and an honest empty result: `NO-MATCH` with a cause ("no recorded entry" vs. "all matches
+stale"), because a memory that guesses is worse than no memory.
+
+### Guardrails
+
+- **Write-time no-secrets lint** — planted credentials are rejected at `add`, not found in review.
+- **Tool gating** — the Claude Code `PreToolUse` hook denies direct edits to `.vfkb/`, forcing
+  writes through the engine (and its lint, lock, and envelope validation).
+- **Hooks fail open** — a malformed payload or crash never wedges the host session.
+- **Session-end auto-commit** — the brain is committed on exit (topic branches only, pathspec-
+  scoped, never `main`), so `/exit` doesn't lose the day's knowledge.
+
+## Proving it works
+
+Unit tests prove the modules; they cannot prove an agent *behaves better because of vfkb*. So
+every user-facing capability ships behind an **agent-driven scenario harness** (L4): a real agent
+(Pi/DeepSeek and Claude Code arms) runs in a dockerized sandbox against the real surface, scored
+on **observable effects** — the agent's output or the brain's state, never self-report — and
+always against a **contrast arm** (no memory, or a naive flat-dump memory) so the win is shown to
+be *caused* by vfkb. A capability is DEMONSTRATED at ≥2/3 trials, and the records are committed
+under [`scenarios/records/`](scenarios/records/). A proof that cannot fail proves nothing — every
+harness carries an arm that can go red, and several have (that's how they earn trust).
+
+The same standard applies to the project's own process: every implementation PR carries an
+adversarial review record ([`reviews/`](reviews/)) verified by a deterministic CI gate, and the
+project's Definition of Done ([ADR-0050](docs/adr/ADR-0050-l4-dod-constitutional-brake.md),
+[ADR-0051](docs/adr/ADR-0051-delivery-honesty.md)) forbids calling anything "done" that hasn't
+been *observed* working — a rule vfkb's own brain enforces on every session it boots.
+
+## Key concepts
+
+| Term | Meaning |
+|------|---------|
+| **Brain** | The per-project knowledge store — `.vfkb/entries.jsonl`, committed with the repo. |
+| **Entry** | Atomic unit: fact, decision, gotcha, pattern, or link — typed, tagged, attributed. |
+| **Decision family** | Immutable entries with lifecycle status and supersede chains; an executable ADR log. `proposed` decisions are RFCs. |
+| **Constitutional** | A decision injected at the top of *every* session — the project's non-negotiables. |
+| **Zone** | Lifecycle stage: `incoming` (unproven) → `established` (trusted set) → `archive`. |
+| **Provenance** | Verification state (`verified`/`unverified`/`stale`/`expired`) + validity window + origin. |
+| **Trust** | Derived from author role: operator / agent / import. Agents cannot self-promote. |
+| **Handoff** | A tagged fact carrying session-to-session continuity; pinned in the resume render. |
+| **Curator** | Deliberate promotion/archive/merge operations — deltas only, never text rewrites. |
+| **L4 scenario** | An agent-driven, sandboxed, contrast-armed proof that a capability changes real agent behavior. |
+
+## Requirements
+
+- **Node.js ≥ 20**
+- **git** (the brain rides your repo)
+- No native modules, no database, no API keys. Runtime deps: `@modelcontextprotocol/sdk` + `zod`
+  (MCP server only — the engine itself is stdlib).
+
+## Documentation
+
+- [`docs/DESIGN.md`](docs/DESIGN.md) — engineering design; [`docs/FEATURES.md`](docs/FEATURES.md)
+  — the verified feature reference (every feature marked BUILT / PARTIAL / GATED).
+- [`docs/adr/`](docs/adr/) — 52 architecture decision records (Nygard format, immutable);
+  [`docs/rfc/`](docs/rfc/) — 24 RFCs. The project practices what it stores: decisions before code.
+- [`docs/STATUS-AND-ROADMAP.md`](docs/STATUS-AND-ROADMAP.md) — north star;
+  [`docs/H4-DEVELOPMENT-ROADMAP.md`](docs/H4-DEVELOPMENT-ROADMAP.md) — execution authority.
+
+## Project status
+
+**Alpha, used in anger daily.** The v1 per-project tier and the v2 storage/session backbone are
+built and shipped; 265 deterministic tests plus the L4 scenario suite. vfkb develops itself on its
+own brain (200+ committed entries) — every session that builds vfkb resumes from vfkb. Public API,
+CLI surface, and storage schema may still move before 1.0. Part of the
+[ViloForge](https://github.com/vilosource) ecosystem: [vfwb](https://github.com/vilosource/vfwb)
+(the planning workbench that grounds against vfkb) is in design.
+
+## Lineage & acknowledgements
+
+vfkb is the third generation of one idea — *agents deserve a project memory with provenance*:
+
+- **[OSB — OpenSecondBrain](https://github.com/vilosource/osb)** (Go) proved the knowledge model
+  (facts/decisions/gotchas/patterns with provenance) on Claude Code via file conventions and
+  adapter prompts.
+- **[mykb](https://github.com/vilosource/mykb)** (TypeScript, [Pi](https://github.com/earendil-works/pi))
+  proved mechanical enforcement: three-tier context delivery, tool gating, and the JSONL+SQLite
+  hybrid — with storage prior art from
+  [Engram](https://github.com/Gentleman-Programming/engram) and
+  [Beads](https://github.com/gastownhall/beads).
+- **vfkb** is the greenfield reimplementation for fleet use: pure-stdlib engine, harness-portable
+  faces (hooks / extension / MCP), the decision family, derived trust, and the L4 evidence
+  culture.
+
+We also studied [MemPalace](https://github.com/MemPalace/mempalace) — its local-first,
+zero-API-call stance is the right one, and vfkb shares it while betting on curated judgment over
+verbatim recall. Thanks to Mario Zechner's [Pi](https://github.com/earendil-works/pi) for the
+harness extensibility the Pi face builds on.
+
+## License
+
+[MIT](LICENSE) © vilosource
