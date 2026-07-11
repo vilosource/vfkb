@@ -2,13 +2,13 @@
 type: RFC
 title: "RFC-029: The npm delivery channel — trusted publishing behind a pack-based install proof"
 description: "vfkb has never been published anywhere; the README documents source-install only, by design (delivery honesty). This RFC opens the npm channel the right way round: first vfkb --version, then a containerized install-path proof (npm pack → clean container → content-asserted install, with a broken-pack contrast arm) that runs RED today, then trusted publishing (OIDC, provenance) to public npmjs on the release tag, then a post-publish canary — and only after the canary is green does the README gain the npm install command. Unlike the plugin install L4 (RFC-024 §4), nothing upstream blocks this channel."
-status: "Proposed"
+status: "Accepted → ADR-0057 (ratified 2026-07-11)"
 timestamp: 2026-07-11
 ---
 
 # RFC-029: The npm delivery channel
 
-- **Status:** Proposed
+- **Status:** Accepted → [ADR-0057](../adr/ADR-0057-npm-delivery-channel.md) (ratified 2026-07-11)
 - **Date:** 2026-07-11
 - **Deciders:** operator + Claude
 - **Relates:** [RFC-025](RFC-025-going-public-release-engineering.md) (umbrella, W3);

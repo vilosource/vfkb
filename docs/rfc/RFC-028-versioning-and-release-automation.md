@@ -2,13 +2,13 @@
 type: RFC
 title: "RFC-028: Versioning and release automation — release-please; the release becomes a reviewable PR; Conventional Commits become load-bearing"
 description: "Version 0.1.0 has never moved; there are no tags, no CHANGELOG, no releases. This RFC adopts release-please: it parses the Conventional Commit history the repo already writes and maintains a standing release PR (version bump + CHANGELOG) whose merge — an operator act on a readable diff — cuts the tag and GitHub Release. 0.x semver stated honestly; 1.0 criteria recorded now, decided in a future RFC. Rejected: semantic-release (no human gate), changesets (monorepo ceremony), manual local publish (no provenance + the off-VPN Nexus trap)."
-status: "Proposed"
+status: "Accepted → ADR-0056 (ratified 2026-07-11)"
 timestamp: 2026-07-11
 ---
 
 # RFC-028: Versioning and release automation
 
-- **Status:** Proposed
+- **Status:** Accepted → [ADR-0056](../adr/ADR-0056-versioning-and-release-automation.md) (ratified 2026-07-11)
 - **Date:** 2026-07-11
 - **Deciders:** operator + Claude
 - **Relates:** [RFC-025](RFC-025-going-public-release-engineering.md) (umbrella, W2);

@@ -2,13 +2,13 @@
 type: RFC
 title: "RFC-025: Going public — release engineering, versioning, and update awareness"
 description: "PR #113 gave vfkb a public face (README + MIT). This RFC proposes everything between that and a repo strangers can safely depend on: a pre-public disclosure audit (the gate), test CI, community hygiene files, release-please-driven versioning with a reviewable release PR, npm trusted publishing gated by an npm-channel install-path L4 (buildable today, unlike the plugin one), and update awareness via GitHub Releases + an opt-in `vfkb doctor` version check. Five workstreams, each its own PR chain; W0 blocks the visibility flip, everything else can land before it."
-status: "Proposed"
+status: "Accepted → ADR-0053 (ratified 2026-07-11)"
 timestamp: 2026-07-11
 ---
 
 # RFC-025: Going public — release engineering, versioning, and update awareness
 
-- **Status:** Proposed
+- **Status:** Accepted → [ADR-0053](../adr/ADR-0053-going-public-sequencing.md) (ratified 2026-07-11)
 - **Date:** 2026-07-11
 - **Deciders:** operator + Claude
 - **Relates:**

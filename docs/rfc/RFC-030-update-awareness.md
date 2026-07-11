@@ -2,13 +2,13 @@
 type: RFC
 title: "RFC-030: Update awareness — GitHub Releases as the announcement channel, `vfkb doctor --check-remote` as the opt-in version check; no phone-home, ever"
 description: "Once RFC-028/029 exist, users can be behind. This RFC decides how they find out: GitHub Releases + CHANGELOG for watchers (free), and an opt-in `vfkb doctor --check-remote` that compares the installed CLI against the npmjs `latest` dist-tag — offline-silent, cached, and worded with the axis-(b) discipline (say exactly what the code compares). Auto-checks at session start and any telemetry are rejected by name. Touching doctor's output surface triggers the doctor-staleness L4 re-run per the fix/doctor-currency-line precedent."
-status: "Proposed"
+status: "Accepted → ADR-0058 (ratified 2026-07-11)"
 timestamp: 2026-07-11
 ---
 
 # RFC-030: Update awareness
 
-- **Status:** Proposed
+- **Status:** Accepted → [ADR-0058](../adr/ADR-0058-update-awareness.md) (ratified 2026-07-11)
 - **Date:** 2026-07-11
 - **Deciders:** operator + Claude
 - **Relates:** [RFC-025](RFC-025-going-public-release-engineering.md) (umbrella, W4);
