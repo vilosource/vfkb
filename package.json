@@ -22,7 +22,9 @@
     "url": "git+https://github.com/vilosource/vfkb.git"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "access": "public",
+    "registry": "https://registry.npmjs.org",
+    "provenance": true
   },
   "scripts": {
     "build": "tsc",
