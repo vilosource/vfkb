@@ -1,0 +1,64 @@
+{
+  "recordVersion": 1,
+  "sha": "3b34510df30ec91990c74c67a7c1cabef27c0165",
+  "governing": [
+    "docs/adr/ADR-0023-scenario-contract-first.md",
+    "docs/adr/ADR-0052-review-gate.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "claude-fable-5", "rounds": 2 },
+  "generated": "2026-07-11T07:00:36Z",
+  "findings": [
+    {
+      "id": "R1-F1",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "MCP kb_add accepted an empty/whitespace path, writing 'text → ' — the instance-5 pointer-to-nowhere reintroduced via the degenerate value (fixed in 3b34510; revert-tested red)",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-F2",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "--tag '' / --tag ,,, silently meant 'no filter' on list and 'untagged' on add — flagList returned [] (fixed in 3b34510; revert-tested red)",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-F3",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "list --status was not validated while --type was — a typo printed nothing with exit 0 (fixed in 3b34510; revert-tested red)",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-F4",
+      "severity": "minor",
+      "status": "accepted",
+      "summary": "no '--' end-of-options escape: entry text whose first token starts with '--' cannot be added — loud rejection accepted as better than the old silent mangling",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-F1",
+      "severity": "minor",
+      "status": "open",
+      "summary": "empty --tag on add renders via add's local try/catch, so the error prints without the usage block the top-level UsageError handler appends — cosmetic inconsistency, correct exit code and no brain write",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-F2",
+      "severity": "minor",
+      "status": "open",
+      "summary": "search --status and add --status/--role/--zone/--prov-status VALUES remain unvalidated ('as any' casts) — pre-existing, outside issue #95 scope; search mitigated by the RFC-002 NO-MATCH diagnosis",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-F3",
+      "severity": "minor",
+      "status": "open",
+      "summary": "MCP kb_add tags:'' still lands an untagged entry silently, and type=link with empty text yields a label-less ' → x' body — the empty-value class survives on the zod surface; follow-up material",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 7,
+  "ruledOut": [],
+  "verdict": "MERGE"
+}
