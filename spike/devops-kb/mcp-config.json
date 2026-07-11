@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "vfkb": {
-      "command": "node",
-      "args": ["/opt/vfkb/dist/mcp-server.js"],
-      "env": { "VFKB_DIR": "/brain", "VFKB_PROJECT": "devops-kb" }
-    }
-  }
-}
