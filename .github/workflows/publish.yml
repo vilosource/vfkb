@@ -39,7 +39,11 @@ on:
         type: string
   push:
     tags:
-      - 'v*'
+      - 'v[0-9]*'
+
+# Explicit least-privilege default; the publish job alone widens to id-token.
+permissions:
+  contents: read
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -57,11 +61,17 @@ jobs:
     steps:
       - id: resolve
         name: Resolve release tag + version
+        # Inputs routed via env, never interpolated into the script body
+        # (shell-injection hardening); VERSION strictly validated as semver so
+        # every downstream interpolation of these outputs is provably inert.
+        env:
+          TAG_INPUT: ${{ inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="${{ inputs.tag }}"
+            TAG="$TAG_INPUT"
           else
-            TAG="${{ github.ref_name }}"
+            TAG="$REF_NAME"
           fi
           case "$TAG" in
             v*) VERSION="${TAG#v}" ;;
@@ -70,6 +80,10 @@ jobs:
               exit 1
               ;;
           esac
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-.+][A-Za-z0-9.-]+)?$'; then
+            echo "::error::'$VERSION' is not a valid semver version -- refusing"
+            exit 1
+          fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "resolved tag=$TAG version=$VERSION"
@@ -185,12 +199,22 @@ jobs:
       - name: Install the just-published version from the real registry
         run: npm i -g "@vilosource/vfkb@${{ needs.publish.outputs.version }}"
 
-      - name: Content-assert -- vfkb --version equals the published version
+      - name: Content-assert -- vfkb --version/-v/version equal the published version
         run: |
           set -o pipefail
           OUT=$(vfkb --version)
           echo "vfkb --version -> $OUT"
           test "$OUT" = "${{ needs.publish.outputs.version }}"
+          test "$(vfkb -v)" = "${{ needs.publish.outputs.version }}"
+          test "$(vfkb version)" = "${{ needs.publish.outputs.version }}"
+
+      - name: Content-assert -- vfkb init scaffolds a consumer repo
+        run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP/initproof" && cd "$RUNNER_TEMP/initproof"
+          vfkb init initproof | tee /tmp/canary-init.log
+          grep -q $'created\t.vfkb/entries.jsonl' /tmp/canary-init.log
+          grep -q 'vfkb wired for project "initproof"' /tmp/canary-init.log
 
       - name: Content-assert -- add/list round-trips a sentinel fact
         run: |
