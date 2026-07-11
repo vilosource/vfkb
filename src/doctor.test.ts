@@ -79,6 +79,16 @@ describe('vfkb doctor (FR-4)', () => {
     const r = doctor({ VFKB_BUNDLE_DIR: mkdtempSync(join(tmpdir(), 'empty-home-')) });
     expect(status(r, '$VFKB_BUNDLE_DIR')).toBe('warn');
   });
+
+  // ADR-0058/RFC-030 — plain `runDoctor` (no --check-remote) never runs the npm
+  // currency check: there is no code path from here to `checkNpmCurrency`, so it
+  // makes zero fetch calls and the report never gains an 'npm currency' line.
+  // The CLI only ever calls checkNpmCurrency under the --check-remote flag.
+  it('never runs the npm currency check on its own — no "npm currency" line, ever', () => {
+    initProject(root, { project: 'demo' });
+    const r = doctor({ VFKB_BUNDLE_DIR: home });
+    expect(r.checks.find((c) => c.name === 'npm currency')).toBeUndefined();
+  });
 });
 
 // ADR-0045 — plugin-wired repos (issue #77): doctor must recognize the plugin as the

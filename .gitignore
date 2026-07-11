@@ -10,6 +10,7 @@ coverage/
 .vfkb/.sessions/
 .vfkb/.signals/
 .vfkb/.lock
+.vfkb/npm-currency-cache.json
 
 # local registry auth (token via env)
 .npmrc
