@@ -1,0 +1,26 @@
+{
+  "recordVersion": 1,
+  "sha": "66ed40c6323091e0eb7020e69490a1de1d44bf6d",
+  "governing": [
+    "docs/adr/ADR-0055-public-ci-and-community-hygiene.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "sonnet", "rounds": 1 },
+  "generated": "2026-07-11T17:55:00Z",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "minor",
+      "status": "accepted",
+      "summary": "dependabot branch is ~25 commits behind main — merge-tree verified clean 3-way merge on review-gate.yml; no rebase needed for correctness",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 1,
+  "ruledOut": [
+    "SHA pins equal their claimed tags' commits (both lightweight tags resolved via the git refs API)",
+    "diff touches only the two uses: lines of review-gate.yml; with:/triggers/steps byte-identical",
+    "major-bump exposure ruled out from the actions' actual release notes (checkout v7 node24/persist-credentials/fork-restriction N/A on this workflow's triggers; setup-node v6 auto-cache change gated on a packageManager field this package.json lacks)",
+    "no AI attribution; conventional commit; house-convention citation verified real"
+  ],
+  "verdict": "MERGE"
+}
