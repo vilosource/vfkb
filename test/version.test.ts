@@ -48,3 +48,13 @@ describe('vfkb --version', () => {
     expect(out).toMatch(/--version/);
   });
 });
+
+describe('ENGINE_VERSION fallback (no esbuild define — the tsc/dist path)', () => {
+  it("falls back to the package's own package.json version, not a dev sentinel", async () => {
+    // Under vitest there is no __VFKB_VERSION__ define, so this exercises the
+    // fallback branch — the same one an `npm i -g` install's dist/mcp-server.js
+    // hits when it reports serverInfo.version (PR #122 review F4).
+    const { ENGINE_VERSION } = await import('../src/version.js');
+    expect(ENGINE_VERSION).toBe(PKG_VERSION);
+  });
+});
