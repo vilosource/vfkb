@@ -77,8 +77,8 @@ cd /path/to/vfkb && npm run build
 > to vfkb's real repo root and write files there (observed gotcha). Absolute paths leave no breadcrumb.
 
 ### Mode D — npm dependency *(UNVERIFIED — auth-gated)*
-`@viloforge/vfkb` is published to **GitHub Packages** (`npm.pkg.github.com`, per `package.json`
-`publishConfig`). Installing it needs a GitHub Packages auth token + `.npmrc`. **This path was not
+`@viloforge/vfkb` targets the **public npm registry** (`registry.npmjs.org`, per `package.json`
+`publishConfig`) — first publish pending (ADR-0051: unproven until the canary is green). Once published, installing needs no auth (public registry). **This path was not
 verified in this runbook** — treat the following as a sketch, not a tested instruction:
 `npm install @viloforge/vfkb` → bins at `node_modules/.bin/vfkb` / server at
 `node_modules/@viloforge/vfkb/dist/mcp-server.js`. Verify before relying on it.
