@@ -4,8 +4,8 @@
 // a different engine build). Deterministic; unit-tested (the inner gate per ADR-0023).
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { join, dirname } from 'node:path';
 import { SCHEMA_VERSION, ENGINE_VERSION, ENGINE_COMMIT } from './version.js';
 import { readManifest } from './manifest.js';
 import type { GitRunner } from './session-end.js';
@@ -221,6 +221,178 @@ export interface DoctorOpts {
   pluginsFile?: string;
   knownMarketplacesFile?: string;
   git?: GitRunner; // injectable for tests (the src/session-end.ts seam)
+}
+
+/**
+ * npm currency (ADR-0058 / RFC-030) — the npm-channel sibling of `checkCurrency`
+ * above. Opt-in ONLY (the CLI calls this solely under `--check-remote`; plain
+ * `runDoctor` never touches it, so plain `doctor` stays fully offline with zero
+ * network calls — verified by the "plain doctor" unit tests and by diffing
+ * `vfkb doctor`'s output against pre-ADR-0058 `main`).
+ *
+ * Axis-(b) wording discipline (the meta-lesson behind this whole ADR): the
+ * healthy line says exactly what was compared — the RUNNING CLI's version
+ * against the npmjs `latest` dist-tag for @vilosource/vfkb — and nothing more.
+ * Never "you are up to date". A unit test pins this with a positive regex (the
+ * comparison claim) and a negative regex (forbidden overclaim phrases).
+ */
+const NPM_PACKAGE_NAME = '@vilosource/vfkb';
+const NPM_REGISTRY_URL = 'https://registry.npmjs.org/@vilosource%2Fvfkb/latest';
+const NPM_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const NPM_CACHE_FILE = 'npm-currency-cache.json';
+
+// Minimal structural shape a fetch response must satisfy — NOT the full DOM
+// `Response` interface — so tests can inject a plain object instead of
+// constructing a real Response. The real global `fetch`'s return value
+// satisfies this structurally (TS is structural, not nominal).
+export interface NpmFetchResponse {
+  ok: boolean;
+  status: number;
+  json(): Promise<any>;
+}
+export type NpmFetch = (url: string, init: { signal: AbortSignal }) => Promise<NpmFetchResponse>;
+
+interface NpmCurrencyCacheEntry {
+  version: string;
+  fetchedAt: string; // ISO timestamp
+}
+
+export interface NpmCurrencyOpts {
+  brainDir: string;
+  installedVersion: string;
+  // Injectable for tests (mirrors the `git` seam above); defaults to the
+  // machine's real global `fetch`.
+  fetch?: NpmFetch;
+  // Injectable cache-file path for tests; defaults to
+  // <brainDir>/.signals/npm-currency-cache.json. `.signals/` — NOT the brain
+  // dir root: consumers COMMIT the brain dir, and only `.signals/` (plus
+  // .sessions/ and index-meta.json) is in init's .gitignore stanza, which
+  // existing consumers never re-run. A root-level cache file would land in
+  // their history and churn on every refresh. Nothing enumerates .signals/
+  // (counters.ts reads only counters.jsonl by name), so a sibling file there
+  // is inert.
+  cacheFile?: string;
+  timeoutMs?: number; // default 4000ms — bounded, "a few seconds"
+  now?: () => number; // injectable clock for cache-age tests; defaults to Date.now
+}
+
+function npmCacheFilePath(opts: NpmCurrencyOpts): string {
+  return opts.cacheFile ?? join(opts.brainDir, '.signals', NPM_CACHE_FILE);
+}
+
+// Corrupt or missing cache is treated as absent, silently — never an error
+// surfaced to the user (RFC-030 §2 cache design).
+function readNpmCache(path: string): NpmCurrencyCacheEntry | undefined {
+  const raw = readJson(path);
+  if (!raw || typeof raw.version !== 'string' || typeof raw.fetchedAt !== 'string') return undefined;
+  if (!Number.isFinite(Date.parse(raw.fetchedAt))) return undefined;
+  return { version: raw.version, fetchedAt: raw.fetchedAt };
+}
+
+function writeNpmCache(path: string, entry: NpmCurrencyCacheEntry): void {
+  try {
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, JSON.stringify(entry));
+  } catch {
+    // Best-effort — a failed cache write must never fail the check itself.
+  }
+}
+
+// Small, dependency-free semver-ish comparator: numeric major.minor.patch,
+// with a release ranking above any pre-release of the same core (so 1.0.0 >
+// 1.0.0-beta.1). Sufficient for comparing two npm-published version strings;
+// not a full semver implementation.
+function parseSemverish(v: string): { core: number[]; pre: string } {
+  const [core, ...preParts] = v.replace(/^v/, '').split('-');
+  const nums = core.split('.').map((n) => parseInt(n, 10));
+  while (nums.length < 3) nums.push(0);
+  return { core: nums.map((n) => (Number.isFinite(n) ? n : 0)), pre: preParts.join('-') };
+}
+
+function compareVersions(a: string, b: string): number {
+  const pa = parseSemverish(a);
+  const pb = parseSemverish(b);
+  for (let i = 0; i < 3; i++) {
+    if (pa.core[i] !== pb.core[i]) return pa.core[i] - pb.core[i];
+  }
+  if (pa.pre === pb.pre) return 0;
+  if (!pa.pre) return 1; // a is a release, b is a pre-release of the same core
+  if (!pb.pre) return -1;
+  return pa.pre < pb.pre ? -1 : 1;
+}
+
+// The comparison + wording (shared by the cache-hit and live-fetch paths — the
+// data source suffix is the only thing that differs between them).
+function renderCurrencyVerdict(
+  installed: string,
+  latest: string,
+  sourceSuffix: string,
+): { status: DoctorStatus; detail: string } {
+  const cmp = compareVersions(installed, latest);
+  if (cmp === 0) {
+    return {
+      status: 'ok',
+      detail: `installed ${installed} matches the npmjs latest dist-tag (${latest}) ${sourceSuffix}`,
+    };
+  }
+  if (cmp < 0) {
+    return {
+      status: 'warn',
+      detail:
+        `installed ${installed}; npmjs latest dist-tag is ${latest} — a newer version is ` +
+        `published. Remedy: npm i -g ${NPM_PACKAGE_NAME}@latest ${sourceSuffix}`,
+    };
+  }
+  // Ahead: installed > latest — the normal state right after cutting a
+  // release, before/without npm publish, or on a local dev build. Not a
+  // problem, so `ok`, but named plainly rather than folded into the "matches"
+  // wording (that would overclaim a comparison result that isn't equality).
+  return {
+    status: 'ok',
+    detail:
+      `installed ${installed} is newer than the npmjs latest dist-tag (${latest}) — normal ` +
+      `right after a release ${sourceSuffix}`,
+  };
+}
+
+export async function checkNpmCurrency(opts: NpmCurrencyOpts): Promise<{ status: DoctorStatus; detail: string }> {
+  const cachePath = npmCacheFilePath(opts);
+  const now = opts.now ?? Date.now;
+  const nowMs = now();
+
+  const cached = readNpmCache(cachePath);
+  if (cached) {
+    const ageMs = nowMs - Date.parse(cached.fetchedAt);
+    if (ageMs >= 0 && ageMs < NPM_CACHE_TTL_MS) {
+      const ageH = Math.max(0, Math.floor(ageMs / 3600000));
+      return renderCurrencyVerdict(opts.installedVersion, cached.version, `(cached ${ageH}h)`);
+    }
+  }
+
+  const fetchImpl = opts.fetch ?? (fetch as unknown as NpmFetch);
+  const timeoutMs = opts.timeoutMs ?? 4000;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetchImpl(NPM_REGISTRY_URL, { signal: controller.signal });
+    if (res.status === 404) {
+      return { status: 'skip', detail: 'skipped (package not on npmjs)' };
+    }
+    if (!res.ok) {
+      return { status: 'skip', detail: 'skipped (registry unreachable)' };
+    }
+    const body = await res.json();
+    const latest = typeof body?.version === 'string' ? body.version : undefined;
+    if (!latest) {
+      return { status: 'skip', detail: 'skipped (registry unreachable)' };
+    }
+    writeNpmCache(cachePath, { version: latest, fetchedAt: new Date(nowMs).toISOString() });
+    return renderCurrencyVerdict(opts.installedVersion, latest, '(live)');
+  } catch {
+    return { status: 'skip', detail: 'skipped (registry unreachable)' };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export function runDoctor(opts: DoctorOpts): DoctorReport {

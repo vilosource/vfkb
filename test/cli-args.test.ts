@@ -217,9 +217,17 @@ describe('other verbs — the same strictness everywhere', () => {
     expect(run(b, ['supersede']).code).toBe(1);
     expect(run(b, ['supersede', 'abc123']).err).toMatch(/missing new text/);
     expect(run(b, ['save', '--oops']).err).toMatch(/unknown flag --oops/);
-    expect(run(b, ['doctor', '--check-remote']).err).toMatch(/unknown flag --check-remote/);
+    expect(run(b, ['doctor', '--oops']).err).toMatch(/unknown flag --oops/);
     expect(run(b, ['map', 'stray']).err).toMatch(/unexpected argument/);
     expect(run(b, ['resume', 'p1', 'p2']).err).toMatch(/at most one/);
+  });
+
+  // ADR-0058/RFC-030 — `doctor` gains the `--check-remote` boolean flag; a bare
+  // positional after it is still rejected the same as any other doctor arg.
+  it('doctor accepts --check-remote as a known boolean flag (not "unknown flag")', () => {
+    const b = fresh();
+    expect(run(b, ['doctor', '--check-remote', 'stray']).err).toMatch(/unexpected argument 'stray'/);
+    expect(run(b, ['doctor', '--check-remote', 'stray']).err).not.toMatch(/unknown flag/);
   });
 
   it('top-level --help prints usage and exits 0', () => {
