@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
   "project": {
-    "name": "@vilosource/vfkb",
+    "name": "@viloforge/vfkb",
     "languages": [
       "typescript",
       "javascript",
@@ -1572,7 +1572,7 @@
       "type": "config",
       "name": "package.json",
       "filePath": "package.json",
-      "summary": "NPM package manifest for @vilosource/vfkb declaring the build/test scripts, the vfkb and vfkb-mcp bin entries, ESM exports, and the minimal runtime dependencies (@modelcontextprotocol/sdk + zod).",
+      "summary": "NPM package manifest for @viloforge/vfkb declaring the build/test scripts, the vfkb and vfkb-mcp bin entries, ESM exports, and the minimal runtime dependencies (@modelcontextprotocol/sdk + zod).",
       "tags": [
         "configuration",
         "build-system",

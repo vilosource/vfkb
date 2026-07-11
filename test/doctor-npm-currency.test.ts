@@ -46,7 +46,7 @@ describe('ADR-0058 — npm currency: current / behind / ahead', () => {
     expect(r.status).toBe('warn');
     expect(r.detail).toContain('installed 0.1.0');
     expect(r.detail).toContain('npmjs latest dist-tag is 0.3.0');
-    expect(r.detail).toContain('Remedy: npm i -g @vilosource/vfkb@latest');
+    expect(r.detail).toContain('Remedy: npm i -g @viloforge/vfkb@latest');
     expect(r.detail).toMatch(/\(live\)$/);
   });
 

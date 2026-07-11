@@ -48,7 +48,7 @@
   ],
   "packages": {
     ".": {
-      "package-name": "@vilosource/vfkb"
+      "package-name": "@viloforge/vfkb"
     }
   },
   "include-component-in-tag": false

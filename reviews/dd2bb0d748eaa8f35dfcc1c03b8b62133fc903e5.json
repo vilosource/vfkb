@@ -1,0 +1,36 @@
+{
+  "recordVersion": 1,
+  "sha": "dd2bb0d748eaa8f35dfcc1c03b8b62133fc903e5",
+  "governing": [
+    "docs/adr/ADR-0057-npm-delivery-channel.md",
+    "docs/adr/ADR-0051-delivery-honesty.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "claude-fable-5", "rounds": 2 },
+  "generated": "2026-07-11T18:35:00Z",
+  "findings": [
+    {
+      "id": "m1",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "the standing handoff still directed the operator to the @vilosource scope under pure OIDC — superseding handoff 5af9df8be1a0 records the rename, the NPM_TOKEN bootstrap + expiry, and the flip-before-publish order",
+      "acceptedBy": null
+    },
+    {
+      "id": "m2",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "RUNBOOK Mode D still claimed GitHub Packages publishing — corrected to public npmjs with first-publish-pending framing per ADR-0051; residual one-word heading staleness ('auth-gated') accepted as cosmetic",
+      "acceptedBy": null
+    },
+    {
+      "id": "m3",
+      "severity": "minor",
+      "status": "accepted",
+      "summary": "npm provenance is documented as requiring a public source repo (unverified offline) — publish dispatch is sequenced AFTER the visibility flip in the handoff, making the exact failure mode moot; rename completeness and the inverse GitHub-slug check verified exhaustively clean in round 1",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 3,
+  "ruledOut": [],
+  "verdict": "MERGE"
+}
