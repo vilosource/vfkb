@@ -1,10 +1,10 @@
 {
   "scenario": "doctor-staleness",
   "recordVersion": 2,
-  "vfkbSha": "791ed5ff534d45b845a1e25c8e214eda3038da7e",
+  "vfkbSha": "a828ca310fe63e8f67d648ae6a00ca0f7b4ec7b8",
   "model": "claude-haiku-4-5",
-  "trials": 5,
-  "generated": "2026-07-10T18:21:37.148Z",
+  "trials": 3,
+  "generated": "2026-07-11T15:22:01.136Z",
   "arms": {
     "wired": {
       "role": "positive",
@@ -18,8 +18,8 @@
           "remedy": true,
           "current": false,
           "staleMatch": "diverged",
-          "staleContext": "plugin currency — vfkb marketplace clone is STALE — it sits at 01ee157 but the remote is at 4b65e1f",
-          "out": "STATUS: diverged EVIDENCE: plugin currency — vfkb marketplace clone is STALE — it sits at 01ee157 but the remote is at 4b65e1f REMEDY: claude plugin marketplace update vfkb && claude plugin update vfkb@vfkb && restart Claude Code ",
+          "staleContext": "plugin currency — vfkb marketplace clone is STALE — it sits at af7a205 but the remote is at 35b2828",
+          "out": "STATUS: diverged EVIDENCE: plugin currency — vfkb marketplace clone is STALE — it sits at af7a205 but the remote is at 35b2828 REMEDY: `claude plugin marketplace update vfkb` then `claude plugin update vfkb@vfkb`, then restart Claude Code ",
           "err": ""
         },
         {
@@ -27,8 +27,8 @@
           "remedy": true,
           "current": false,
           "staleMatch": "diverged",
-          "staleContext": "plugin currency — vfkb marketplace clone is STALE — it sits at 7443b75 but the remote is at 0b96c83",
-          "out": "STATUS: diverged EVIDENCE: plugin currency — vfkb marketplace clone is STALE — it sits at 7443b75 but the remote is at 0b96c83 REMEDY: claude plugin marketplace update vfkb && claude plugin update vfkb@vfkb && restart Claude Code ",
+          "staleContext": "vfkb marketplace clone is STALE — it sits at d5dc8c1 but the remote is at 5a35f0c",
+          "out": "STATUS: diverged EVIDENCE: vfkb marketplace clone is STALE — it sits at d5dc8c1 but the remote is at 5a35f0c REMEDY: claude plugin marketplace update vfkb && claude plugin update vfkb@vfkb && restart Claude Code ",
           "err": ""
         },
         {
@@ -36,26 +36,8 @@
           "remedy": true,
           "current": false,
           "staleMatch": "diverged",
-          "staleContext": "vfkb marketplace clone is STALE — it sits at ac289d6 but the remote is at 9dfd21f",
-          "out": "STATUS: diverged EVIDENCE: vfkb marketplace clone is STALE — it sits at ac289d6 but the remote is at 9dfd21f REMEDY: `claude plugin marketplace update vfkb` then `claude plugin update vfkb@vfkb`, then restart Claude Code ",
-          "err": ""
-        },
-        {
-          "stale": true,
-          "remedy": true,
-          "current": false,
-          "staleMatch": "diverged",
-          "staleContext": "vfkb marketplace clone is STALE — it sits at 469d374 but the remote is at adb15dc",
-          "out": "STATUS: diverged EVIDENCE: vfkb marketplace clone is STALE — it sits at 469d374 but the remote is at adb15dc REMEDY: `claude plugin marketplace update vfkb` then `claude plugin update vfkb@vfkb`, then restart Claude Code ",
-          "err": ""
-        },
-        {
-          "stale": true,
-          "remedy": true,
-          "current": false,
-          "staleMatch": "diverged",
-          "staleContext": "plugin currency — vfkb marketplace clone is STALE — it sits at 62e4813 but the remote is at b7a3c7d",
-          "out": "STATUS: diverged EVIDENCE: plugin currency — vfkb marketplace clone is STALE — it sits at 62e4813 but the remote is at b7a3c7d REMEDY: claude plugin marketplace update vfkb && claude plugin update vfkb@vfkb && restart Claude Code ",
+          "staleContext": "vfkb marketplace clone is STALE — it sits at 6d4cef6 but the remote is at 005f80a",
+          "out": "STATUS: diverged EVIDENCE: vfkb marketplace clone is STALE — it sits at 6d4cef6 but the remote is at 005f80a REMEDY: `claude plugin marketplace update vfkb` then `claude plugin update vfkb@vfkb`, then restart Claude Code ",
           "err": ""
         }
       ]
@@ -71,8 +53,8 @@
           "remedy": false,
           "current": true,
           "staleMatch": "current",
-          "staleContext": "plugin currency — vfkb marketplace clone is CURRENT — level with its remote (9dc2411)",
-          "out": "STATUS: current EVIDENCE: plugin currency — vfkb marketplace clone is CURRENT — level with its remote (9dc2411) REMEDY: none needed ",
+          "staleContext": "vfkb marketplace clone is CURRENT — level with its remote (e9b169e)",
+          "out": "STATUS: current EVIDENCE: vfkb marketplace clone is CURRENT — level with its remote (e9b169e) REMEDY: none needed ",
           "err": ""
         },
         {
@@ -80,8 +62,8 @@
           "remedy": false,
           "current": true,
           "staleMatch": "current",
-          "staleContext": "OK    plugin currency — vfkb marketplace clone is CURRENT — level with its remote (6642170)",
-          "out": "STATUS: current EVIDENCE: OK plugin currency — vfkb marketplace clone is CURRENT — level with its remote (6642170) REMEDY: none needed ",
+          "staleContext": "vfkb marketplace clone is CURRENT — level with its remote (d1191a1)",
+          "out": "STATUS: current EVIDENCE: vfkb marketplace clone is CURRENT — level with its remote (d1191a1) REMEDY: none needed ",
           "err": ""
         },
         {
@@ -89,26 +71,8 @@
           "remedy": false,
           "current": true,
           "staleMatch": "current",
-          "staleContext": "vfkb marketplace clone is CURRENT — level with its remote (9a5c7f0)",
-          "out": "STATUS: current EVIDENCE: vfkb marketplace clone is CURRENT — level with its remote (9a5c7f0) REMEDY: none needed ",
-          "err": ""
-        },
-        {
-          "stale": false,
-          "remedy": false,
-          "current": true,
-          "staleMatch": "current",
-          "staleContext": "vfkb marketplace clone is CURRENT — level with its remote (978fc17)",
-          "out": "STATUS: current EVIDENCE: vfkb marketplace clone is CURRENT — level with its remote (978fc17) REMEDY: none needed ",
-          "err": ""
-        },
-        {
-          "stale": false,
-          "remedy": false,
-          "current": true,
-          "staleMatch": "current",
-          "staleContext": "plugin currency — vfkb marketplace clone is CURRENT — level with its remote (2ccb301), so claude plugin update will find nothing newer to install from it",
-          "out": "STATUS: current EVIDENCE: plugin currency — vfkb marketplace clone is CURRENT — level with its remote (2ccb301), so `claude plugin update` will find nothing newer to install from it REMEDY: none needed ",
+          "staleContext": "vfkb marketplace clone is CURRENT — level with its remote (585aad0)",
+          "out": "STATUS: current EVIDENCE: vfkb marketplace clone is CURRENT — level with its remote (585aad0) REMEDY: none needed ",
           "err": ""
         }
       ]
