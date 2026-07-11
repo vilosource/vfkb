@@ -1,0 +1,44 @@
+{
+  "recordVersion": 1,
+  "sha": "6e62471254fb030f46af8ab09953cd92039fddcf",
+  "governing": [
+    "docs/adr/ADR-0057-npm-delivery-channel.md",
+    "docs/rfc/RFC-029-npm-delivery-channel.md",
+    "docs/adr/ADR-0051-delivery-honesty.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "claude-fable-5", "rounds": 2 },
+  "generated": "2026-07-11T13:05:00Z",
+  "findings": [
+    {
+      "id": "m1",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "canary asserted a subset of the fresh arm (no init, no short-form version checks) — added; asserted strings verified against src/init.ts and src/cli.ts output shapes",
+      "acceptedBy": null
+    },
+    {
+      "id": "m2",
+      "severity": "minor",
+      "status": "accepted",
+      "summary": "attestation check warns instead of failing, deviating from RFC-029's 'asserts provenance was attached' — accepted: failing post-publish deprecates nothing (publish is irreversible) and attestations can lag propagation; disclosed in the PR body; a hard re-check is owned by the first real run / the ADR-0058 doctor work",
+      "acceptedBy": null
+    },
+    {
+      "id": "m3",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "workflow_dispatch tag input was interpolated into run scripts of the OIDC-bearing job — inputs now env-routed, VERSION semver-validated (injection strings observed rejected), top-level contents:read default added, tag glob tightened to v[0-9]*",
+      "acceptedBy": null
+    },
+    {
+      "id": "note-unobserved",
+      "severity": "minor",
+      "status": "open",
+      "summary": "the workflow end-to-end remains unobserved (npmjs trusted-publishing setup is operator-side) — per ADR-0051 the npm channel's delivery status is UNPROVEN until the first green canary run, and the README carries no npm install command until then",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 4,
+  "ruledOut": [],
+  "verdict": "MERGE"
+}
