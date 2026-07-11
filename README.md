@@ -4,6 +4,7 @@
 > *They remember what was said. vfkb remembers what your project decided — with rationale, lifecycle, and receipts.*
 
 [![review-gate](https://github.com/vilosource/vfkb/actions/workflows/review-gate.yml/badge.svg)](https://github.com/vilosource/vfkb/actions/workflows/review-gate.yml)
+[![test](https://github.com/vilosource/vfkb/actions/workflows/test.yml/badge.svg)](https://github.com/vilosource/vfkb/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A520-brightgreen.svg)](package.json)
 
