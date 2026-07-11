@@ -36,6 +36,8 @@ import { runSessionEnd } from './session-end.js';
 import { initProject, approvalNotice } from './init.js';
 import { runDoctor, renderDoctor } from './doctor.js';
 import { fromMykb, fromAdr, fromMarkdown, resolveMykbArea } from './import.js';
+import { parseArgs, flagValue, flagList, flagInt, UsageError } from './args.js';
+import { ENTRY_TYPES } from './types.js';
 import type { AuthorRole, EntryType, Zone, DecisionStatus } from './types.js';
 
 function readStdin(): Promise<string> {
@@ -50,30 +52,77 @@ function readStdin(): Promise<string> {
   });
 }
 
+// Positional flag lookup for the HOOK subcommands only — hooks stay fail-open
+// (never error a harness session over argv), so they bypass the strict parser.
 function flag(args: string[], name: string): string | undefined {
   const i = args.indexOf(`--${name}`);
   return i >= 0 ? args[i + 1] : undefined;
 }
 
+function argsOf(sub: string | undefined, rest: string[]): string[] {
+  return [sub, ...rest].filter((a): a is string => a !== undefined);
+}
+
+function entryType(verb: string, raw: string | undefined): EntryType {
+  if (!raw || !(ENTRY_TYPES as readonly string[]).includes(raw)) {
+    throw new UsageError(`${verb}: unknown entry type '${raw ?? ''}' — expected ${ENTRY_TYPES.join('|')}`);
+  }
+  return raw as EntryType;
+}
+
 async function main() {
+  try {
+    await dispatch();
+  } catch (err) {
+    if (err instanceof UsageError) {
+      process.stderr.write(`error: ${err.message}\n${USAGE}`);
+      process.exit(1);
+    }
+    throw err;
+  }
+}
+
+const USAGE =
+  'usage: vfkb <add|list|search|query|map|context|context init|resume|resume-note|curate|distill|save|' +
+  'export|import|init|doctor|supersede|context-block|context-block-naive|' +
+  'hook session-start|hook pre-tool-use|hook post-tool-use|hook stop|hook session-end>\n';
+
+async function dispatch() {
   const [cmd, sub, ...rest] = process.argv.slice(2);
+
+  if (cmd === '--help' || cmd === '-h' || cmd === 'help') {
+    process.stdout.write(USAGE);
+    return;
+  }
 
   // --- add <type> <text> [--role] [--tag a,b] [--why …] [--status] [--prov-status] [--valid-until] ---
   if (cmd === 'add') {
-    const type = sub as EntryType;
-    const role = (flag(rest, 'role') as AuthorRole) || 'executor';
-    const tags = flag(rest, 'tag')?.split(',').map((t) => t.trim()).filter(Boolean) ?? [];
+    const p = parseArgs('add', argsOf(sub, rest), {
+      role: 'value',
+      tag: 'value',
+      why: 'value',
+      contradicts: 'value',
+      status: 'value',
+      'prov-status': 'value',
+      'valid-until': 'value',
+      zone: 'value',
+      constitutional: 'boolean',
+    });
+    const type = entryType('add', p.positionals[0]);
+    const textArg = p.positionals.slice(1).join(' ').trim();
+    if (!textArg) throw new UsageError('add: missing entry text');
+    const role = (flagValue(p, 'role') as AuthorRole) || 'executor';
     try {
-      const e = addEntry(type, cleanText(rest), {
+      const e = addEntry(type, textArg, {
         role,
-        why: flag(rest, 'why'),
-        tags,
-        contradicts: flag(rest, 'contradicts')?.split(',').map((t) => t.trim()).filter(Boolean),
-        status: flag(rest, 'status') as any,
-        provStatus: flag(rest, 'prov-status') as any,
-        validUntil: flag(rest, 'valid-until'),
-        zone: flag(rest, 'zone') as any,
-        constitutional: rest.includes('--constitutional'),
+        why: flagValue(p, 'why'),
+        tags: flagList(p, 'tag') ?? [],
+        contradicts: flagList(p, 'contradicts'),
+        status: flagValue(p, 'status') as any,
+        provStatus: flagValue(p, 'prov-status') as any,
+        validUntil: flagValue(p, 'valid-until'),
+        zone: flagValue(p, 'zone') as any,
+        constitutional: p.flags.get('constitutional') === true,
       });
       process.stdout.write(`${e.id}\t[${e.type} ${deriveTrust(e.author.role)}]\t${e.text}\n`);
     } catch (err) {
@@ -86,8 +135,12 @@ async function main() {
   // export <agents-md|okf> [--out <path>] — ADR-0047 brain export projections:
   // deterministic, generated-marked, never auto-committed publish artifacts.
   if (cmd === 'export') {
+    const p = parseArgs('export', rest, { out: 'value' });
+    if (p.positionals.length > 0) {
+      throw new UsageError(`export: unexpected argument '${p.positionals[0]}'`);
+    }
     try {
-      process.stdout.write(runExport(sub, { out: flag(rest, 'out') }) + '\n');
+      process.stdout.write(runExport(sub, { out: flagValue(p, 'out') }) + '\n');
     } catch (err) {
       process.stderr.write(`error: ${(err as Error).message}\n`);
       process.exit(1);
@@ -98,8 +151,10 @@ async function main() {
   // init [project]: FR-1 (ADR-0030) — idempotently scaffold THIS repo (cwd) as a
   // vfkb consumer (portable $VFKB_HOME wiring + .gitignore + empty brain + snippet).
   if (cmd === 'init') {
+    const p = parseArgs('init', argsOf(sub, rest), {});
+    if (p.positionals.length > 1) throw new UsageError('init: at most one [project] argument');
     const root = process.cwd();
-    const project = (sub && !sub.startsWith('--') ? sub : undefined) || process.env.VFKB_PROJECT;
+    const project = p.positionals[0] || process.env.VFKB_PROJECT;
     const changes = initProject(root, { project });
     const resolved = project || root.split(/[/\\]/).filter(Boolean).pop() || 'project';
     for (const c of changes) process.stdout.write(`${c.action}\t${c.path}\n`);
@@ -110,13 +165,20 @@ async function main() {
   // import: FR-3 (ADR-0030) — migrate existing knowledge into the brain (lossy,
   // role=import). --from-mykb <area> | --from-adr [dir] | --from-markdown <file>.
   if (cmd === 'import') {
-    const args = [sub, ...rest].filter((a): a is string => a !== undefined);
+    const p = parseArgs('import', argsOf(sub, rest), {
+      'from-adr': 'optional-value',
+      'from-markdown': 'value',
+      'from-mykb': 'value',
+    });
+    if (p.positionals.length > 0) {
+      throw new UsageError(`import: unexpected argument '${p.positionals[0]}'`);
+    }
     const results: { id: string; type: string; text: string }[] = [];
     try {
-      if (args.includes('--from-adr')) results.push(...fromAdr(flag(args, 'from-adr') || 'docs/adr'));
-      const md = flag(args, 'from-markdown');
+      if (p.flags.has('from-adr')) results.push(...fromAdr(flagValue(p, 'from-adr') || 'docs/adr'));
+      const md = flagValue(p, 'from-markdown');
       if (md) results.push(...fromMarkdown(md));
-      const mykb = flag(args, 'from-mykb');
+      const mykb = flagValue(p, 'from-mykb');
       if (mykb) results.push(...fromMykb(resolveMykbArea(mykb)));
     } catch (err) {
       process.stderr.write(`error: ${(err as Error).message}\n`);
@@ -133,6 +195,10 @@ async function main() {
 
   // doctor: FR-4 (ADR-0030) — diagnose brain↔engine compat + wiring health.
   if (cmd === 'doctor') {
+    const pd = parseArgs('doctor', argsOf(sub, rest), {});
+    if (pd.positionals.length > 0) {
+      throw new UsageError(`doctor: unexpected argument '${pd.positionals[0]}'`);
+    }
     const report = runDoctor({
       root: process.cwd(),
       brainDir: process.env.VFKB_DATA_DIR || process.env.VFKB_DIR || '.vfkb',
@@ -143,8 +209,30 @@ async function main() {
     return;
   }
 
+  // list [--type t] [--tag a,b] [--status s] [--limit N] — raw dump with structural
+  // filters (issue #95 fix (a)). Tag semantics mirror read.ts: entry carries ALL of
+  // them. --limit keeps the MOST RECENT N (append order tail).
   if (cmd === 'list') {
-    for (const e of readAll()) {
+    const p = parseArgs('list', argsOf(sub, rest), {
+      type: 'value',
+      tag: 'value',
+      status: 'value',
+      limit: 'value',
+    });
+    if (p.positionals.length > 0) {
+      throw new UsageError(`list: unexpected argument '${p.positionals[0]}' (list takes only flags)`);
+    }
+    const type = flagValue(p, 'type');
+    if (type) entryType('list --type', type);
+    const tags = flagList(p, 'tag');
+    const status = flagValue(p, 'status');
+    const limit = flagInt(p, 'list', 'limit');
+    let entries = readAll();
+    if (type) entries = entries.filter((e) => e.type === type);
+    if (tags) entries = entries.filter((e) => tags.every((t) => e.tags.includes(t)));
+    if (status) entries = entries.filter((e) => e.status === status);
+    if (limit !== undefined) entries = entries.slice(-limit);
+    for (const e of entries) {
       process.stdout.write(
         `${e.id}\t${e.type}\t${deriveTrust(e.author.role)}\t${e.provenance.status}\t${e.text}\n`,
       );
@@ -153,11 +241,15 @@ async function main() {
   }
 
   if (cmd === 'context-block') {
-    process.stdout.write(renderContextBundle(sub || defaultProject()));
+    const p = parseArgs('context-block', argsOf(sub, rest), {});
+    if (p.positionals.length > 1) throw new UsageError('context-block: at most one [project] argument');
+    process.stdout.write(renderContextBundle(p.positionals[0] || defaultProject()));
     return;
   }
 
   if (cmd === 'map') {
+    const p = parseArgs('map', argsOf(sub, rest), {});
+    if (p.positionals.length > 0) throw new UsageError(`map: unexpected argument '${p.positionals[0]}'`);
     process.stdout.write(renderContextMap() + '\n');
     return;
   }
@@ -166,21 +258,23 @@ async function main() {
   // assembled "agent's first read" (authored spine + derived Constitution/Map/decisions).
   // `init` scaffolds the authored spine (<brain>/context.md) if absent.
   if (cmd === 'context') {
-    if (sub === 'init') {
+    const p = parseArgs('context', argsOf(sub, rest), {});
+    if (p.positionals.length > 1) throw new UsageError('context: at most one [init|project] argument');
+    if (p.positionals[0] === 'init') {
       const { created, path } = initContextSpine();
       process.stdout.write(`${created ? 'created' : 'exists'}\t${path}\n`);
       return;
     }
-    const project = (sub && !sub.startsWith('--') ? sub : undefined) || defaultProject();
-    process.stdout.write(renderContext(project));
+    process.stdout.write(renderContext(p.positionals[0] || defaultProject()));
     return;
   }
 
   // resume [project]: the session-continuity render (ADR-0020) — prior-session
   // digest (derived) + the live knowledge bundle. The MCP-pull-floor / CLI face.
   if (cmd === 'resume') {
-    const project = (sub && !sub.startsWith('--') ? sub : undefined) || defaultProject();
-    process.stdout.write(renderResume(project, SessionState.load()) + '\n');
+    const p = parseArgs('resume', argsOf(sub, rest), {});
+    if (p.positionals.length > 1) throw new UsageError('resume: at most one [project] argument');
+    process.stdout.write(renderResume(p.positionals[0] || defaultProject(), SessionState.load()) + '\n');
     return;
   }
 
@@ -192,35 +286,45 @@ async function main() {
   //   curate signal <id> <helpful|harmful>  record an append-only corroboration signal
   //   curate promote-auto <id>          promote ONLY if corroborated (>=N signals)
   if (cmd === 'curate') {
+    const p = parseArgs('curate', argsOf(sub, rest), {});
+    const [action, id1, id2] = p.positionals;
+    const need = (n: number, usage: string) => {
+      if (p.positionals.length - 1 !== n) throw new UsageError(`usage: vfkb curate ${usage}`);
+    };
     try {
-      if (sub === 'dups') {
+      if (action === 'dups') {
+        need(0, 'dups');
         const dups = findLexicalDuplicates();
         for (const d of dups) process.stdout.write(`DUP\tloser=${d.loser}\twinner=${d.winner}\n`);
         if (dups.length === 0) process.stdout.write('no exact lexical duplicates\n');
-      } else if (sub === 'signal') {
-        const kind = rest[1];
-        if (kind !== 'helpful' && kind !== 'harmful') {
+      } else if (action === 'signal') {
+        need(2, 'signal <id> <helpful|harmful>');
+        if (id2 !== 'helpful' && id2 !== 'harmful') {
           process.stderr.write('usage: vfkb curate signal <id> <helpful|harmful>\n');
           process.exit(1);
         }
-        recordSignal(rest[0], kind, 'operator');
-        const t = tally(rest[0]);
+        recordSignal(id1, id2, 'operator');
+        const t = tally(id1);
         process.stdout.write(
-          `signal ${kind} -> ${rest[0]} (helpful ${t.helpful} / harmful ${t.harmful} / net ${t.net}` +
-            `${eligibleForPromotion(rest[0]) ? ', promotable' : ''})\n`,
+          `signal ${id2} -> ${id1} (helpful ${t.helpful} / harmful ${t.harmful} / net ${t.net}` +
+            `${eligibleForPromotion(id1) ? ', promotable' : ''})\n`,
         );
-      } else if (sub === 'promote-auto') {
-        const e = promoteIfCorroborated(rest[0]);
+      } else if (action === 'promote-auto') {
+        need(1, 'promote-auto <id>');
+        const e = promoteIfCorroborated(id1);
         process.stdout.write(`promoted (corroborated) ${e.id} -> ${e.zone}\n`);
-      } else if (sub === 'promote') {
-        const e = promote(rest[0]);
+      } else if (action === 'promote') {
+        need(1, 'promote <id>');
+        const e = promote(id1);
         process.stdout.write(`promoted ${e.id} -> ${e.zone}\n`);
-      } else if (sub === 'archive') {
-        const e = archive(rest[0]);
+      } else if (action === 'archive') {
+        need(1, 'archive <id>');
+        const e = archive(id1);
         process.stdout.write(`archived ${e.id}\n`);
-      } else if (sub === 'merge') {
-        mergeDuplicate(rest[0], rest[1]);
-        process.stdout.write(`merged ${rest[0]} -> ${rest[1]} (loser archived)\n`);
+      } else if (action === 'merge') {
+        need(2, 'merge <loser> <winner>');
+        mergeDuplicate(id1, id2);
+        process.stdout.write(`merged ${id1} -> ${id2} (loser archived)\n`);
       } else {
         process.stderr.write(
           'usage: vfkb curate <dups|promote <id>|promote-auto <id>|archive <id>|merge <loser> <winner>|signal <id> <helpful|harmful>>\n',
@@ -239,6 +343,10 @@ async function main() {
   // an existing candidate instead of duplicating. Deterministic; never touches the
   // trusted set. With KB_SESSION_ID, restricts to the session's captured ids; else all.
   if (cmd === 'distill') {
+    const pd = parseArgs('distill', argsOf(sub, rest), {});
+    if (pd.positionals.length > 0) {
+      throw new UsageError(`distill: unexpected argument '${pd.positionals[0]}'`);
+    }
     const session = SessionState.load();
     const ids = session.capturedIds;
     const { created, corroborated } = distill(ids.length ? ids : undefined);
@@ -257,8 +365,9 @@ async function main() {
   // resume-note <text...>: attach an ASSERTED operator intent ("next: …") to the
   // current session's record. Persists only with KB_SESSION_ID (else ephemeral).
   if (cmd === 'resume-note') {
+    const p = parseArgs('resume-note', argsOf(sub, rest), {});
     const session = SessionState.load();
-    const note = cleanText([sub, ...rest].filter((a) => a !== undefined));
+    const note = p.positionals.join(' ').trim();
     if (!note) {
       process.stderr.write('usage: vfkb resume-note <text>\n');
       process.exit(1);
@@ -277,17 +386,25 @@ async function main() {
   // --limit N truncates load-order (oldest-first) to N entries (reproduces the
   // budget-drops-newest incident).
   if (cmd === 'context-block-naive') {
-    const lim = flag([sub, ...rest], 'limit');
-    process.stdout.write(renderNaiveDump(sub && !sub.startsWith('--') ? sub : defaultProject(), undefined, lim ? Number(lim) : undefined));
+    const p = parseArgs('context-block-naive', argsOf(sub, rest), { limit: 'value' });
+    if (p.positionals.length > 1) throw new UsageError('context-block-naive: at most one [project] argument');
+    const lim = flagInt(p, 'context-block-naive', 'limit');
+    process.stdout.write(renderNaiveDump(p.positionals[0] || defaultProject(), undefined, lim));
     return;
   }
 
   // supersede <oldId> <text...> [--role r] [--why w]
   if (cmd === 'supersede') {
+    if (!sub || sub.startsWith('--')) {
+      throw new UsageError('usage: vfkb supersede <oldId> <text…> [--role r] [--why w]');
+    }
+    const p = parseArgs('supersede', rest, { role: 'value', why: 'value' });
+    const newText = p.positionals.join(' ').trim();
+    if (!newText) throw new UsageError('supersede: missing new text');
     try {
-      const e = supersede(sub, cleanText(rest), {
-        role: (flag(rest, 'role') as AuthorRole) || 'human',
-        why: flag(rest, 'why'),
+      const e = supersede(sub, newText, {
+        role: (flagValue(p, 'role') as AuthorRole) || 'human',
+        why: flagValue(p, 'why'),
       });
       process.stdout.write(`${e.id}\tsupersedes ${sub}\t${e.text}\n`);
     } catch (err) {
@@ -300,22 +417,29 @@ async function main() {
   // search/query: vfkb search <text> [--type t] [--tag a,b] [--zone z] [--status s]
   //               [--role r] [--verified] [--limit N] [--stale] [--superseded]
   if (cmd === 'search' || cmd === 'query') {
-    const args = [sub, ...rest].filter((a) => a !== undefined);
-    const text = args
-      .filter((a, i) => !a.startsWith('--') && !(i > 0 && args[i - 1].startsWith('--')))
-      .join(' ');
-    const limit = flag(args, 'limit');
+    const p = parseArgs(cmd, argsOf(sub, rest), {
+      type: 'value',
+      tag: 'value',
+      zone: 'value',
+      status: 'value',
+      role: 'value',
+      limit: 'value',
+      verified: 'boolean',
+      stale: 'boolean',
+      superseded: 'boolean',
+    });
+    const text = p.positionals.join(' ');
     const { results, diagnosis } = queryExplained({
       text: text || undefined,
-      type: flag(args, 'type') as EntryType,
-      zone: flag(args, 'zone') as Zone,
-      status: flag(args, 'status') as DecisionStatus,
-      tags: flag(args, 'tag')?.split(',').map((t) => t.trim()).filter(Boolean),
-      authorRole: flag(args, 'role') as AuthorRole,
-      verifiedOnly: args.includes('--verified'),
-      limit: limit ? Number(limit) : undefined,
-      includeStale: args.includes('--stale'),
-      includeSuperseded: args.includes('--superseded'),
+      type: flagValue(p, 'type') as EntryType,
+      zone: flagValue(p, 'zone') as Zone,
+      status: flagValue(p, 'status') as DecisionStatus,
+      tags: flagList(p, 'tag'),
+      authorRole: flagValue(p, 'role') as AuthorRole,
+      verifiedOnly: p.flags.get('verified') === true,
+      limit: flagInt(p, cmd, 'limit'),
+      includeStale: p.flags.get('stale') === true,
+      includeSuperseded: p.flags.get('superseded') === true,
     });
     for (const e of results) {
       const contra = e.refs?.contradicts?.length ? `\t⚔ contradicts ${e.refs.contradicts.join(',')}` : '';
@@ -337,6 +461,9 @@ async function main() {
     return;
   }
 
+  // Hook subcommands are exempt from strict flag parsing BY DESIGN (issue #95):
+  // the harness contract is fail-open — a hook must never error a session over
+  // an unrecognized argv, so unknown flags here are ignored, not rejected.
   if (cmd === 'hook') {
     if (sub === 'session-start') {
       const raw = await readStdin();
@@ -493,34 +620,14 @@ async function main() {
   }
 
   if (cmd === 'save') {
-    const r = save([sub, ...rest].filter((a) => a && !a.startsWith('--')).join(' ') || undefined);
+    const p = parseArgs('save', argsOf(sub, rest), {});
+    const r = save(p.positionals.join(' ').trim() || undefined);
     process.stdout.write((r.committed ? 'committed: ' : 'no-op: ') + r.message + '\n');
     return;
   }
 
-  process.stderr.write(
-    'usage: vfkb <add|list|search|query|map|context|context init|resume|resume-note|curate|distill|save|context-block|' +
-      'hook session-start|hook pre-tool-use|hook post-tool-use|hook stop|hook session-end>\n',
-  );
+  process.stderr.write(USAGE);
   process.exit(1);
-}
-
-// Join all non-flag, non-flag-value args into the entry text.
-function cleanText(args: string[]): string {
-  const out: string[] = [];
-  for (let i = 0; i < args.length; i++) {
-    if (args[i].startsWith('--')) {
-      i++; // skip the flag's value
-      continue;
-    }
-    out.push(args[i]);
-  }
-  return out.join(' ').trim();
-}
-
-function isFlagValue(args: string[], a: string): boolean {
-  const i = args.indexOf(a);
-  return i > 0 && args[i - 1].startsWith('--');
 }
 
 main();

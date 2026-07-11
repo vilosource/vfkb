@@ -2,6 +2,9 @@
 // Implements ADR-0011 (validity window + structured provenance.origin; trust derived).
 
 export type EntryType = 'fact' | 'decision' | 'gotcha' | 'pattern' | 'link';
+// Runtime companion for validating user-supplied type strings (issue #95).
+export const ENTRY_TYPES: readonly EntryType[] = ['fact', 'decision', 'gotcha', 'pattern', 'link'];
+
 
 export type Zone = 'incoming' | 'established' | 'archive';
 
