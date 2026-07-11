@@ -73,3 +73,13 @@ Immutable records of significant vfkb architecture decisions, in
 | [ADR-0046](ADR-0046-layered-knowledge-capture-understand-publish.md) | Layered knowledge management — vfkb captures, graphify understands, OKF publishes; one-way trust ratchet with deterministic Brakes (accepts RFC-020) | Accepted (Phase 1 gated on Q3) |
 | [ADR-0047](ADR-0047-brain-export-projections.md) | Brain export projections — `vfkb export agents-md` + `vfkb export okf`, pure-function-of-the-brain determinism, ratchet as publish filter (accepts RFC-022) | Accepted — **built 2026-07-08**, both L4s DEMONSTRATED |
 | [ADR-0048](ADR-0048-retire-wiring-smoke-gate.md) | Retire the in-repo wiring smoke gate — premise ended with the plugin migration; relocated check deferred to vfkb-claude-plugin#6 (supersedes ADR-0028) | Accepted |
+| [ADR-0049](ADR-0049-session-start-handoff-pinning.md) | Session-start briefing — deterministic handoff pinning + an on-demand, Haiku-pinned briefing skill (accepts RFC-023) | Accepted |
+| [ADR-0050](ADR-0050-l4-dod-constitutional-brake.md) | The sandboxed agent-driven L4 Definition of Done is constitutional and mechanically enforced (amends ADR-0029) | Accepted (Amended by ADR-0051) |
+| [ADR-0051](ADR-0051-delivery-honesty.md) | Delivery is a capability, it is unproven, and saying so is mechanically enforced (amends ADR-0050; accepts RFC-024) | Accepted |
+| [ADR-0052](ADR-0052-review-gate.md) | The adversarial review of every implementation change is mechanically enforced | Accepted |
+| [ADR-0053](ADR-0053-going-public-sequencing.md) | Going public — the five-workstream sequencing (umbrella; accepts RFC-025) | Accepted |
+| [ADR-0054](ADR-0054-pre-public-disclosure-gate.md) | The pre-public disclosure gate — audit + explicit exposure rulings before the visibility flip (accepts RFC-026) | Accepted |
+| [ADR-0055](ADR-0055-public-ci-and-community-hygiene.md) | Public CI (test.yml required Brake, can-fail-proven) + community hygiene files (accepts RFC-027) | Accepted |
+| [ADR-0056](ADR-0056-versioning-and-release-automation.md) | Versioning + release automation via release-please — the release is a reviewable PR (accepts RFC-028) | Accepted |
+| [ADR-0057](ADR-0057-npm-delivery-channel.md) | The npm delivery channel — trusted publishing behind a pack-based install proof, born delivery-proven (accepts RFC-029) | Accepted |
+| [ADR-0058](ADR-0058-update-awareness.md) | Update awareness — GitHub Releases canonical + opt-in doctor --check-remote npm currency; no phone-home (accepts RFC-030) | Accepted |

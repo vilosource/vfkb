@@ -2,13 +2,13 @@
 type: RFC
 title: "RFC-026: Pre-public disclosure gate — the audit that gates the visibility flip"
 description: "Flipping the repo public publishes all history retroactively. This RFC defines the audit that must complete first — full-history secrets sweep, explicit operator rulings on identity/infra exposure, brain triage — and the flip-day hardening checklist. The gate's evidence is recorded in the brain before the flip; a history rewrite, if ruled necessary, happens before the flip or not at all."
-status: "Proposed"
+status: "Accepted → ADR-0054 (ratified 2026-07-11)"
 timestamp: 2026-07-11
 ---
 
 # RFC-026: Pre-public disclosure gate
 
-- **Status:** Proposed
+- **Status:** Accepted → [ADR-0054](../adr/ADR-0054-pre-public-disclosure-gate.md) (ratified 2026-07-11)
 - **Date:** 2026-07-11
 - **Deciders:** operator + Claude
 - **Relates:** [RFC-025](RFC-025-going-public-release-engineering.md) (umbrella, W0 — this RFC

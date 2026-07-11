@@ -2,13 +2,13 @@
 type: RFC
 title: "RFC-027: Public CI and community hygiene — the test suite becomes a required Brake; the contribution surface gets documented"
 description: "CI currently proves only the review gate; the 265-test suite never runs on a PR. This RFC adds test.yml as a required check (Node 20/22/24, SHA-pinned actions), dependabot, and the hygiene files a public repo is judged by — with CONTRIBUTING.md stating the house rules a stranger cannot guess: maintainers run the review gate on external PRs, ADR/RFC-first, the L4 DoD, and the no-AI-attribution commit rule."
-status: "Proposed"
+status: "Accepted → ADR-0055 (ratified 2026-07-11)"
 timestamp: 2026-07-11
 ---
 
 # RFC-027: Public CI and community hygiene
 
-- **Status:** Proposed
+- **Status:** Accepted → [ADR-0055](../adr/ADR-0055-public-ci-and-community-hygiene.md) (ratified 2026-07-11)
 - **Date:** 2026-07-11
 - **Deciders:** operator + Claude
 - **Relates:** [RFC-025](RFC-025-going-public-release-engineering.md) (umbrella, W1);
