@@ -1,5 +1,5 @@
 {
-  "name": "@vilosource/vfkb",
+  "name": "@viloforge/vfkb",
   "version": "0.2.0",
   "description": "ViloForge KnowledgeBase (vfkb) — per-project knowledge substrate for the ViloForge software factory. Greenfield TypeScript.",
   "type": "module",

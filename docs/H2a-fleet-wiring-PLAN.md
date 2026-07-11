@@ -42,7 +42,7 @@ Vendor the built `dist/` + its one runtime dep (`@modelcontextprotocol/sdk`) int
 ```dockerfile
 COPY --from=vfkb-dist dist/ /opt/vfkb/dist/   # or COPY a vendored dir + npm i --omit=dev
 ```
-*(Decision in §7: vendor vs `npm i -g @vilosource/vfkb`.)*
+*(Decision in §7: vendor vs `npm i -g @viloforge/vfkb`.)*
 
 **2.2 Brain location** (`entrypoint.sh`, after the existing clone to `$WORKDIR`):
 `export VFKB_DIR="$WORKDIR/.vfkb"`. If absent (greenfield / not-yet-onboarded), create a
@@ -117,5 +117,5 @@ Then repeat for the executor/judge controller path.
 1. **Pi face for H2a:** stdio MCP (uniform, faster) — *recommended* — vs the D7c in-process
    TS extension (full parity, more work) now.
 2. **Engine packaging:** vendor the built `dist` into the image (no registry dep,
-   matches the spike) — *recommended* — vs publish `@vilosource/vfkb` and `npm i -g`.
+   matches the spike) — *recommended* — vs publish `@viloforge/vfkb` and `npm i -g`.
 3. **Start role:** architect pod first (interactive, easiest to observe) — *recommended*.

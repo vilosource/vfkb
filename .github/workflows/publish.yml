@@ -112,11 +112,24 @@ jobs:
           grep -q "NPM-INSTALL-PATH: GREEN (contrast)" /tmp/install-path-contrast.log
 
   # ---------------------------------------------------------------------------
-  # Job 2: publish. Trusted publishing via OIDC -- no NPM_TOKEN secret anywhere
-  # in this workflow. `id-token: write` is what lets the runner mint the OIDC
-  # token npm's registry exchanges for a short-lived publish credential;
-  # provenance attestation is generated automatically under trusted publishing
-  # (no extra flag needed).
+  # Job 2: publish. Designed for trusted publishing via OIDC -- `id-token:
+  # write` is what lets the runner mint the OIDC token npm's registry
+  # exchanges for a short-lived publish credential, and under it provenance
+  # attestation is generated automatically (no extra flag needed).
+  #
+  # ONE-TIME BOOTSTRAP OVERLAY (temporary, remove after -- tracked in the brain
+  # handoff): Trusted Publishing can only be configured on a package that
+  # already exists on npmjs, and @viloforge/vfkb has never been published
+  # (operator ruling 2026-07-11, npm-scope rename). So the FIRST publish uses
+  # a granular npm access token in the `NPM_TOKEN` repo secret, wired via
+  # `NODE_AUTH_TOKEN` on the publish step below, with `--provenance` passed
+  # explicitly (a token-authenticated publish does not imply provenance the
+  # way OIDC does). Once this first publish lands, configure Trusted
+  # Publishing on the npmjs package settings, delete the `NPM_TOKEN` secret,
+  # drop the `env:`/`--provenance` overlay from the publish step, and this
+  # job reverts to pure OIDC as originally designed. The `id-token: write`
+  # permission stays either way -- it is harmless under the token path and
+  # required again once OIDC is restored.
   #
   # Node 24 / npm version: OIDC trusted publishing requires npm >= 11.5.1
   # (Node.js 24+ recommended) per actions/setup-node's documented
@@ -162,23 +175,25 @@ jobs:
 
       - run: npm ci
 
-      - name: Publish (OIDC trusted publishing -- no token; provenance automatic)
-        run: npm publish --access public
+      - name: Publish (one-time bootstrap: granular token secret NPM_TOKEN until Trusted Publishing is configured on the published package; remove after -- tracked in the brain handoff)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public --provenance
 
       - name: Assert publication -- version visible on the real registry
         run: |
           set -o pipefail
           VERSION="${{ needs.prove.outputs.version }}"
-          npm view "@vilosource/vfkb@$VERSION" version --registry https://registry.npmjs.org | tee /tmp/view-version.log
+          npm view "@viloforge/vfkb@$VERSION" version --registry https://registry.npmjs.org | tee /tmp/view-version.log
           grep -qx "$VERSION" /tmp/view-version.log
 
       - name: Check provenance attestation (observed honestly; non-blocking)
         run: |
           VERSION="${{ needs.prove.outputs.version }}"
-          ATT=$(npm view "@vilosource/vfkb@$VERSION" --json --registry https://registry.npmjs.org | jq '.dist.attestations')
+          ATT=$(npm view "@viloforge/vfkb@$VERSION" --json --registry https://registry.npmjs.org | jq '.dist.attestations')
           echo "dist.attestations: $ATT"
           if [ "$ATT" = "null" ]; then
-            echo "::warning::npm view reports no .dist.attestations for @vilosource/vfkb@$VERSION -- provenance attestation may not have been attached under trusted publishing. Recording this honestly (ADR-0051) rather than failing the job on it alone; needs a human look if it recurs."
+            echo "::warning::npm view reports no .dist.attestations for @viloforge/vfkb@$VERSION -- provenance attestation may not have been attached under trusted publishing. Recording this honestly (ADR-0051) rather than failing the job on it alone; needs a human look if it recurs."
           fi
 
   # ---------------------------------------------------------------------------
@@ -197,7 +212,7 @@ jobs:
           node-version: 20
 
       - name: Install the just-published version from the real registry
-        run: npm i -g "@vilosource/vfkb@${{ needs.publish.outputs.version }}"
+        run: npm i -g "@viloforge/vfkb@${{ needs.publish.outputs.version }}"
 
       - name: Content-assert -- vfkb --version/-v/version equal the published version
         run: |

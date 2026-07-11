@@ -232,12 +232,12 @@ export interface DoctorOpts {
  *
  * Axis-(b) wording discipline (the meta-lesson behind this whole ADR): the
  * healthy line says exactly what was compared — the RUNNING CLI's version
- * against the npmjs `latest` dist-tag for @vilosource/vfkb — and nothing more.
+ * against the npmjs `latest` dist-tag for @viloforge/vfkb — and nothing more.
  * Never "you are up to date". A unit test pins this with a positive regex (the
  * comparison claim) and a negative regex (forbidden overclaim phrases).
  */
-const NPM_PACKAGE_NAME = '@vilosource/vfkb';
-const NPM_REGISTRY_URL = 'https://registry.npmjs.org/@vilosource%2Fvfkb/latest';
+const NPM_PACKAGE_NAME = '@viloforge/vfkb';
+const NPM_REGISTRY_URL = 'https://registry.npmjs.org/@viloforge%2Fvfkb/latest';
 const NPM_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const NPM_CACHE_FILE = 'npm-currency-cache.json';
 

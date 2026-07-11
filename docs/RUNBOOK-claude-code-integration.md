@@ -62,7 +62,7 @@ which vfkb vfkb-mcp                               # verify both resolve
 
 *(Verified: `npm link` creates working `vfkb`/`vfkb-mcp` bins; `vfkb map` runs against a brain.)*
 In your project, the MCP command is **`vfkb-mcp`** and hook commands are **`vfkb hook …`** (§4–§5,
-Mode B column). Undo with `npm unlink -g @vilosource/vfkb`.
+Mode B column). Undo with `npm unlink -g @viloforge/vfkb`.
 
 ### Mode C — absolute paths to a clone's `dist/` (no global install)
 Build a clone and reference its `dist/` by **absolute path**. Node resolves vfkb's own
@@ -77,11 +77,11 @@ cd /path/to/vfkb && npm run build
 > to vfkb's real repo root and write files there (observed gotcha). Absolute paths leave no breadcrumb.
 
 ### Mode D — npm dependency *(UNVERIFIED — auth-gated)*
-`@vilosource/vfkb` is published to **GitHub Packages** (`npm.pkg.github.com`, per `package.json`
+`@viloforge/vfkb` is published to **GitHub Packages** (`npm.pkg.github.com`, per `package.json`
 `publishConfig`). Installing it needs a GitHub Packages auth token + `.npmrc`. **This path was not
 verified in this runbook** — treat the following as a sketch, not a tested instruction:
-`npm install @vilosource/vfkb` → bins at `node_modules/.bin/vfkb` / server at
-`node_modules/@vilosource/vfkb/dist/mcp-server.js`. Verify before relying on it.
+`npm install @viloforge/vfkb` → bins at `node_modules/.bin/vfkb` / server at
+`node_modules/@viloforge/vfkb/dist/mcp-server.js`. Verify before relying on it.
 
 > **Off-VPN caveat (this machine):** `npm install` here targets a corporate npm mirror →
 > `ENOTFOUND` off-VPN. vfkb itself only needs `npm run build` + its two
