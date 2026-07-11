@@ -1,0 +1,212 @@
+name: publish
+
+# ============================================================================
+# npm publish workflow (ADR-0057 steps 3-4 / RFC-029)
+# ----------------------------------------------------------------------------
+# WHY TWO TRIGGERS (review finding M3 on PR #120, reviews/79a68ef....json):
+#
+#   release-please (.github/workflows/release-please.yml, ADR-0056) creates
+#   the vX.Y.Z tag and the GitHub Release using its own GITHUB_TOKEN. GitHub
+#   Actions does NOT fire workflow triggers for tags/releases/PRs created by
+#   the GITHUB_TOKEN of another workflow run -- the suppression is on the
+#   CREATION side. That means an `on: release: published` (or `on: push:
+#   tags:` reacting to release-please's own tag push) trigger CANNOT fire for
+#   a release-please-created release, no matter how this workflow is written.
+#   There is no way to make that trigger work here without handing
+#   release-please a PAT/App token to stand in for GITHUB_TOKEN -- which
+#   would reintroduce exactly the standing-token class of risk that trusted
+#   publishing (this workflow's whole point) exists to remove. Self-defeating,
+#   so it is not done.
+#
+#   So this workflow's triggers are:
+#     - workflow_dispatch (PRIMARY, what actually fires): the operator runs
+#       this by hand right after release-please's tag + GitHub Release land,
+#       passing the tag as input. This is the real trigger for the normal
+#       release-please path.
+#     - push: tags: ['v*'] (harmless redundancy, not the load-bearing path):
+#       fires only for a tag pushed by something OTHER than a GITHUB_TOKEN --
+#       e.g. a human pushing a tag directly, or a future automation change
+#       that authenticates as a real user/App. Costs nothing to keep and
+#       covers that case; it must never be assumed sufficient on its own.
+# ============================================================================
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish (e.g. v0.2.0)'
+        required: true
+        type: string
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Job 1: prove. Gates everything downstream. Re-runs the committed install-
+  # path proof (scenarios/npm-install-path.mjs, ADR-0057 step 2) against the
+  # RELEASED ref, both arms, and fails unless the captured stdout contains the
+  # exact GREEN markers -- a content assertion, never a bare exit code
+  # (ADR-0051's quiet-success rule).
+  # ---------------------------------------------------------------------------
+  prove:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - id: resolve
+        name: Resolve release tag + version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${{ github.ref_name }}"
+          fi
+          case "$TAG" in
+            v*) VERSION="${TAG#v}" ;;
+            *)
+              echo "::error::tag '$TAG' does not start with 'v' -- refusing to guess a version"
+              exit 1
+              ;;
+          esac
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "resolved tag=$TAG version=$VERSION"
+
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ steps.resolve.outputs.tag }}
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install-path proof -- fresh arm (must be GREEN)
+        run: |
+          set -o pipefail
+          node scenarios/npm-install-path.mjs | tee /tmp/install-path-fresh.log
+          grep -q "NPM-INSTALL-PATH: GREEN (fresh)" /tmp/install-path-fresh.log
+
+      - name: Install-path proof -- contrast arm (must-fail arm, must also be GREEN)
+        run: |
+          set -o pipefail
+          node scenarios/npm-install-path.mjs --contrast | tee /tmp/install-path-contrast.log
+          grep -q "NPM-INSTALL-PATH: GREEN (contrast)" /tmp/install-path-contrast.log
+
+  # ---------------------------------------------------------------------------
+  # Job 2: publish. Trusted publishing via OIDC -- no NPM_TOKEN secret anywhere
+  # in this workflow. `id-token: write` is what lets the runner mint the OIDC
+  # token npm's registry exchanges for a short-lived publish credential;
+  # provenance attestation is generated automatically under trusted publishing
+  # (no extra flag needed).
+  #
+  # Node 24 / npm version: OIDC trusted publishing requires npm >= 11.5.1
+  # (Node.js 24+ recommended) per actions/setup-node's documented
+  # prerequisites for "Publishing to npm with Trusted Publisher (OIDC)"
+  # (docs/advanced-usage.md in actions/setup-node, fetched 2026-07-11). Node
+  # 24's bundled npm satisfies this, but the version is printed below so it is
+  # OBSERVED on every run, not assumed once and forgotten.
+  # ---------------------------------------------------------------------------
+  publish:
+    needs: prove
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      version: ${{ needs.prove.outputs.version }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ needs.prove.outputs.tag }}
+
+      - name: Cross-check package.json version against the release tag
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION="${{ needs.prove.outputs.version }}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::package.json version ($PKG_VERSION) at ref ${{ needs.prove.outputs.tag }} does not match the tag's version ($TAG_VERSION) -- refusing to publish"
+            exit 1
+          fi
+          echo "package.json version matches the release tag: $PKG_VERSION"
+
+      # No `cache: npm` here on purpose: setup-node's OIDC guidance flags npm
+      # caching in a trusted-publishing job as an avoidable place for
+      # short-lived publish credentials to end up in cache artifacts. This job
+      # publishes once per release; caching buys nothing worth that.
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Record npm version (observed, not assumed)
+        run: npm --version
+
+      - run: npm ci
+
+      - name: Publish (OIDC trusted publishing -- no token; provenance automatic)
+        run: npm publish --access public
+
+      - name: Assert publication -- version visible on the real registry
+        run: |
+          set -o pipefail
+          VERSION="${{ needs.prove.outputs.version }}"
+          npm view "@vilosource/vfkb@$VERSION" version --registry https://registry.npmjs.org | tee /tmp/view-version.log
+          grep -qx "$VERSION" /tmp/view-version.log
+
+      - name: Check provenance attestation (observed honestly; non-blocking)
+        run: |
+          VERSION="${{ needs.prove.outputs.version }}"
+          ATT=$(npm view "@vilosource/vfkb@$VERSION" --json --registry https://registry.npmjs.org | jq '.dist.attestations')
+          echo "dist.attestations: $ATT"
+          if [ "$ATT" = "null" ]; then
+            echo "::warning::npm view reports no .dist.attestations for @vilosource/vfkb@$VERSION -- provenance attestation may not have been attached under trusted publishing. Recording this honestly (ADR-0051) rather than failing the job on it alone; needs a human look if it recurs."
+          fi
+
+  # ---------------------------------------------------------------------------
+  # Job 3: canary. A FRESH runner with NO repo checkout at all -- the point is
+  # to prove the channel exactly as a real user reaches it: install from the
+  # real registry, nothing local, nothing cached from the jobs above. Mirrors
+  # scenarios/npm-install-path.mjs's fresh-arm content assertions (ADR-0057
+  # step 4).
+  # ---------------------------------------------------------------------------
+  canary:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 20
+
+      - name: Install the just-published version from the real registry
+        run: npm i -g "@vilosource/vfkb@${{ needs.publish.outputs.version }}"
+
+      - name: Content-assert -- vfkb --version equals the published version
+        run: |
+          set -o pipefail
+          OUT=$(vfkb --version)
+          echo "vfkb --version -> $OUT"
+          test "$OUT" = "${{ needs.publish.outputs.version }}"
+
+      - name: Content-assert -- add/list round-trips a sentinel fact
+        run: |
+          set -o pipefail
+          export VFKB_DATA_DIR="$RUNNER_TEMP/.vfkb"
+          vfkb add fact "canary sentinel CN-9X2" --role human
+          vfkb list | tee /tmp/canary-list.log
+          grep -q "canary sentinel CN-9X2" /tmp/canary-list.log
+
+      - name: Content-assert -- vfkb-mcp completes an MCP initialize handshake
+        run: |
+          set -o pipefail
+          REQ='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"vfkb-canary","version":"1.0.0"}}}'
+          printf '%s\n' "$REQ" | timeout 5 vfkb-mcp > /tmp/canary-mcp.log 2>&1 || true
+          cat /tmp/canary-mcp.log
+          grep -q '"result"' /tmp/canary-mcp.log
+          grep -Eo '"serverInfo"[[:space:]]*:[[:space:]]*\{[^}]*\}' /tmp/canary-mcp.log > /tmp/canary-serverinfo.log
+          grep -q '"name"[[:space:]]*:[[:space:]]*"vfkb"' /tmp/canary-serverinfo.log
+          grep -q "\"version\"[[:space:]]*:[[:space:]]*\"${{ needs.publish.outputs.version }}\"" /tmp/canary-serverinfo.log
