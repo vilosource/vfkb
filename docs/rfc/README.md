@@ -54,6 +54,7 @@ role-attributed; options under discussion live in the RFC's Decision/text.
 | [RFC-028](RFC-028-versioning-and-release-automation.md) | Versioning + release automation — release-please; the release is a reviewable PR; Conventional Commits load-bearing; 0.x semver | Accepted → [ADR-0056](../adr/ADR-0056-versioning-and-release-automation.md) |
 | [RFC-029](RFC-029-npm-delivery-channel.md) | npm delivery channel — `vfkb --version`, pack-based install proof (RED first, contrast arm), trusted publishing + provenance, post-publish canary before the docs claim | Accepted → [ADR-0057](../adr/ADR-0057-npm-delivery-channel.md) |
 | [RFC-030](RFC-030-update-awareness.md) | Update awareness — GitHub Releases + opt-in `doctor --check-remote` vs npmjs latest; offline-silent, cached, axis-(b) wording; no phone-home | Accepted → [ADR-0058](../adr/ADR-0058-update-awareness.md) |
+| [RFC-031](RFC-031-branch-aware-brain-visibility.md) | Branch-aware brain visibility — git-union recall (worktrees + local branches, provenance-labeled), dangling-edge supersede/contradicts, doctor checks; the read-side twin of ADR-0041 | Proposed |
 
 RFC-014..019 are the first batch of [ADR-0036](../adr/ADR-0036-v2-two-branch-strategy.md)'s
 v2 fork (`docs/V2-VISION.md`) — all accepted 2026-07-06 (→ ADR-0039..0044); each **builds on the
