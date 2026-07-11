@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.1](https://github.com/vilosource/vfkb/compare/v0.2.0...v0.2.1) (2026-07-11)
+
+
+### Bug Fixes
+
+* **pkg:** npm scope → @viloforge/vfkb + first-publish token bootstrap (ADR-0057) ([5cd46b6](https://github.com/vilosource/vfkb/commit/5cd46b6298c3daa4cb25723af96b3b4c1277886d))
+* **pkg:** rename npm package to @viloforge/vfkb; one-time token bootstrap for first publish ([fc507ce](https://github.com/vilosource/vfkb/commit/fc507ce326acbb08f58813bc093714b9e1050a6f))
+
+
+### Documentation
+
+* runbook registry claim — npmjs, first publish pending (review minor-2, corrected) ([dd2bb0d](https://github.com/vilosource/vfkb/commit/dd2bb0d748eaa8f35dfcc1c03b8b62133fc903e5))
+
 ## [0.2.0](https://github.com/vilosource/vfkb/compare/v0.1.0...v0.2.0) (2026-07-11)
 
 
