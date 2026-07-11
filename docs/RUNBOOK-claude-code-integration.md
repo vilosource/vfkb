@@ -83,8 +83,8 @@ verified in this runbook** — treat the following as a sketch, not a tested ins
 `npm install @vilosource/vfkb` → bins at `node_modules/.bin/vfkb` / server at
 `node_modules/@vilosource/vfkb/dist/mcp-server.js`. Verify before relying on it.
 
-> **Off-VPN caveat (this machine):** `npm install` here targets the corporate Nexus
-> (a corporate npm mirror) → `ENOTFOUND` off-VPN. vfkb itself only needs `npm run build` + its two
+> **Off-VPN caveat (this machine):** `npm install` here targets a corporate npm mirror →
+> `ENOTFOUND` off-VPN. vfkb itself only needs `npm run build` + its two
 > deps (`@modelcontextprotocol/sdk`, `zod`); `node_modules` was bootstrapped by copying from another
 > clone. On VPN a normal install works.
 
