@@ -34,7 +34,8 @@ import { decideStop, gatherStopContext } from './stop-reminder.js';
 import { save } from './git.js';
 import { runSessionEnd } from './session-end.js';
 import { initProject, approvalNotice } from './init.js';
-import { runDoctor, renderDoctor } from './doctor.js';
+import { runDoctor, renderDoctor, checkNpmCurrency } from './doctor.js';
+import { ENGINE_VERSION } from './version.js';
 import { fromMykb, fromAdr, fromMarkdown, resolveMykbArea } from './import.js';
 import { parseArgs, flagValue, flagList, flagInt, UsageError } from './args.js';
 import { ENTRY_TYPES, DECISION_STATUSES } from './types.js';
@@ -215,16 +216,20 @@ async function dispatch() {
   }
 
   // doctor: FR-4 (ADR-0030) — diagnose brain↔engine compat + wiring health.
+  // --check-remote (ADR-0058/RFC-030): opt-in npm currency line; plain `doctor`
+  // stays fully offline (no fetch call, byte-identical output to pre-ADR-0058).
   if (cmd === 'doctor') {
-    const pd = parseArgs('doctor', argsOf(sub, rest), {});
+    const pd = parseArgs('doctor', argsOf(sub, rest), { 'check-remote': 'boolean' });
     if (pd.positionals.length > 0) {
       throw new UsageError(`doctor: unexpected argument '${pd.positionals[0]}'`);
     }
-    const report = runDoctor({
-      root: process.cwd(),
-      brainDir: process.env.VFKB_DATA_DIR || process.env.VFKB_DIR || '.vfkb',
-      env: process.env,
-    });
+    const brainDir = process.env.VFKB_DATA_DIR || process.env.VFKB_DIR || '.vfkb';
+    const report = runDoctor({ root: process.cwd(), brainDir, env: process.env });
+    if (pd.flags.get('check-remote') === true) {
+      const npm = await checkNpmCurrency({ brainDir, installedVersion: ENGINE_VERSION });
+      report.checks.push({ name: 'npm currency', status: npm.status, detail: npm.detail });
+      report.ok = !report.checks.some((c) => c.status === 'fail');
+    }
     process.stdout.write(renderDoctor(report) + '\n');
     if (!report.ok) process.exit(1);
     return;
