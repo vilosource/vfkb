@@ -48,7 +48,12 @@ role-attributed; options under discussion live in the RFC's Decision/text.
 | [RFC-022](RFC-022-brain-export-projections.md) | Brain export projections (Track 9 Q3) — `vfkb export agents-md` + `vfkb export okf`, one deterministic engine, ADR-0046 ratchet as the publish filter | Accepted → [ADR-0047](../adr/ADR-0047-brain-export-projections.md) — built 2026-07-08, L4s DEMONSTRATED |
 | [RFC-023](RFC-023-session-start-briefing.md) | Session-start briefing — deterministic handoff pinning + an on-demand, Haiku-pinned briefing skill | Accepted → [ADR-0049](../adr/ADR-0049-session-start-handoff-pinning.md) (ratified 2026-07-09) |
 | [RFC-024](RFC-024-staleness-detection-and-delivery-honesty.md) | Staleness detection and delivery honesty — doctor stale-clone check (§1 built), release-gate Brakes, install-proof gated on upstream `claude plugin tag` | Accepted → [ADR-0051](../adr/ADR-0051-delivery-honesty.md) (ratified 2026-07-09) |
-| [RFC-025](RFC-025-going-public-release-engineering.md) | Going public — pre-public audit gate, test CI + hygiene files, release-please versioning, npm trusted publishing behind an npm-channel install L4, opt-in update awareness | Proposed |
+| [RFC-025](RFC-025-going-public-release-engineering.md) | Going public (umbrella) — sequencing + cross-cutting rationale for the five workstreams below (RFC-026..030) | Proposed |
+| [RFC-026](RFC-026-pre-public-disclosure-gate.md) | Pre-public disclosure gate — full-history sweep, explicit exposure rulings, flip-day hardening; gates the visibility flip | Proposed |
+| [RFC-027](RFC-027-public-ci-and-community-hygiene.md) | Public CI + community hygiene — test.yml as a required Brake (Node 20/22/24), dependabot, CONTRIBUTING/SECURITY/CoC/templates/CODEOWNERS | Proposed |
+| [RFC-028](RFC-028-versioning-and-release-automation.md) | Versioning + release automation — release-please; the release is a reviewable PR; Conventional Commits load-bearing; 0.x semver | Proposed |
+| [RFC-029](RFC-029-npm-delivery-channel.md) | npm delivery channel — `vfkb --version`, pack-based install proof (RED first, contrast arm), trusted publishing + provenance, post-publish canary before the docs claim | Proposed |
+| [RFC-030](RFC-030-update-awareness.md) | Update awareness — GitHub Releases + opt-in `doctor --check-remote` vs npmjs latest; offline-silent, cached, axis-(b) wording; no phone-home | Proposed |
 
 RFC-014..019 are the first batch of [ADR-0036](../adr/ADR-0036-v2-two-branch-strategy.md)'s
 v2 fork (`docs/V2-VISION.md`) — all accepted 2026-07-06 (→ ADR-0039..0044); each **builds on the
