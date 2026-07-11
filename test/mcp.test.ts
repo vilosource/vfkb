@@ -80,6 +80,29 @@ describe('tools/call round-trips through the real engine', () => {
     expect(JSON.parse(callText(get)).text).toContain('Why: zero-dep portable engine');
   });
 
+  // Issue #95 instance 5: kb_add had NO way to attach a link target — a type=link
+  // added via MCP recorded a link that points nowhere, silently (gotcha 80b214ec3a4f).
+  it('kb_add type=link accepts `path` and folds it into the text', async () => {
+    const add = await client.callTool({
+      name: 'kb_add',
+      arguments: { type: 'link', text: 'ADR-0051 delivery honesty', path: 'docs/adr/ADR-0051-delivery-is-unproven.md' },
+    });
+    const id = callText(add).split(' ')[1];
+    const get = await client.callTool({ name: 'kb_get', arguments: { id } });
+    expect(JSON.parse(callText(get)).text).toBe(
+      'ADR-0051 delivery honesty → docs/adr/ADR-0051-delivery-is-unproven.md',
+    );
+  });
+
+  it('kb_add rejects `path` on non-link types instead of silently dropping it', async () => {
+    const r = await client.callTool({
+      name: 'kb_add',
+      arguments: { type: 'fact', text: 'not a link', path: 'docs/x.md' },
+    });
+    expect((r as { isError?: boolean }).isError).toBe(true);
+    expect(callText(r)).toMatch(/only valid with type=link/);
+  });
+
   it('kb_map reports topology', async () => {
     const map = await client.callTool({ name: 'kb_map', arguments: {} });
     expect(callText(map)).toContain('entries');

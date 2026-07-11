@@ -193,6 +193,13 @@ server.registerTool(
       text: z.string(),
       why: z.string().optional().describe('rationale; stored structurally AND folded into the text as a "Why: …" line (esp. for decisions)'),
       tags: z.string().optional().describe('comma-separated'),
+      path: z
+        .string()
+        .optional()
+        .describe(
+          'link target (path or URL) for type=link — folded into the text as "<text> → <path>" ' +
+            '(link entries have no structural target field); rejected for other types',
+        ),
       contradicts: z.string().optional().describe('comma-separated ids of entries this one contradicts (structural reference, ADR-0042)'),
       role: ROLE.optional().describe('author role; defaults to executor (agent)'),
       status: STATUS.optional().describe('decision family only'),
@@ -200,7 +207,11 @@ server.registerTool(
     },
   },
   async (a) => {
-    const e = addEntry(a.type, a.text, {
+    if (a.path !== undefined && a.type !== 'link') {
+      throw new Error(`kb_add: 'path' is only valid with type=link (got type=${a.type})`);
+    }
+    const body = a.path !== undefined ? `${a.text.trim()} → ${a.path.trim()}` : a.text;
+    const e = addEntry(a.type, body, {
       role: envRole() ?? a.role ?? 'executor',
       why: a.why,
       tags: tags(a.tags),
