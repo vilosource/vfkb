@@ -32,9 +32,9 @@ each could be ratified and built independently.
 
 1. The going-public effort is **five workstreams, each its own accepted decision** (ADR-0054..
    0058), built as independent PR chains.
-2. **Build order: W1 → W2 → W3 → W4** (ADR-0055 → 0056 → 0057 → 0058), each consuming the
-   previous one's output (required test check → release tag → published package → currency
-   check against it). **W0 (ADR-0054) runs in parallel, operator-paced, and is the only
+2. **Build order: W1 → W2 → W3 → W4** (ADR-0055 → 0056 → 0057 → 0058). W1 is independent and
+   goes first as the floor; W2→W3→W4 form the real dependency chain (release tag → published
+   package → currency check against it). **W0 (ADR-0054) runs in parallel, operator-paced, and is the only
    workstream that gates the visibility flip** — the repo may be fully release-ready and still
    private until the audit closes.
 3. House constraints bind all five: deterministic Brakes over prose, delivery honesty
