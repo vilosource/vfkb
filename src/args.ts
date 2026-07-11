@@ -12,6 +12,8 @@ export type FlagKind =
 export type FlagSpec = Readonly<Record<string, FlagKind>>;
 
 export interface ParsedArgs {
+  /** The verb being parsed — carried for error messages in the flag helpers. */
+  verb: string;
   /** Non-flag args in order (verb text, ids, project names …). */
   positionals: string[];
   flags: Map<string, string | true>;
@@ -55,7 +57,7 @@ export function parseArgs(verb: string, args: string[], spec: FlagSpec): ParsedA
     flags.set(name, next);
     i++;
   }
-  return { positionals, flags };
+  return { verb, positionals, flags };
 }
 
 /** String value of a flag, if given with one. */
@@ -64,19 +66,25 @@ export function flagValue(p: ParsedArgs, name: string): string | undefined {
   return typeof v === 'string' ? v : undefined;
 }
 
-/** Comma-separated flag → trimmed non-empty list (undefined when absent). */
+/** Comma-separated flag → trimmed non-empty list (undefined when absent).
+ *  A given-but-empty value (--tag "" / --tag ,,,) ERRORS — it would otherwise
+ *  silently mean "no filter" on list and "untagged" on add (the #95 class). */
 export function flagList(p: ParsedArgs, name: string): string[] | undefined {
   const v = flagValue(p, name);
   if (v === undefined) return undefined;
-  return v.split(',').map((t) => t.trim()).filter(Boolean);
+  const items = v.split(',').map((t) => t.trim()).filter(Boolean);
+  if (items.length === 0) {
+    throw new UsageError(`flag --${name} for '${p.verb}' must be a non-empty comma-separated list (got '${v}')`);
+  }
+  return items;
 }
 
 /** Positive-integer flag; errors on anything else (silent NaN was the old behavior). */
-export function flagInt(p: ParsedArgs, verb: string, name: string): number | undefined {
+export function flagInt(p: ParsedArgs, name: string): number | undefined {
   const v = flagValue(p, name);
   if (v === undefined) return undefined;
   if (!/^\d+$/.test(v) || Number(v) < 1) {
-    throw new UsageError(`flag --${name} for '${verb}' must be a positive integer (got '${v}')`);
+    throw new UsageError(`flag --${name} for '${p.verb}' must be a positive integer (got '${v}')`);
   }
   return Number(v);
 }

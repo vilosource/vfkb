@@ -103,6 +103,15 @@ describe('tools/call round-trips through the real engine', () => {
     expect(callText(r)).toMatch(/only valid with type=link/);
   });
 
+  it('kb_add rejects an empty `path` — a blank target is the pointer-to-nowhere again', async () => {
+    const r = await client.callTool({
+      name: 'kb_add',
+      arguments: { type: 'link', text: 'blank target', path: '  ' },
+    });
+    expect((r as { isError?: boolean }).isError).toBe(true);
+    expect(callText(r)).toMatch(/non-empty path or URL/);
+  });
+
   it('kb_map reports topology', async () => {
     const map = await client.callTool({ name: 'kb_map', arguments: {} });
     expect(callText(map)).toContain('entries');

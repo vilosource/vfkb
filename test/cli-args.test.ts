@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { parseArgs, flagInt, UsageError } from '../src/args.js';
+import { parseArgs, flagInt, flagList, UsageError } from '../src/args.js';
 
 // Issue #95 — the silent-flag family. Every instance below was hit for real
 // against the live brain; each test is the deterministic guard for one of them
@@ -83,11 +83,18 @@ describe('parseArgs — the strict parser', () => {
 
   it('flagInt rejects non-integers and non-positives', () => {
     const bad = parseArgs('list', ['--limit', 'abc'], { limit: 'value' });
-    expect(() => flagInt(bad, 'list', 'limit')).toThrow(/positive integer/);
+    expect(() => flagInt(bad, 'limit')).toThrow(/positive integer/);
     const zero = parseArgs('list', ['--limit', '0'], { limit: 'value' });
-    expect(() => flagInt(zero, 'list', 'limit')).toThrow(/positive integer/);
+    expect(() => flagInt(zero, 'limit')).toThrow(/positive integer/);
     const ok = parseArgs('list', ['--limit', '3'], { limit: 'value' });
-    expect(flagInt(ok, 'list', 'limit')).toBe(3);
+    expect(flagInt(ok, 'limit')).toBe(3);
+  });
+
+  it('flagList rejects a given-but-empty value (empty --tag meant "no filter" silently)', () => {
+    const empty = parseArgs('list', ['--tag', ''], { tag: 'value' });
+    expect(() => flagList(empty, 'tag')).toThrow(/non-empty comma-separated list/);
+    const commas = parseArgs('list', ['--tag', ',,,'], { tag: 'value' });
+    expect(() => flagList(commas, 'tag')).toThrow(/non-empty comma-separated list/);
   });
 });
 
@@ -125,10 +132,12 @@ describe('vfkb list — filters exist and unknown flags error (instance 1)', () 
     expect(r.out).toBe(''); // no silent full dump
   });
 
-  it('errors on stray positionals, bad --type, and bad --limit', () => {
+  it('errors on stray positionals, bad --type, bad --status, empty --tag, and bad --limit', () => {
     const b = fresh();
     expect(run(b, ['list', 'oops']).code).toBe(1);
     expect(run(b, ['list', '--type', 'nope']).err).toMatch(/unknown entry type 'nope'/);
+    expect(run(b, ['list', '--status', 'acepted']).err).toMatch(/unknown --status 'acepted'/);
+    expect(run(b, ['list', '--tag', '']).err).toMatch(/non-empty comma-separated list/);
     expect(run(b, ['list', '--limit', 'abc']).err).toMatch(/positive integer/);
   });
 });

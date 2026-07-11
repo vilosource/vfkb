@@ -37,7 +37,7 @@ import { initProject, approvalNotice } from './init.js';
 import { runDoctor, renderDoctor } from './doctor.js';
 import { fromMykb, fromAdr, fromMarkdown, resolveMykbArea } from './import.js';
 import { parseArgs, flagValue, flagList, flagInt, UsageError } from './args.js';
-import { ENTRY_TYPES } from './types.js';
+import { ENTRY_TYPES, DECISION_STATUSES } from './types.js';
 import type { AuthorRole, EntryType, Zone, DecisionStatus } from './types.js';
 
 function readStdin(): Promise<string> {
@@ -226,7 +226,10 @@ async function dispatch() {
     if (type) entryType('list --type', type);
     const tags = flagList(p, 'tag');
     const status = flagValue(p, 'status');
-    const limit = flagInt(p, 'list', 'limit');
+    if (status && !(DECISION_STATUSES as readonly string[]).includes(status)) {
+      throw new UsageError(`list: unknown --status '${status}' — expected ${DECISION_STATUSES.join('|')}`);
+    }
+    const limit = flagInt(p, 'limit');
     let entries = readAll();
     if (type) entries = entries.filter((e) => e.type === type);
     if (tags) entries = entries.filter((e) => tags.every((t) => e.tags.includes(t)));
@@ -388,7 +391,7 @@ async function dispatch() {
   if (cmd === 'context-block-naive') {
     const p = parseArgs('context-block-naive', argsOf(sub, rest), { limit: 'value' });
     if (p.positionals.length > 1) throw new UsageError('context-block-naive: at most one [project] argument');
-    const lim = flagInt(p, 'context-block-naive', 'limit');
+    const lim = flagInt(p, 'limit');
     process.stdout.write(renderNaiveDump(p.positionals[0] || defaultProject(), undefined, lim));
     return;
   }
@@ -437,7 +440,7 @@ async function dispatch() {
       tags: flagList(p, 'tag'),
       authorRole: flagValue(p, 'role') as AuthorRole,
       verifiedOnly: p.flags.get('verified') === true,
-      limit: flagInt(p, cmd, 'limit'),
+      limit: flagInt(p, 'limit'),
       includeStale: p.flags.get('stale') === true,
       includeSuperseded: p.flags.get('superseded') === true,
     });
