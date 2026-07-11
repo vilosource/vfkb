@@ -1,0 +1,77 @@
+{
+  "scenario": "npm-install-path",
+  "adr": "ADR-0057",
+  "rfc": "RFC-029",
+  "generated": "2026-07-11T10:54:48.454Z",
+  "container": "node:20",
+  "arms": {
+    "fresh": {
+      "arm": "fresh",
+      "expectedVersion": "0.1.0",
+      "checks": [
+        {
+          "name": "vfkb --version equals package.json version (0.1.0)",
+          "ok": true,
+          "observed": "0.1.0"
+        },
+        {
+          "name": "vfkb -v equals package.json version (0.1.0)",
+          "ok": true,
+          "observed": "0.1.0"
+        },
+        {
+          "name": "vfkb version equals package.json version (0.1.0)",
+          "ok": true,
+          "observed": "0.1.0"
+        },
+        {
+          "name": "vfkb add + vfkb list round-trips the sentinel fact",
+          "ok": true,
+          "observed": "ac48e59387ea\t[fact operator]\tinstall-proof sentinel IP-7Q4\nac48e59387ea\tfact\toperator\tverified\tinstall-proof sentinel IP-7Q4"
+        },
+        {
+          "name": "vfkb-mcp completes an MCP initialize handshake (result + serverInfo.name)",
+          "ok": true,
+          "observed": "vfkb MCP server up (v0.0.0-dev, brain: /root/.vfkb)\n{\"result\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{\"tools\":{\"listChanged\":true}},\"serverInfo\":{\"name\":\"vfkb\",\"version\":\"0.0.0-dev\"}},\"jsonrpc\":\"2.0\",\"id\":1}"
+        }
+      ],
+      "verdict": "GREEN",
+      "verdictLine": "NPM-INSTALL-PATH: GREEN (fresh)",
+      "ts": "2026-07-11T10:54:44.672Z"
+    },
+    "contrast": {
+      "arm": "contrast",
+      "expectedVersion": "0.1.0",
+      "checks": [
+        {
+          "name": "vfkb --version equals package.json version (0.1.0)",
+          "ok": false,
+          "observed": "/run.sh: line 12: vfkb: command not found"
+        },
+        {
+          "name": "vfkb -v equals package.json version (0.1.0)",
+          "ok": false,
+          "observed": "/run.sh: line 16: vfkb: command not found"
+        },
+        {
+          "name": "vfkb version equals package.json version (0.1.0)",
+          "ok": false,
+          "observed": "/run.sh: line 20: vfkb: command not found"
+        },
+        {
+          "name": "vfkb add + vfkb list round-trips the sentinel fact",
+          "ok": false,
+          "observed": "/run.sh: line 25: vfkb: command not found\n/run.sh: line 26: vfkb: command not found"
+        },
+        {
+          "name": "vfkb-mcp completes an MCP initialize handshake (result + serverInfo.name)",
+          "ok": false,
+          "observed": "timeout: failed to run command 'vfkb-mcp': No such file or directory"
+        }
+      ],
+      "verdict": "GREEN",
+      "verdictLine": "NPM-INSTALL-PATH: GREEN (contrast) — broken pack correctly detected as broken",
+      "ts": "2026-07-11T10:54:48.436Z"
+    }
+  }
+}
