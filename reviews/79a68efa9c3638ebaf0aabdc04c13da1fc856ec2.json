@@ -1,0 +1,64 @@
+{
+  "recordVersion": 1,
+  "sha": "79a68efa9c3638ebaf0aabdc04c13da1fc856ec2",
+  "governing": [
+    "docs/adr/ADR-0056-versioning-and-release-automation.md",
+    "docs/rfc/RFC-028-versioning-and-release-automation.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "claude-fable-5", "rounds": 2 },
+  "generated": "2026-07-11T10:55:00Z",
+  "findings": [
+    {
+      "id": "B1",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "repo setting forbade GITHUB_TOKEN from creating PRs — the standing release PR would 422 on first run; fixed: can_approve_pull_request_reviews flipped to true (default token permissions stay read)",
+      "acceptedBy": null
+    },
+    {
+      "id": "B2",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "include-component-in-tag defaults true → tags would be vfkb-v0.2.0, breaking ADR-0056's vX.Y.Z contract and ADR-0057's tag trigger; fixed: include-component-in-tag false, deep-compare verified no other config key changed",
+      "acceptedBy": null
+    },
+    {
+      "id": "M3",
+      "severity": "major",
+      "status": "accepted",
+      "summary": "GITHUB_TOKEN-created resources trigger no workflows: the release PR needs a human close/reopen for required checks, and the tag/release will not fire a downstream publish workflow — documented in PR comment 4945022179; resolution owned by ADR-0057's implementing PR (workflow_dispatch or App/PAT token; note the suppression is on the creation side, so a release:published trigger alone cannot work)",
+      "acceptedBy": null
+    },
+    {
+      "id": "M4",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "permissions omitted issues:write required by the pinned action's contract for labeling — added; no publish-capable permission crept in",
+      "acceptedBy": null
+    },
+    {
+      "id": "M5",
+      "severity": "major",
+      "status": "accepted",
+      "summary": "the ADR's chore-only 0.1.1 canary is impossible (chore is non-releasable) and the first cycle will propose 0.2.0 sweeping full unreleased history — documented as the expected first observable; Release-As is the escape hatch",
+      "acceptedBy": null
+    },
+    {
+      "id": "N6",
+      "severity": "minor",
+      "status": "accepted",
+      "summary": "no repository == guard; forks pushing to their own main get a harmless red run on their side",
+      "acceptedBy": null
+    },
+    {
+      "id": "N7",
+      "severity": "minor",
+      "status": "open",
+      "summary": "graphify-out/graph.json is stale (docs-side nodes missing for recent ADRs/RFCs) — repo hygiene outside this PR",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 7,
+  "ruledOut": [],
+  "verdict": "MERGE"
+}
