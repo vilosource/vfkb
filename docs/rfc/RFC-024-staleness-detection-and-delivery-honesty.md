@@ -2,13 +2,13 @@
 type: RFC
 title: "RFC-024: Staleness detection and delivery honesty — amend ADR-0050's `--plugin-dir` clause, build the detector and its L4, fix the Brake, gate the install proof"
 description: "Plugin v0.4.0 was DEMONSTRATED 3/3 and unreachable. The packaging was fine; the operator's clone was stale, and nothing could tell him. A release-time install L4 would have gone green that day. What is missing is a stale-clone detector in `vfkb doctor` (with its own agent-driven L4), deterministic backstops in the plugin's release gate, and an ADR-0050 that stops calling `--plugin-dir` a real surface. One constitutional question — may an unproven delivery path ship? — was extracted, put to the operator, and ratified: yes, provided the gap is named, with the disclosure enforced by a CI Brake rather than left to prose."
-status: "Proposed"
+status: "Accepted → ADR-0051 (ratified 2026-07-09)"
 timestamp: 2026-07-09
 ---
 
 # RFC-024: Staleness detection and delivery honesty
 
-- **Status:** Proposed
+- **Status:** Accepted → [ADR-0051](../adr/ADR-0051-delivery-honesty.md) (ratified 2026-07-09)
 - **Date:** 2026-07-09
 - **Deciders:** operator + Claude
 - **Relates:**
