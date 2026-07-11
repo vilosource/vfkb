@@ -18,10 +18,14 @@
 //
 // FRESH ARM (default): pack -> clean node:20 -> `npm i -g` the tarball -> assert:
 //   - `vfkb --version` / `-v` / `version` each equal package.json's version
-//   - `vfkb add` + `vfkb list` round-trip a sentinel fact (VFKB_DATA_DIR only,
-//     no `vfkb init` / git needed for this content-only assertion)
+//   - `vfkb init` in a fresh dir scaffolds the consumer wiring: output carries
+//     the created .vfkb/entries.jsonl change line + the approval notice
+//     ("vfkb wired for project …") — pure fs, no git needed
+//   - `vfkb add` + `vfkb list` round-trip a sentinel fact (VFKB_DATA_DIR)
 //   - `vfkb-mcp` completes an MCP `initialize` handshake over stdio: the
-//     response contains `"result"` and `serverInfo.name === "vfkb"`
+//     response contains `"result"`, `serverInfo.name === "vfkb"` AND
+//     `serverInfo.version` equal to package.json's version (the installed
+//     server must know what it is — quiet 0.0.0-dev was observed and fixed)
 //
 // CONTRAST ARM (--contrast, must-fail): same flow, but the tarball is repacked
 // with dist/ stripped (unpack -> rm -rf dist -> repack). `npm i -g` reports
@@ -40,8 +44,10 @@
 //
 // Needs: docker (uses `node:20`, pulled from Docker Hub — no repo mount, no
 // vfkb registry). Does NOT run `npm install` in this repo (node_modules must
-// already be present here; `npm pack`'s prepublishOnly builds dist/ + the
-// bundles from it).
+// already be present here). `npm pack` runs the `prepack` script, which
+// rebuilds dist/ + the bundles from CURRENT src — npm pack does NOT run
+// prepublishOnly (that is publish-only); relying on it packed a stale dist/
+// and produced a demonstrated false GREEN (PR #122 review, F1).
 // ============================================================================
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
@@ -70,8 +76,10 @@ function sh(cmd, args, opts = {}) {
 }
 
 // npm pack in THIS checkout (node_modules already present — no `npm install`
-// here). --pack-destination keeps the tarball out of the repo tree entirely
-// (never modifies the repo). prepublishOnly runs `build` + `build:bundles`.
+// here). --pack-destination keeps the tarball out of the repo tree. npm pack
+// runs the `prepack` lifecycle script (`build` + `build:bundles`), so the
+// tarball always carries dist/ built from CURRENT src — never a stale build
+// (dist/ is regenerated in the repo, which is fine: it's gitignored output).
 function buildTarball(workDir) {
   const out = sh('npm', ['pack', '--pack-destination', workDir], { cwd: REPO }).trim();
   const name = out.split('\n').filter(Boolean).pop().trim();
@@ -119,6 +127,12 @@ end version-short
 sep version-verb
 vfkb version
 end version-verb
+
+mkdir -p /initproof
+sep init
+cd /initproof && vfkb init
+cd /
+end init
 
 mkdir -p /w
 sep roundtrip
@@ -190,12 +204,30 @@ function evaluate(sections) {
   const versionVerb = (sections['version-verb'] || '').trim();
   push(`vfkb version equals package.json version (${PKG_VERSION})`, versionVerb === PKG_VERSION, versionVerb);
 
+  // vfkb init scaffold (ADR-0057 fresh-arm contract names init/add/list):
+  // content-assert the change line for the created brain AND the approval
+  // notice src/init.ts prints (`vfkb wired for project "<basename>"`).
+  const init = sections['init'] || '';
+  const initOk =
+    /created\t\.vfkb\/entries\.jsonl/.test(init) && init.includes('vfkb wired for project "initproof"');
+  push('vfkb init scaffolds a fresh dir (created .vfkb/entries.jsonl + approval notice)', initOk, init);
+
   const roundtrip = sections['roundtrip'] || '';
   push('vfkb add + vfkb list round-trips the sentinel fact', roundtrip.includes(SENTINEL), roundtrip);
 
   const mcp = sections['mcp'] || '';
-  const mcpOk = mcp.includes('"result"') && /"name"\s*:\s*"vfkb"/.test(mcp);
-  push('vfkb-mcp completes an MCP initialize handshake (result + serverInfo.name)', mcpOk, mcp);
+  const mcpOk =
+    mcp.includes('"result"') &&
+    /"name"\s*:\s*"vfkb"/.test(mcp) &&
+    new RegExp(`"version"\\s*:\\s*"${PKG_VERSION.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`).test(
+      // scope the version match to the serverInfo object, not the whole stream
+      (mcp.match(/"serverInfo"\s*:\s*\{[^}]*\}/) || [''])[0],
+    );
+  push(
+    `vfkb-mcp completes an MCP initialize handshake (result + serverInfo.name "vfkb" + serverInfo.version ${PKG_VERSION})`,
+    mcpOk,
+    mcp,
+  );
 
   return checks;
 }
