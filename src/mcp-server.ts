@@ -74,8 +74,26 @@ function renderNoMatch(d: SearchDiagnosis, q?: string): string {
     }
   }
 }
+// Issue #127: some harnesses serialize array-valued params to strings, so the
+// JSON text of an array can arrive here (`'["a","b"]'`). A naive CSV split
+// stores a mangled fragment per element, and a silent fallback is only ever
+// discovered by a later reviewer — so JSON-array-shaped input is parsed
+// honestly, and garbage errors loudly back to the agent instead of degrading.
 function tags(csv?: string): string[] | undefined {
-  return csv ? csv.split(',').map((t) => t.trim()).filter(Boolean) : undefined;
+  if (csv === undefined) return undefined;
+  const s = csv.trim();
+  if (!s) return undefined;
+  if (s.startsWith('[')) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(s);
+    } catch {
+      throw new Error(`tags received JSON-array-shaped input that does not parse: ${s} — pass a comma-separated string like "a,b"`);
+    }
+    if (!Array.isArray(parsed)) throw new Error(`tags received JSON that is not an array: ${s}`);
+    return parsed.map((t) => String(t).trim()).filter(Boolean);
+  }
+  return s.split(',').map((t) => t.trim()).filter(Boolean);
 }
 // In the fleet, who wrote an entry must be stamped by the HARNESS, not self-reported
 // by the model (VERIFIED = observed, not asserted — applied to provenance). When the
@@ -240,11 +258,14 @@ server.registerTool(
         .string()
         .optional()
         .describe('rationale for the new decision; stored structurally AND folded into its text as a "Why: …" line'),
+      // Issue #127: without this in the schema the SDK strips a model-supplied
+      // `tags` silently and every successor lands untagged.
+      tags: z.string().optional().describe('comma-separated; tags for the NEW decision'),
       role: ROLE.optional(),
     },
   },
   async (a) => {
-    const e = supersede(a.old_id, a.text, { role: envRole() ?? a.role ?? 'architect', why: a.why });
+    const e = supersede(a.old_id, a.text, { role: envRole() ?? a.role ?? 'architect', why: a.why, tags: tags(a.tags) });
     return text(`superseded ${a.old_id} -> ${line(e)}`);
   },
 );
