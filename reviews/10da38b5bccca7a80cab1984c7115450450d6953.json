@@ -1,0 +1,22 @@
+{
+  "recordVersion": 1,
+  "sha": "10da38b5bccca7a80cab1984c7115450450d6953",
+  "governing": [
+    "docs/adr/ADR-0057-npm-delivery-channel.md",
+    "docs/adr/ADR-0051-delivery-honesty.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "claude-fable-5", "rounds": 1 },
+  "generated": "2026-07-12T14:50:00Z",
+  "findings": [],
+  "findingsCount": 0,
+  "ruledOut": [
+    "wrong-line fix: pre-fix blob fails PyYAML at exactly line 178 col 42 (the colon after 'bootstrap' in the unquoted step name); post-fix blob parses clean — genuine red->green on the exact defect",
+    "semantic drift via quoting: parsed post-fix name value is byte-identical to the pre-fix plain-scalar text; only surrounding double quotes added; env and run lines untouched",
+    "escape reinterpretation: name string contains no backslashes, embedded double quotes, or ${{ }} expressions that double-quoted YAML style could reinterpret",
+    "second latent parse bug: all four workflow files on the branch parse OK; all 13 other step names in publish.yml avoid ': ' (they use '--' separators) — line 178 was the sole offender",
+    "scope creep: diff vs merge-base is exactly 1 file, 1 line changed, 1 commit",
+    "attribution/secrets: no AI attribution in the branch commits; no secret values in the diff (only the pre-existing secrets.NPM_TOKEN reference in unchanged context)",
+    "the silent-failure claim itself: observed live — every push since PR #131 (incl. docs-only) produced a zero-job failed publish.yml run (run 29196755547 inspected: jobCount 0), the unparseable-file signature; ADR-0051 quiet-failure class confirmed, not folklore"
+  ],
+  "verdict": "MERGE"
+}
