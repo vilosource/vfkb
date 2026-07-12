@@ -255,3 +255,28 @@ describe('issue #127: tags survive harness string-serialization', () => {
     expect(JSON.parse(callText(get)).tags).toEqual(['a', 'b', 'c']);
   });
 });
+
+// Review round-2 hardening (PR #141 finding m1): a valid JSON array whose
+// elements are not strings must error loudly, never String()-coerce into a
+// stored '[object Object]' tag.
+describe('issue #127 round 2: non-string JSON elements rejected loudly', () => {
+  it('kb_add rejects a JSON array containing an object (nothing stored)', async () => {
+    const r = await client.callTool({
+      name: 'kb_add',
+      arguments: { type: 'fact', text: 'object-in-tags must not be stored', tags: '["a",{"b":1}]' },
+    });
+    expect((r as { isError?: boolean }).isError).toBe(true);
+    expect(callText(r)).toContain('must contain only strings');
+    const found = await client.callTool({ name: 'kb_search', arguments: { text: 'object-in-tags must not be stored' } });
+    expect(callText(found)).toContain('no matches');
+  });
+
+  it('the error names the failing param (contradicts, not tags)', async () => {
+    const r = await client.callTool({
+      name: 'kb_add',
+      arguments: { type: 'fact', text: 'contradicts label check', contradicts: '["broken' },
+    });
+    expect((r as { isError?: boolean }).isError).toBe(true);
+    expect(callText(r)).toContain('contradicts received');
+  });
+});

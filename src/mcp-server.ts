@@ -79,7 +79,7 @@ function renderNoMatch(d: SearchDiagnosis, q?: string): string {
 // stores a mangled fragment per element, and a silent fallback is only ever
 // discovered by a later reviewer — so JSON-array-shaped input is parsed
 // honestly, and garbage errors loudly back to the agent instead of degrading.
-function tags(csv?: string): string[] | undefined {
+function tags(csv?: string, label = 'tags'): string[] | undefined {
   if (csv === undefined) return undefined;
   const s = csv.trim();
   if (!s) return undefined;
@@ -88,10 +88,15 @@ function tags(csv?: string): string[] | undefined {
     try {
       parsed = JSON.parse(s);
     } catch {
-      throw new Error(`tags received JSON-array-shaped input that does not parse: ${s} — pass a comma-separated string like "a,b"`);
+      throw new Error(`${label} received JSON-array-shaped input that does not parse: ${s} — pass a comma-separated string like "a,b"`);
     }
-    if (!Array.isArray(parsed)) throw new Error(`tags received JSON that is not an array: ${s}`);
-    return parsed.map((t) => String(t).trim()).filter(Boolean);
+    if (!Array.isArray(parsed)) throw new Error(`${label} received JSON that is not an array: ${s}`);
+    // String()-coercing a non-string element would store mangled values like
+    // '[object Object]' silently — the exact class this parser exists to stop.
+    if (!parsed.every((t): t is string => typeof t === 'string')) {
+      throw new Error(`${label} JSON array must contain only strings: ${s}`);
+    }
+    return parsed.map((t) => t.trim()).filter(Boolean);
   }
   return s.split(',').map((t) => t.trim()).filter(Boolean);
 }
@@ -210,7 +215,7 @@ server.registerTool(
       type: ENTRY_TYPE,
       text: z.string(),
       why: z.string().optional().describe('rationale; stored structurally AND folded into the text as a "Why: …" line (esp. for decisions)'),
-      tags: z.string().optional().describe('comma-separated'),
+      tags: z.string().optional().describe('comma-separated (a tag itself cannot start with "[")'),
       path: z
         .string()
         .optional()
@@ -238,7 +243,7 @@ server.registerTool(
       role: envRole() ?? a.role ?? 'executor',
       why: a.why,
       tags: tags(a.tags),
-      contradicts: tags(a.contradicts),
+      contradicts: tags(a.contradicts, 'contradicts'),
       status: a.status,
       constitutional: a.constitutional,
     });
@@ -260,7 +265,7 @@ server.registerTool(
         .describe('rationale for the new decision; stored structurally AND folded into its text as a "Why: …" line'),
       // Issue #127: without this in the schema the SDK strips a model-supplied
       // `tags` silently and every successor lands untagged.
-      tags: z.string().optional().describe('comma-separated; tags for the NEW decision'),
+      tags: z.string().optional().describe('comma-separated; tags for the NEW decision (a tag itself cannot start with "[")'),
       role: ROLE.optional(),
     },
   },
