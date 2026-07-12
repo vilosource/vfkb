@@ -1,0 +1,39 @@
+{
+  "recordVersion": 1,
+  "sha": "1ac33c371263c077d5f14ed39ebea7692eafdee5",
+  "governing": [
+    "docs/adr/ADR-0057-npm-delivery-channel.md",
+    "docs/adr/ADR-0030-consumer-integration-and-distribution.md"
+  ],
+  "reviewer": {
+    "agent": "general-purpose",
+    "model": "claude-fable-5",
+    "rounds": 1
+  },
+  "generated": "2026-07-12T19:15:00Z",
+  "findings": [
+    {
+      "id": "m1",
+      "severity": "minor",
+      "status": "accepted",
+      "summary": "PRE-EXISTING, unchanged by this diff: a bundle placed one level below any directory with a package.json silently prefers that foreign manifest over its baked ENGINE_VERSION (observed live: prints 9.9.9) — the old code misreported identically; follow-up could prefer the injected define when present",
+      "acceptedBy": null
+    },
+    {
+      "id": "m2",
+      "severity": "minor",
+      "status": "accepted",
+      "summary": "test flake surface: the mkdtemp bundle dir's ../package.json is the tmpdir root, so a stray /tmp/package.json from another process would fail the test spuriously — low probability, hardening is nesting the outdir one level deeper",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 2,
+  "ruledOut": [
+    "proof-cannot-fail: cli.ts hunk reverted in isolation (test kept), rebuilt — exactly the new test red with the claimed ENOENT crash; restored, 4/4 and full suite 295/295 green",
+    "ADR-0057 'never hardcoded' violation: the injection chain verified end-to-end — build-bundles.mjs reads the repo manifest and defines __VFKB_VERSION__; the bundle's ENGINE_VERSION IS the manifest version by another route; the only literal is version.ts's honest 0.0.0-dev sentinel (pre-existing)",
+    "npm-layout regression: node dist/cli.js --version live-run identical to manifest; the try-branch is byte-identical to the old happy path (canary-proven surface untouched)",
+    "quiet-success: the test's equality assertion also catches broken define-injection (would surface as 0.0.0-dev != 0.2.1), traced not assumed",
+    "scope/protocols: 2 files only; ENGINE_VERSION import pre-existing; no AI attribution; no secrets; test style matches siblings"
+  ],
+  "verdict": "MERGE"
+}
