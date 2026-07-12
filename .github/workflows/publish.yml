@@ -175,7 +175,7 @@ jobs:
 
       - run: npm ci
 
-      - name: Publish (one-time bootstrap: granular token secret NPM_TOKEN until Trusted Publishing is configured on the published package; remove after -- tracked in the brain handoff)
+      - name: "Publish (one-time bootstrap: granular token secret NPM_TOKEN until Trusted Publishing is configured on the published package; remove after -- tracked in the brain handoff)"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --access public --provenance
