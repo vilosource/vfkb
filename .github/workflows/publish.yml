@@ -175,17 +175,41 @@ jobs:
 
       - run: npm ci
 
+      # Idempotent on purpose: if this exact version is already visible on the
+      # registry, publishing again can only fail (npm forbids republish), so a
+      # re-dispatch after a partial run (e.g. publish landed but the assert
+      # below flaked -- observed 2026-07-12 on the 0.2.1 first publish) must
+      # skip straight to verification rather than die before the canary.
       - name: "Publish (one-time bootstrap: granular token secret NPM_TOKEN until Trusted Publishing is configured on the published package; remove after -- tracked in the brain handoff)"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access public --provenance
+        run: |
+          VERSION="${{ needs.prove.outputs.version }}"
+          if npm view "@viloforge/vfkb@$VERSION" version --registry https://registry.npmjs.org >/dev/null 2>&1; then
+            echo "@viloforge/vfkb@$VERSION is already on the registry -- skipping npm publish (idempotent re-dispatch; the assert and canary below still verify the channel)"
+          else
+            npm publish --access public --provenance
+          fi
 
+      # Retry with backoff: registry propagation after a publish is not
+      # instantaneous -- the 0.2.1 first publish took ~5-8 minutes to become
+      # visible (observed 2026-07-12), and the original single immediate
+      # `npm view` here failed on exactly that lag.
       - name: Assert publication -- version visible on the real registry
         run: |
           set -o pipefail
           VERSION="${{ needs.prove.outputs.version }}"
-          npm view "@viloforge/vfkb@$VERSION" version --registry https://registry.npmjs.org | tee /tmp/view-version.log
-          grep -qx "$VERSION" /tmp/view-version.log
+          for i in $(seq 1 30); do
+            if npm view "@viloforge/vfkb@$VERSION" version --registry https://registry.npmjs.org | tee /tmp/view-version.log \
+              && grep -qx "$VERSION" /tmp/view-version.log; then
+              echo "version $VERSION visible on the registry (attempt $i)"
+              exit 0
+            fi
+            echo "not visible yet (attempt $i/30) -- waiting 20s for registry propagation"
+            sleep 20
+          done
+          echo "::error::@viloforge/vfkb@$VERSION still not visible on the registry after ~10 minutes"
+          exit 1
 
       - name: Check provenance attestation (observed honestly; non-blocking)
         run: |

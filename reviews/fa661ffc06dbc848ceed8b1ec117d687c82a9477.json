@@ -1,0 +1,36 @@
+{
+  "recordVersion": 1,
+  "sha": "fa661ffc06dbc848ceed8b1ec117d687c82a9477",
+  "governing": [
+    "docs/adr/ADR-0057-npm-delivery-channel.md",
+    "docs/adr/ADR-0051-delivery-honesty.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "claude-fable-5", "rounds": 1 },
+  "generated": "2026-07-12T15:20:00Z",
+  "findings": [
+    {
+      "id": "m1",
+      "severity": "minor",
+      "status": "accepted",
+      "summary": "retry loop sleeps 20s after the 30th failed attempt before exiting 1 — cosmetic, costs 20s of runner time on the failure path only",
+      "acceptedBy": null
+    },
+    {
+      "id": "m2",
+      "severity": "minor",
+      "status": "accepted",
+      "summary": "retry budget ~10 min vs observed 5-8 min first-publish propagation lag is thin headroom — consequence now benign (idempotent re-dispatch instead of a bricked republish); subsequent-version propagation is typically much faster so this mostly cannot recur",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 2,
+  "ruledOut": [
+    "quiet-success via the exit-status idempotency predicate: both misclassification directions demonstrated to fail LOUDLY downstream (false-not-published -> republish conflict fails the step; false-published -> content-asserted retry exhausts + canary never runs); npm view exit semantics verified empirically on npm 10.8.2 and 11.18.0 against the real registry (missing version/package -> exit 1)",
+    "proof-cannot-fail: assert script extracted verbatim from HEAD YAML via PyYAML and executed under bash -e with stubbed npm — absent arm exhausts 30 attempts and exits 1; quiet-wrong-version and quiet-empty-stdout arms also exit 1; visible arm passes attempt 1; propagation-lag arm passes at attempt 4 with tee truncation preventing stale-content false pass",
+    "shell correctness: line-continuation inside if condition, pipefail necessity under GitHub bash -e {0}, tee clobbering, seq quoting, exit paths — all exercised in the stub harness",
+    "scope: single commit touching only the two claimed steps of publish.yml; both merge-base and HEAD blobs parse clean with PyYAML",
+    "future-release masking: skip path still runs the full fresh-runner canary (install from real registry + version/init/add-list/MCP-handshake content assertions), catching a visible-but-broken tarball",
+    "protocols: no AI attribution in branch commits; no secrets in diff; version interpolation inert via prove's strict semver validation"
+  ],
+  "verdict": "MERGE"
+}
