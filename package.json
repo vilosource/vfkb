@@ -39,10 +39,10 @@
   },
   "devDependencies": {
     "@tsconfig/node20": "^20.1.9",
-    "@types/node": "^25.9.1",
-    "esbuild": "^0.21.5",
-    "typescript": "^5.5.0",
-    "vitest": "^2.0.0"
+    "@types/node": "^26.1.1",
+    "esbuild": "^0.28.1",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
