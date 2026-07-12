@@ -117,19 +117,17 @@ jobs:
   # exchanges for a short-lived publish credential, and under it provenance
   # attestation is generated automatically (no extra flag needed).
   #
-  # ONE-TIME BOOTSTRAP OVERLAY (temporary, remove after -- tracked in the brain
-  # handoff): Trusted Publishing can only be configured on a package that
-  # already exists on npmjs, and @viloforge/vfkb has never been published
-  # (operator ruling 2026-07-11, npm-scope rename). So the FIRST publish uses
-  # a granular npm access token in the `NPM_TOKEN` repo secret, wired via
-  # `NODE_AUTH_TOKEN` on the publish step below, with `--provenance` passed
-  # explicitly (a token-authenticated publish does not imply provenance the
-  # way OIDC does). Once this first publish lands, configure Trusted
-  # Publishing on the npmjs package settings, delete the `NPM_TOKEN` secret,
-  # drop the `env:`/`--provenance` overlay from the publish step, and this
-  # job reverts to pure OIDC as originally designed. The `id-token: write`
-  # permission stays either way -- it is harmless under the token path and
-  # required again once OIDC is restored.
+  # BOOTSTRAP RETIRED (2026-07-12): the first publish (v0.2.1) used a one-time
+  # granular npm token because Trusted Publishing can only be configured on a
+  # package that already exists on npmjs. That publish landed, Trusted
+  # Publishing was then configured on the package settings (publisher: this
+  # repo + this workflow filename, action `npm publish`), the token and the
+  # `NPM_TOKEN` secret were deleted, and the `env:`/`--provenance` overlay was
+  # removed from the publish step -- restoring the pure-OIDC design below.
+  # Under OIDC the provenance attestation is generated automatically, so no
+  # flag is needed. NOTE (ADR-0051): the OIDC path itself is built, NOT yet
+  # verified -- its proof is the first green publish+canary run after this
+  # change, i.e. the next release's dispatch.
   #
   # Node 24 / npm version: OIDC trusted publishing requires npm >= 11.5.1
   # (Node.js 24+ recommended) per actions/setup-node's documented
@@ -180,15 +178,13 @@ jobs:
       # re-dispatch after a partial run (e.g. publish landed but the assert
       # below flaked -- observed 2026-07-12 on the 0.2.1 first publish) must
       # skip straight to verification rather than die before the canary.
-      - name: "Publish (one-time bootstrap: granular token secret NPM_TOKEN until Trusted Publishing is configured on the published package; remove after -- tracked in the brain handoff)"
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish -- OIDC trusted publishing (provenance automatic)
         run: |
           VERSION="${{ needs.prove.outputs.version }}"
           if npm view "@viloforge/vfkb@$VERSION" version --registry https://registry.npmjs.org >/dev/null 2>&1; then
             echo "@viloforge/vfkb@$VERSION is already on the registry -- skipping npm publish (idempotent re-dispatch; the assert and canary below still verify the channel)"
           else
-            npm publish --access public --provenance
+            npm publish --access public
           fi
 
       # Retry with backoff: registry propagation after a publish is not
