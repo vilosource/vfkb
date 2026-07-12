@@ -113,6 +113,40 @@ node "$VFKB_BUNDLE_DIR/vfkb.mjs" doctor        # with VFKB_DATA_DIR=.vfkb still 
 is present, and that `VFKB_PROJECT` is consistent across `.mcp.json` and the hooks — and warns on
 engine drift (a brain last stamped by a different engine build). A non-zero exit means a `FAIL` to fix.
 
+## Updating consumers when the engine moves
+
+A machine's consumers run on one of **two wirings**, each with its own update path — a consumer's
+wiring is identified by what's in its repo (`.vfkb/bin/bootstrap.mjs` = bootstrap; `enabledPlugins`
+naming vfkb in `.claude/settings.json` = plugin):
+
+**Plugin-wired repos (ADR-0045)** — one command covers every plugin install on the machine, because
+all installs resolve the same marketplace clone and track the plugin repo's releases (unpinned):
+
+```sh
+claude plugin update vfkb@vfkb        # any project; scope follows the install
+```
+
+Restart open sessions to apply — hooks and the MCP server are loaded at session start.
+(Observed 2026-07-12: after one update in one repo, every other plugin-wired repo already
+reported the new version.)
+
+**Bootstrap-wired repos (RFC-010/ADR-0031)** — all of them resolve `$VFKB_BUNDLE_DIR`, so one
+refresh per machine covers every such repo at once:
+
+```sh
+cd <vfkb-checkout> && git pull && npm run build:bundles
+cp dist/bundles/vfkb.mjs dist/bundles/vfkb-mcp.mjs "$VFKB_BUNDLE_DIR"/
+node "$VFKB_BUNDLE_DIR/vfkb.mjs" --version      # smoke: prints the engine version
+```
+
+Hooks pick the new engine up on their next event (they spawn per call); a session's MCP server
+holds the old build until that session restarts.
+
+**Drift caveat:** the two paths have different sources — bootstrap repos get whatever `main` you
+built, plugin repos get the plugin's last vendored release. Refresh both at release points, or the
+machine runs two engine versions side by side. `vfkb doctor` (with `--check-remote` where relevant)
+is the per-repo staleness check.
+
 ## How this is proven
 
 The onboarding path is verified end-to-end by `scenarios/consumer-onboarding.mjs` (ADR-0029 DoD): a
