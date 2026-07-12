@@ -97,6 +97,24 @@ these are good tools solving a *different* problem:
 
 ## Install
 
+### From npm
+
+```bash
+npm install -g @viloforge/vfkb
+
+vfkb --version     # prints the installed version
+vfkb init          # wire a repo: .vfkb/ brain + harness hooks
+vfkb-mcp           # the MCP server (stdio)
+```
+
+Published as [`@viloforge/vfkb`](https://www.npmjs.com/package/@viloforge/vfkb) with
+[provenance attestation](https://docs.npmjs.com/generating-provenance-statements) (SLSA v1,
+built on GitHub Actions from this repo). The install path is delivery-proven, not assumed:
+every release's [publish workflow](.github/workflows/publish.yml) ends in a canary job on a
+fresh runner — no checkout, no cache — that installs the just-published version from the real
+registry and content-asserts the CLI, `init` scaffolding, an add/list round-trip, and an MCP
+initialize handshake ([v0.2.1 canary run](https://github.com/vilosource/vfkb/actions/runs/29197631539)).
+
 ### From source
 
 ```bash
