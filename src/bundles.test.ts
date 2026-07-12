@@ -181,4 +181,17 @@ describe('FR-2 portable single-file engine bundles (ADR-0030)', () => {
     const entries = readFileSync(join(brain, 'entries.jsonl'), 'utf8');
     expect(entries).toContain('bundle-portability-smoke');
   }, 30000);
+
+  // The bundle layout has no ../package.json (that resolves to dist/package.json),
+  // so a --version that insists on the manifest crashes every bundle deployment —
+  // observed 2026-07-12 vendoring into the Claude Code plugin. The bundle's
+  // ENGINE_VERSION is define-injected from the same manifest at build time, so
+  // falling back to it keeps ADR-0057's "never hardcoded" intent.
+  it('vfkb.mjs --version answers from a non-repo cwd (no ../package.json to read)', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'vfkb-consumer-'));
+    const r = await run('node', [bundles.cli, '--version'], { cwd });
+    expect(r.code, `--version crashed:\n${r.stderr}`).toBe(0);
+    const pkg = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8')) as { version: string };
+    expect(r.stdout.trim()).toBe(pkg.version);
+  }, 30000);
 });

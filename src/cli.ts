@@ -48,10 +48,19 @@ import { dirname, join } from 'node:path';
 // hardcoded (ADR-0057 step 1). Resolved relative to this module file so it works
 // from dist/cli.js inside an `npm i -g` install: bin -> dist/cli.js, package.json
 // is one level up from dist/, in both the tsc dev build and the packed tarball.
+// The single-file bundles sit in dist/bundles/ where ../package.json does NOT
+// exist — an unguarded read crashed --version in every bundle deployment
+// (observed 2026-07-12 vendoring into the plugin). A bundle's ENGINE_VERSION is
+// define-injected from this same manifest at build time, so falling back to it
+// is the manifest's version by another route, not a hardcoded literal.
 function packageVersion(): string {
-  const here = dirname(fileURLToPath(import.meta.url));
-  const pkg = JSON.parse(readFileSync(join(here, '..', 'package.json'), 'utf8')) as { version?: string };
-  return pkg.version || '0.0.0';
+  try {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const pkg = JSON.parse(readFileSync(join(here, '..', 'package.json'), 'utf8')) as { version?: string };
+    return pkg.version || ENGINE_VERSION;
+  } catch {
+    return ENGINE_VERSION;
+  }
 }
 
 function readStdin(): Promise<string> {
