@@ -1,0 +1,31 @@
+{
+  "recordVersion": 1,
+  "sha": "a98c5a3e069b627e1898c705d9210903ab983c91",
+  "governing": [
+    "docs/adr/ADR-0057-npm-delivery-channel.md",
+    "docs/adr/ADR-0051-delivery-honesty.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "claude-fable-5", "rounds": 1 },
+  "generated": "2026-07-12T16:20:00Z",
+  "findings": [
+    {
+      "id": "m1",
+      "severity": "minor",
+      "status": "accepted",
+      "summary": "PRE-EXISTING, not introduced by this diff: the non-blocking provenance-check step (publish.yml:213) lacks pipefail, so a transient npm view failure yields ATT='' which passes without warning signal — a narrow quiet-pass edge in a step that runs right after a content-asserted registry check; add set -o pipefail next time the file is touched",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 1,
+  "ruledOut": [
+    "scope creep/drop: hunk-by-hunk diff match against claims (a)-(d); idempotent skip, assert retry, provenance check, canary, id-token: write byte-identical outside the two hunks",
+    "tokenless breakage: runner's .npmrc shape reproduced empirically with NODE_AUTH_TOKEN unset — npm view/ci work anonymously; npm 11.5.1 env-replace leaves undefined ${VAR} literal instead of throwing",
+    "quiet publish failure: OIDC trust mismatch fails loud (ENEEDAUTH/E404, bash -e); hypothetical quiet no-op caught by the content-asserted retry loop exhausting",
+    "provenance-automatic claim: verified against live docs.npmjs.com/trusted-publishers ('you don't need to add the --provenance flag'); conditions (trusted publishing + public repo + public package) all hold; 0.2.1 dist.attestations observed live",
+    "ADR-0051 conformance: 'built, NOT yet verified' disclosure present in workflow comment, commit message, and PR body; no overreach — v0.2.1 proof correctly attributed to the token path",
+    "YAML/colon hazard: all four workflow files parse with PyYAML; new step name uses '--' separators (PR #133 class absent)",
+    "protocols: no AI attribution; diff only removes a secret reference; NPM_TOKEN secret deletion observed (gh api secrets total_count 0)",
+    "first-publish-of-new-version regression: npm view exit codes observed (unpublished version -> exit 1 -> publish branch taken)"
+  ],
+  "verdict": "MERGE"
+}
