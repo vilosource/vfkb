@@ -1,0 +1,50 @@
+{
+  "recordVersion": 1,
+  "sha": "861b8e495de7d1ef4e7e9f5e2520db807489c433",
+  "governing": [
+    "docs/adr/ADR-0042-schema-honesty.md",
+    "docs/adr/ADR-0051-delivery-honesty.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "claude-fable-5", "rounds": 2 },
+  "generated": "2026-07-12T17:45:00Z",
+  "findings": [
+    {
+      "id": "m1",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "valid JSON arrays with non-string elements were String()-coerced, silently storing '[object Object]' / 'null' tags — the exact class the fix forswears; now rejected loudly ('must contain only strings'), verified live over the MCP wire and by isolated revert (exactly its own test goes red)",
+      "acceptedBy": null
+    },
+    {
+      "id": "m2",
+      "severity": "minor",
+      "status": "accepted",
+      "summary": "a legit tag starting with '[' is unwritable/unsearchable via MCP (JSON-array detection claims the prefix) — accepted: zero occurrences in the 246-entry brain, the error is loud and immediate, the CLI face still handles such tags, and the limitation is now documented in both tags param descriptions (verified rendering in tools/list)",
+      "acceptedBy": null
+    },
+    {
+      "id": "m3",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "the shared helper's error always said 'tags' even when the failing param was contradicts — now labelled per call site, verified live in both throw paths",
+      "acceptedBy": null
+    },
+    {
+      "id": "m4",
+      "severity": "minor",
+      "status": "accepted",
+      "summary": "search-boundary micro-changes: kb_search tags='[]' was a filter on the literal tag '[]' and is now a no-op filter; whitespace-only input now yields undefined — practically unreachable inputs, accepted as noted",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 4,
+  "ruledOut": [
+    "root-cause misattribution: the issue's cited bundle line (~L31158 array(string()).catch([])) is validate.ts's READ-boundary schema inlined — ADR-0042 §2 explicitly blesses lenient reads with safe defaults; the real input-side defects were the CSV mangle of JSON-array-shaped strings and kb_supersede's SDK-stripped unknown tags key",
+    "proof-cannot-fail: both round-1 hunks reverted in isolation with rebuilds — each turns exactly its own tests red (2 and 1 respectively) and nothing else; round-2 every-string check likewise (1 test red, 17 green); restored and re-verified 294/294",
+    "quiet-success in the loud path: garbage rejection tests assert isError PLUS message content PLUS nothing-stored (search no-match) — exit-flag-only predicates avoided per ADR-0051 §3",
+    "edge inputs probed live over the real MCP wire: whitespace-only, '[]', '[1,2]' (now loud), '[null]' (now loud), object elements (now loud), nested arrays (now loud), '{\"a\":1}' (pre-existing CSV path unchanged), 500-tag CSV, whitespace string elements (trim+filter matches CSV semantics); server stays alive after every error probe",
+    "call-site audit: all four tags() consumers (kb_search tags, kb_add tags, kb_add contradicts, kb_supersede tags) reviewed; kb_supersede's new param is itself hardened",
+    "scope/protocols: two commits touch only src/mcp-server.ts + test/mcp.test.ts; no AI attribution; no secrets; test style matches the file's existing idioms"
+  ],
+  "verdict": "MERGE"
+}

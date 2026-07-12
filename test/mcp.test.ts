@@ -201,3 +201,82 @@ describe('VFKB_ROLE harness-stamped attribution', () => {
     expect(JSON.parse(callText(get)).author.role).toBe('judge');
   });
 });
+
+// Issue #127 — harnesses that serialize array params to strings must not lose
+// or mangle tags. The input boundary coerces honest shapes (CSV, JSON-array
+// string) and ERRORS LOUDLY on garbage; it never stores a mangled split and
+// never silently drops a param (kb_supersede must accept tags at all).
+describe('issue #127: tags survive harness string-serialization', () => {
+  it('kb_add coerces a JSON-array STRING of tags into real tags (queryable by tag filter)', async () => {
+    const add = await client.callTool({
+      name: 'kb_add',
+      arguments: { type: 'fact', text: 'tags arrive as serialized JSON array', tags: '["adr-0034","backups"]' },
+    });
+    const id = callText(add).split(' ')[1];
+    const get = await client.callTool({ name: 'kb_get', arguments: { id } });
+    expect(JSON.parse(callText(get)).tags).toEqual(['adr-0034', 'backups']);
+    // the impact path from the issue: tag-filtered search must find it
+    const found = await client.callTool({ name: 'kb_search', arguments: { tags: 'backups' } });
+    expect(callText(found)).toContain('serialized JSON array');
+  });
+
+  it('kb_add ERRORS LOUDLY on garbage that looks like JSON but is not (never stores a mangled split)', async () => {
+    const r = await client.callTool({
+      name: 'kb_add',
+      arguments: { type: 'fact', text: 'garbage tags must not be stored', tags: '["broken' },
+    });
+    expect((r as { isError?: boolean }).isError).toBe(true);
+    const found = await client.callTool({ name: 'kb_search', arguments: { text: 'garbage tags must not be stored' } });
+    expect(callText(found)).toContain('no matches');
+  });
+
+  it('kb_supersede accepts tags and stores them on the successor (was: silently stripped -> [])', async () => {
+    const add = await client.callTool({
+      name: 'kb_add',
+      arguments: { type: 'decision', text: 'decision to be superseded with tags', status: 'accepted' },
+    });
+    const oldId = callText(add).split(' ')[1];
+    const sup = await client.callTool({
+      name: 'kb_supersede',
+      arguments: { old_id: oldId, text: 'successor carries tags', tags: 'lineage,tagged' },
+    });
+    const newId = callText(sup).split('-> ')[1].split(' ')[0];
+    const get = await client.callTool({ name: 'kb_get', arguments: { id: newId } });
+    expect(JSON.parse(callText(get)).tags).toEqual(['lineage', 'tagged']);
+  });
+
+  it('plain CSV tags keep working exactly as before (regression guard)', async () => {
+    const add = await client.callTool({
+      name: 'kb_add',
+      arguments: { type: 'fact', text: 'plain csv tags regression', tags: 'a, b ,c' },
+    });
+    const id = callText(add).split(' ')[1];
+    const get = await client.callTool({ name: 'kb_get', arguments: { id } });
+    expect(JSON.parse(callText(get)).tags).toEqual(['a', 'b', 'c']);
+  });
+});
+
+// Review round-2 hardening (PR #141 finding m1): a valid JSON array whose
+// elements are not strings must error loudly, never String()-coerce into a
+// stored '[object Object]' tag.
+describe('issue #127 round 2: non-string JSON elements rejected loudly', () => {
+  it('kb_add rejects a JSON array containing an object (nothing stored)', async () => {
+    const r = await client.callTool({
+      name: 'kb_add',
+      arguments: { type: 'fact', text: 'object-in-tags must not be stored', tags: '["a",{"b":1}]' },
+    });
+    expect((r as { isError?: boolean }).isError).toBe(true);
+    expect(callText(r)).toContain('must contain only strings');
+    const found = await client.callTool({ name: 'kb_search', arguments: { text: 'object-in-tags must not be stored' } });
+    expect(callText(found)).toContain('no matches');
+  });
+
+  it('the error names the failing param (contradicts, not tags)', async () => {
+    const r = await client.callTool({
+      name: 'kb_add',
+      arguments: { type: 'fact', text: 'contradicts label check', contradicts: '["broken' },
+    });
+    expect((r as { isError?: boolean }).isError).toBe(true);
+    expect(callText(r)).toContain('contradicts received');
+  });
+});
