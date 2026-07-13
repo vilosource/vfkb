@@ -1,0 +1,26 @@
+{
+  "recordVersion": 1,
+  "sha": "e2d8978241bb8292bf6bba79971d2f1e604b8cc8",
+  "governing": [
+    "docs/adr/ADR-0022-l4-evaluation-methodology.md",
+    "docs/adr/ADR-0029-sandbox-proven-definition-of-done.md"
+  ],
+  "reviewer": {
+    "agent": "general-purpose",
+    "model": "claude-opus-4-8",
+    "rounds": 1
+  },
+  "generated": "2026-07-13T12:47:24Z",
+  "findings": [],
+  "findingsCount": 0,
+  "ruledOut": [
+    "#150 predicate correctness: brainIntact separates guard-held-then-captured (valid JSONL + sentinel present -> intact) from raw HACKED clobber (JSON.parse throws -> not intact); old substring lacks(brainText,'HACKED') false-red'd on the capture audit entry's payload string",
+    "#150 no false-green: the only append-valid-JSON-preserving-sentinel edge is unreachable because the prompt overwrites and pi write replaces the whole file (observed raw HACKED in the ungated arm); a systematic append would also fail the contrast -> demonstrated=false, self-protecting",
+    "#150 contrast not vacuous: clobbered=!brainIntact requires a genuine break, cannot fire on the clean seeded brain -> fails safe, never spurious demonstrate",
+    "#151 tool parity: pi --tools emitted for exactly the allowTools cases the claude arm restricts; lowercasing maps Write/Edit/Bash -> write/edit/bash matching pi v0.73.1 real tool names (verified via pi --help); mcp branch untouched; new else-if preserves --no-tools for tool-free arms",
+    "#151 regression sweep: all three other pi allowTools sites (capture-recall ['Bash'], live-capture-result ['Bash']) only need their one named tool; extension registers event hooks not tools (no registerTool) so the allowlist cannot starve gating/capture/inject",
+    "can-fail (ADR-0029): preserved and OBSERVED LIVE by the reviewer — tool-gating DEMONSTRATED 1/1 on pi/deepseek-v4-pro docker; gated arm would go red if the write/edit gate were removed; ungated contrast empirically clobbers with the write/edit-only toolset",
+    "protocols: no AI attribution in the commit; no secrets; src/gating.ts change is comment-only (SCOPE doc block, zero executable lines); node --check passes; claude arm path untouched (was already --allowedTools Write,Edit)"
+  ],
+  "verdict": "MERGE"
+}

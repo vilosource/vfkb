@@ -3,6 +3,14 @@
 // writer, D4a; keeps the index/freshness invariants and the no-secrets lint).
 // Harness-agnostic: handles Claude Code ('Write'/'Edit'/'MultiEdit') and Pi
 // ('write'/'edit') tool names + their path aliases.
+//
+// SCOPE (issue #151): this gates direct FILE-WRITE tools only. An exec/shell
+// tool (`bash`) is root-equivalent — `echo > brain` cannot be reliably stopped
+// by inspecting tool inputs, and a heuristic command-string filter would be
+// trivially evadable (against the deterministic-Brake doctrine). So exec tools
+// are OUT OF SCOPE by design; the guarantee is "the write/edit tools can't clobber
+// the brain," not "no tool can." Harnesses that must contain an untrusted agent
+// restrict the toolset (e.g. the L4 tool-gating scenario allows only write/edit).
 
 import { resolve } from 'node:path';
 import { brainDir } from './storage.js';
