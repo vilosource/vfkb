@@ -1,0 +1,25 @@
+{
+  "recordVersion": 1,
+  "sha": "2ac6f6ff53da6ed6ce9c247b14c94c8c95c52250",
+  "governing": [
+    "docs/adr/ADR-0051-delivery-honesty.md"
+  ],
+  "reviewer": {
+    "agent": "general-purpose",
+    "model": "claude-opus-4-8",
+    "rounds": 1
+  },
+  "generated": "2026-07-13T10:45:00Z",
+  "findings": [],
+  "findingsCount": 0,
+  "ruledOut": [
+    "comment-only: every changed line begins with #; no YAML key/value/step/env/logic changed; workflow parses (PyYAML safe_load)",
+    "honesty (a) published under pure-OIDC: run 29243307510 publish step took the else branch and ran npm publish (prepack + full tarball notice for 0.2.2), not the idempotent skip; all three jobs success",
+    "honesty (b) Sigstore logIndex 2162787713: exact match to the npm 'Provenance statement published to transparency log' line, phrasing quoted verbatim",
+    "honesty (c) registry dist.attestations SLSA provenance v1: npm view @viloforge/vfkb@0.2.2 confirms predicateType https://slsa.dev/provenance/v1",
+    "honesty (d) trusted publishing: correctly hedged with 'i.e.' — publish job wires no NPM_TOKEN/NODE_AUTH_TOKEN env and no --provenance flag yet npm produced provenance automatically (only happens under OIDC trusted publishing); the 'empty token' basis is inferred from workflow source and flagged as inference in commit + brain, not overstated as directly observed",
+    "honesty (e) fresh-runner canary green: canary job installed 0.2.2 from the real registry and passed all four content-assertions",
+    "protocols: no AI attribution in the commit; no secret values added (only the token names appear in prose)"
+  ],
+  "verdict": "MERGE"
+}
