@@ -209,6 +209,7 @@ jobs:
 
       - name: Check provenance attestation (observed honestly; non-blocking)
         run: |
+          set -o pipefail
           VERSION="${{ needs.prove.outputs.version }}"
           ATT=$(npm view "@viloforge/vfkb@$VERSION" --json --registry https://registry.npmjs.org | jq '.dist.attestations')
           echo "dist.attestations: $ATT"

@@ -1,0 +1,26 @@
+{
+  "recordVersion": 1,
+  "sha": "12109adbd8fcc6d5ec57c96768a50c0d760ce461",
+  "governing": [
+    "docs/adr/ADR-0057-npm-delivery-channel.md",
+    "docs/adr/ADR-0051-delivery-honesty.md"
+  ],
+  "reviewer": {
+    "agent": "general-purpose",
+    "model": "claude-fable-5",
+    "rounds": 1
+  },
+  "generated": "2026-07-13T08:01:36Z",
+  "findings": [],
+  "findingsCount": 0,
+  "ruledOut": [
+    "closes a98c5a3 finding m1 exactly: diff is the single line m1 asked for (set -o pipefail at publish.yml:212, the provenance-check step); no scope creep or drop",
+    "no-op risk empirically disproven: step shape reproduced locally under bash -e {0} (the workflow's default shell; no shell:/defaults: anywhere in the file) — before: failed npm view piped to jq yields ATT='' and step exit 0 with the warning never firing; after: pipefail makes ATT=$(pipeline) assignment status nonzero, set -e terminates, step exit 1",
+    "only-unguarded-pipeline claim verified: every run block in publish.yml enumerated; other pipefail-less blocks contain no maskable pipeline (grep-last with tested status, or unpiped commands whose failure is the intended probe branch)",
+    "false positive on the legitimate attestation-missing path ruled out: npm view success with absent .dist.attestations gives jq output 'null' exit 0 — warning path unchanged, non-blocking intent preserved",
+    "propagation race ruled out: the preceding Assert-publication step content-asserts visibility with a 30x20s retry loop, so a nonzero npm view here is genuine infrastructure failure; residual CDN-replica flake is covered by the workflow's documented idempotent re-dispatch design",
+    "no contradiction with the step's non-blocking design: its own text scopes non-blocking to the attestation-missing observation ('rather than failing the job on it alone'); ADR-0051 §5 requires the infrastructure failure to be loud — pre-fix behavior (exit 0, no warning) was the named quiet-success trap",
+    "protocols: no AI attribution in the commit; no secrets in the diff; all four workflow files parse with PyYAML safe_load"
+  ],
+  "verdict": "MERGE"
+}
