@@ -2,13 +2,13 @@
 type: RFC
 title: "RFC-032: Restore the 'vfkb INACTIVE' signal under plugin wiring"
 description: "The retired bootstrap emitted an actionable INACTIVE banner when the engine was unresolvable; the plugin cannot warn when it is not running, so a session in a plugin-wired repo silently loses continuity, gating, and capture. Proposal: a deterministic, engine-free repo-side guard hook that compares the project's declared plugin against installed_plugins.json fulfillment, plus a prose tripwire and an upstream ask."
-status: Proposed
+status: Accepted
 timestamp: 2026-07-13
 ---
 
 # RFC-032: Restore the "vfkb INACTIVE" signal under plugin wiring
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-07-13, maintainer ratification) → [ADR-0059](../adr/ADR-0059-inactive-signal-guard.md)
 - **Date:** 2026-07-13
 - **Deciders:** operator + Claude
 - **Relates:** vfkb-claude-plugin#4 (the tracked gap), gotcha `fde3f0e52e61` (PR #75 review
