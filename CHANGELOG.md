@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.2.2](https://github.com/vilosource/vfkb/compare/v0.2.1...v0.2.2) (2026-07-13)
+
+
+### Bug Fixes
+
+* **ci:** idempotent publish + assert-with-retry — registry propagation broke the 0.2.1 run ([#135](https://github.com/vilosource/vfkb/issues/135)) ([122b9eb](https://github.com/vilosource/vfkb/commit/122b9ebfe71a19d69133442526ef3fd091708bd7))
+* **ci:** quote publish step name — unquoted colon broke publish.yml YAML parse ([#133](https://github.com/vilosource/vfkb/issues/133)) ([c928bfc](https://github.com/vilosource/vfkb/commit/c928bfcd0fd9bd2f17178ec60a6ecfe08b3714ee))
+* **ci:** set pipefail in the provenance-attestation check ([#148](https://github.com/vilosource/vfkb/issues/148)) ([306636f](https://github.com/vilosource/vfkb/commit/306636f9455a5e35b29ae94f5f0d9103080257b8))
+* **cli:** --version crashed in every bundle deployment ([#143](https://github.com/vilosource/vfkb/issues/143)) ([c73cf8e](https://github.com/vilosource/vfkb/commit/c73cf8e88727a77e50b265eb19c409c8e00f9291))
+* **mcp:** tags survive harness string-serialization; kb_supersede accepts tags ([#141](https://github.com/vilosource/vfkb/issues/141)) ([a4587da](https://github.com/vilosource/vfkb/commit/a4587dae572a39d7320e677fe3ac829c3f5df78e))
+
+
+### Documentation
+
+* **consumer:** the update process — one plugin update + one bundle refresh per machine, drift caveat ([#145](https://github.com/vilosource/vfkb/issues/145)) ([aa13f23](https://github.com/vilosource/vfkb/commit/aa13f237c870ce277ea89058b7bcece72744e11e))
+* **readme:** npm install section — @viloforge/vfkb with provenance, citing the v0.2.1 delivery-proof canary run ([#136](https://github.com/vilosource/vfkb/issues/136)) ([ebafbd2](https://github.com/vilosource/vfkb/commit/ebafbd2df0a3ec3699d1e3bec44ac7950f0dbdb6))
+* **rfc:** RFC-032 — restore the vfkb INACTIVE signal under plugin wiring ([#149](https://github.com/vilosource/vfkb/issues/149)) ([f30e44e](https://github.com/vilosource/vfkb/commit/f30e44efaf99aae5e5232fcd44c12b94cd31a054))
+
 ## [0.2.1](https://github.com/vilosource/vfkb/compare/v0.2.0...v0.2.1) (2026-07-11)
 
 
