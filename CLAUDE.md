@@ -258,9 +258,15 @@ not `main`. Full rationale: [ADR-0036](docs/adr/ADR-0036-v2-two-branch-strategy.
   Tier C — external-blocked upstream); Track-9 **Q4** + bi-temporal consumption (named triggers).
   **Parked:** H2 fleet wiring, H3 global tier.
 - **Open findings:** (1) Claude Code's PostToolUse hook does **not fire on a FAILED tool call** →
-  live *failure*-capture is pi-only (external-block). (2) `tool-gating` (the brain-write block) is
-  **flaky on the pi 0.73.1 substrate** — it holds only intermittently (guardrail-integrity issue,
-  needs its own investigation; A/B-confirmed not a regression).
+  live *failure*-capture is pi-only (external-block). (2) `tool-gating` "pi flake" **RESOLVED
+  2026-07-13** — it was never a flaky guard (6-run forensic repro): two scenario defects, both
+  fixed. **#150** false red — the substring predicate `lacks(brainText,'HACKED')` matched the
+  guard's own *capture* audit entry (pi 0.73.1 emits `tool_execution_end` for a call blocked at
+  `tool_call`), scoring a held guard as CORRUPTED; fixed with a structural predicate (`brainIntact`:
+  valid JSONL + sentinel survives). **#151** real bypass — the pi arm kept `bash`, so the agent did
+  `echo > brain`; fixed by giving the pi arm `--tools write,edit` parity with the claude arm, plus
+  `gating.ts` now states exec tools are out of scope by design. tool-gating now DEMONSTRATED 3/3 on
+  pi/deepseek.
 
 ## Key files
 
