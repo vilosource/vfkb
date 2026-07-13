@@ -125,9 +125,13 @@ jobs:
   # `NPM_TOKEN` secret were deleted, and the `env:`/`--provenance` overlay was
   # removed from the publish step -- restoring the pure-OIDC design below.
   # Under OIDC the provenance attestation is generated automatically, so no
-  # flag is needed. NOTE (ADR-0051): the OIDC path itself is built, NOT yet
-  # verified -- its proof is the first green publish+canary run after this
-  # change, i.e. the next release's dispatch.
+  # flag is needed. VERIFIED 2026-07-13 (ADR-0051): the v0.2.2 dispatch (run
+  # 29243307510) published under this pure-OIDC design -- npm signed a
+  # provenance statement "with source and build information from GitHub
+  # Actions" to the Sigstore transparency log (logIndex 2162787713), the
+  # registry serves 0.2.2 with dist.attestations (SLSA provenance v1), and the
+  # publish authenticated with the NPM_TOKEN secret deleted (empty
+  # NODE_AUTH_TOKEN), i.e. via trusted publishing. Fresh-runner canary green.
   #
   # Node 24 / npm version: OIDC trusted publishing requires npm >= 11.5.1
   # (Node.js 24+ recommended) per actions/setup-node's documented
