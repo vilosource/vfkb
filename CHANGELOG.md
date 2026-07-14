@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.3](https://github.com/vilosource/vfkb/compare/v0.2.2...v0.2.3) (2026-07-14)
+
+
+### Bug Fixes
+
+* **l4:** tool-gating false-red + bash-bypass (closes [#150](https://github.com/vilosource/vfkb/issues/150), [#151](https://github.com/vilosource/vfkb/issues/151)) ([#157](https://github.com/vilosource/vfkb/issues/157)) ([16c9bba](https://github.com/vilosource/vfkb/commit/16c9bbaad7b912820d01074cd2b259c1869a67b5))
+
+
+### Documentation
+
+* **adr:** ADR-0059 accepts RFC-032 — restore the vfkb INACTIVE signal (maintainer ratification) ([#155](https://github.com/vilosource/vfkb/issues/155)) ([a9fbbc1](https://github.com/vilosource/vfkb/commit/a9fbbc1dd5f299356ba5c120b7bef004d154cb3b))
+* **ci:** record the OIDC path as VERIFIED (v0.2.2) ([#153](https://github.com/vilosource/vfkb/issues/153)) ([7c6248f](https://github.com/vilosource/vfkb/commit/7c6248f798759564ce329acf73ffc8d021591c10))
+
 ## [0.2.2](https://github.com/vilosource/vfkb/compare/v0.2.1...v0.2.2) (2026-07-13)
 
 
