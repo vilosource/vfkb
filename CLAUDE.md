@@ -208,10 +208,20 @@ this is a **deliberate discipline**:
   on GitHub. **Definition of Done = the branch is mergeable to `main`** (green tests, review-ready).
 - **Always report clickable GitHub URLs after a push** — the **PR URL** plus a `blob` URL for each
   added/changed file the operator will review (RFCs/ADRs especially). Repo: `vilosource/vfkb`.
-- **Default (interactive): open the PR and stop for review** — the operator reads it on GitHub and
-  merges. **The solo-dev self-merge latitude applies ONLY when the operator explicitly calls out
-  autonomous mode** — and even then it stays branch → PR → merge (after green/DoD), never a
-  direct-to-`main` commit.
+- **Standing default: the autonomous-PR workflow** (operator grant 2026-07-14; brain decision
+  `5f380d6ca496`). When handling a PR, **do NOT stop to ask for merge approval.** Instead:
+  **(1)** launch an **adversarial review** of the PR — the `/review` gate (ADR-0052) for an in-repo
+  branch against its governing ADR/RFC, or a spawned adversarial-reviewer agent for a cross-repo /
+  data-only PR, checking the diff against its stated purpose plus repo CI/CodeRabbit; **(2)** apply
+  fixes for any real findings; **(3)** re-review; **(4)** **merge autonomously once it converges**
+  (required checks green, no blocking findings); **(5)** escalate to the operator (**HITL**) only if
+  it **does not converge after 3 rounds**, reporting the blocking findings. This is the
+  "autonomous mode" the self-merge latitude requires — it is now **on by default for this repo**,
+  not per-request.
+- **Guardrails that still bind under autonomous mode:** never commit/push directly to `main`/`v2`
+  (always branch → PR → merge); the capability-level **DoD gate (ADR-0050/0051)** is unchanged; a
+  PR whose merge triggers an **outward publish** (e.g. the npm release) is covered by the grant but
+  **the publish consequence must be called out** when reporting; still report clickable URLs on push.
 
 ## v2 development — branch discipline (ADR-0036)
 
