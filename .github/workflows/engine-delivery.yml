@@ -121,13 +121,30 @@ jobs:
             brc=$?
             set -e
             if [ "$brc" -eq 0 ]; then
-              echo "open re-vendor/engine PR already proposes exactly these bytes — nothing to do"
+              # Bytes are right — but only exit if a PR is actually OPEN for them
+              # (review of 465c443: a closed-unmerged PR, or a prior run dying
+              # between push and pr-create, leaves right-bytes-no-PR — exiting
+              # green here would mask real drift until the daily cron).
+              OPEN=$(gh pr list -R vilosource/vfkb-claude-plugin --head re-vendor/engine --state open --json number,headRepositoryOwner -q '.[] | select(.headRepositoryOwner.login=="vilosource") | .number')
+              if [ -n "$OPEN" ]; then
+                echo "open PR #$OPEN already proposes exactly these bytes — nothing to do"
+                exit 0
+              fi
+              echo "re-vendor/engine already holds these bytes but NO PR is open — opening it"
+              VER=$(git show origin/re-vendor/engine:plugin/.claude-plugin/plugin.json | node -p 'JSON.parse(require("fs").readFileSync(0,"utf8")).version')
+              gh pr create -R vilosource/vfkb-claude-plugin --base main --head re-vendor/engine \
+                --title "chore: re-vendor engine bundles from vfkb main@${SHA} — v${VER}" \
+                --body "Automated re-vendor (ADR-0062, plugin#23): the existing re-vendor/engine branch already carries these engine bytes; this PR was re-opened after the previous one was closed or its creation failed. Born red on the evidence gate — re-pin the four L4 records from this pushed branch per RELEASING.md before merge."
               exit 0
             elif [ "$brc" -ne 1 ]; then
               echo "::error::comparison against the open re-vendor branch failed (rc=$brc)"; exit "$brc"
             fi
             FOREIGN=$(git log origin/main..origin/re-vendor/engine --format='%s' | grep -cv '^chore: re-vendor engine bundles from vfkb main@' || true)
-            RECORDS=$(git diff --name-only origin/main..origin/re-vendor/engine -- scenarios/records/ | wc -l)
+            # Three-dot (merge-base) diff, deliberately: two-dot is a tip-vs-tip
+            # tree diff and false-reds when unrelated records land on plugin main
+            # after a release — the routine steady-state (review of 465c443,
+            # demonstrated). Three-dot asks "what did the BRANCH change?".
+            RECORDS=$(git diff --name-only origin/main...origin/re-vendor/engine -- scenarios/records/ | wc -l)
             if [ "$FOREIGN" -gt 0 ] || [ "$RECORDS" -gt 0 ]; then
               echo "::error::re-vendor/engine is STALE vs vfkb main but carries non-automation work ($FOREIGN foreign commit(s), $RECORDS record file(s)) — refusing to force-push over committed evidence. Reconcile manually: merge or close the open PR, then re-run this workflow."
               exit 1
