@@ -1,99 +1,101 @@
 # Consumer onboarding — a hand-off prompt for the consumer's agent
 
 A ready-to-paste prompt to give the **agent working in the repo you want to onboard** (e.g. vfwb), so
-it can onboard itself to vfkb. It is the agent-facing companion to [CONSUMER-ONBOARDING.md](CONSUMER-ONBOARDING.md)
-(the human guide) and implements the [ADR-0030](adr/ADR-0030-consumer-integration-and-distribution.md)
-contract (+ [ADR-0031](adr/ADR-0031-bootstrap-engine-resolution-guard.md) bootstrap guard,
-[ADR-0032](adr/ADR-0032-env-var-rename-data-dir-bundle-dir.md) env-var names).
+it can onboard itself to vfkb via the **Claude Code plugin** ([ADR-0045](adr/ADR-0045-vfkb-claude-code-plugin.md)) —
+the current canonical mechanism. It is the agent-facing companion to
+[CONSUMER-ONBOARDING.md](CONSUMER-ONBOARDING.md) (the human guide); the guard it installs is
+[ADR-0059](adr/ADR-0059-inactive-signal-guard.md). The legacy `$VFKB_BUNDLE_DIR` bootstrap
+([ADR-0030](adr/ADR-0030-consumer-integration-and-distribution.md)/[ADR-0031](adr/ADR-0031-bootstrap-engine-resolution-guard.md))
+is a fallback only — use it solely if the repo deliberately isn't plugin-wired.
 
-Fill in the two placeholders (`<abs/path/to/vfkb-bundles>`, `<your-mykb-area>`) before sending, or tell
-the agent to ask for them.
+> For a **brand-new** project, don't paste this — run the `vfkb-new-project` skill instead; it does the
+> repo create, identity, plugin wiring, guard, verify, and push end-to-end.
 
 ---
 
-> **vfkb consumer onboarding is shipped — onboard this repo to vfkb.**
+> **Onboard this repo to vfkb via its Claude Code plugin.**
 >
-> The consumer-onboarding capability is built and merged in `vilosource/vfkb` (ADR-0030 contract;
-> ADR-0031 bootstrap guard; ADR-0032 env-var names). vfkb dogfoods this exact wiring itself, and the
-> path is proven by an agent-driven scenario. Read `docs/CONSUMER-ONBOARDING.md` in the vfkb repo first,
-> then do this:
+> vfkb is wired into a repo by committing **two files** under `.claude/`, copied byte-for-byte from
+> vfkb's own `main` (the dogfooded reference). The plugin vendors its own engine — there is **no
+> `VFKB_BUNDLE_DIR` to set** and **no `npm install`**. Read `docs/CONSUMER-ONBOARDING.md` in the vfkb
+> repo first, then do this from this repo's root:
 >
-> **1. Get the engine (no `npm install` needed — the bundles are self-contained, zero-dep).** Either:
-> - **Vendor them (recommended — avoids the Nexus/off-VPN install problem):** obtain `vfkb.mjs` +
->   `vfkb-mcp.mjs` from a built vfkb `dist/bundles/` and drop them in a stable dir, e.g.
->   `~/.vfkb-bundles/`.
-> - **Or build them:** in a vfkb checkout, `npm run build:bundles` → `dist/bundles/`.
->
-> **2. Point the engine env var at them (once per machine; add to `~/.bashrc`):**
+> **1. Fetch the wiring from vfkb `main` (never hand-craft it):**
 > ```bash
-> export VFKB_BUNDLE_DIR=<abs/path/to/vfkb-bundles>   # the dir holding vfkb.mjs + vfkb-mcp.mjs
+> mkdir -p .claude .vfkb
+> gh api repos/vilosource/vfkb/contents/.claude/settings.json?ref=main  --jq .content | base64 -d > .claude/settings.json
+> gh api repos/vilosource/vfkb/contents/.claude/vfkb-guard.mjs?ref=main --jq .content | base64 -d > .claude/vfkb-guard.mjs
+> python3 -c 'import json; json.load(open(".claude/settings.json"))'   # settings.json is valid JSON
+> : > .vfkb/entries.jsonl        # empty brain (valid, committable)
+> ```
+> `.claude/settings.json` carries `extraKnownMarketplaces.vfkb` (→ `vilosource/vfkb-claude-plugin`),
+> `enabledPlugins["vfkb@vfkb"]`, and a `SessionStart` hook that runs the guard. `.claude/vfkb-guard.mjs`
+> is the ADR-0059 "vfkb INACTIVE" guard (engine-free, fails open) — it MUST be committed, because a
+> plugin that didn't load can't warn about its own absence.
+>
+> **If this repo already has `.claude/settings.json`, MERGE** — add the three keys above into the
+> existing object, keeping its other keys and hooks; do not overwrite it.
+>
+> **2. Verify the guard fires (its can-fail proof):**
+> ```bash
+> CLAUDE_PROJECT_DIR=$PWD node .claude/vfkb-guard.mjs   # prints the `vfkb INACTIVE` banner, exits 0
+> ```
+> This is **correct**: the plugin is *declared* here but not yet *installed*, so the guard banners.
+> (Exception: if vfkb is already installed at **user** scope on this machine it fulfils every project,
+> so the guard correctly stays silent — that means "already installed," not "fetch failed.")
+> Do **not** claim vfkb is "live" yet — `enabledPlugins` only declares it (gotcha `8e76f8f72b64`:
+> settings-wired ≠ loaded).
+>
+> **3. Migrate existing knowledge (optional, lossy, `role=import`).** A manual CLI call needs a vfkb
+> engine — use a vfkb checkout's `dist/cli.js` and point it at this repo's brain:
+> ```bash
+> export VFKB_DATA_DIR=.vfkb        # per-repo — do NOT put in ~/.bashrc
+> node <vfkb-checkout>/dist/cli.js import --from-adr docs/adr            # one link per ADR
+> node <vfkb-checkout>/dist/cli.js import --from-markdown <path/to/doc>  # attach a key doc as a source
+> ```
+> **`--from-mykb` reads ONLY `~/.mykb/areas/<name>/{decisions,facts,gotchas,patterns,links}.jsonl`** —
+> not a mykb *workspace* journal (`~/.mykb/workspaces/<name>/journal.jsonl`). A `kb work journal` is a
+> workspace, so `--from-mykb` on it imports **nothing**. Check `kb list` / `ls ~/.mykb/areas` first; if
+> your knowledge is only in a workspace journal, hand-fold the durable lines with
+> `vfkb add fact "…" --role human`. Run each import **once** — append-only, no dedup.
+>
+> **4. Commit the wiring + brain:**
+> ```bash
+> git add .claude/settings.json .claude/vfkb-guard.mjs .vfkb/entries.jsonl
+> # add .gitignore for the derived brain bits if this is the repo's first vfkb wiring:
+> #   .vfkb/index-meta.json  .vfkb/.sessions/  .vfkb/.signals/
 > ```
 >
-> **3. Scaffold this repo (idempotent) — from its root:**
+> **5. Do the one-time install — vfkb is NOT live until this runs:**
 > ```bash
-> node "$VFKB_BUNDLE_DIR/vfkb.mjs" init <project-name>
+> claude plugin install vfkb@vfkb --scope project      # from this repo's root
 > ```
-> Writes `.mcp.json`, `.claude/settings.json` (SessionStart / PreToolUse-gate / Stop hooks), the
-> `.gitignore` stanza, an empty `.vfkb/` brain, `.vfkb/manifest.json`, the committed
-> `.vfkb/bin/bootstrap.mjs`, and an `AGENTS.md` snippet — all wired through the bootstrap, no machine
-> paths in git.
+> …or start `claude` here and **approve the plugin's MCP server + hooks** when prompted, then restart.
+> Until then the guard banners `vfkb INACTIVE` every session — the intended honest signal, not a bug.
 >
-> **3b. Point the *manual* CLI at this repo's brain (do this before any `import`/`doctor`/`add`).**
-> The hooks bake `VFKB_DATA_DIR=.vfkb` into their commands, but a **manual** CLI call resolves its brain
-> from the environment — with `VFKB_DATA_DIR` unset it **silently writes to the global `~/.vfkb`, not this
-> repo**. So export it (and the project name) for this shell, and keep `cwd` at the repo root (the path is
-> relative) for every command below:
-> ```bash
-> export VFKB_DATA_DIR=.vfkb        # per-repo — do NOT put this in ~/.bashrc (only VFKB_BUNDLE_DIR is global)
-> export VFKB_PROJECT=<project-name>
-> ```
->
-> **4. Migrate existing knowledge (lossy, `role=import`).** The reliable source is this repo's own
-> git-tracked docs — do this unconditionally:
-> ```bash
-> node "$VFKB_BUNDLE_DIR/vfkb.mjs" import --from-adr docs/adr            # one link per ADR
-> node "$VFKB_BUNDLE_DIR/vfkb.mjs" import --from-markdown <path/to/doc>  # attach a key doc as a source
-> ```
-> **mykb is conditional — `--from-mykb` reads ONLY `~/.mykb/areas/<name>/{decisions,facts,gotchas,patterns,links}.jsonl`.**
-> It does **not** read a mykb *workspace* journal (`~/.mykb/workspaces/<name>/journal.jsonl`, a `{date,text}`
-> log) — a `kb work journal` is a workspace, not an area, so pointing `--from-mykb` at it imports **nothing**.
-> Discover the real source first (`kb list` = areas; `ls ~/.mykb/areas ~/.mykb/workspaces`), then:
-> ```bash
-> node "$VFKB_BUNDLE_DIR/vfkb.mjs" import --from-mykb <area-name-or-absolute-dir>   # only if a real AREA exists
-> ```
-> If your knowledge is only in a workspace journal (or no area exists), skip it and hand-fold the durable
-> lines with `vfkb add fact "…" --role human`. Run each import **once** — it's append-only with no dedup,
-> so re-running duplicates entries.
->
-> **5. Verify and commit:**
-> ```bash
-> node "$VFKB_BUNDLE_DIR/vfkb.mjs" doctor      # brain<->engine compat, wiring, VFKB_BUNDLE_DIR, project
-> git add .mcp.json .claude .gitignore .vfkb AGENTS.md
-> ```
-> Then start `claude` in this repo and **approve the project MCP server + hooks once** when prompted.
+> **Verify it actually loaded (observed, not asserted):** in a live session the
+> `mcp__plugin_vfkb_vfkb__kb_*` tools are present and the SessionStart resume digest is injected.
+> Inspecting `settings.json` is **not** sufficient (ADR-0051 quiet-failure class) — probe the session.
 >
 > **Key facts:**
-> - **Two env vars, don't conflate:** `VFKB_BUNDLE_DIR` = the shared engine *code* (per machine, global);
->   `VFKB_DATA_DIR=.vfkb` = this repo's *brain*. The **hooks** set `VFKB_DATA_DIR=.vfkb` for you (though
->   that path is CWD-relative too — see vfkb#22), while a **manual** `import`/`doctor`/`add`/`resume` has no
->   cwd auto-detection: with `VFKB_DATA_DIR` unset it targets the global `~/.vfkb`, not this repo (hence
->   step 3b). Sharing one
->   `VFKB_BUNDLE_DIR` across projects does **not** cross-contaminate — each repo writes only to its own `.vfkb`.
-> - **Guardrail:** if `VFKB_BUNDLE_DIR` is unset, SessionStart shows a clear *"vfkb INACTIVE — set
->   VFKB_BUNDLE_DIR"* banner and the write-gate stops blocking — it never breaks your session.
->   `vfkb doctor` reports it too.
-> - Only `.vfkb/entries.jsonl`, `.vfkb/manifest.json`, and `.vfkb/bin/` are committed;
->   `index-meta.json` / `.sessions/` / `.signals/` are gitignored.
-> - (`VFKB_DIR` / `VFKB_HOME` still work as deprecated aliases if you see them in older docs.)
+> - The plugin vendors its own engine, so a plugin-wired repo needs **no `VFKB_BUNDLE_DIR`**. That env
+>   var is only for the legacy bootstrap fallback.
+> - `VFKB_DATA_DIR=.vfkb` = this repo's *brain*; a **manual** `import`/`add` has no cwd auto-detection,
+>   so export it (step 3) or it targets the global `~/.vfkb`. The plugin's hooks set it for you.
+> - Only `.vfkb/entries.jsonl` is committed; `index-meta.json` / `.sessions/` / `.signals/` are gitignored.
+> - The **ADR-0059 guard's `enabledPlugins` check is inert in a bootstrap-wired repo** — a non-plugin
+>   repo relies on the bootstrap's own `VFKB_BUNDLE_DIR` banner instead.
 >
-> Report back if `doctor` flags anything or the SessionStart banner appears — that is the system telling
-> you exactly what to fix.
+> Report back if the guard banner still appears after the install + restart, or if the `kb_*` tools are
+> absent in a live session — that is the system telling you exactly what to fix.
 
 ---
 
 **Maintainer notes (not part of the prompt):**
-- The "vendor the two bundles" path is the answer to the original FR-2 concern (vfkb is unpublished and
-  `npm install` hits the corporate Nexus → ENOTFOUND off-VPN). The bundles are zero-dep, so the consumer
-  side needs no install.
-- `vfkb init` is idempotent but **appends** to existing hooks — for a repo already on a *non-bootstrap*
-  wiring, hand-author the migration instead (see how this repo's own wiring was migrated).
+- Fetching the two files from vfkb `main` keeps consumers byte-identical to the dogfooded reference —
+  the same guard sweep the fleet runs. Don't template or paraphrase the files.
+- **Fallback (bootstrap, ADR-0030/0031):** only for a repo that deliberately isn't plugin-wired. In a
+  vfkb checkout `npm run build:bundles`, `export VFKB_BUNDLE_DIR=…/dist/bundles`, then
+  `node "$VFKB_BUNDLE_DIR/vfkb.mjs" init <project>` (idempotent; **appends** to existing hooks — for a
+  repo already on a non-bootstrap wiring, hand-author the migration). See CONSUMER-ONBOARDING.md's
+  "Fallback: bootstrap wiring" section.
