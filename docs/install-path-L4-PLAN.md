@@ -1,0 +1,193 @@
+# `install-path` L4 — prove plugin delivery (implementation plan)
+
+> **Status:** PLAN — PROPOSED (2026-07-16). Un-gated by **explicit operator request** this session
+> (RFC-024 §4 trigger: *"…or an explicit operator request"*), so building it is now sanctioned, not
+> the speculative build CLAUDE.md forbids. **Nothing is built yet.** Grounded against the live plugin
+> repo (`~/VFKB/vfkb-claude-plugin`, read 2026-07-16): `plugin.json` v0.5.0, **zero git tags**,
+> `scenarios/hooks-smoke.mjs` harness, `scenarios/release-gate.mjs`, `DELIVERY-STATUS.json`,
+> `RELEASING.md`. This plan lives in **vfkb** (docs land on `main`), but **all build work is in
+> `vilosource/vfkb-claude-plugin`**.
+
+## 0. Goal & scope
+
+**Goal:** produce the one artifact that closes vfkb's longest-standing honesty gap — a **DEMONSTRATED,
+version-bound `scenarios/records/install-path.json`** proving that a consumer can **install and
+upgrade** the plugin through the *real* marketplace path and get a working capability. When it lands,
+the plugin's release gate **auto-flips** `DELIVERY-STATUS.json` from `delivery: "unproven"` to
+`"proven"` and the mandated disclosure drops.
+
+**Why it doesn't exist yet (ADR-0051).** Every current L4 either uses `--plugin-dir` (a source-tree
+load that bypasses the whole install machinery) or — in the case of `hooks-smoke.mjs` — a
+**directory-source** marketplace over the local checkout, which installs the working tree with **no
+clone and no version resolution** (`scenarios/hooks-smoke.mjs:116`). Neither exercises what a real
+consumer does: resolve a **github** marketplace at a **released version**, install it, and later
+**upgrade** to a newer version. That is *delivery*, and it has never been observed end-to-end.
+
+**In scope:** the plugin repo — a new `scenarios/install-path.mjs`, its committed record, adopting
+release tagging, and the doc/gate updates that follow.
+
+**Out of scope:**
+- The vfkb **engine** (`~/VFKB/vfkb/src/`) — no change; this is packaging/delivery, not the engine.
+- **`vfkb doctor` stale-clone detection** (RFC-024 §1) — a *detection* problem, separately tracked and
+  unrelated to this *proof*. This plan does not touch it.
+- Proving delivery on **every** platform/OS — one sandboxed Linux path, per ADR-0022.
+
+## 1. The exact done-condition (don't over-build)
+
+The gate does the accounting for us. `scenarios/release-gate.mjs`:
+
+```
+const DELIVERY_PROOF = 'install-path';                      // hard-coded (line 72)
+const derived = checkRecord(repo, DELIVERY_PROOF, version).ok ? 'proven' : 'unproven';  // line 444-445
+// fails CI if DELIVERY-STATUS.json.delivery !== derived    // line 447
+```
+
+So "done" = **`scenarios/records/install-path.json` exists, is DEMONSTRATED (≥2/3 per ADR-0022), and is
+bound to the shipping `pluginVersion`.** `DELIVERY-STATUS.json.delivery` is **not a dial** — the gate
+derives truth from the record and fails on any hand-edit mismatch (`DELIVERY-STATUS.json:15-18`). We
+never flip it ourselves; landing the record flips it.
+
+**Corollary — the recurring cost.** `checkRecord` is **version-bound**: the record must match the
+release's `pluginVersion`, exactly like the other three live records (`RELEASING.md` "Pre-tag
+checklist" §3). So once delivery is proven, **every subsequent release that wants to stay `proven`
+must re-pin `install-path` against the new version** — adding this scenario's cost to every release.
+§6 confronts whether that cadence is affordable, or whether we re-pin only on wiring-affecting
+releases and let delivery lapse to `unproven` (with the honest disclosure) otherwise.
+
+## 2. What already exists vs. the delta to build
+
+`scenarios/hooks-smoke.mjs` (277 lines) is a **reusable delivery-shaped harness** — the plan reuses its
+primitives rather than reinventing them:
+
+| Primitive (`hooks-smoke.mjs`) | What it gives us |
+|---|---|
+| `stageCreds(home)` (line 73) | `claudeAiOauth`-only creds into a sandbox HOME (ADR-0022 §8) |
+| `buildSandbox(wired)` (line 85) | isolated `HOME` + seeded project repo on a topic branch; `claude plugin marketplace add` + `plugin install` |
+| `turn(sb, prompt, allowedTools)` (line 121) | one metered `claude -p` turn in the sandbox HOME |
+| `mcpToolNames()` (line 145) | asserts the 9 `kb_*` tools resolve |
+
+**The delta — three things `hooks-smoke` does *not* do:**
+1. It marketplace-adds a **directory source** (the local checkout: `marketplace add REPO`,
+   `hooks-smoke.mjs:114`). A directory source **creates no clone and carries no version** — it cannot
+   model "install release X" or "upgrade X→Y" (RFC-024 §4, `[probe]`). The delivery proof must use a
+   **github source at a pinned ref/version**.
+2. It has no **upgrade** arm — the single most important, least-evidenced delivery behavior.
+3. Its contrast arm just omits the plugin; the delivery contrast must **remove the capability** from an
+   installed plugin (see the trap in §4).
+
+## 3. Phase 0 — adopt release tagging (the unblock · no metered cost)
+
+The `upgrade` arm needs **"the previous release"** to be resolvable by a durable ref. The plugin repo
+has **zero git tags** (`git tag` = empty, confirmed 2026-07-16); releases are hand-cut version bumps
+in `plugin/.claude-plugin/plugin.json` (`RELEASING.md`), so a hardcoded SHA "rots at the next release"
+(RFC-024 §4). Ref-pinning itself is **not** the blocker — `marketplace add owner/repo@ref` records
+`{source:github,repo,ref}` and works (RFC-024 §"the fix that does not work", `[probe]`). Tagging just
+makes "previous release" a durable name instead of a rotting SHA.
+
+**Steps:**
+1. **Investigate `claude plugin tag`** — RFC-024 names it as the prerequisite but its exact semantics
+   are **unverified**. Confirm what it does (tags a plugin release? writes to `marketplace.json`?
+   interacts with the version cache?) via `claude plugin tag --help` and a throwaway sandbox. Record
+   the finding — this is the plan's biggest unknown.
+2. **If `claude plugin tag` does what we need**, adopt it in `RELEASING.md`'s checklist (tag on every
+   version bump). **If it doesn't**, fall back to plain **git tags** `vX.Y.Z` at each release commit +
+   a github-source marketplace pinned to the tag — RFC-024 confirms `@ref` resolution works, so this
+   fallback is sufficient on its own.
+3. **Retro-tag** the current release (`v0.5.0` at `HEAD`) and **at least one prior release** (mine the
+   `re-vendor … vX.Y.Z` commit history for the previous version's commit), so the `upgrade` arm has a
+   real `old → new` pair to traverse.
+4. **Record the decision as an ADR** in the plugin repo (plugin versioning & tagging policy) — this is
+   a genuine standard-setting choice, and the release gate/RELEASING.md reference it.
+
+**Exit:** `git tag` lists ≥2 releases; `claude plugin marketplace add vilosource/vfkb-claude-plugin@v0.5.0`
+resolves in a sandbox. No live sessions spent.
+
+## 4. Phase 1 — build `scenarios/install-path.mjs` (RED-verified · no metered cost until run)
+
+Reuse the `hooks-smoke` primitives (§2); swap the directory source for a **github source at a pinned
+ref**. Three arms, DEMONSTRATED ≥2/3:
+
+- **`fresh`** — sandbox HOME → `marketplace add vilosource/vfkb-claude-plugin@<current-tag>` →
+  `plugin install vfkb@vfkb --scope project` → a metered turn invoking `/vfkb:brief` → capability
+  **present**.
+- **`upgrade`** — `marketplace add …@<previous-tag>` → install → capability **absent/old** →
+  `marketplace update` (advance the clone to current) → `plugin update vfkb@vfkb --scope project` →
+  metered turn → capability **present**. *(Two metered turns: pre + post.)*
+- **`contrast`** (the can-fail arm) — install current, but with the capability **removed** → **absent**.
+
+**Traps to bake in — all pre-discovered in RFC-024 §4 `[probe]`, so we don't rediscover them at cost:**
+- A **github** source clones **shallowly**; rewinding to a previous ref needs `git fetch --unshallow`
+  first.
+- `plugin install --scope project` needs a project dir containing `.claude/settings.json`, and
+  **auto-writes `enabledPlugins`** — seed the sandbox project accordingly.
+- The **`contrast` arm must delete BOTH** `plugin/skills/brief/` **and** `plugin/agents/briefer.md`.
+  Deleting only the skill leaves the Haiku briefer agent `Task`-spawnable, able to **forge** a `haiku`
+  entry in `modelUsage` and defeat the predicate.
+- **Predicate:** the `/vfkb:brief` sentinel appears in `result` **and** a `haiku` model appears in
+  `modelUsage`. Assert **neither** exit code **nor** `is_error` (ADR-0051 quiet-success trap: a missing
+  capability presents as a clean exit-0 run).
+- The **`upgrade` arm's two runs share one mutable brain** — the pre-run can perturb the post-run's
+  predicate; isolate or reset between them.
+- **The plugin's own hooks fire inside every arm.** `SessionEnd` auto-commits `.vfkb/entries.jsonl`;
+  it no-ops only on the default branch (`src/session-end.ts` returns `on-default-branch` first), so the
+  sandbox project must stay on its default branch, mirroring `hooks-smoke`'s design.
+- The **`plugin update` "Restart to apply" step is the least-evidenced** in the whole design — whether
+  a fresh `claude -p` counts as that restart is **unobserved**; on-disk state suggests yes. Phase 1's
+  RED run must confirm this before Phase 2 spends the metered budget.
+- Creds: `claudeAiOauth` only, sandboxed HOME, scrubbed in a `finally` (ADR-0022 §8). Never touch the
+  operator's real `~/.claude`.
+
+**RED-verify (the can-fail check, no metered cost):** run the arms against a deliberately-broken setup
+(e.g. contrast wiring, or a bogus ref) and confirm they **fail** — a proof that can't fail proves
+nothing (ADR-0029). Stop here until the operator green-lights the metered run.
+
+## 5. Phase 2 — the metered run (~12 live sessions · fire on operator word)
+
+- **Cost:** `3×1 (fresh) + 3×2 (upgrade pre+post) + 3×1 (contrast)` ≈ **12 live sessions** per full run
+  (RFC-024 §4). Run **one docker/agent session at a time** (ADR-0022).
+- Produce `scenarios/records/install-path.json`, **version-bound to the shipping `pluginVersion`**
+  (v0.5.0, or the then-current if a release intervenes), DEMONSTRATED ≥2/3.
+- `node scenarios/release-gate.selftest.mjs && node scenarios/release-gate.mjs` → green, with the
+  `[delivery]` Brake now deriving `proven`.
+- The gate auto-flips `DELIVERY-STATUS.json` → `proven`; **remove the disclosure** from `README.md`
+  (the gate stops requiring it once `derived === 'proven'`).
+- Update `RELEASING.md`: add `install-path` to the pre-tag re-pin checklist (§3) and rewrite the
+  "Delivery honesty" section from "blocked upstream" to "proven at vX.Y.Z; re-pin per §6 policy".
+- Record a `decision` in the vfkb brain + a plugin-repo ADR: delivery proven, with the version and
+  record id.
+
+## 6. Decisions to nail (flag for the operator before Phase 2)
+
+1. **`claude plugin tag` — real or fallback?** The plan's biggest unknown (Phase 0 step 1). If the
+   command doesn't exist or doesn't pin, we use git tags + `@ref` — cheap and RFC-024-confirmed.
+2. **Re-pin cadence.** Version-binding means staying `proven` costs **+~12 sessions every release**.
+   Options: (a) re-pin every release (honest, expensive); (b) re-pin only on releases that touch
+   wiring/packaging, and let delivery lapse to `unproven`-with-disclosure otherwise (ADR-0051 permits
+   this explicitly). Recommend **(b)** — the disclosure machinery exists precisely so honest lapses are
+   cheap; paying 12 sessions to re-prove a docs-only bump is the "nothing release" problem again.
+3. **How many prior versions to retro-tag** — one (`old→new`) is the minimum the `upgrade` arm needs.
+
+## 7. Risks & guardrails
+
+- **Metered spend** is the main cost — bounded by the RED-verify gate (nothing metered until arms are
+  proven can-fail) and the one-at-a-time run rule.
+- **Credential hygiene** (ADR-0022 §8) — the largest safety surface; reuse `hooks-smoke`'s
+  `stageCreds` + `finally` scrub verbatim, sandbox HOME only.
+- **The `plugin update` restart ambiguity** (§4) could invalidate the `upgrade` arm's post-run — de-risk
+  it in Phase 1's RED run, not in Phase 2's metered run.
+- **Honesty until it lands:** per ADR-0051, until `install-path.json` is committed, every release note,
+  ADR, and handoff **must keep saying "delivery is unproven"** — this plan does not change that; it is
+  the path to *earning* the flip.
+
+## 8. Definition of Done
+
+- `scenarios/records/install-path.json` — DEMONSTRATED ≥2/3, version-bound, with a can-fail contrast
+  arm (four ADR-0051 clauses: isolated · observed-not-asserted · before declaring done · capable of
+  failing).
+- `release-gate.mjs` green with `[delivery]` deriving `proven`; `DELIVERY-STATUS.json` auto-flipped;
+  README disclosure removed.
+- Phase-0 tagging ADR + `RELEASING.md` updated (checklist + re-pin cadence policy from §6).
+- A brain `decision` recording delivery proven (version + record id), and this plan's status flipped to
+  DONE.
+- **Sequencing:** §3 (no cost) → §4 (no cost, RED-verified) → **stop for operator go-ahead** → §5
+  (metered). The plan is safe to execute through Phase 1 without spending a single live session.
