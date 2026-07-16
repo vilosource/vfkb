@@ -1,100 +1,116 @@
 # Onboarding another repo to vfkb (consumer guide)
 
 How to make **any repo** a vfkb consumer — so a session there runs on vfkb automatically, the way
-this repo does. This is the human-readable companion to **[ADR-0030](adr/ADR-0030-consumer-integration-and-distribution.md)**
-(the consumer integration & distribution contract); `vfkb init` automates steps 3–4.
+this repo does. The current, canonical mechanism is the **Claude Code plugin**
+([ADR-0045](adr/ADR-0045-vfkb-claude-code-plugin.md)); the legacy `$VFKB_BUNDLE_DIR` bootstrap
+([ADR-0030](adr/ADR-0030-consumer-integration-and-distribution.md)/[ADR-0031](adr/ADR-0031-bootstrap-engine-resolution-guard.md))
+is kept as a **fallback** (see the last section).
 
 > For vfkb's *own* self-hosting setup, see the root `CLAUDE.md`. This guide is for a **different** repo
-> (e.g. vfwb, a fleet project) that wants to *use* vfkb.
+> (e.g. vfwb, a fleet project) that wants to *use* vfkb. For a **brand-new** project, don't hand-wire
+> — the `vfkb-new-project` skill does everything here end-to-end (repo create, identity, plugin wiring,
+> guard, verify, push).
 
 ## What you get
 
 After onboarding, a coding agent (Claude Code) working in your repo:
 
 - gets the **resume digest + knowledge bundle** injected at session start (continuity, automatic);
-- has the **`mcp__vfkb__kb_*` tools** to search/add knowledge;
+- has the **9 `kb_*` MCP tools** to search/add knowledge (namespaced `mcp__plugin_vfkb_vfkb__kb_*`
+  under the plugin);
 - has its **direct writes to `.vfkb/` gated** through the engine (knowledge is recorded deliberately);
-- gets the **end-of-turn decision-capture reminder**.
+- gets the **end-of-turn decision-capture reminder** and the **auto-commit of the brain at session end**.
 
-The engine is resolved through one environment variable, **`$VFKB_BUNDLE_DIR`** — so the same committed
-wiring works on every machine, container, and clone, with **no machine paths in git** and **no
-`node_modules`** on the consumer side.
+Under the plugin, the engine ships **inside the plugin** (it vendors its own bundles), so there is
+**no `$VFKB_BUNDLE_DIR` to set** and **no `node_modules`** on the consumer side.
 
-## Two variables — don't confuse them
+## Plugin wiring — the two committed files
 
-| Variable | Means | Value | Scope |
-|---|---|---|---|
-| **`VFKB_DATA_DIR`** | this repo's **brain** (the data) | `.vfkb` (relative) | **per-project** — set by the wiring |
-| **`VFKB_BUNDLE_DIR`** | the shared vfkb **engine** (the code/bundles) | `…/vfkb/dist/bundles` | **per-machine** — you export it once |
+A plugin-wired repo commits exactly **two files** under `.claude/`, copied **byte-for-byte from vfkb's
+own `main`** (the dogfooded reference, kept current) — never hand-crafted:
 
-They are independent. `VFKB_BUNDLE_DIR` only tells vfkb *where the engine code is*; it never affects
-which brain is written. Every project's wiring bakes in `VFKB_DATA_DIR=.vfkb`, resolved against that
-project's directory — so working in `vfwb` writes to `vfwb/.vfkb`, **never** to vfkb's own brain, even
-though both share one `VFKB_BUNDLE_DIR`. (Verify with `vfkb doctor`, which reports the brain in use.)
+| Path | What |
+|---|---|
+| `.claude/settings.json` | `extraKnownMarketplaces.vfkb` (→ `vilosource/vfkb-claude-plugin`) + `enabledPlugins["vfkb@vfkb"]` + a `SessionStart` hook that runs the guard |
+| `.claude/vfkb-guard.mjs` | the **ADR-0059 "vfkb INACTIVE" guard** — engine-free (Node stdlib only), fails open |
 
-> The earlier names **`VFKB_DIR`** (→ `VFKB_DATA_DIR`) and **`VFKB_HOME`** (→ `VFKB_BUNDLE_DIR`) still
-> work as **deprecated aliases** (ADR-0032); `vfkb doctor` warns when one is in use.
+Everything else (the resume/gate/capture hooks, the MCP server, the engine) lives **inside the
+plugin**. That is why only these two files are committed: the plugin delivers the rest.
 
-## If you forget `$VFKB_BUNDLE_DIR`
+**Why the guard must be a committed repo file, not part of the plugin
+([ADR-0059](adr/ADR-0059-inactive-signal-guard.md)):** it exists to detect the case where the plugin
+*didn't load*. A guard shipped by the plugin couldn't run in exactly that case — "the one job that
+cannot be delegated to the thing that might be missing." It compares this repo's `enabledPlugins`
+declaration against Claude Code's `~/.claude/plugins/installed_plugins.json` fulfillment and, on a
+mismatch, banners `vfkb INACTIVE` at session start. It **fails open**: any read/parse error exits 0
+silently — a smoke alarm, never a lock.
 
-You won't get a cryptic failure. The committed bootstrap (`.vfkb/bin/bootstrap.mjs`, ADR-0031) detects
-an unset/invalid `$VFKB_BUNDLE_DIR` and **degrades gracefully**: at session start it injects a clear
-**⚠️ "vfkb is INACTIVE: VFKB_BUNDLE_DIR is not set — here's the fix"** banner, the write-gate stops blocking
-(your edits aren't held hostage), and nothing crashes. Set the variable (below) and you're live. Run
-`vfkb doctor` any time to check.
+### Wire an existing repo
 
-## One-time, per machine
+From the root of the target repo, fetch both files from vfkb `main`:
 
-1. **Build the single-file bundles** (in a checkout of the vfkb repo):
-   ```sh
-   npm run build:bundles        # -> dist/bundles/vfkb.mjs + vfkb-mcp.mjs
-   ```
-   These are self-contained (the MCP server has `@modelcontextprotocol/sdk` + `zod` inlined), so they
-   drop into any Node ≥20 with zero runtime deps. For air-gapped / fleet use, vendor the two files.
+```sh
+mkdir -p .claude .vfkb
+gh api repos/vilosource/vfkb/contents/.claude/settings.json?ref=main  --jq .content | base64 -d > .claude/settings.json
+gh api repos/vilosource/vfkb/contents/.claude/vfkb-guard.mjs?ref=main --jq .content | base64 -d > .claude/vfkb-guard.mjs
+python3 -c 'import json; json.load(open(".claude/settings.json"))'   # settings.json is valid JSON
+: > .vfkb/entries.jsonl        # empty brain (a valid, committable starting point)
+```
 
-2. **Point `$VFKB_BUNDLE_DIR` at them** (add to your shell profile so hooks inherit it):
-   ```sh
-   export VFKB_BUNDLE_DIR=/path/to/vfkb/dist/bundles
-   ```
+> **If the repo already has a `.claude/settings.json`**, don't overwrite it — **merge**: add the
+> `extraKnownMarketplaces.vfkb`, `enabledPlugins["vfkb@vfkb"]`, and the `SessionStart` guard hook into
+> the existing object, keeping the repo's other keys and hooks.
 
-## Onboard a repo
+## Install once (per machine, per repo)
 
-3. **Scaffold the wiring** — from the root of the target repo:
-   ```sh
-   node "$VFKB_BUNDLE_DIR/vfkb.mjs" init <project-name>      # project defaults to the dir name
-   ```
-   `init` is **idempotent** (safe to re-run) and writes:
+`enabledPlugins` only **declares** the plugin — it does not install it. Complete the one-time install
+so the next session actually runs vfkb:
 
-   | Path | What |
-   |---|---|
-   | `.vfkb/entries.jsonl` | the brain (empty; an existing brain is never clobbered) |
-   | `.vfkb/manifest.json` | brain↔engine version stamp (committed) |
-   | `.vfkb/bin/bootstrap.mjs` | committed engine-resolution guard (committed; see below) |
-   | `.mcp.json` | registers the `vfkb` MCP server via the bootstrap |
-   | `.claude/settings.json` | SessionStart / PreToolUse-gate / Stop hooks via the bootstrap |
-   | `.gitignore` | the derived/operational stanza (only `entries.jsonl` + `manifest.json` are committed) |
-   | `AGENTS.md` | a parameterized "how we track work HERE" snippet |
+```sh
+claude plugin install vfkb@vfkb --scope project    # from the repo root
+```
 
-4. **Approve once** — start `claude` in the repo and approve the project MCP server + hooks when
-   prompted (a one-time, per-machine Claude Code step that `init` cannot do for you).
+…or start `claude` in the repo and **approve the plugin's MCP server + hooks** when prompted. Then
+**restart the session** — hooks and the MCP server are loaded at session start.
 
-5. **Commit the wiring + the brain:**
-   ```sh
-   git add .mcp.json .claude .gitignore .vfkb AGENTS.md
-   ```
+> Until this install completes, the guard will banner `vfkb INACTIVE` every session. That is the
+> **intended, honest signal**, not a bug — a settings-wired repo is *declared* but not yet *loaded*
+> (gotcha `8e76f8f72b64`: settings-wired ≠ loaded).
+
+## The INACTIVE signal (ADR-0059)
+
+You won't silently lose continuity if the plugin isn't loaded. When this repo declares the plugin but
+`installed_plugins.json` has no matching fulfillment (uninstalled, never-approved, or wrong project),
+the committed guard injects at session start:
+
+> ⚠️ **vfkb INACTIVE** — this project declares the vfkb plugin (`vfkb@vfkb`) but it is not installed
+> for this session. No resume digest, no brain-write gate, and no decision capture are running… Fix:
+> run `claude plugin install vfkb@vfkb` (or approve the plugin when prompted), then restart.
+
+**Known limitation (ADR-0059):** the installed-but-*unapproved* state may be invisible to the guard
+(approval state lives outside `installed_plugins.json`). It decisively covers uninstalled /
+never-fulfilled / wrong-project — the modes actually observed.
+
+## Verify it's healthy
+
+- **Guard fires as expected** — before the install, `CLAUDE_PROJECT_DIR=$PWD node .claude/vfkb-guard.mjs`
+  prints the `vfkb INACTIVE` banner (it is *declared* but not yet *installed* — the guard's can-fail
+  proof). After the install + restart, a live session shows the resume digest injected and no banner.
+- **`kb_*` tools present** — in a live session the `mcp__plugin_vfkb_vfkb__kb_*` tools are available,
+  and the SessionStart resume injection appears. Inspecting `settings.json` is **not** sufficient
+  (ADR-0051 quiet-failure class) — probe the live session.
 
 ## Bring existing knowledge across (optional)
 
 `vfkb import` migrates prior knowledge into the brain (recorded as `role=import`, unverified, lossy).
-**First point the manual CLI at this repo's brain** — a manual command has no cwd auto-detection, so with
-`VFKB_DATA_DIR` unset it writes to the global `~/.vfkb`, not this repo (the hooks bake this in, but a
-hand-run command doesn't). Export it for the shell and run from the repo root:
+A **manual** CLI call needs a vfkb engine and this repo's brain dir. Use a vfkb checkout's
+`dist/cli.js` (the plugin's vendored engine is not on your `PATH`), and point it at `.vfkb`:
 
 ```sh
-export VFKB_DATA_DIR=.vfkb        # per-repo; do NOT put in ~/.bashrc (only VFKB_BUNDLE_DIR is global)
-node "$VFKB_BUNDLE_DIR/vfkb.mjs" import --from-adr docs/adr        # one link per ADR
-node "$VFKB_BUNDLE_DIR/vfkb.mjs" import --from-markdown NOTES.md   # attach a historical doc
-node "$VFKB_BUNDLE_DIR/vfkb.mjs" import --from-mykb <area>          # ONLY a mykb AREA (see caveat)
+export VFKB_DATA_DIR=.vfkb        # per-repo; do NOT put in ~/.bashrc
+node ~/VFKB/vfkb/dist/cli.js import --from-adr docs/adr        # one link per ADR
+node ~/VFKB/vfkb/dist/cli.js import --from-markdown NOTES.md   # attach a historical doc
+node ~/VFKB/vfkb/dist/cli.js import --from-mykb <area>          # ONLY a mykb AREA (see caveat)
 ```
 
 **`--from-mykb` caveat:** it reads only `~/.mykb/areas/<name>/{decisions,facts,gotchas,patterns,links}.jsonl`
@@ -103,21 +119,20 @@ workspace, so `--from-mykb` on it imports nothing; check `kb list` / `ls ~/.mykb
 data is only in a workspace journal, hand-fold the durable lines with `vfkb add`. Imports are append-only
 (no dedup) — run each once.
 
-## Check it's healthy
+## Commit the wiring + the brain
 
 ```sh
-node "$VFKB_BUNDLE_DIR/vfkb.mjs" doctor        # with VFKB_DATA_DIR=.vfkb still exported (as above)
+git add .claude/settings.json .claude/vfkb-guard.mjs .vfkb/entries.jsonl
 ```
 
-`doctor` verifies brain↔engine compatibility, that `$VFKB_BUNDLE_DIR` resolves the bundles, that the wiring
-is present, and that `VFKB_PROJECT` is consistent across `.mcp.json` and the hooks — and warns on
-engine drift (a brain last stamped by a different engine build). A non-zero exit means a `FAIL` to fix.
+Only `.vfkb/entries.jsonl` is committed from the brain; `index-meta.json` / `.sessions/` / `.signals/`
+are derived and gitignored (add them to `.gitignore` if this is the repo's first vfkb wiring).
 
 ## Updating consumers when the engine moves
 
 A machine's consumers run on one of **two wirings**, each with its own update path — a consumer's
-wiring is identified by what's in its repo (`.vfkb/bin/bootstrap.mjs` = bootstrap; `enabledPlugins`
-naming vfkb in `.claude/settings.json` = plugin):
+wiring is identified by what's in its repo (`enabledPlugins` naming vfkb in `.claude/settings.json` =
+plugin; `.vfkb/bin/bootstrap.mjs` = bootstrap):
 
 **Plugin-wired repos (ADR-0045)** — one command covers every plugin install on the machine, because
 all installs resolve the same marketplace clone and track the plugin repo's releases (unpinned):
@@ -139,17 +154,42 @@ cp dist/bundles/vfkb.mjs dist/bundles/vfkb-mcp.mjs "$VFKB_BUNDLE_DIR"/
 node "$VFKB_BUNDLE_DIR/vfkb.mjs" --version      # smoke: prints the engine version
 ```
 
-Hooks pick the new engine up on their next event (they spawn per call); a session's MCP server
-holds the old build until that session restarts.
-
 **Drift caveat:** the two paths have different sources — bootstrap repos get whatever `main` you
 built, plugin repos get the plugin's last vendored release. Refresh both at release points, or the
-machine runs two engine versions side by side. `vfkb doctor` (with `--check-remote` where relevant)
-is the per-repo staleness check.
+machine runs two engine versions side by side.
+
+## Fallback: bootstrap wiring (legacy, ADR-0030/0031)
+
+Use this **only** for a repo that deliberately isn't plugin-wired (e.g. an environment without the
+plugin marketplace). It commits a self-contained `.vfkb/bin/bootstrap.mjs` and resolves the engine
+through **`$VFKB_BUNDLE_DIR`** instead of the plugin's vendored bundles.
+
+1. **Build the bundles** in a vfkb checkout: `npm run build:bundles` → `dist/bundles/vfkb.mjs` +
+   `vfkb-mcp.mjs` (self-contained, zero runtime deps).
+2. **Point `$VFKB_BUNDLE_DIR` at them** (once per machine, in your shell profile so hooks inherit it):
+   `export VFKB_BUNDLE_DIR=/path/to/vfkb/dist/bundles`.
+3. **Scaffold** from the target repo's root: `node "$VFKB_BUNDLE_DIR/vfkb.mjs" init <project-name>`.
+   `init` is idempotent and writes `.vfkb/entries.jsonl` + `manifest.json`, `.vfkb/bin/bootstrap.mjs`,
+   `.mcp.json`, `.claude/settings.json` (SessionStart / PreToolUse-gate / Stop hooks), the `.gitignore`
+   stanza, and an `AGENTS.md` snippet.
+4. **Approve once** (`claude` in the repo → approve the MCP server + hooks), then
+   `git add .mcp.json .claude .gitignore .vfkb AGENTS.md`.
+
+If `$VFKB_BUNDLE_DIR` is unset, the bootstrap degrades gracefully: a session-start
+**⚠️ "vfkb is INACTIVE: VFKB_BUNDLE_DIR is not set"** banner, the write-gate stops blocking, nothing
+crashes. This is the bootstrap-era analogue of the ADR-0059 guard above; note the **guard's
+`enabledPlugins` check is inert in a bootstrap-wired repo** (no `enabledPlugins` declaration to check
+against), so a bootstrap repo relies on this banner, not the guard.
+
+> The earlier env names **`VFKB_DIR`** (→ `VFKB_DATA_DIR`) and **`VFKB_HOME`** (→ `VFKB_BUNDLE_DIR`)
+> still work as **deprecated aliases** (ADR-0032); `vfkb doctor` warns when one is in use.
 
 ## How this is proven
 
-The onboarding path is verified end-to-end by `scenarios/consumer-onboarding.mjs` (ADR-0029 DoD): a
-real agent in a freshly `init`-ed throwaway repo grounds on that repo's vfkb knowledge via the
-`$VFKB_BUNDLE_DIR` bundles, while a not-onboarded repo cannot. Structural pieces (`init` idempotency, the
-bundles, `doctor`) are covered by deterministic unit tests.
+- **The guard** is proven by an agent-driven L4 with a can-fail arm in the plugin repo
+  (`scenarios/inactive-signal.mjs`, ADR-0059): positive arm — plugin declared but not installed → the
+  `vfkb INACTIVE` banner is observed; contrast arm — plugin installed → banner absent and vfkb live.
+- **The bootstrap onboarding path** is verified end-to-end by `scenarios/consumer-onboarding.mjs`
+  (ADR-0029 DoD): a real agent in a freshly `init`-ed throwaway repo grounds on that repo's vfkb
+  knowledge via the `$VFKB_BUNDLE_DIR` bundles, while a not-onboarded repo cannot. Structural pieces
+  (`init` idempotency, the bundles, `doctor`) are covered by deterministic unit tests.
