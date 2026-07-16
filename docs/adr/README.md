@@ -83,3 +83,6 @@ Immutable records of significant vfkb architecture decisions, in
 | [ADR-0056](ADR-0056-versioning-and-release-automation.md) | Versioning + release automation via release-please — the release is a reviewable PR (accepts RFC-028) | Accepted |
 | [ADR-0057](ADR-0057-npm-delivery-channel.md) | The npm delivery channel — trusted publishing behind a pack-based install proof, born delivery-proven (accepts RFC-029) | Accepted |
 | [ADR-0058](ADR-0058-update-awareness.md) | Update awareness — GitHub Releases canonical + opt-in doctor --check-remote npm currency; no phone-home (accepts RFC-030) | Accepted |
+| [ADR-0059](ADR-0059-inactive-signal-guard.md) | Restore the 'vfkb INACTIVE' signal under plugin wiring — a deterministic, engine-free repo-side guard (accepts RFC-032) | Accepted |
+| [ADR-0060](ADR-0060-plugin-release-tagging.md) | Tag every plugin release `vfkb--v{version}` — durable version refs (unblocks the install-path delivery L4) | Accepted |
+| [ADR-0061](ADR-0061-plugin-release-version-automation.md) | Enforce bump-and-tag mechanically — a version Brake plus tag-on-merge (release-please rejected) | Accepted |
