@@ -1,0 +1,137 @@
+# Engine-delivery signal + re-vendor proposer (ADR-0062, closes plugin#23).
+#
+# On every engine-affecting push to main: build the bundles, compare their
+# STAMP-NORMALIZED bytes (scripts/bundle-drift.mjs) against what the plugin
+# repo vendors. CLEAN -> green, done. DRIFT -> push a `re-vendor/engine` branch
+# to vilosource/vfkb-claude-plugin and open the release PR — which lands BORN
+# RED on the plugin's evidence gate (tree-bound install-path + version-bound L4
+# records), by design: automation proposes, evidence ships (ADR-0050/0051).
+#
+# Auth: PLUGIN_DISPATCH_TOKEN — fine-grained PAT scoped to the plugin repo only
+# (Contents/PR/Actions RW; expires 2026-10-14 — brain fact e8b0b341e2b0). A user
+# PAT, deliberately: GITHUB_TOKEN cannot push cross-repo, and PRs it creates get
+# no CI runs (observed, vfkb#120/#129).
+#
+# Fallback detector: the plugin repo's engine-staleness.yml (cron, credential-
+# free) goes red if drift exists with no open re-vendor PR — so a broken run,
+# dead token, or missed firing here surfaces within a day.
+#
+# `probe` input: the observation lever. The PR-creation path cannot be observed
+# until real drift exists, so probe skips the drift gate and opens a [probe] PR
+# from `re-vendor/probe` with only a marker file (no plugin/ surface change, no
+# version bump). Run once at rollout, observe CI fire on the PR, close it.
+name: engine-delivery
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - package.json
+      - package-lock.json
+      - scripts/build-bundles.mjs
+      - scripts/bundle-drift.mjs
+      - tsconfig.json
+      - .github/workflows/engine-delivery.yml
+  workflow_dispatch:
+    inputs:
+      probe:
+        description: 'Exercise the cross-repo push + PR path against re-vendor/probe (no drift needed); close the [probe] PR after observing'
+        type: boolean
+        default: false
+
+concurrency:
+  group: engine-delivery
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check-and-propose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build:bundles
+
+      - name: Clone the plugin repo (public read)
+        run: git clone --depth 1 https://github.com/vilosource/vfkb-claude-plugin.git /tmp/plugin
+
+      - name: Drift check (stamp-normalized bundle bytes)
+        id: drift
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name == 'workflow_dispatch' && inputs.probe }}" = "true" ]; then
+            echo "drift=probe" >> "$GITHUB_OUTPUT"
+            echo "probe mode — skipping the drift gate to observe the PR path"
+            exit 0
+          fi
+          set +e
+          node scripts/bundle-drift.mjs dist/bundles /tmp/plugin/plugin/dist/bundles
+          rc=$?
+          set -e
+          case "$rc" in
+            0) echo "drift=false" >> "$GITHUB_OUTPUT" ;;
+            1) echo "drift=true"  >> "$GITHUB_OUTPUT" ;;
+            *) echo "bundle-drift comparison itself failed (rc=$rc) — refusing to read this as clean OR drift" >&2
+               exit "$rc" ;;
+          esac
+
+      - name: Push re-vendor branch and open the plugin release PR
+        if: steps.drift.outputs.drift != 'false'
+        env:
+          GH_TOKEN: ${{ secrets.PLUGIN_DISPATCH_TOKEN }}
+          MODE: ${{ steps.drift.outputs.drift }}
+        run: |
+          set -euo pipefail
+          cd /tmp/plugin
+          git config user.name vilosource
+          git config user.email 126692+vilosource@users.noreply.github.com
+          # version-bump.mjs (the Brake deciding the bump) needs the release tags
+          git fetch --tags --quiet origin
+          SHA=$(git -C "$GITHUB_WORKSPACE" rev-parse --short HEAD)
+
+          if [ "$MODE" = "probe" ]; then
+            BRANCH=re-vendor/probe
+            git checkout -B "$BRANCH"
+            echo "engine-delivery probe from vfkb main@${SHA} — $(git -C "$GITHUB_WORKSPACE" log -1 --format=%cI HEAD)" > .engine-delivery-probe
+            git add .engine-delivery-probe
+            git commit -m "chore: engine-delivery probe from vfkb main@${SHA} (close without merging)"
+            TITLE="[probe] engine-delivery path check from vfkb main@${SHA} — close without merging"
+            BODY="Observation lever (ADR-0062 §5): exercises the cross-repo push + PR-creation path with the real token. No plugin/ change, no version bump. **Close this PR without merging** once CI is observed running on it."
+          else
+            BRANCH=re-vendor/engine
+            git checkout -B "$BRANCH"
+            cp "$GITHUB_WORKSPACE"/dist/bundles/vfkb.mjs "$GITHUB_WORKSPACE"/dist/bundles/vfkb-mcp.mjs plugin/dist/bundles/
+            # The plugin's own version Brake decides whether a bump is needed
+            # (an already-bumped unreleased version stays as-is).
+            if ! node scenarios/version-bump.mjs; then
+              node -e 'const fs=require("fs");const f="plugin/.claude-plugin/plugin.json";const j=JSON.parse(fs.readFileSync(f,"utf8"));const[a,b]=j.version.split(".");j.version=`${a}.${Number(b)+1}.0`;fs.writeFileSync(f,JSON.stringify(j,null,2)+"\n");console.log("bumped to",j.version)'
+              node scenarios/version-bump.mjs   # must pass with the bump; red here = real problem, fail loud
+            fi
+            VER=$(node -p 'JSON.parse(require("fs").readFileSync("plugin/.claude-plugin/plugin.json","utf8")).version')
+            git add plugin/
+            git commit -m "chore: re-vendor engine bundles from vfkb main@${SHA} — v${VER}"
+            TITLE="chore: re-vendor engine bundles from vfkb main@${SHA} — v${VER}"
+            BODY=$(printf '%s\n' \
+              "Automated re-vendor (ADR-0062, plugin#23): vfkb main@${SHA} builds engine bundles whose stamp-normalized bytes differ from the vendored copies — consumers are running a different engine than main builds." \
+              "" \
+              "**This PR is born red on the evidence gate, by design.** Before merge (RELEASING.md):" \
+              "1. re-pin the four L4 records **from this pushed branch** (install-path is tree-bound to it): brief-skill, hooks-smoke, inactive-signal, install-path (~metered);" \
+              "2. gates green (release-gate + version Brake); merge tags v${VER} automatically (ADR-0061)." \
+              "" \
+              "Idempotent: further engine changes force-push this same branch/PR.")
+          fi
+
+          git push -f "https://x-access-token:${GH_TOKEN}@github.com/vilosource/vfkb-claude-plugin.git" "$BRANCH"
+          OPEN=$(gh pr list -R vilosource/vfkb-claude-plugin --head "$BRANCH" --state open --json number -q '.[].number')
+          if [ -z "$OPEN" ]; then
+            gh pr create -R vilosource/vfkb-claude-plugin --base main --head "$BRANCH" --title "$TITLE" --body "$BODY"
+          else
+            echo "PR #$OPEN already open for $BRANCH — branch updated in place"
+          fi
