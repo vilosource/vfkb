@@ -30,9 +30,13 @@ import { join } from 'node:path';
 export const BUNDLES = ['vfkb.mjs', 'vfkb-mcp.mjs'];
 
 export function normalizeBundle(text) {
+  // `\d*` on the identifiers: esbuild resolves name collisions by suffixing
+  // (`join` → `join10`, observed in these bundles), so a future collision on
+  // ENGINE_COMMIT/ENGINE_VERSION/ownPackageVersion must not silently stop the
+  // normalization and turn every vfkb commit into a false DRIFT.
   return text
-    .replace(/(ENGINE_COMMIT = true \? ")[^"]*(" : "dev")/g, '$1__STAMP__$2')
-    .replace(/(ENGINE_VERSION = true \? ")[^"]*(" : ownPackageVersion\()/g, '$1__STAMP__$2');
+    .replace(/(ENGINE_COMMIT\d* = true \? ")[^"]*(" : "dev")/g, '$1__STAMP__$2')
+    .replace(/(ENGINE_VERSION\d* = true \? ")[^"]*(" : ownPackageVersion\d*\()/g, '$1__STAMP__$2');
 }
 
 /** { "vfkb.mjs": <sha256 of normalized bytes>, ... } — throws on a missing file. */

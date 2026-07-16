@@ -54,8 +54,8 @@ does not trigger a release — cosmetic identity lag is `vfkb doctor` territory,
 ### 1. Producer-side automation — vfkb CI does everything, with one scoped secret
 
 `.github/workflows/engine-delivery.yml` (this repo), on pushes to `main` touching the build inputs
-(`src/`, `package.json`, `package-lock.json`, `scripts/build-bundles.mjs`, `tsconfig.json`) and on
-manual dispatch:
+(`src/`, `package.json`, `package-lock.json`, `scripts/build-bundles.mjs`, `tsconfig.json`) or the
+signal's own files (`scripts/bundle-drift.mjs`, the workflow itself), and on manual dispatch:
 
 - build the bundles, clone the plugin repo (public read), run `bundle-drift.mjs`;
 - **CLEAN → green, done** (the common case);
@@ -82,10 +82,20 @@ automation carries everything deterministic; the metered L4 re-pins (run from th
 branch, per the tree-binding) remain the only human step, exactly as for a hand-made release PR.
 Nothing about ADR-0050/0051 relaxes. Unattended evidence production is plugin#24, not this ADR.
 
-### 3. Idempotent single-PR flow
+### 3. Idempotent single-PR flow — branch-aware, never clobbering evidence
 
-One standing branch (`re-vendor/engine`), force-pushed on each firing; a second engine change
-before the first merges updates the same PR. `concurrency: engine-delivery` serializes runs.
+One standing branch (`re-vendor/engine`); `concurrency: engine-delivery` serializes runs. Because
+the PR's own instructions tell the operator to commit the re-pinned L4 records **onto that
+branch**, the update path is guarded (review finding, vfkb#182 — the unguarded version reintroduced
+exactly the release-please clobber class ADR-0061 §3 rejected):
+
+- if the open branch **already proposes these bytes** (drift-compare against the *branch's*
+  bundles, not `main`'s), exit green — this also kills gratuitous re-fires from stamp-only vfkb
+  pushes after the PR opens;
+- if the branch is genuinely stale but carries **any non-automation commit** (a subject not
+  matching the re-vendor pattern, or anything touching `scenarios/records/`), **fail red for
+  manual reconciliation** — a force-push would destroy committed, metered evidence;
+- only a branch carrying nothing but this automation's own commits is force-pushed.
 
 ### 4. Credential-free fallback: the plugin repo detects staleness daily
 
@@ -93,7 +103,10 @@ before the first merges updates the same PR. `concurrency: engine-delivery` seri
 build, run the same `bundle-drift.mjs`. CLEAN → green. DRIFT with an open `re-vendor/engine` PR →
 green (the system is working). DRIFT with **no** open PR → **fail loud**, naming the likely causes
 (producer workflow broken; PAT expired — 2026-10-14). No secrets: reads are public, `gh pr list`
-uses the repo's own `GITHUB_TOKEN`.
+uses the repo's own `GITHUB_TOKEN` (owner-filtered, so a fork branch named `re-vendor/engine`
+cannot mask staleness). **Accepted blind spots, stated:** an open-but-ignored PR keeps the cron
+green indefinitely (no age escalation), and GitHub disables `schedule` workflows after ~60 days of
+repo inactivity — the fallback can itself go quiet in a dormant period.
 
 ### 5. The observation lever
 
@@ -112,6 +125,8 @@ lesson).
 - The PAT is a standing supply-chain credential for a repo 8 consumers track — mitigated by
   fine-grained scoping (one repo, Contents/PR/Actions), 90-day expiry, and the loud-failure design.
 - Unit backstop: `test/bundle-drift.test.ts` pins the normalization against the exact stamp
-  literals (a stamp-shape change in `build-bundles.mjs` goes red deterministically instead of
-  silently re-enabling per-commit false fires).
+  literals **and against a real build** — it builds the bundles and asserts the regexes bite them
+  in the observed per-bundle counts (synthetic literals alone would stay green if the toolchain
+  changed the emitted shape — review finding, vfkb#182). The regexes tolerate esbuild's
+  collision-renaming (`\d*` suffixes), the one shape drift already observable in these bundles.
 - **Non-goals:** producing evidence (plugin#24), merging (plugin#25), CHANGELOG/publishing.

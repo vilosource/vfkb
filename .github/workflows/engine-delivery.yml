@@ -60,7 +60,10 @@ jobs:
       - run: npm run build:bundles
 
       - name: Clone the plugin repo (public read)
-        run: git clone --depth 1 https://github.com/vilosource/vfkb-claude-plugin.git /tmp/plugin
+        # Full clone, deliberately: the push step needs origin/main..origin/re-vendor/engine
+        # history to detect operator commits on the release branch (see below), and the
+        # version Brake needs the tags. The repo is small.
+        run: git clone https://github.com/vilosource/vfkb-claude-plugin.git /tmp/plugin
 
       - name: Drift check (stamp-normalized bundle bytes)
         id: drift
@@ -87,18 +90,53 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.PLUGIN_DISPATCH_TOKEN }}
           MODE: ${{ steps.drift.outputs.drift }}
+        # The push URL embeds the token; safe in logs because Actions auto-masks
+        # every secrets.* value, and a fine-grained PAT needs no URL-encoding that
+        # would defeat the literal mask (reviewed). No `set -x` in this step.
         run: |
           set -euo pipefail
           cd /tmp/plugin
           git config user.name vilosource
           git config user.email 126692+vilosource@users.noreply.github.com
-          # version-bump.mjs (the Brake deciding the bump) needs the release tags
-          git fetch --tags --quiet origin
           SHA=$(git -C "$GITHUB_WORKSPACE" rev-parse --short HEAD)
+
+          # ------------------------------------------------------------------
+          # Branch-aware guard (review of vfkb#182, blocking finding). The PR
+          # body tells the operator to commit the re-pinned L4 records ONTO
+          # re-vendor/engine — so this step must never blindly force-push:
+          #   1. If the open branch already proposes exactly these bytes,
+          #      exit green (also kills re-fires from stamp-only vfkb pushes).
+          #   2. If the branch carries ANY commit that is not this automation's
+          #      own re-vendor commit (operator records, manual work), fail RED
+          #      for manual reconciliation — a force-push would destroy
+          #      committed, metered evidence (the release-please clobber class
+          #      ADR-0061 rejected).
+          # ------------------------------------------------------------------
+          if [ "$MODE" != "probe" ] && git rev-parse --verify --quiet origin/re-vendor/engine >/dev/null; then
+            mkdir -p /tmp/branch-bundles
+            git show origin/re-vendor/engine:plugin/dist/bundles/vfkb.mjs     > /tmp/branch-bundles/vfkb.mjs
+            git show origin/re-vendor/engine:plugin/dist/bundles/vfkb-mcp.mjs > /tmp/branch-bundles/vfkb-mcp.mjs
+            set +e
+            node "$GITHUB_WORKSPACE"/scripts/bundle-drift.mjs "$GITHUB_WORKSPACE"/dist/bundles /tmp/branch-bundles
+            brc=$?
+            set -e
+            if [ "$brc" -eq 0 ]; then
+              echo "open re-vendor/engine PR already proposes exactly these bytes — nothing to do"
+              exit 0
+            elif [ "$brc" -ne 1 ]; then
+              echo "::error::comparison against the open re-vendor branch failed (rc=$brc)"; exit "$brc"
+            fi
+            FOREIGN=$(git log origin/main..origin/re-vendor/engine --format='%s' | grep -cv '^chore: re-vendor engine bundles from vfkb main@' || true)
+            RECORDS=$(git diff --name-only origin/main..origin/re-vendor/engine -- scenarios/records/ | wc -l)
+            if [ "$FOREIGN" -gt 0 ] || [ "$RECORDS" -gt 0 ]; then
+              echo "::error::re-vendor/engine is STALE vs vfkb main but carries non-automation work ($FOREIGN foreign commit(s), $RECORDS record file(s)) — refusing to force-push over committed evidence. Reconcile manually: merge or close the open PR, then re-run this workflow."
+              exit 1
+            fi
+          fi
 
           if [ "$MODE" = "probe" ]; then
             BRANCH=re-vendor/probe
-            git checkout -B "$BRANCH"
+            git checkout -B "$BRANCH" origin/main
             echo "engine-delivery probe from vfkb main@${SHA} — $(git -C "$GITHUB_WORKSPACE" log -1 --format=%cI HEAD)" > .engine-delivery-probe
             git add .engine-delivery-probe
             git commit -m "chore: engine-delivery probe from vfkb main@${SHA} (close without merging)"
@@ -106,7 +144,7 @@ jobs:
             BODY="Observation lever (ADR-0062 §5): exercises the cross-repo push + PR-creation path with the real token. No plugin/ change, no version bump. **Close this PR without merging** once CI is observed running on it."
           else
             BRANCH=re-vendor/engine
-            git checkout -B "$BRANCH"
+            git checkout -B "$BRANCH" origin/main
             cp "$GITHUB_WORKSPACE"/dist/bundles/vfkb.mjs "$GITHUB_WORKSPACE"/dist/bundles/vfkb-mcp.mjs plugin/dist/bundles/
             # The plugin's own version Brake decides whether a bump is needed
             # (an already-bumped unreleased version stays as-is).
@@ -129,7 +167,9 @@ jobs:
           fi
 
           git push -f "https://x-access-token:${GH_TOKEN}@github.com/vilosource/vfkb-claude-plugin.git" "$BRANCH"
-          OPEN=$(gh pr list -R vilosource/vfkb-claude-plugin --head "$BRANCH" --state open --json number -q '.[].number')
+          # Owner-filtered (review of vfkb#182): --head matches branch NAME only,
+          # so a fork PR named re-vendor/engine could otherwise suppress creation.
+          OPEN=$(gh pr list -R vilosource/vfkb-claude-plugin --head "$BRANCH" --state open --json number,headRepositoryOwner -q '.[] | select(.headRepositoryOwner.login=="vilosource") | .number')
           if [ -z "$OPEN" ]; then
             gh pr create -R vilosource/vfkb-claude-plugin --base main --head "$BRANCH" --title "$TITLE" --body "$BODY"
           else

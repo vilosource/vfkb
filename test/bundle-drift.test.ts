@@ -6,7 +6,7 @@
 // red deterministically — instead of the normalization silently missing the new
 // shape and the workflow false-firing a re-vendor PR on every vfkb commit.
 import { describe, expect, it } from 'vitest';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 // @ts-expect-error — plain .mjs module without type declarations
@@ -52,4 +52,35 @@ describe('bundle-drift normalization (ADR-0062)', () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  // The load-bearing case (review of vfkb#182, minor finding): the synthetic
+  // cases above pin the regexes against HAND-COPIED literals — if a toolchain
+  // upgrade changes the REAL emitted stamp shape, they stay green while the
+  // normalization silently misses and every vfkb commit becomes a false DRIFT
+  // (re-vendor PR churn). So build the real bundles and assert the regexes
+  // actually bite them, in the observed per-bundle counts.
+  it('the REAL build emits stamps the normalization actually matches', async () => {
+    // @ts-expect-error — plain .mjs module without type declarations
+    const { buildBundles } = await import('../scripts/build-bundles.mjs');
+    const dir = mkdtempSync(join(tmpdir(), 'drift-real-'));
+    try {
+      await buildBundles(dir);
+      const cli = readFileSync(join(dir, 'vfkb.mjs'), 'utf8');
+      const mcp = readFileSync(join(dir, 'vfkb-mcp.mjs'), 'utf8');
+      const commitRe = /ENGINE_COMMIT\d* = true \? "[^"]*" : "dev"/g;
+      const versionRe = /ENGINE_VERSION\d* = true \? "[^"]*" : ownPackageVersion\d*\(/g;
+      // Observed shape 2026-07-16: CLI carries both stamps once; MCP only the
+      // version stamp (ENGINE_COMMIT is tree-shaken out of that entry).
+      expect(cli.match(commitRe)?.length ?? 0).toBe(1);
+      expect(cli.match(versionRe)?.length ?? 0).toBe(1);
+      expect(mcp.match(versionRe)?.length ?? 0).toBe(1);
+      // ...and normalization genuinely rewrites every bundle that carries a stamp.
+      expect(normalizeBundle(cli)).not.toBe(cli);
+      expect(normalizeBundle(mcp)).not.toBe(mcp);
+      // A commit-stamp reappearing in MCP would also be normalized, not missed:
+      expect(normalizeBundle(mcp + stamped('fffffff', '0.0.1'))).not.toContain('fffffff');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 30000);
 });
