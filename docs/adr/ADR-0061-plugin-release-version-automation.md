@@ -74,9 +74,12 @@ neither side goes **red** rather than silently checking nothing (ADR-0029 anti-v
 ### 3. Two mechanisms, one per skippable half
 
 - **`scenarios/version-bump.mjs`** (every PR, deterministic, no LLM/auth/network beyond git) — the
-  bump becomes unskippable. It ships with **`version-bump.selftest.mjs`**: ten cases on real git
+  bump becomes unskippable. It ships with **`version-bump.selftest.mjs`**: eleven cases on real git
   repos in a tmpdir, each observed going the way it must, including a **replay of the actual 0.5.0
-  drift**.
+  drift**. It fails **closed**: a checkout carrying no `vfkb--v*` tags at all is reported as missing
+  tag data rather than treated as "nothing released yet" — otherwise the Actions default (shallow,
+  tagless) would make every version look unreleased and the Brake pass vacuously, silently, in the
+  one configuration it exists to police.
 - **`.github/workflows/release-tag.yml`** (merge to `main`) — the tag becomes unskippable by leaving
   human hands entirely: a version on `main` without its tag gets one, at that commit, after the
   deterministic gates re-run green. This is safe to automate precisely because the tag is **not a
