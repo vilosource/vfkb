@@ -41,6 +41,8 @@ is a fallback only — use it solely if the repo deliberately isn't plugin-wired
 > CLAUDE_PROJECT_DIR=$PWD node .claude/vfkb-guard.mjs   # prints the `vfkb INACTIVE` banner, exits 0
 > ```
 > This is **correct**: the plugin is *declared* here but not yet *installed*, so the guard banners.
+> (Exception: if vfkb is already installed at **user** scope on this machine it fulfils every project,
+> so the guard correctly stays silent — that means "already installed," not "fetch failed.")
 > Do **not** claim vfkb is "live" yet — `enabledPlugins` only declares it (gotcha `8e76f8f72b64`:
 > settings-wired ≠ loaded).
 >
@@ -48,8 +50,8 @@ is a fallback only — use it solely if the repo deliberately isn't plugin-wired
 > engine — use a vfkb checkout's `dist/cli.js` and point it at this repo's brain:
 > ```bash
 > export VFKB_DATA_DIR=.vfkb        # per-repo — do NOT put in ~/.bashrc
-> node ~/VFKB/vfkb/dist/cli.js import --from-adr docs/adr            # one link per ADR
-> node ~/VFKB/vfkb/dist/cli.js import --from-markdown <path/to/doc>  # attach a key doc as a source
+> node <vfkb-checkout>/dist/cli.js import --from-adr docs/adr            # one link per ADR
+> node <vfkb-checkout>/dist/cli.js import --from-markdown <path/to/doc>  # attach a key doc as a source
 > ```
 > **`--from-mykb` reads ONLY `~/.mykb/areas/<name>/{decisions,facts,gotchas,patterns,links}.jsonl`** —
 > not a mykb *workspace* journal (`~/.mykb/workspaces/<name>/journal.jsonl`). A `kb work journal` is a

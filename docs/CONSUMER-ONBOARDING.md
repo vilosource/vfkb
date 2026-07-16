@@ -83,9 +83,13 @@ You won't silently lose continuity if the plugin isn't loaded. When this repo de
 `installed_plugins.json` has no matching fulfillment (uninstalled, never-approved, or wrong project),
 the committed guard injects at session start:
 
-> ⚠️ **vfkb INACTIVE** — this project declares the vfkb plugin (`vfkb@vfkb`) but it is not installed
-> for this session. No resume digest, no brain-write gate, and no decision capture are running… Fix:
-> run `claude plugin install vfkb@vfkb` (or approve the plugin when prompted), then restart.
+> vfkb INACTIVE — this project declares the vfkb plugin (`vfkb@vfkb`) but it is not installed for this
+> session. No resume digest, no brain-write gate, and no decision capture are running; knowledge
+> recorded now may be lost. Fix: run `claude plugin install vfkb@vfkb` (or approve the plugin when
+> prompted), then restart the session.
+
+*(Quoted abbreviated; the guard emits plain text — no emoji — and self-identifies as `vfkb-guard /
+ADR-0059`.)*
 
 **Known limitation (ADR-0059):** the installed-but-*unapproved* state may be invisible to the guard
 (approval state lives outside `installed_plugins.json`). It decisively covers uninstalled /
@@ -96,6 +100,9 @@ never-fulfilled / wrong-project — the modes actually observed.
 - **Guard fires as expected** — before the install, `CLAUDE_PROJECT_DIR=$PWD node .claude/vfkb-guard.mjs`
   prints the `vfkb INACTIVE` banner (it is *declared* but not yet *installed* — the guard's can-fail
   proof). After the install + restart, a live session shows the resume digest injected and no banner.
+  *(One exception: if the plugin is already installed at **user** scope on this machine, that fulfils
+  every project, so the guard correctly stays silent — a suppressed banner then means "already
+  installed," not "fetch failed.")*
 - **`kb_*` tools present** — in a live session the `mcp__plugin_vfkb_vfkb__kb_*` tools are available,
   and the SessionStart resume injection appears. Inspecting `settings.json` is **not** sufficient
   (ADR-0051 quiet-failure class) — probe the live session.
@@ -108,9 +115,9 @@ A **manual** CLI call needs a vfkb engine and this repo's brain dir. Use a vfkb 
 
 ```sh
 export VFKB_DATA_DIR=.vfkb        # per-repo; do NOT put in ~/.bashrc
-node ~/VFKB/vfkb/dist/cli.js import --from-adr docs/adr        # one link per ADR
-node ~/VFKB/vfkb/dist/cli.js import --from-markdown NOTES.md   # attach a historical doc
-node ~/VFKB/vfkb/dist/cli.js import --from-mykb <area>          # ONLY a mykb AREA (see caveat)
+node <vfkb-checkout>/dist/cli.js import --from-adr docs/adr        # one link per ADR
+node <vfkb-checkout>/dist/cli.js import --from-markdown NOTES.md   # attach a historical doc
+node <vfkb-checkout>/dist/cli.js import --from-mykb <area>          # ONLY a mykb AREA (see caveat)
 ```
 
 **`--from-mykb` caveat:** it reads only `~/.mykb/areas/<name>/{decisions,facts,gotchas,patterns,links}.jsonl`
