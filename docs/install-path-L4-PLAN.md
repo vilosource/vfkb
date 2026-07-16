@@ -1,12 +1,16 @@
 # `install-path` L4 — prove plugin delivery (implementation plan)
 
-> **Status:** PLAN — PROPOSED (2026-07-16). Un-gated by **explicit operator request** this session
-> (RFC-024 §4 trigger: *"…or an explicit operator request"*), so building it is now sanctioned, not
-> the speculative build CLAUDE.md forbids. **Nothing is built yet.** Grounded against the live plugin
-> repo (`~/VFKB/vfkb-claude-plugin`, read 2026-07-16): `plugin.json` v0.5.0, **zero git tags**,
-> `scenarios/hooks-smoke.mjs` harness, `scenarios/release-gate.mjs`, `DELIVERY-STATUS.json`,
-> `RELEASING.md`. This plan lives in **vfkb** (docs land on `main`), but **all build work is in
-> `vilosource/vfkb-claude-plugin`**.
+> **Status:** ✅ **DONE (2026-07-16) — delivery is PROVEN.** All three phases shipped: Phase 0
+> (ADR-0060 tagging), Phase 1 (`scenarios/install-path.mjs`, RED-verified), Phase 2 (the live metered
+> run — **DEMONSTRATED 3/3**: fresh 3/3, upgrade 3/3, contrast 0/3). The version-bound record
+> `scenarios/records/install-path.json` flipped `DELIVERY-STATUS.json` to `proven` (vfkb-claude-plugin#20).
+> Delivery must be **re-proven every release** (RELEASING.md re-pin checklist) to stay proven. Brain:
+> decision `6df924d7b464`. *(Original plan preserved below for the record.)*
+>
+> _Original status:_ PLAN — PROPOSED. Un-gated by explicit operator request (RFC-024 §4). Grounded
+> 2026-07-16 against the live plugin repo (`plugin.json` v0.5.0, then zero git tags, the
+> `hooks-smoke.mjs` harness, `release-gate.mjs`, `DELIVERY-STATUS.json`, `RELEASING.md`). Build work
+> was all in `vilosource/vfkb-claude-plugin`.
 
 ## 0. Goal & scope
 
