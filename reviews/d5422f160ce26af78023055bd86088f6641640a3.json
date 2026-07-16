@@ -1,0 +1,57 @@
+{
+  "recordVersion": 1,
+  "sha": "d5422f160ce26af78023055bd86088f6641640a3",
+  "governing": ["docs/adr/ADR-0062-engine-delivery-signal.md"],
+  "reviewer": { "agent": "general-purpose", "model": "claude-opus-4-8", "rounds": 3 },
+  "generated": "2026-07-16T13:20:00Z",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "unconditional force-push of re-vendor/engine clobbers operator-committed L4 records (the release-please clobber class ADR-0061 rejected); fixed 2d2d9fa: branch-aware guard — bytes-match early exit, FOREIGN/RECORDS red for manual reconciliation, force-push only over automation-only branches",
+      "acceptedBy": null
+    },
+    {
+      "id": "F2",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "normalization test pinned hand-copied stamp literals only, leaving the 'deterministic backstop' claim false; fixed 2d2d9fa/465c443: real-build case asserts the regexes bite the actual bundles in observed per-bundle counts, collision-proof sentinel; verified by mutant falsification (identity normalizeBundle and broken-regex mutants each go red)",
+      "acceptedBy": null
+    },
+    {
+      "id": "F3",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "gh pr list --head matches branch NAME only, so a fork branch named re-vendor/engine could suppress PR creation (and mask cron staleness plugin-side); fixed 2d2d9fa: jq owner filter headRepositoryOwner.login==vilosource in both workflows",
+      "acceptedBy": null
+    },
+    {
+      "id": "F4",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "RECORDS guard used a two-dot tip-vs-tip git diff and false-red on unrelated records landing on plugin main after the branch was cut (demonstrated: FOREIGN=0, RECORDS=1 for an automation-only branch — the routine post-release steady state); fixed d5422f1: three-dot merge-base diff; reproduction re-run confirms no false-red, record-on-branch still reds, record hidden in an automation-subject commit still reds",
+      "acceptedBy": null
+    },
+    {
+      "id": "F5",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "the bytes-already-proposed early exit never checked a PR is actually OPEN — a closed-unmerged PR or a run dying between push and pr-create left right-bytes-no-PR with the producer green; fixed d5422f1: owner-filtered open-PR check, re-opens the PR from the existing branch (version read from the branch's plugin.json; stdin-read pipeline executed against the real repo)",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 5,
+  "ruledOut": [
+    "ADR-0062 §1 conformance: trigger paths match the ADR exactly (six paths + manual dispatch); CLEAN/DRIFT/error tri-state honored — exit codes 0/1/2 verified live; rc=2 propagated, never read as clean or drift",
+    "ADR-0062 §3 conformance: force-push reachable only when FOREIGN=0 and RECORDS=0; the foreign-commit check does not misfire on the automation's own older commits after a normal merge (empty range) or a squash merge (subjects match the pattern); stamp-only vfkb pushes after the PR opens are killed by the branch-bytes compare",
+    "ADR-0062 §5 probe conformance: no plugin/ surface change (marker at repo root), no version bump, separate re-vendor/probe branch, [probe] title, close-without-merge instructions",
+    "scope: exactly 4 new files plus two fix commits; no src/ change; no scope creep; no silent drops — the §4 fallback (engine-staleness.yml) lives in the plugin repo, correctly outside this PR",
+    "the proof can fail (ADR-0029): identity-normalizeBundle and broken-regex mutants each fail tests 1, 3, and the real-build assertions — executed against scratch copies, not reasoned; the real-build test uses independent regex copies and a collision-proof sentinel; the buildBundles import does not trigger either script's CLI side-effect guard",
+    "live drift check: CLEAN today, exit 0; raw sha256 differs on both bundles while normalized hashes match — the normalization is load-bearing and CLEAN is not vacuous",
+    "stamp-shape correspondence: src/version.ts + esbuild define fold matches the normalization regexes; the \\d* collision tolerance is justified and empirically pinned by the real-build test",
+    "hygiene: no secrets in the diff (PAT via secrets context only, auto-masked, never persisted into git config); no AI attribution in any branch commit; workflow permissions contents:read minimal; YAML parses at both heads; concurrency group serializes runs; plugin-side version-bump.mjs contract holds (tag-based Brake; the deliberate full clone provides its tags)",
+    "round-2 additions: the re-opened PR's title stamping the current vfkb sha is byte-honest (the guard just proved normalized bytes match current main's build); gh failures on the new path fail the step loud under set -euo pipefail; the node -p stdin read executed against the real plugin.json (0.5.0, exit 0); the two gh pr create sites sit on mutually exclusive paths"
+  ],
+  "verdict": "MERGE"
+}
