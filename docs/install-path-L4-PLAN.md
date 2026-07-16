@@ -47,12 +47,12 @@ bound to the shipping `pluginVersion`.** `DELIVERY-STATUS.json.delivery` is **no
 derives truth from the record and fails on any hand-edit mismatch (`DELIVERY-STATUS.json:15-18`). We
 never flip it ourselves; landing the record flips it.
 
-**Corollary — the recurring cost.** `checkRecord` is **version-bound**: the record must match the
+**Corollary — the recurring re-pin.** `checkRecord` is **version-bound**: the record must match the
 release's `pluginVersion`, exactly like the other three live records (`RELEASING.md` "Pre-tag
-checklist" §3). So once delivery is proven, **every subsequent release that wants to stay `proven`
-must re-pin `install-path` against the new version** — adding this scenario's cost to every release.
-§6 confronts whether that cadence is affordable, or whether we re-pin only on wiring-affecting
-releases and let delivery lapse to `unproven` (with the honest disclosure) otherwise.
+checklist" §3). So once delivery is proven, **every subsequent release must re-pin `install-path`
+against the new version** to stay `proven`. Per the operator's standing directive (thoroughness over
+budget — the ~12-session cost is **not** a constraint), the policy is to **re-pin on every release**;
+we do not let delivery lapse to `unproven` to save sessions. §6 records this.
 
 ## 2. What already exists vs. the delta to build
 
@@ -141,10 +141,14 @@ ref**. Three arms, DEMONSTRATED ≥2/3:
 (e.g. contrast wiring, or a bogus ref) and confirm they **fail** — a proof that can't fail proves
 nothing (ADR-0029). Stop here until the operator green-lights the metered run.
 
-## 5. Phase 2 — the metered run (~12 live sessions · fire on operator word)
+## 5. Phase 2 — the metered run (~12 live sessions)
 
-- **Cost:** `3×1 (fresh) + 3×2 (upgrade pre+post) + 3×1 (contrast)` ≈ **12 live sessions** per full run
-  (RFC-024 §4). Run **one docker/agent session at a time** (ADR-0022).
+- **Scale:** `3×1 (fresh) + 3×2 (upgrade pre+post) + 3×1 (contrast)` ≈ **12 live sessions** per full run
+  (RFC-024 §4). Run **one docker/agent session at a time** (ADR-0022). Cost is **not** a gate (operator
+  directive: thoroughness over budget) — run more trials than the 2/3 minimum if it hardens the proof.
+- **The only checkpoint before Phase 2 is correctness, not spend:** confirm Phase 1's arms are
+  RED-verified and the `plugin update` restart step is observed to work (§4). That is a soundness
+  review of the harness, not a budget approval.
 - Produce `scenarios/records/install-path.json`, **version-bound to the shipping `pluginVersion`**
   (v0.5.0, or the then-current if a release intervenes), DEMONSTRATED ≥2/3.
 - `node scenarios/release-gate.selftest.mjs && node scenarios/release-gate.mjs` → green, with the
@@ -160,17 +164,21 @@ nothing (ADR-0029). Stop here until the operator green-lights the metered run.
 
 1. **`claude plugin tag` — real or fallback?** The plan's biggest unknown (Phase 0 step 1). If the
    command doesn't exist or doesn't pin, we use git tags + `@ref` — cheap and RFC-024-confirmed.
-2. **Re-pin cadence.** Version-binding means staying `proven` costs **+~12 sessions every release**.
-   Options: (a) re-pin every release (honest, expensive); (b) re-pin only on releases that touch
-   wiring/packaging, and let delivery lapse to `unproven`-with-disclosure otherwise (ADR-0051 permits
-   this explicitly). Recommend **(b)** — the disclosure machinery exists precisely so honest lapses are
-   cheap; paying 12 sessions to re-prove a docs-only bump is the "nothing release" problem again.
-3. **How many prior versions to retro-tag** — one (`old→new`) is the minimum the `upgrade` arm needs.
+2. **Re-pin cadence — DECIDED: every release.** Version-binding means staying `proven` costs **+~12
+   sessions every release**. Per the operator's standing directive (thoroughness over budget), we
+   **re-pin on every release** and keep delivery continuously `proven`. The ADR-0051 option of letting
+   delivery lapse to `unproven`-with-disclosure to save sessions is **rejected** here — cost is not a
+   constraint, and continuous proof is the more honest state. (This reverses the plan's first draft,
+   which recommended the cost-saving lapse.)
+3. **How many prior versions to retro-tag** — the `upgrade` arm needs one (`old→new`) at minimum;
+   default to tagging **all** identifiable prior releases so the upgrade matrix can be broadened later
+   without re-mining history.
 
 ## 7. Risks & guardrails
 
-- **Metered spend** is the main cost — bounded by the RED-verify gate (nothing metered until arms are
-  proven can-fail) and the one-at-a-time run rule.
+- **Harness correctness** is the main risk (not spend — cost is not a constraint here). A flawed arm
+  produces a *false* proof, which is worse than none; the RED-verify gate and the `plugin update`
+  restart observation (§4) exist to catch that before Phase 2.
 - **Credential hygiene** (ADR-0022 §8) — the largest safety surface; reuse `hooks-smoke`'s
   `stageCreds` + `finally` scrub verbatim, sandbox HOME only.
 - **The `plugin update` restart ambiguity** (§4) could invalidate the `upgrade` arm's post-run — de-risk
