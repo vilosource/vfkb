@@ -77,8 +77,12 @@ describe('bundle-drift normalization (ADR-0062)', () => {
       // ...and normalization genuinely rewrites every bundle that carries a stamp.
       expect(normalizeBundle(cli)).not.toBe(cli);
       expect(normalizeBundle(mcp)).not.toBe(mcp);
-      // A commit-stamp reappearing in MCP would also be normalized, not missed:
-      expect(normalizeBundle(mcp + stamped('fffffff', '0.0.1'))).not.toContain('fffffff');
+      // A commit-stamp reappearing in MCP would also be normalized, not missed.
+      // (Sentinel must be collision-proof: 'fffffff' occurs naturally in the
+      // bundle's own hex constants and failed exactly this assertion.)
+      const sentinel = 'probe0commit0zz';
+      expect(mcp).not.toContain(sentinel); // precondition, so the assert below is meaningful
+      expect(normalizeBundle(mcp + stamped(sentinel, '0.0.1'))).not.toContain(sentinel);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
