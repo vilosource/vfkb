@@ -464,6 +464,34 @@ export function latestHandoff(
   return latest;
 }
 
+// --- Cross-repo operations pin (ADR-0063 §2): the delivery channel for visitor
+// records. Same selection-is-a-filter discipline as the handoff pin: newest
+// injectable entry tagged `cross-repo`. Entries also tagged handoff/next are
+// excluded defensively — ADR-0063 §1 forbids the combination (it would claim the
+// resident's continuity pin), and excluding them here keeps one entry from ever
+// rendering in both pinned sections.
+const CROSS_REPO_PIN_CAP_CHARS = 2000;
+export function latestCrossRepo(
+  all: KnowledgeEntry[] = readAll(),
+  today = nowIso().slice(0, 10),
+  superseded: Set<string> = supersededIds(all),
+): KnowledgeEntry | null {
+  let latest: KnowledgeEntry | null = null;
+  for (const e of all) {
+    if (!e.tags.includes('cross-repo')) continue;
+    if (e.tags.includes('handoff') || e.tags.includes('next')) continue;
+    if (!isInjectable(e, today, superseded)) continue;
+    if (!latest) {
+      latest = e;
+      continue;
+    }
+    const cmp =
+      e.updated.localeCompare(latest.updated) || e.created.localeCompare(latest.created);
+    if (cmp >= 0) latest = e;
+  }
+  return latest;
+}
+
 export function renderContextBundle(project = defaultProject(), budget = SESSION_BUDGET_CHARS): string {
   const all = readAll();
   const today = nowIso().slice(0, 10);
@@ -503,6 +531,19 @@ export function renderContextBundle(project = defaultProject(), budget = SESSION
     body += `## Last handoff\n- [${handoff.type} ${trustGlyph(handoff)}] ${text}\n\n`;
   }
 
+  // Cross-repo operations (ADR-0063 §2): pinned after the handoff, never
+  // budget-dropped — resident continuity and visitor records each get one
+  // guaranteed slot; neither can evict the other. Same bounded-pin discipline
+  // as the handoff (visitor records are free text from another session).
+  const crossRepo = latestCrossRepo(all, today, superseded);
+  if (crossRepo && !constitutionalIds.has(crossRepo.id)) {
+    const text =
+      crossRepo.text.length > CROSS_REPO_PIN_CAP_CHARS
+        ? `${crossRepo.text.slice(0, CROSS_REPO_PIN_CAP_CHARS)}… (truncated — kb_get ${crossRepo.id} for the rest)`
+        : crossRepo.text;
+    body += `## Cross-repo operations\n- [${crossRepo.type} ${trustGlyph(crossRepo)}] ${text}\n\n`;
+  }
+
   // Context Map (ADR-0006): the navigational index, always injected, never dropped.
   body += renderContextMap() + '\n\n';
 
@@ -510,6 +551,7 @@ export function renderContextBundle(project = defaultProject(), budget = SESSION
   for (const e of injectable) {
     if (constitutionalIds.has(e.id)) continue; // already in the Constitution section
     if (handoff && e.id === handoff.id) continue; // already pinned in Last handoff
+    if (crossRepo && e.id === crossRepo.id) continue; // already pinned in Cross-repo operations
     const line = `- [${e.type} ${trustGlyph(e)}] ${e.text}\n`;
     if (header.length + body.length + line.length + footer.length > budget) {
       dropped++;

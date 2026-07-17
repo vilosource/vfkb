@@ -1,0 +1,39 @@
+{
+  "scenario": "cross-repo-record",
+  "model": "claude-haiku-4-5",
+  "trials": 1,
+  "generated": "2026-07-17T16:24:15.045Z",
+  "v1": 1,
+  "delivery": 0,
+  "contrast": 0,
+  "conventionDemonstrated": true,
+  "pinDemonstrated": false,
+  "renderCarriesSentinel": {
+    "v1": true,
+    "delivery": false,
+    "contrast": false
+  },
+  "arms": {
+    "v1": [
+      {
+        "hit": true,
+        "out": "peltmarsh-quill-47 ",
+        "err": ""
+      }
+    ],
+    "delivery": [
+      {
+        "hit": false,
+        "out": "UNKNOWN ",
+        "err": ""
+      }
+    ],
+    "contrast": [
+      {
+        "hit": false,
+        "out": "UNKNOWN ",
+        "err": ""
+      }
+    ]
+  }
+}
