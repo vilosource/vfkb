@@ -2,13 +2,14 @@
 type: RFC
 title: "RFC-033: Cross-repo brain write — a cross-repo operation leaves one deliberate, provenance-stamped record in each affected repo's own brain"
 description: "The write-side complement of RFC-013/ADR-0038: when a session in repo A changes repo B's observable state, it first reads B's brain, then writes one cross-repo record into it through the engine (VFKB_DATA_DIR today, a `vfkb broadcast` helper on build) — tagged `cross-repo` (never `handoff`/`next`: the resident's ADR-0049 pin is not the visitor's channel), delivered via a second bounded pinned section on build, never committed by the writer, arriving unverified. MCP-side targeting is rejected by name."
-status: Proposed
+status: "Accepted → ADR-0063 (ratified 2026-07-17)"
 timestamp: 2026-07-17
 ---
 
 # RFC-033: Cross-repo brain write — operation record broadcast
 
-- **Status:** Proposed
+- **Status:** **Accepted → [ADR-0063](../adr/ADR-0063-cross-repo-brain-write.md)** (ratified
+  2026-07-17; operator acceptance after two independent review cycles)
 - **Date:** 2026-07-17
 - **Deciders:** operator + Claude
 - **Relates:** [RFC-013](RFC-013-cross-project-brain-query.md) /

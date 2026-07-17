@@ -86,3 +86,5 @@ Immutable records of significant vfkb architecture decisions, in
 | [ADR-0059](ADR-0059-inactive-signal-guard.md) | Restore the 'vfkb INACTIVE' signal under plugin wiring — a deterministic, engine-free repo-side guard (accepts RFC-032) | Accepted |
 | [ADR-0060](ADR-0060-plugin-release-tagging.md) | Tag every plugin release `vfkb--v{version}` — durable version refs (unblocks the install-path delivery L4) | Accepted |
 | [ADR-0061](ADR-0061-plugin-release-version-automation.md) | Enforce bump-and-tag mechanically — a version Brake plus tag-on-merge (release-please rejected) | Accepted |
+| [ADR-0062](ADR-0062-engine-delivery-signal.md) | Engine changes surface automatically as a ready-to-prove plugin release PR — producer-side automation over a normalized-bundle drift signal | Accepted |
+| [ADR-0063](ADR-0063-cross-repo-brain-write.md) | Cross-repo brain write — read the target's brain first, then one deliberate `cross-repo` record per operation, delivered via a second pinned section (accepts RFC-033) | Accepted |
