@@ -6,7 +6,7 @@ status: Proposed
 timestamp: 2026-07-17
 ---
 
-# RFC-033: Cross-repo brain write — operation handoff broadcast
+# RFC-033: Cross-repo brain write — operation record broadcast
 
 - **Status:** Proposed
 - **Date:** 2026-07-17
@@ -59,8 +59,11 @@ VFKB_DATA_DIR=~/VFKB/<repo>/.vfkb VFKB_PROJECT=<repo> \
 ```
 
 Eleven entries landed (e.g. EventShield `62f18de97e40`, viloforge-wiki `6061deef7b77`), went
-through the engine (append-only JSONL discipline intact), and will surface in each target's own
-session-start injection. **The capability gap is zero.** What is missing is everything around it:
+through the engine (append-only JSONL discipline intact), and are recallable from each target's
+own brain — though whether one *surfaces in the session-start injection* is exactly the delivery
+question §1a decides (as ranked facts they are droppable under budget pressure; the original
+claim here that they "will surface" overstated v1 — same defect class as the annotated command
+above). **The capability gap is zero.** What is missing is everything around it:
 
 - **No discipline.** Nothing says a cross-repo operation *must* leave a record, so by default it
   won't (vfkb's founding lesson: a prose habit with no named convention gets skipped — the wiki
@@ -124,8 +127,9 @@ must make explicitly:
      neither can evict the other.
    - **Until that pin ships, v1 delivery is best-effort** — the record rides the ranked bundle
      where facts drop first. Disclosed, not assumed: in a small brain it surfaces; in a mature
-     brain it may not, and the §6 seeded-budget arm observes exactly this difference (RED until
-     the pin builds — that RED is the contract working, per ADR-0023).
+     brain it may not. §6 keeps the two strengths honest with two arms: the unpressured arm
+     proves v1 at exactly the strength v1 claims, and the seeded delivery arm is the RED-first
+     contract for this pin (per ADR-0023).
    - **Rejected:** sharing the single handoff slot (newest-wins displacement — pays the resident's
      continuity for the visitor's record) and pinning both into one section (muddles the
      ADR-0033/0049 handoff semantics: a visitor's maintenance note is not the resident's
@@ -181,32 +185,34 @@ interface, and the schema change is proposed then, not now.
      per-repo brain already *is* the delivery channel (ADR-0019).
 
 **6. The scenario contract (ADR-0023 — this is the Definition of Done).** L4
-**`cross-repo-handoff`**: a sandbox with two repos, A and B, each with its own brain. The A-arm
+**`cross-repo-record`**: a sandbox with two repos, A and B, each with its own brain. The A-arm
 agent performs a scripted operation that changes B (e.g. edits B's config) and follows the
-convention (v1 transport; the v2 arm invokes `broadcast`). A **fresh agent session in B** is then
-asked what recently changed in its wiring and why. Predicates are content assertions
-(quiet-success discipline, ADR-0051 §3 — exit codes and non-empty files are not evidence),
-hardened three ways so the contract can actually fail for the reasons that matter:
+convention (v1 transport; the v2 variant invokes `broadcast`). A **fresh agent session in B** is
+then asked what recently changed in its wiring and why. Predicates are content assertions
+(quiet-success discipline, ADR-0051 §3 — exit codes and non-empty files are not evidence), keyed
+on an **unguessable sentinel** carried in the record (an operation codename / remaining-step
+token, the ADR-0049 scenario's own pattern): the B-session's output must contain the sentinel —
+proof it *read the record*, not that it inferred "A did it", which is trivially guessable in a
+two-repo universe. The scripted change to B lands **uncommitted** (mirroring §3's
+write-never-commit reality) or with a deliberately uninformative message — otherwise an agent
+legitimately explains the change from `git log` and the arms pass/fail for reasons that say
+nothing about the convention. **Three arms, because the RFC ships two capabilities of different
+strengths — each gets a DoD it can actually satisfy:**
 
-   - **Unguessable sentinel, not inference.** The record carries an unguessable sentinel (an
-     operation codename / remaining-step token, the ADR-0049 scenario's own pattern), and both
-     arms key on it: the B-session's output must contain the sentinel (proof it *read the record*,
-     not that it inferred "A did it" — trivially guessable in a two-repo universe), and the
-     contrast arm's predicate is the sentinel's **absence**.
-   - **Budget-pressure seeding.** B's brain is seeded with enough high-tier entries to overflow
-     the injection budget (ADR-0049's scenario precedent), so the run proves **delivery under
-     pressure**, not merely the write. Until the §1a cross-repo pin ships, this arm is expected
-     **RED** — that RED is the contract working (ADR-0023: written first, goes green when the pin
-     builds), not a flake to be waived.
-   - **Git kept uninformative.** The scripted change to B lands uncommitted (mirroring §3's
-     write-never-commit reality) or with a deliberately uninformative message — otherwise the
-     contrast agent legitimately explains the change from `git log` and the arm fails for reasons
-     that say nothing about the convention.
+   - **v1 convention arm (unpressured — gates declaring the *convention* done).** B's brain is
+     small enough that a ranked fact injects. Green = the write + best-effort delivery v1
+     actually claims. DEMONSTRATED ≥2/3 here (plus the contrast arm) is the convention's DoD.
+   - **Delivery arm (pressured — the RED-first contract for the §1a pin / `broadcast`).** B's
+     brain is seeded with enough high-tier entries to overflow the injection budget (ADR-0049's
+     scenario precedent), so it proves **delivery under pressure**. Expected **RED until the §1a
+     cross-repo pin ships** — that RED is the contract working (ADR-0023: written first, goes
+     green when the pin builds), and it gates only the pin/`broadcast` capability, never the v1
+     convention.
+   - **Contrast arm (can-fail).** Same operation *without* the record — the B-session must fail
+     to produce the sentinel.
 
-   **Contrast arm (can-fail):** same operation *without* the record — the B-session must fail to
-   produce the sentinel. DEMONSTRATED ≥2/3 per ADR-0022 before the convention or `broadcast` is
-   declared done (ADR-0050); until then the honest status of everything here is *proposed /
-   built-but-unverified*.
+   Per ADR-0050, until the relevant arm's committed, DEMONSTRATED record exists, the honest
+   status of each capability is *proposed / built-but-unverified*.
 
 ## Consequences
 
