@@ -56,7 +56,7 @@ role-attributed; options under discussion live in the RFC's Decision/text.
 | [RFC-030](RFC-030-update-awareness.md) | Update awareness — GitHub Releases + opt-in `doctor --check-remote` vs npmjs latest; offline-silent, cached, axis-(b) wording; no phone-home | Accepted → [ADR-0058](../adr/ADR-0058-update-awareness.md) |
 | [RFC-031](RFC-031-branch-aware-brain-visibility.md) | Branch-aware brain visibility — git-union recall (worktrees + local branches, provenance-labeled), dangling-edge supersede/contradicts, doctor checks; the read-side twin of ADR-0041 | Proposed |
 | [RFC-032](RFC-032-inactive-signal-under-plugin-wiring.md) | Restore the "vfkb INACTIVE" signal under plugin wiring — deterministic engine-free repo-side guard hook vs installed_plugins.json fulfillment | Accepted → [ADR-0059](../adr/ADR-0059-inactive-signal-guard.md) |
-| [RFC-033](RFC-033-cross-repo-brain-write.md) | Cross-repo brain write — one deliberate handoff fact in each affected repo's brain per cross-repo operation; `vfkb broadcast` on build, write-never-commit, MCP targeting rejected; the write-side complement of ADR-0038 | Proposed |
+| [RFC-033](RFC-033-cross-repo-brain-write.md) | Cross-repo brain write — read the target's brain, then leave one deliberate `cross-repo` record per operation (never the resident's `handoff` pin — delivery is a second ADR-0049-style pinned section); `vfkb broadcast` on build, write-never-commit, MCP targeting rejected; the write-side complement of ADR-0038 | Proposed |
 
 RFC-014..019 are the first batch of [ADR-0036](../adr/ADR-0036-v2-two-branch-strategy.md)'s
 v2 fork (`docs/V2-VISION.md`) — all accepted 2026-07-06 (→ ADR-0039..0044); each **builds on the

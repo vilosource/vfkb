@@ -1,12 +1,12 @@
 ---
 type: RFC
 title: "RFC-033: Cross-repo brain write — a cross-repo operation leaves one deliberate, provenance-stamped record in each affected repo's own brain"
-description: "The write-side complement of RFC-013/ADR-0038: when a session in repo A changes repo B's observable state, it writes one handoff fact into B's committed brain through the engine (VFKB_DATA_DIR today, a `vfkb broadcast` helper on build) — tagged and origin-stamped, never committed by the writer, arriving unverified. MCP-side targeting is rejected by name; the session tools stay bolted to the local brain."
+description: "The write-side complement of RFC-013/ADR-0038: when a session in repo A changes repo B's observable state, it first reads B's brain, then writes one cross-repo record into it through the engine (VFKB_DATA_DIR today, a `vfkb broadcast` helper on build) — tagged `cross-repo` (never `handoff`/`next`: the resident's ADR-0049 pin is not the visitor's channel), delivered via a second bounded pinned section on build, never committed by the writer, arriving unverified. MCP-side targeting is rejected by name."
 status: Proposed
 timestamp: 2026-07-17
 ---
 
-# RFC-033: Cross-repo brain write — operation handoff broadcast
+# RFC-033: Cross-repo brain write — operation record broadcast
 
 - **Status:** Proposed
 - **Date:** 2026-07-17
@@ -22,6 +22,8 @@ timestamp: 2026-07-17
   canonical brain-dir override, the transport that already works);
   [ADR-0033](../adr/ADR-0033-session-end-continuity.md) (whose pathspec-scoped, never-on-`main`
   brain-commit discipline this RFC leans on for commit semantics);
+  [ADR-0049](../adr/ADR-0049-session-start-handoff-pinning.md) (the handoff pin — the injection
+  mechanics §1a must not hijack, and the precedent for the second pinned section it decides);
   [ADR-0023](../adr/ADR-0023-scenario-contract-first.md) /
   [ADR-0029](../adr/ADR-0029-sandbox-proven-definition-of-done.md) /
   [ADR-0050](../adr/ADR-0050-l4-dod-constitutional-brake.md) (the DoD contract the named scenario
@@ -53,12 +55,15 @@ affected repo:
 ```bash
 VFKB_DATA_DIR=~/VFKB/<repo>/.vfkb VFKB_PROJECT=<repo> \
   node <vfkb>/dist/cli.js add fact "CROSS-REPO MAINTENANCE (…): …" \
-  --tag handoff,cross-repo,plugin,distribution
+  --tag handoff,cross-repo,plugin,distribution   # the `handoff` tag here proved to be a defect — §1a
 ```
 
 Eleven entries landed (e.g. EventShield `62f18de97e40`, viloforge-wiki `6061deef7b77`), went
-through the engine (append-only JSONL discipline intact), and will surface in each target's own
-session-start injection. **The capability gap is zero.** What is missing is everything around it:
+through the engine (append-only JSONL discipline intact), and are recallable from each target's
+own brain — though whether one *surfaces in the session-start injection* is exactly the delivery
+question §1a decides (as ranked facts they are droppable under budget pressure; the original
+claim here that they "will surface" overstated v1 — same defect class as the annotated command
+above). **The capability gap is zero.** What is missing is everything around it:
 
 - **No discipline.** Nothing says a cross-repo operation *must* leave a record, so by default it
   won't (vfkb's founding lesson: a prose habit with no named convention gets skipped — the wiki
@@ -86,20 +91,59 @@ observable state — files, wiring, releases, installed tooling — **leaves exa
 each affected repo's brain**, written **through the engine** (never by editing the target's
 `entries.jsonl` directly), stating: what was done, where it landed (PR/commit/branch), what was
 verified, and what the target's operator/next session still needs to do. The entry is tagged
-**`handoff,cross-repo`** (plus operation-specific tags) and its text opens with a
-**`CROSS-REPO <operation> (<date>, from <origin project>)`** marker. Read-only visits (querying a
-sibling brain per ADR-0038, browsing its source) leave **no** record — this convention binds
-writes of state, not reads, precisely so the target brain gains signal and not visit-noise.
+**`cross-repo`** (plus operation-specific tags) — **never `handoff` or `next`** (§1a) — and its
+text opens with a **`CROSS-REPO <operation> (<date>, from <origin project>)`** marker. Read-only
+visits (querying a sibling brain per ADR-0038, browsing its source) leave **no** record — this
+convention binds writes of state, not reads, precisely so the target brain gains signal and not
+visit-noise.
+
+**The convention is bidirectional.** A session about to change another repo's observable state
+first **consults that repo's brain** for prior operations and resident handoffs — the ADR-0038
+read side, which today is the CLI read (`VFKB_DATA_DIR=<target>/.vfkb <engine> search|context`).
+Without this clause the write half would not have prevented this RFC's own motivating collision:
+the wiki visitor needed to *read* what the resident had recorded before operating, not only leave
+a record after.
+
+**1a. Delivery channel — the ADR-0049 interaction (decided, not assumed).** The Context's claim
+that a record "will surface in the target's session-start injection" is not free: under the
+ADR-0012 type tiers a plain `fact` is the *first* thing budget-dropped in a mature brain — the
+exact live failure (#96) ADR-0049 fixed for continuity by pinning **one** never-dropped entry:
+the newest injectable entry tagged `handoff`/`next`. That single slot forces a choice this RFC
+must make explicitly:
+
+   - **Cross-repo records must NOT carry `handoff`/`next`.** Those tags would claim the resident's
+     continuity pin — the newest broadcast **evicts the resident's own in-flight handoff** into
+     the droppable ranked bundle (reintroducing #96 in the target), and an uncommitted broadcast
+     also falsely satisfies ADR-0033's B2 session-end floor check, suppressing the resident's next
+     fallback handoff. This is **observed, not hypothetical**: the motivating sweep's eleven
+     entries initially carried `handoff` and hijacked the pin in all eleven target repos
+     (verified against `latestHandoff()`; remediated by engine retag the same day, 2026-07-17).
+     This subsection exists because of that incident.
+   - **Delivery is a second bounded pin (on build, with `broadcast`).** The engine's Tier-A bundle
+     grows a **`## Cross-repo operations`** section pinning the newest injectable
+     `cross-repo`-tagged entry — same selection-is-a-filter, same char cap and truncate-with-id
+     discipline as the ADR-0049 handoff pin, rendered after `## Last handoff`, never
+     budget-dropped. Resident continuity and visitor records get one guaranteed slot *each*;
+     neither can evict the other.
+   - **Until that pin ships, v1 delivery is best-effort** — the record rides the ranked bundle
+     where facts drop first. Disclosed, not assumed: in a small brain it surfaces; in a mature
+     brain it may not. §6 keeps the two strengths honest with two arms: the unpressured arm
+     proves v1 at exactly the strength v1 claims, and the seeded delivery arm is the RED-first
+     contract for this pin (per ADR-0023).
+   - **Rejected:** sharing the single handoff slot (newest-wins displacement — pays the resident's
+     continuity for the visitor's record) and pinning both into one section (muddles the
+     ADR-0033/0049 handoff semantics: a visitor's maintenance note is not the resident's
+     continuity).
 
 **2. Transport, in two steps.**
    - **Now (v1, zero build):** the convention runs on what already works —
-     `VFKB_DATA_DIR=<target>/.vfkb <engine> add fact … --tag handoff,cross-repo`. This RFC makes
+     `VFKB_DATA_DIR=<target>/.vfkb <engine> add fact … --tag cross-repo`. This RFC makes
      that the *named, documented* pattern instead of an improvisation.
    - **On build (v2): `vfkb broadcast`** — one command, N targets:
      `vfkb broadcast "<text>" --to <dir>[,<dir>…] [--tag <extra,…>]`. It writes one `fact` per
      target through the engine and stamps mechanically what v1 leaves to discipline: the
-     `handoff,cross-repo` tags, the `CROSS-REPO … from <origin>` marker (origin derived from the
-     invoking repo's project label), and the date. It **refuses** a target whose `manifest.json`
+     `cross-repo` tag (and never `handoff`/`next` — §1a), the `CROSS-REPO … from <origin>` marker
+     (origin derived from the invoking repo's project label), and the date. It **refuses** a target whose `manifest.json`
      `schema_version` the running engine does not support — promoting to a hard refusal the
      brain↔engine compat rule that today exists only as a `vfkb doctor` diagnostic — and reports
      per-target success/failure explicitly: a partial broadcast must be visible, never silent.
@@ -141,15 +185,34 @@ interface, and the schema change is proposed then, not now.
      per-repo brain already *is* the delivery channel (ADR-0019).
 
 **6. The scenario contract (ADR-0023 — this is the Definition of Done).** L4
-**`cross-repo-handoff`**: a sandbox with two repos, A and B, each with its own brain. The A-arm
+**`cross-repo-record`**: a sandbox with two repos, A and B, each with its own brain. The A-arm
 agent performs a scripted operation that changes B (e.g. edits B's config) and follows the
-convention (v1 transport; the v2 arm invokes `broadcast`). A **fresh agent session in B** is then
-asked what recently changed in its wiring and why. Predicate: a **content assertion** on the
-B-session's output naming the operation and its origin (quiet-success discipline, ADR-0051 §3 —
-exit codes and non-empty files are not evidence). **Contrast arm (can-fail):** same operation
-*without* the record — the B-session must fail to explain the change. DEMONSTRATED ≥2/3 per
-ADR-0022 before the convention or `broadcast` is declared done (ADR-0050); until then the honest
-status of everything here is *proposed / built-but-unverified*.
+convention (v1 transport; the v2 variant invokes `broadcast`). A **fresh agent session in B** is
+then asked what recently changed in its wiring and why. Predicates are content assertions
+(quiet-success discipline, ADR-0051 §3 — exit codes and non-empty files are not evidence), keyed
+on an **unguessable sentinel** carried in the record (an operation codename / remaining-step
+token, the ADR-0049 scenario's own pattern): the B-session's output must contain the sentinel —
+proof it *read the record*, not that it inferred "A did it", which is trivially guessable in a
+two-repo universe. The scripted change to B lands **uncommitted** (mirroring §3's
+write-never-commit reality) or with a deliberately uninformative message — otherwise an agent
+legitimately explains the change from `git log` and the arms pass/fail for reasons that say
+nothing about the convention. **Three arms, because the RFC ships two capabilities of different
+strengths — each gets a DoD it can actually satisfy:**
+
+   - **v1 convention arm (unpressured — gates declaring the *convention* done).** B's brain is
+     small enough that a ranked fact injects. Green = the write + best-effort delivery v1
+     actually claims. DEMONSTRATED ≥2/3 here (plus the contrast arm) is the convention's DoD.
+   - **Delivery arm (pressured — the RED-first contract for the §1a pin / `broadcast`).** B's
+     brain is seeded with enough high-tier entries to overflow the injection budget (ADR-0049's
+     scenario precedent), so it proves **delivery under pressure**. Expected **RED until the §1a
+     cross-repo pin ships** — that RED is the contract working (ADR-0023: written first, goes
+     green when the pin builds), and it gates only the pin/`broadcast` capability, never the v1
+     convention.
+   - **Contrast arm (can-fail).** Same operation *without* the record — the B-session must fail
+     to produce the sentinel.
+
+   Per ADR-0050, until the relevant arm's committed, DEMONSTRATED record exists, the honest
+   status of each capability is *proposed / built-but-unverified*.
 
 ## Consequences
 
@@ -169,10 +232,20 @@ status of everything here is *proposed / built-but-unverified*.
   L4 contrast arm keeps the failure mode observable. A deterministic Brake (e.g. a doctor check
   correlating foreign-origin commits with brain records) is **not** proposed — named here only so
   its absence is a choice, not an oversight.
+- The **engine-only rule is also prose in exactly the cross-repo case**: the PreToolUse
+  brain-write gate guards only the path under the *session's own* `brainDir()` (`src/gating.ts`),
+  so a visitor hand-editing a *foreign* `entries.jsonl` sails through its own repo's gate. Named
+  so its absence is a choice; extending the gate to any `*/.vfkb/entries.jsonl` path is cheap and
+  deferred with the trigger: **the first observed hand-edit of a foreign brain**.
 - Uncommitted entries sit in target working trees until the target's own flow commits them; on a
-  repo parked on `main` (where ADR-0033 deliberately refuses to auto-commit) the record can ride
-  unpushed for a while. Accepted: durability-by-someone-else's-commit is still strictly better
-  than no record, and the alternative (writer commits) was rejected in §3 for cause.
+  repo parked on `main` (where ADR-0033 deliberately refuses to auto-commit) the record is not
+  merely unpushed but **uncommitted — silently erasable** by `git checkout -- .`, `git clean`, or
+  a stash-pop conflict, with no trace. Accepted with eyes open: local delivery still works
+  (injection reads the file, not git), durability-by-someone-else's-commit is still strictly
+  better than no record, and the alternative (writer commits) was rejected in §3 for cause. The
+  v2 `broadcast` per-target report therefore states each target's **commit posture** ("written;
+  uncommitted; target parked on `main`") so a sweep ends with an actionable durability summary,
+  not N silent maybes.
 - Writer and target may run different engine versions. Schema v1's stability has carried every
   such write to date; the v2 compat refusal (§2) turns a future mismatch into a loud per-target
   error instead of a corrupt brain.
@@ -193,3 +266,7 @@ status of everything here is *proposed / built-but-unverified*.
 - **Auto-detection / auto-broadcast.** Rejected by name in §5 — deliberate-capture doctrine.
 - **A `--commit` flag on `broadcast`.** Rejected in §3 — the writer never commits a checkout it
   does not own.
+- **Delivering via the resident's `handoff` pin** (tagging records `handoff`/`next`, or sharing
+  the single ADR-0049 slot). Rejected in §1a — observed live to evict the resident's continuity
+  in all eleven sweep targets and to suppress the ADR-0033 B2 floor; a visitor's maintenance note
+  is not the resident's continuity.
