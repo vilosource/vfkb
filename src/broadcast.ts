@@ -104,10 +104,17 @@ export function broadcast(
       // (engine-written stamp) instead of refusing; refuse only when there are
       // no entries at all, which is the true wire-less case.
       if (!existsSync(join(brain, 'entries.jsonl'))) {
-        results.push({ target, ok: false, reason: `no brain (missing ${manifestPath}) — never bootstrap a wire-less brain (ADR-0063 §3)` });
+        results.push({ target, ok: false, reason: `no brain (no entries.jsonl in ${brain}) — never bootstrap a wire-less brain (ADR-0063 §3)` });
         continue;
       }
-      writeManifest(brain);
+      try {
+        writeManifest(brain);
+      } catch (err) {
+        // Per-target and loud, never a thrown abort — a heal failure on one
+        // target must not swallow the rest of a partial broadcast.
+        results.push({ target, ok: false, reason: `manifest heal failed: ${(err as Error).message}` });
+        continue;
+      }
       healed = true;
     }
     let schema: unknown;
@@ -130,7 +137,9 @@ export function broadcast(
       written.add(brain);
       results.push({ target, ok: true, id: e.id, posture: gitPosture(repoDir), ...(healed ? { healed } : {}) });
     } catch (err) {
-      results.push({ target, ok: false, reason: (err as Error).message });
+      // healed still reported on failure — the manifest stamp happened even
+      // though the record did not land (heal is never silent).
+      results.push({ target, ok: false, reason: (err as Error).message, ...(healed ? { healed } : {}) });
     } finally {
       if (prev === undefined) delete process.env.VFKB_DATA_DIR;
       else process.env.VFKB_DATA_DIR = prev;

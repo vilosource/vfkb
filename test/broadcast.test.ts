@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -129,6 +129,41 @@ describe('vfkb broadcast (ADR-0063 §3)', () => {
     expect(r.reason).toMatch(/no brain/);
     expect(existsSync(join(repo, '.vfkb', 'manifest.json'))).toBe(false);
     expect(existsSync(join(repo, '.vfkb', 'entries.jsonl'))).toBe(false);
+  });
+
+  it('a failed heal refuses per-target and the rest of the broadcast continues (review: no thrown abort)', () => {
+    const bad = mkdtempSync(join(tmpdir(), 'vfkb-bcast-roheal-'));
+    mkdirSync(join(bad, '.vfkb'), { recursive: true });
+    writeFileSync(join(bad, '.vfkb', 'entries.jsonl'), '{"id":"bbbbbbbbbbbb","type":"fact","text":"x","tags":[]}\n');
+    chmodSync(join(bad, '.vfkb'), 0o555); // manifest write must fail
+    const good = makeTarget();
+    try {
+      const results = broadcast('note', [bad, good]);
+      expect(results.map((r) => r.ok)).toEqual([false, true]);
+      expect(results[0].reason).toMatch(/manifest heal failed/);
+      expect(entriesOf(good)).toHaveLength(1);
+    } finally {
+      chmodSync(join(bad, '.vfkb'), 0o755);
+    }
+  });
+
+  it('a heal followed by a failed write still reports healed — the stamp is never silent', () => {
+    const repo = mkdtempSync(join(tmpdir(), 'vfkb-bcast-healfail-'));
+    // entries.jsonl as a DIRECTORY: passes the wiredness check, heals, then
+    // the engine append fails (EISDIR) — the manifest stamp must be reported.
+    mkdirSync(join(repo, '.vfkb', 'entries.jsonl'), { recursive: true });
+    const [r] = broadcast('note', [repo]);
+    expect(r.ok).toBe(false);
+    expect(r.healed).toBe(true);
+    expect(existsSync(join(repo, '.vfkb', 'manifest.json'))).toBe(true);
+  });
+
+  it('the wire-less refusal names entries.jsonl, not the manifest (the actionable absence)', () => {
+    const repo = mkdtempSync(join(tmpdir(), 'vfkb-bcast-reason-'));
+    mkdirSync(join(repo, '.vfkb'), { recursive: true });
+    const [r] = broadcast('note', [repo]);
+    expect(r.reason).toMatch(/no entries\.jsonl/);
+    expect(r.reason).not.toMatch(/manifest\.json/);
   });
 
   it('dedupes the auto cross-repo tag against user tags — never a duplicate tag (#194)', () => {
