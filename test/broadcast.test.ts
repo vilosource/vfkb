@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { broadcast } from '../src/broadcast.js';
+import { SCHEMA_VERSION } from '../src/version.js';
 
 // A valid broadcast target: a repo dir with an adopted brain (manifest present).
 function makeTarget(schema: unknown = 1): string {
@@ -101,6 +102,76 @@ describe('vfkb broadcast (ADR-0063 §3)', () => {
     broadcast('note', [repo]);
     expect(process.env.VFKB_DATA_DIR).toBe(before);
     expect(existsSync(join(before!, 'entries.jsonl'))).toBe(false);
+  });
+
+  it('heals a wired-but-manifest-less brain (plugin-born) instead of refusing it (#193)', () => {
+    // A brain the live auto-layer created: entries.jsonl exists, manifest.json
+    // was never written (only `vfkb init` calls writeManifest — vfkb#193).
+    const repo = mkdtempSync(join(tmpdir(), 'vfkb-bcast-pluginborn-'));
+    mkdirSync(join(repo, '.vfkb'), { recursive: true });
+    writeFileSync(
+      join(repo, '.vfkb', 'entries.jsonl'),
+      JSON.stringify({ id: 'aaaaaaaaaaaa', type: 'fact', text: 'resident entry', tags: [] }) + '\n',
+    );
+    const [r] = broadcast('note', [repo]);
+    expect(r.ok).toBe(true);
+    expect(r.healed).toBe(true);
+    const manifest = JSON.parse(readFileSync(join(repo, '.vfkb', 'manifest.json'), 'utf8'));
+    expect(manifest.schema_version).toBe(SCHEMA_VERSION);
+    expect(entriesOf(repo)).toHaveLength(2);
+  });
+
+  it('still refuses an EMPTY .vfkb dir — no entries means wire-less, heal must not bootstrap (#193)', () => {
+    const repo = mkdtempSync(join(tmpdir(), 'vfkb-bcast-emptydir-'));
+    mkdirSync(join(repo, '.vfkb'), { recursive: true });
+    const [r] = broadcast('note', [repo]);
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/no brain/);
+    expect(existsSync(join(repo, '.vfkb', 'manifest.json'))).toBe(false);
+    expect(existsSync(join(repo, '.vfkb', 'entries.jsonl'))).toBe(false);
+  });
+
+  it('a failed heal refuses per-target and the rest of the broadcast continues (review: no thrown abort)', () => {
+    const bad = mkdtempSync(join(tmpdir(), 'vfkb-bcast-roheal-'));
+    mkdirSync(join(bad, '.vfkb'), { recursive: true });
+    writeFileSync(join(bad, '.vfkb', 'entries.jsonl'), '{"id":"bbbbbbbbbbbb","type":"fact","text":"x","tags":[]}\n');
+    chmodSync(join(bad, '.vfkb'), 0o555); // manifest write must fail
+    const good = makeTarget();
+    try {
+      const results = broadcast('note', [bad, good]);
+      expect(results.map((r) => r.ok)).toEqual([false, true]);
+      expect(results[0].reason).toMatch(/manifest heal failed/);
+      expect(entriesOf(good)).toHaveLength(1);
+    } finally {
+      chmodSync(join(bad, '.vfkb'), 0o755);
+    }
+  });
+
+  it('a heal followed by a failed write still reports healed — the stamp is never silent', () => {
+    const repo = mkdtempSync(join(tmpdir(), 'vfkb-bcast-healfail-'));
+    // entries.jsonl as a DIRECTORY: passes the wiredness check, heals, then
+    // the engine append fails (EISDIR) — the manifest stamp must be reported.
+    mkdirSync(join(repo, '.vfkb', 'entries.jsonl'), { recursive: true });
+    const [r] = broadcast('note', [repo]);
+    expect(r.ok).toBe(false);
+    expect(r.healed).toBe(true);
+    expect(existsSync(join(repo, '.vfkb', 'manifest.json'))).toBe(true);
+  });
+
+  it('the wire-less refusal names entries.jsonl, not the manifest (the actionable absence)', () => {
+    const repo = mkdtempSync(join(tmpdir(), 'vfkb-bcast-reason-'));
+    mkdirSync(join(repo, '.vfkb'), { recursive: true });
+    const [r] = broadcast('note', [repo]);
+    expect(r.reason).toMatch(/no entries\.jsonl/);
+    expect(r.reason).not.toMatch(/manifest\.json/);
+  });
+
+  it('dedupes the auto cross-repo tag against user tags — never a duplicate tag (#194)', () => {
+    const repo = makeTarget();
+    broadcast('note', [repo], { tags: ['cross-repo', 'plugin'] });
+    const e = entriesOf(repo)[0];
+    expect(e.tags.filter((t: string) => t === 'cross-repo')).toHaveLength(1);
+    expect(e.tags).toContain('plugin');
   });
 
   it('accepts an explicit .vfkb path as the target', () => {

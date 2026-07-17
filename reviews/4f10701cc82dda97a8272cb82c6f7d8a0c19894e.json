@@ -1,0 +1,33 @@
+{
+  "recordVersion": 1,
+  "sha": "4f10701cc82dda97a8272cb82c6f7d8a0c19894e",
+  "governing": ["docs/adr/ADR-0063-cross-repo-brain-write.md"],
+  "reviewer": { "agent": "general-purpose", "model": "claude-fable-5", "rounds": 2 },
+  "generated": "2026-07-17T21:10:00Z",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "uncaught writeManifest throw (EACCES etc.) aborted the whole broadcast and discarded already-delivered results — now a per-target 'manifest heal failed' refusal; probe-verified at head (no throw, both results visible, no manifest left on the failed target)",
+      "acceptedBy": null
+    },
+    {
+      "id": "F2",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "heal-then-failed-write dropped the healed flag (silent manifest stamp) — healed now rides failure results; probe-verified (EISDIR case reports healed:true)",
+      "acceptedBy": null
+    },
+    {
+      "id": "F3",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "wire-less refusal reason named manifest.json while the decisive absence is entries.jsonl, nudging operators toward a forbidden hand-written manifest — reason now names entries.jsonl",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 3,
+  "ruledOut": [],
+  "verdict": "MERGE"
+}

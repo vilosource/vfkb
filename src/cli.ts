@@ -186,7 +186,7 @@ async function dispatch() {
       let failed = 0;
       for (const r of results) {
         if (r.ok) {
-          process.stdout.write(`written\t${r.target}\t${r.id}\t${r.posture}\n`);
+          process.stdout.write(`written\t${r.target}\t${r.id}\t${r.posture}${r.healed ? '\t(manifest healed — brain was wired but manifest-less, vfkb#193)' : ''}\n`);
         } else {
           failed++;
           process.stdout.write(`REFUSED\t${r.target}\t${r.reason}\n`);

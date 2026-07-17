@@ -8,6 +8,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { addEntry } from './engine.js';
+import { writeManifest } from './manifest.js';
 import { defaultProject } from './storage.js';
 import { SCHEMA_VERSION } from './version.js';
 
@@ -18,6 +19,8 @@ export interface BroadcastResult {
   /** git commit posture — the durability summary ADR-0063 §3 requires */
   posture?: string;
   reason?: string;
+  /** true when a wired-but-manifest-less brain had its manifest engine-written first (#193) */
+  healed?: boolean;
 }
 
 /** The resident-pin tags a broadcast record must never carry (ADR-0063 §1). */
@@ -52,9 +55,11 @@ function gitPosture(repoDir: string): string {
 /**
  * Broadcast one record to N target brains. Origin is derived from the INVOKING
  * repo's project label, captured before any env switching. Targets without a
- * `.vfkb/manifest.json` are refused (never bootstrap a wire-less brain —
- * ADR-0063 §3), as are brains whose schema the running engine does not support
- * (promoting doctor's diagnostic to a hard refusal).
+ * brain are refused (never bootstrap a wire-less brain — ADR-0063 §3): no
+ * `entries.jsonl` means wire-less; a wired brain merely missing its
+ * `manifest.json` (plugin-born, vfkb#193) is healed, visibly. Brains whose
+ * schema the running engine does not support are refused (promoting doctor's
+ * diagnostic to a hard refusal).
  */
 export function broadcast(
   text: string,
@@ -91,9 +96,26 @@ export function broadcast(
     }
     const repoDir = resolve(brain, '..');
     const manifestPath = join(brain, 'manifest.json');
+    let healed = false;
     if (!existsSync(manifestPath)) {
-      results.push({ target, ok: false, reason: `no brain (missing ${manifestPath}) — never bootstrap a wire-less brain (ADR-0063 §3)` });
-      continue;
+      // §3's rule is "never bootstrap a WIRE-LESS brain". A brain with a live
+      // entries.jsonl is wired — the manifest is just missing because only
+      // `vfkb init` ever writes it (plugin-born brains, vfkb#193). Heal it
+      // (engine-written stamp) instead of refusing; refuse only when there are
+      // no entries at all, which is the true wire-less case.
+      if (!existsSync(join(brain, 'entries.jsonl'))) {
+        results.push({ target, ok: false, reason: `no brain (no entries.jsonl in ${brain}) — never bootstrap a wire-less brain (ADR-0063 §3)` });
+        continue;
+      }
+      try {
+        writeManifest(brain);
+      } catch (err) {
+        // Per-target and loud, never a thrown abort — a heal failure on one
+        // target must not swallow the rest of a partial broadcast.
+        results.push({ target, ok: false, reason: `manifest heal failed: ${(err as Error).message}` });
+        continue;
+      }
+      healed = true;
     }
     let schema: unknown;
     try {
@@ -111,11 +133,13 @@ export function broadcast(
     const prev = process.env.VFKB_DATA_DIR;
     try {
       process.env.VFKB_DATA_DIR = brain;
-      const e = addEntry('fact', stamped, { role: 'executor', tags: ['cross-repo', ...extraTags] });
+      const e = addEntry('fact', stamped, { role: 'executor', tags: [...new Set(['cross-repo', ...extraTags])] });
       written.add(brain);
-      results.push({ target, ok: true, id: e.id, posture: gitPosture(repoDir) });
+      results.push({ target, ok: true, id: e.id, posture: gitPosture(repoDir), ...(healed ? { healed } : {}) });
     } catch (err) {
-      results.push({ target, ok: false, reason: (err as Error).message });
+      // healed still reported on failure — the manifest stamp happened even
+      // though the record did not land (heal is never silent).
+      results.push({ target, ok: false, reason: (err as Error).message, ...(healed ? { healed } : {}) });
     } finally {
       if (prev === undefined) delete process.env.VFKB_DATA_DIR;
       else process.env.VFKB_DATA_DIR = prev;
