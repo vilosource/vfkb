@@ -1,7 +1,7 @@
 ---
 type: Decision
 title: "ADR-0063: Cross-repo brain write — a cross-repo operation reads the target's brain first, then leaves one deliberate `cross-repo` record in it, delivered via a second pinned section (accepts RFC-033)"
-description: "When a session in repo A deliberately changes repo B's observable state, it first consults B's brain (the ADR-0038 read side), then writes exactly one cross-repo record fact into B's brain through the engine — tagged `cross-repo` and NEVER `handoff`/`next` (the resident's ADR-0049 continuity pin is not the visitor's channel; the motivating sweep's handoff-tagged entries hijacked all eleven target pins before being retagged). Delivery is a second bounded pinned section (`## Cross-repo operations`) built with `vfkb broadcast`; until it ships, v1 delivery is disclosed best-effort. Write-never-commit; arrives unverified; MCP-side targeting, auto-broadcast, and any global store rejected by name. DoD = the three-arm L4 `cross-repo-record` (unpressured v1 arm, RED-first pressured delivery arm, sentinel-keyed contrast arm)."
+description: "When a session in repo A deliberately changes repo B's observable state, it first consults B's brain (the ADR-0038 read side), then writes exactly one cross-repo record fact into B's brain through the engine — tagged `cross-repo` and NEVER `handoff`/`next` (the resident's ADR-0049 continuity pin is not the visitor's channel; the motivating sweep's handoff-tagged entries hijacked all eleven target pins before being retagged). Delivery is a second bounded pinned section (`## Cross-repo operations`), an engine render feature shipped together with `vfkb broadcast`; until it ships, v1 delivery is disclosed best-effort. Write-never-commit; arrives unverified; MCP-side targeting, auto-broadcast, and any global store rejected by name. DoD = the three-arm L4 `cross-repo-record` (unpressured v1 arm, RED-first pressured delivery arm, sentinel-keyed contrast arm)."
 status: "Accepted"
 timestamp: 2026-07-17
 ---
@@ -51,9 +51,9 @@ ADR-0049 continuity pin in all eleven targets** (remediated by engine retag the 
    drop first) — disclosed, never assumed.
 3. **Transport.** v1 (now): `VFKB_DATA_DIR=<target>/.vfkb <engine> add fact … --tag cross-repo`.
    v2 (build): **`vfkb broadcast "<text>" --to <dir>,…`** — stamps tag/marker/date, refuses
-   schema-incompatible targets and targets with no `.vfkb/manifest.json` (never bootstrap a
-   wire-less brain), and reports per-target success **and commit posture** ("written;
-   uncommitted; target parked on `main`").
+   schema-incompatible targets and targets with no `.vfkb/manifest.json` (**v1 and `broadcast`
+   alike** must not write to a no-brain target — never bootstrap a wire-less brain), and reports
+   per-target success **and commit posture** ("written; uncommitted; target parked on `main`").
 4. **Write, never commit.** The entry rides the target's own brain-commit discipline
    (ADR-0033). No `--commit` flag. The uncommitted window (silently erasable in the target's
    working tree) is accepted with eyes open.
