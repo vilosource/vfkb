@@ -43,10 +43,25 @@ describe('vfkb broadcast (ADR-0063 §3)', () => {
     expect(e.tags).not.toContain('next');
   });
 
-  it('does not double-stamp a text that already carries the marker', () => {
+  it('does not double-stamp a text that already carries the COMPLETE marker', () => {
     const repo = makeTarget();
     broadcast('CROSS-REPO CUSTOM (2026-07-17, from elsewhere): prestamped', [repo]);
     expect(entriesOf(repo)[0].text.match(/CROSS-REPO/g)).toHaveLength(1);
+  });
+
+  it('a bare CROSS-REPO prefix does NOT waive stamping — origin and date are never lost', () => {
+    const repo = makeTarget();
+    broadcast('CROSS-REPO sneaky text with no origin or date', [repo]);
+    const e = entriesOf(repo)[0];
+    expect(e.text).toMatch(/^CROSS-REPO OPERATION \(\d{4}-\d{2}-\d{2}, from originproj\): CROSS-REPO sneaky/);
+  });
+
+  it('duplicate targets (path spellings included) write exactly one record', () => {
+    const repo = makeTarget();
+    const results = broadcast('note', [repo, `${repo}/`, join(repo, '.vfkb')]);
+    expect(results.map((r) => r.ok)).toEqual([true, false, false]);
+    expect(results[1].reason).toMatch(/duplicate target/);
+    expect(entriesOf(repo)).toHaveLength(1);
   });
 
   it('refuses a target with no brain and creates NOTHING there (never bootstrap)', () => {
@@ -61,7 +76,7 @@ describe('vfkb broadcast (ADR-0063 §3)', () => {
     const repo = makeTarget(99);
     const [r] = broadcast('note', [repo]);
     expect(r.ok).toBe(false);
-    expect(r.reason).toMatch(/schema v99 unsupported/);
+    expect(r.reason).toMatch(/schema 99 unsupported/);
     expect(existsSync(join(repo, '.vfkb', 'entries.jsonl'))).toBe(false);
   });
 

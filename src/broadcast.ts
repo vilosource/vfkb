@@ -29,13 +29,22 @@ function targetBrainDir(target: string): string {
 }
 
 function gitPosture(repoDir: string): string {
+  const git = (...a: string[]) =>
+    execFileSync('git', ['-C', repoDir, ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
   try {
-    const git = (...a: string[]) =>
-      execFileSync('git', ['-C', repoDir, ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
     const branch = git('rev-parse', '--abbrev-ref', 'HEAD');
     const parked = branch === 'main' || branch === 'master';
     return `uncommitted; target on ${branch}${parked ? ' (parked — rides until a topic-branch brain commit)' : ''}`;
   } catch {
+    // rev-parse HEAD fails on a repo with no commits yet — distinguish that
+    // from "not a repo at all" (review finding: unborn HEAD was misreported).
+    try {
+      if (git('rev-parse', '--is-inside-work-tree') === 'true') {
+        return 'uncommitted; target git repository on an unborn branch (no commits yet)';
+      }
+    } catch {
+      /* fall through */
+    }
     return 'uncommitted; target not a git repository';
   }
 }
@@ -63,13 +72,23 @@ export function broadcast(
     }
   }
   const op = (opts.op || 'OPERATION').toUpperCase();
-  const stamped = /^CROSS-REPO /.test(text)
-    ? text
-    : `CROSS-REPO ${op} (${date}, from ${origin}): ${text}`;
+  // No-double-stamp applies only to a COMPLETE marker (op + date + origin) —
+  // a bare "CROSS-REPO " prefix must not waive the stamping this command
+  // exists to mechanize (review finding: the loose prefix test let a record
+  // land with no origin and no date, the ADR-0051 §3 quiet-success shape).
+  const MARKER = /^CROSS-REPO \S+ \(\d{4}-\d{2}-\d{2}, from [^)]+\):/;
+  const stamped = MARKER.test(text) ? text : `CROSS-REPO ${op} (${date}, from ${origin}): ${text}`;
 
   const results: BroadcastResult[] = [];
+  const written = new Set<string>();
   for (const target of targets) {
     const brain = targetBrainDir(target);
+    // "Exactly one record per affected repo" (ADR-0063 §1) also holds across
+    // path spellings of the same target within one broadcast.
+    if (written.has(brain)) {
+      results.push({ target, ok: false, reason: 'duplicate target (already written in this broadcast)' });
+      continue;
+    }
     const repoDir = resolve(brain, '..');
     const manifestPath = join(brain, 'manifest.json');
     if (!existsSync(manifestPath)) {
@@ -84,7 +103,7 @@ export function broadcast(
       continue;
     }
     if (schema !== SCHEMA_VERSION) {
-      results.push({ target, ok: false, reason: `brain schema v${String(schema)} unsupported by engine schema v${SCHEMA_VERSION}` });
+      results.push({ target, ok: false, reason: `brain schema ${JSON.stringify(schema)} unsupported by engine schema v${SCHEMA_VERSION}` });
       continue;
     }
     // brainDir() resolves VFKB_DATA_DIR fresh on every call (the RFC-013/033
@@ -93,6 +112,7 @@ export function broadcast(
     try {
       process.env.VFKB_DATA_DIR = brain;
       const e = addEntry('fact', stamped, { role: 'executor', tags: ['cross-repo', ...extraTags] });
+      written.add(brain);
       results.push({ target, ok: true, id: e.id, posture: gitPosture(repoDir) });
     } catch (err) {
       results.push({ target, ok: false, reason: (err as Error).message });

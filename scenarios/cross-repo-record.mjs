@@ -62,6 +62,10 @@ const sh = (c, a, o = {}) => execFileSync(c, a, { encoding: 'utf8', ...o });
 function seedBrain({ withRecord, pressured }) {
   const dir = mkdtempSync(join(tmpdir(), 'vfkb-xr-brain-'));
   const env = { ...process.env, VFKB_DATA_DIR: join(dir, '.vfkb'), VFKB_PROJECT: 'residentproj' };
+  // The resident is an ADOPTED consumer: its brain carries the init-written
+  // manifest (broadcast refuses manifest-less targets by contract — §3).
+  mkdirSync(env.VFKB_DATA_DIR, { recursive: true });
+  writeFileSync(join(env.VFKB_DATA_DIR, 'manifest.json'), JSON.stringify({ schema_version: 1 }));
   const add = (type, text, tags) =>
     sh('node', [CLI, 'add', type, text, '--role', 'human', '--prov-status', 'verified',
         ...(tags ? ['--tag', tags] : [])], { env, stdio: 'ignore' });
@@ -80,20 +84,32 @@ function seedBrain({ withRecord, pressured }) {
     }
   }
   if (withRecord) {
-    // The visitor's record, written LAST (newest — what a real visitor leaves),
-    // via the v1 transport against this brain. Verbose and realistic, longer
-    // than one gotcha line (RED determinism — see session-start-briefing.mjs).
-    sh('node', [CLI, 'add', 'fact',
-      `CROSS-REPO WIRING-MIGRATION (2026-07-17, from vfkb): this repo's auto-layer wiring was ` +
-      `migrated by a maintenance session running in the vfkb repo — the operation codename is ` +
-      `${SENTINEL}. What changed: the old bootstrap hooks were removed from .claude/settings.json, ` +
-      `the redundant local MCP server entry was deleted, and the vendored engine copy now comes ` +
-      `from the plugin at project scope. Verified by the visitor: doctor reports the plugin ` +
-      `installed and the brain untouched. What this repo's next session still needs to do: ` +
-      `restart any open harness sessions to load the new wiring, and commit the brain on the ` +
-      `next topic branch. The change is deliberately UNCOMMITTED in the working tree per the ` +
-      `cross-repo write-never-commit rule.`,
-      '--tag', 'cross-repo,plugin,distribution'], { env, stdio: 'ignore' });
+    // The visitor's record, written LAST (newest — what a real visitor leaves).
+    // Verbose and realistic, longer than one gotcha line (RED determinism —
+    // see session-start-briefing.mjs).
+    const body =
+      `this repo's auto-layer wiring was migrated by a maintenance session running in the ` +
+      `vfkb repo — the operation codename is ${SENTINEL}. What changed: the old bootstrap ` +
+      `hooks were removed from .claude/settings.json, the redundant local MCP server entry ` +
+      `was deleted, and the vendored engine copy now comes from the plugin at project scope. ` +
+      `Verified by the visitor: doctor reports the plugin installed and the brain untouched. ` +
+      `What this repo's next session still needs to do: restart any open harness sessions to ` +
+      `load the new wiring, and commit the brain on the next topic branch. The change is ` +
+      `deliberately UNCOMMITTED in the working tree per the cross-repo write-never-commit rule.`;
+    if (pressured) {
+      // v2 variant (RFC-033 §6): the pressured delivery arm seeds via the REAL
+      // `vfkb broadcast` command — origin/marker/tag stamped by the command,
+      // invoked from the visitor's identity, targeting this brain.
+      sh('node', [CLI, 'broadcast', body,
+        '--to', env.VFKB_DATA_DIR, '--op', 'wiring-migration', '--tag', 'plugin,distribution'],
+        { env: { ...process.env, VFKB_PROJECT: 'vfkb' }, stdio: 'ignore' });
+    } else {
+      // v1 transport (ADR-0063 §3): the convention arm seeds via env-switched
+      // engine add, marker hand-written — exactly what a v1 visitor does.
+      sh('node', [CLI, 'add', 'fact',
+        `CROSS-REPO WIRING-MIGRATION (2026-07-17, from vfkb): ${body}`,
+        '--tag', 'cross-repo,plugin,distribution'], { env, stdio: 'ignore' });
+    }
   }
   return { dir, env };
 }
@@ -181,6 +197,9 @@ writeFileSync(
     arms }, null, 2),
 );
 console.log('record → scenarios/records/cross-repo-record.json');
-// Exit 0 iff the CONVENTION arm holds — the pin arm's RED is expected pre-build
-// and must not mask a convention regression; the pin build flips its own gate.
-process.exit(conventionDemonstrated ? 0 : 1);
+// Both capabilities shipped (ADR-0063 §2/§3 built in the same change that
+// flipped the delivery arm green), so the gate binds BOTH: a pin regression
+// must exit nonzero here, not only in the unit twin. (Pre-build, the gate
+// bound only the convention — that RED-first phase is preserved in
+// records/cross-repo-record.red-baseline.json.)
+process.exit(conventionDemonstrated && pinDemonstrated ? 0 : 1);

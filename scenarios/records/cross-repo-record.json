@@ -2,7 +2,7 @@
   "scenario": "cross-repo-record",
   "model": "claude-haiku-4-5",
   "trials": 3,
-  "generated": "2026-07-17T16:22:43.158Z",
+  "generated": "2026-07-17T16:40:33.529Z",
   "v1": 3,
   "delivery": 3,
   "contrast": 0,
