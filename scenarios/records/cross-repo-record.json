@@ -1,0 +1,69 @@
+{
+  "scenario": "cross-repo-record",
+  "model": "claude-haiku-4-5",
+  "trials": 3,
+  "generated": "2026-07-17T16:22:43.158Z",
+  "v1": 3,
+  "delivery": 3,
+  "contrast": 0,
+  "conventionDemonstrated": true,
+  "pinDemonstrated": true,
+  "renderCarriesSentinel": {
+    "v1": true,
+    "delivery": true,
+    "contrast": false
+  },
+  "arms": {
+    "v1": [
+      {
+        "hit": true,
+        "out": "peltmarsh-quill-47 ",
+        "err": ""
+      },
+      {
+        "hit": true,
+        "out": "peltmarsh-quill-47 ",
+        "err": ""
+      },
+      {
+        "hit": true,
+        "out": "peltmarsh-quill-47 ",
+        "err": ""
+      }
+    ],
+    "delivery": [
+      {
+        "hit": true,
+        "out": "peltmarsh-quill-47 ",
+        "err": ""
+      },
+      {
+        "hit": true,
+        "out": "peltmarsh-quill-47 ",
+        "err": ""
+      },
+      {
+        "hit": true,
+        "out": "peltmarsh-quill-47 ",
+        "err": ""
+      }
+    ],
+    "contrast": [
+      {
+        "hit": false,
+        "out": "UNKNOWN ",
+        "err": ""
+      },
+      {
+        "hit": false,
+        "out": "UNKNOWN ",
+        "err": ""
+      },
+      {
+        "hit": false,
+        "out": "UNKNOWN ",
+        "err": ""
+      }
+    ]
+  }
+}

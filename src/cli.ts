@@ -18,6 +18,7 @@ import {
 import { SessionState, effectiveSessionId } from './session.js';
 import { defaultProject } from './storage.js';
 import { runExport } from './export.js';
+import { broadcast as runBroadcast } from './broadcast.js';
 import {
   promote,
   archive,
@@ -106,7 +107,7 @@ async function main() {
 }
 
 const USAGE =
-  'usage: vfkb <add|list|search|query|map|context|context init|resume|resume-note|curate|distill|save|' +
+  'usage: vfkb <add|broadcast|list|search|query|map|context|context init|resume|resume-note|curate|distill|save|' +
   'export|import|init|doctor|supersede|context-block|context-block-naive|--version|' +
   'hook session-start|hook pre-tool-use|hook post-tool-use|hook stop|hook session-end>\n';
 
@@ -161,6 +162,42 @@ async function dispatch() {
       process.exit(1);
     }
     return;
+  }
+
+  // --- broadcast "<text>" --to <dir>[,<dir>…] [--op <name>] [--tag a,b] ---
+  // ADR-0063 §3: one cross-repo record per target brain, engine-written,
+  // origin/date/tag stamped, per-target result + commit posture, no commits.
+  if (cmd === 'broadcast') {
+    const p = parseArgs('broadcast', argsOf(sub, rest), {
+      to: 'value',
+      op: 'value',
+      tag: 'value',
+    });
+    const text = p.positionals.join(' ').trim();
+    const targets = flagList(p, 'to') ?? [];
+    if (!text || targets.length === 0) {
+      throw new UsageError('usage: vfkb broadcast "<text>" --to <dir>[,<dir>…] [--op <name>] [--tag a,b]');
+    }
+    try {
+      const results = runBroadcast(text, targets, {
+        op: flagValue(p, 'op'),
+        tags: flagList(p, 'tag'),
+      });
+      let failed = 0;
+      for (const r of results) {
+        if (r.ok) {
+          process.stdout.write(`written\t${r.target}\t${r.id}\t${r.posture}\n`);
+        } else {
+          failed++;
+          process.stdout.write(`REFUSED\t${r.target}\t${r.reason}\n`);
+        }
+      }
+      process.stdout.write(`\nbroadcast: ${results.length - failed}/${results.length} written${failed ? ` — ${failed} refused (partial broadcast, visible by design)` : ''}\n`);
+      process.exit(failed > 0 ? 1 : 0);
+    } catch (err) {
+      process.stderr.write(`error: ${(err as Error).message}\n`);
+      process.exit(1);
+    }
   }
 
   // export <agents-md|okf> [--out <path>] — ADR-0047 brain export projections:
