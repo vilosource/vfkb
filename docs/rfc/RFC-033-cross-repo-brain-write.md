@@ -2,13 +2,13 @@
 type: RFC
 title: "RFC-033: Cross-repo brain write — a cross-repo operation leaves one deliberate, provenance-stamped record in each affected repo's own brain"
 description: "The write-side complement of RFC-013/ADR-0038: when a session in repo A changes repo B's observable state, it writes one handoff fact into B's committed brain through the engine (VFKB_DATA_DIR today, a `vfkb broadcast` helper on build) — tagged and origin-stamped, never committed by the writer, arriving unverified. MCP-side targeting is rejected by name; the session tools stay bolted to the local brain."
-status: proposed
+status: Proposed
 timestamp: 2026-07-17
 ---
 
 # RFC-033: Cross-repo brain write — operation handoff broadcast
 
-- **Status:** proposed
+- **Status:** Proposed
 - **Date:** 2026-07-17
 - **Deciders:** operator + Claude
 - **Relates:** [RFC-013](RFC-013-cross-project-brain-query.md) /
@@ -34,8 +34,8 @@ updated or migrated the vfkb plugin wiring of **eleven** sibling repos under `~/
 plugin-0.6.0 consumer sweep). Two facts from that session motivate this RFC:
 
 1. **The positive case.** Eleven repos had their observable state changed underneath their own
-   sessions — settings rewritten, `.mcp.json` servers removed, engine version jumped 0.1.x/0.2.x →
-   0.6.0. Git history records *what* changed per repo, but the brain is what a session gets
+   sessions — settings rewritten, `.mcp.json` servers removed, engine versions jumped from as far
+   back as 0.1.0 up to 0.6.0. Git history records *what* changed per repo, but the brain is what a session gets
    **injected** at start; without a brain-side record, every one of those repos' next sessions
    would meet altered wiring with no recallable explanation.
 2. **The negative case.** In `viloforge-wiki`, the visiting session opened a redundant, conflicting
@@ -98,11 +98,21 @@ writes of state, not reads, precisely so the target brain gains signal and not v
    - **On build (v2): `vfkb broadcast`** — one command, N targets:
      `vfkb broadcast "<text>" --to <dir>[,<dir>…] [--tag <extra,…>]`. It writes one `fact` per
      target through the engine and stamps mechanically what v1 leaves to discipline: the
-     `handoff,cross-repo` tags, the `CROSS-REPO … from <origin>` marker (origin = the invoking
-     repo's project label), and the date. It **refuses** a target whose `manifest.json`
-     `schema_version` the running engine does not support (same compat rule the engine already
-     enforces for its own brain) and reports per-target success/failure explicitly — a partial
-     broadcast must be visible, never silent.
+     `handoff,cross-repo` tags, the `CROSS-REPO … from <origin>` marker (origin derived from the
+     invoking repo's project label), and the date. It **refuses** a target whose `manifest.json`
+     `schema_version` the running engine does not support — promoting to a hard refusal the
+     brain↔engine compat rule that today exists only as a `vfkb doctor` diagnostic — and reports
+     per-target success/failure explicitly: a partial broadcast must be visible, never silent.
+   - **Out of scope: targets without a brain.** A repo with no `.vfkb/manifest.json` never adopted
+     vfkb; v1 must not write there (a bare engine `add` would silently bootstrap a partial,
+     wire-less brain whose record no session-start injection would ever deliver — the
+     quiet-success shape ADR-0051 §3 forbids), and `broadcast` refuses such a target per-target,
+     like any compat failure.
+   - **Concurrent-append safety is already settled ground**
+     ([ADR-0040](../adr/ADR-0040-native-concurrency-lock.md)): pure appends are uncoordinated by
+     design with `appendFileSync` byte-safety verified, so writing into a brain a live target
+     session is appending to is safe today — and the advisory lock anchors to the target's own
+     brain dir, so a future read-decide-append `add` would take the *target's* lock automatically.
 
 **3. Write, never commit.** The writer leaves the entry **uncommitted** in the target's working
 tree. Committing the target's brain belongs to the target's own discipline — the plugin's
