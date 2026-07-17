@@ -1,0 +1,64 @@
+{
+  "recordVersion": 1,
+  "sha": "bb254d0ba9ab5ee527b9458b5c6799148c587308",
+  "governing": [
+    "docs/adr/ADR-0063-cross-repo-brain-write.md",
+    "docs/rfc/RFC-033-cross-repo-brain-write.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "fable", "rounds": 2 },
+  "generated": "2026-07-17T16:55:00Z",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "prestamp escape accepted any 'CROSS-REPO ' prefix, silently dropping origin/date stamping — now requires the complete marker shape (op + date + origin), probed with bare-prefix and near-miss-marker inputs",
+      "acceptedBy": null
+    },
+    {
+      "id": "F2",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "duplicate/aliased --to targets double-wrote one brain — now deduped on the resolved brain path, later spellings visibly refused (residual: symlink aliases bypass resolve-level dedup, noted not fixed)",
+      "acceptedBy": null
+    },
+    {
+      "id": "F3",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "scenario exit gate ignored pinDemonstrated after the pin build it gates — now binds both capabilities; the RED-first single-capability phase is preserved in cross-repo-record.red-baseline.json",
+      "acceptedBy": null
+    },
+    {
+      "id": "F4",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "vfkb broadcast was never exercised by the L4 (RFC-033 §6 v2-variant scope drop) — the pressured delivery arm now seeds via the real broadcast CLI with the visitor identity; scenario brains carry an init-shape manifest; delivery re-pinned 3/3",
+      "acceptedBy": null
+    },
+    {
+      "id": "F5",
+      "severity": "minor",
+      "status": "accepted",
+      "summary": "committed RED baseline is a post-hoc N=1 stashed-engine rerun rather than the original 0/3 run — disclosed in the brain entry; the reviewer independently reproduced the RED deterministically (surgical revert: 4/8 pin tests fail, sentinel absent from the render), so falsifiability stands on its own evidence",
+      "acceptedBy": null
+    },
+    {
+      "id": "F6",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "gitPosture misreported an unborn-HEAD repo as 'not a git repository' — now distinguishes 'git repository on an unborn branch (no commits yet)'",
+      "acceptedBy": null
+    },
+    {
+      "id": "F7",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "schema-mismatch refusal message hid the manifest value's type (string '1' vs number 1) — now shows the raw JSON value",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 7,
+  "ruledOut": [],
+  "verdict": "MERGE"
+}
