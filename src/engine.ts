@@ -5,6 +5,9 @@
 // Pure Node stdlib, ZERO runtime deps.
 
 import { randomBytes } from 'node:crypto';
+import { existsSync } from 'node:fs';
+import { dirname, join, resolve as resolvePath } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   appendRecord,
   materialize,
@@ -15,6 +18,7 @@ import {
   readContextSpine,
   writeContextSpine,
   defaultProject,
+  brainDir,
 } from './storage.js';
 import { selectIndex } from './index-store.js';
 import { testHoldForRace } from './lock.js';
@@ -492,6 +496,33 @@ export function latestCrossRepo(
   return latest;
 }
 
+/**
+ * ADR-0065 §1 — the CLI write path an agent should reach for when the MCP face
+ * errors or disappears.
+ *
+ * The path is SELF-KNOWABLE, never a registry lookup: the process rendering this
+ * *is* the vendored bundle. The renderer may be the MCP face (`vfkb-mcp.mjs`)
+ * while the fallback must name the CLI face, so prefer `vfkb.mjs` sitting beside
+ * the running script and fall back to the script itself.
+ *
+ * Both paths are QUOTED — plugin cache paths contain a version segment today and
+ * may contain spaces on other platforms; an unquoted command would silently
+ * truncate at the first space, which is the class of quiet failure this whole ADR
+ * is about. The brain dir is ABSOLUTE-ised for the same reason: VFKB_DATA_DIR is
+ * commonly configured relative (".vfkb"), and an agent that has cd'd elsewhere
+ * would otherwise create a second brain in the wrong directory.
+ */
+export function renderCaptureFallback(): string {
+  const self = process.argv[1] || fileURLToPath(import.meta.url);
+  const sibling = join(dirname(self), 'vfkb.mjs');
+  const cli = existsSync(sibling) ? sibling : self;
+  return (
+    `capture fallback: if the kb_* tools error or disappear, the CLI still writes ` +
+    `(same engine, separate process; journaled per ADR-0064) —\n` +
+    `  VFKB_DATA_DIR="${resolvePath(brainDir())}" node "${cli}" add <type> "…" [--tags a,b] [--why "…"]`
+  );
+}
+
 export function renderContextBundle(project = defaultProject(), budget = SESSION_BUDGET_CHARS): string {
   const all = readAll();
   const today = nowIso().slice(0, 10);
@@ -546,6 +577,15 @@ export function renderContextBundle(project = defaultProject(), budget = SESSION
 
   // Context Map (ADR-0006): the navigational index, always injected, never dropped.
   body += renderContextMap() + '\n\n';
+
+  // Capture fallback (ADR-0065 §1 ← RFC-035): the hooks and the MCP server are
+  // separate processes over the same engine bundle, so a dead MCP face does not
+  // imply a dead CLI — and with ADR-0064's journal the CLI write is exactly as
+  // durable. That fallback already exists but is undocumented at the moment of
+  // failure; an agent mid-loss has no reason to know it. Joins the never-dropped
+  // preamble, costing at most one lowest-ranked entry — the same trade the
+  // ADR-0049/ADR-0063 pins already made, stated as a decision, not a side effect.
+  body += renderCaptureFallback() + '\n\n';
 
   // Ranked lines are collected (not appended) so the omission note can evict
   // trailing lines when needed — under the old append-as-you-go shape, a body
