@@ -2,13 +2,14 @@
 type: RFC
 title: "RFC-034: Durable capture — an untracked write-ahead journal closes the brain-loss window between write and commit"
 description: "Every engine append is mirrored to an untracked journal inside the brain dir; a deterministic (id, updated)-pair line-union recovery at session start re-appends any journaled line the tracked entries.jsonl has lost. Kills the observed failure class (checkout --/reset --hard/stash destroying uncommitted knowledge) without touching commit cadence — per-write auto-commit is rejected by name because parked-on-main cross-repo records are uncommitted BY DESIGN (ADR-0063 §4) and commit cadence is entangled with the never-commit-on-main discipline (ADR-0033)."
-status: "Proposed"
+status: "Accepted → ADR-0064 (ratified 2026-07-18)"
 timestamp: 2026-07-18
 ---
 
 # RFC-034: Durable capture — write-ahead journal + deterministic recovery
 
-- **Status:** Proposed
+- **Status:** **Accepted → [ADR-0064](../adr/ADR-0064-durable-capture-journal.md)** (operator
+  ratification 2026-07-18)
 - **Date:** 2026-07-18
 - **Deciders:** operator + Claude
 - **Fixes:** [#175](https://github.com/vilosource/vfkb/issues/175) (brain-loss window; routed

@@ -2,13 +2,14 @@
 type: RFC
 title: "RFC-035: Write-health loudness — a silent MCP-disconnect must never look like successful capture"
 description: "Probe-first proposal for the silent-writer half of the OI tee-up: (0) a committed Tier-0 probe establishing what a dead/disconnected MCP server actually looks like to the agent on current Claude Code, (1) an always-injected CLI fallback line so a session whose kb_* face dies still has a durable capture path, (2) a doctor write-probe. The client-side visibility defect itself is external (Claude Code owns the MCP client); engine scope is honest about that boundary, same tier discipline as ADR-0015 P1."
-status: "Proposed"
+status: "Accepted → ADR-0065 (ratified 2026-07-18)"
 timestamp: 2026-07-18
 ---
 
 # RFC-035: Write-health loudness — silent write-unavailability
 
-- **Status:** Proposed
+- **Status:** **Accepted → [ADR-0065](../adr/ADR-0065-write-health-loudness.md)** (operator
+  ratification 2026-07-18)
 - **Date:** 2026-07-18
 - **Deciders:** operator + Claude
 - **Fixes:** [#176](https://github.com/vilosource/vfkb/issues/176) (silent MCP-disconnect; routed
