@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { mkdtempSync, mkdirSync, readFileSync, existsSync, writeFileSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
+import { spawnSync, execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { initProject } from './init.js';
@@ -91,6 +91,47 @@ describe('vfkb init (FR-1)', () => {
       expect(gi).not.toContain('.vfkb/entries.jsonl');
       expect(gi).not.toContain('.vfkb/manifest.json');
       expect(gi).not.toContain('.vfkb/');
+    });
+
+    // The assertion that can fail for the RIGHT reason. Substring checks match a
+    // COMMENTED-OUT path just as happily: prefixing every emitted path with '# '
+    // produced a stanza that ignores NOTHING and still passed them (review of
+    // PR #219, major 2). git is the only authority on what a .gitignore does.
+    it('git actually ignores the derived paths and NOT the committed ones', () => {
+      initProject(root, { project: 'demo' });
+      execFileSync('git', ['init', '-q'], { cwd: root });
+      const ignored = (p: string) => {
+        try {
+          execFileSync('git', ['check-ignore', '-q', p], { cwd: root, stdio: 'ignore' });
+          return true;
+        } catch {
+          return false;
+        }
+      };
+      for (const p of ['.vfkb/.lock', '.vfkb/.journal/wal.jsonl', '.vfkb/index-meta.json', '.vfkb/.sessions/x', '.vfkb/.signals/y']) {
+        expect(ignored(p), `${p} should be ignored`).toBe(true);
+      }
+      // The brain and the ADR-0030 engine stamp MUST stay committable.
+      expect(ignored('.vfkb/entries.jsonl'), 'entries.jsonl must not be ignored').toBe(false);
+      expect(ignored('.vfkb/manifest.json'), 'manifest.json must not be ignored').toBe(false);
+    });
+
+    it('HEALS an old stanza in place instead of appending a contradictory one', () => {
+      // Every existing consumer takes this path; greenfield is the rare case.
+      writeFileSync(
+        join(root, '.gitignore'),
+        '# vfkb — derived/operational (only .vfkb/entries.jsonl is committed)\n' +
+          '.vfkb/index-meta.json\n.vfkb/.sessions/\n.vfkb/.signals/\n.vfkb/.journal/\n',
+      );
+      initProject(root, { project: 'demo' });
+      const gi = read('.gitignore');
+      expect(gi, 'the false claim must not survive').not.toMatch(/only \.vfkb\/entries\.jsonl is committed/i);
+      // Exactly ONE stanza — not the old one plus a corrected one below it.
+      expect(gi.split('derived/operational').length - 1).toBe(1);
+      expect(gi).toContain('.vfkb/.lock');
+      // and the healed stanza still works
+      execFileSync('git', ['init', '-q'], { cwd: root });
+      expect(() => execFileSync('git', ['check-ignore', '-q', '.vfkb/.lock'], { cwd: root, stdio: 'ignore' })).not.toThrow();
     });
 
     it('does not claim entries.jsonl is the ONLY committed file', () => {
