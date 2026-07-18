@@ -1,0 +1,46 @@
+{
+  "recordVersion": 1,
+  "sha": "0a2fcf8b4e5d45838eab010d610d59b1f9f2f4d8",
+  "governing": [
+    "docs/adr/ADR-0052-review-gate.md"
+  ],
+  "reviewer": {
+    "agent": "general-purpose",
+    "model": "opus",
+    "rounds": 1
+  },
+  "generated": "2026-07-18T17:40:00Z",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "hook emitted bare prose to stdout; the harness requires {hookSpecificOutput:{hookEventName:'PreToolUse',additionalContext}} (verified by direct execution + src/cli.ts:702-710 + the live graphify hook-guard), so the Brake was INERT",
+      "acceptedBy": null
+    },
+    {
+      "id": "F2",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "selftest asserted only non-empty stdout, orthogonal to whether the harness surfaces it \u2014 which is how F1 passed three watched mutations; it now parses and asserts the hookSpecificOutput shape, and is watched failing on a bare-prose mutation",
+      "acceptedBy": null
+    },
+    {
+      "id": "F3",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "false positives undercutting the hook's own anti-desensitisation goal: gh pr review --approve / gh pr edit --add-label, commands quoted or commented, unanchored reviews/ matching src/reviews/, and vendored node_modules/**/docs/adr/",
+      "acceptedBy": null
+    },
+    {
+      "id": "F4",
+      "severity": "minor",
+      "status": "open",
+      "summary": "UNVERIFIED by the reviewer: if stdin never closes the 'end' handler never fires and the hook could stall until the harness hook timeout rather than degrading to allow; the timeout was not measured",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 4,
+  "ruledOut": [],
+  "verdict": "MERGE"
+}
