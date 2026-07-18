@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.5.0](https://github.com/vilosource/vfkb/compare/v0.4.1...v0.5.0) (2026-07-18)
+
+
+### Features
+
+* **write-health:** ADR-0065 §1 + §2a — the probe-independent floors ([#176](https://github.com/vilosource/vfkb/issues/176)) ([#217](https://github.com/vilosource/vfkb/issues/217)) ([c30fefc](https://github.com/vilosource/vfkb/commit/c30fefc8b78ccdd059d1ccb5a388b3887b24dde3))
+
+
+### Bug Fixes
+
+* **hooks:** terminate on a stdin that never closes, so hooks fail open ([#214](https://github.com/vilosource/vfkb/issues/214)) ([#223](https://github.com/vilosource/vfkb/issues/223)) ([c9f7172](https://github.com/vilosource/vfkb/commit/c9f7172d6f2697e26e6b80665c90102143ea2e7a))
+* **init:** the .gitignore generator emitted both defects the 10-repo sweep removed ([#219](https://github.com/vilosource/vfkb/issues/219)) ([e4d6831](https://github.com/vilosource/vfkb/commit/e4d68314518ea6f97636dfacaf5ec04ba2f684e3))
+* **manifest:** ratchet engine provenance unknown -&gt; known ([#212](https://github.com/vilosource/vfkb/issues/212) stamping half) ([#221](https://github.com/vilosource/vfkb/issues/221)) ([f1a015d](https://github.com/vilosource/vfkb/commit/f1a015dcd72569879f132b72e9975ea370487c12))
+
+
+### Documentation
+
+* "only entries.jsonl is committed" is false — manifest.json is committed too ([#220](https://github.com/vilosource/vfkb/issues/220)) ([#222](https://github.com/vilosource/vfkb/issues/222)) ([8016997](https://github.com/vilosource/vfkb/commit/8016997a0a090c0051eb70d357204392b1eacc58))
+
 ## [0.4.1](https://github.com/vilosource/vfkb/compare/v0.4.0...v0.4.1) (2026-07-18)
 
 
