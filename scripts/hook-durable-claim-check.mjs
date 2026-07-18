@@ -48,18 +48,54 @@ process.stdin.on('end', () => {
 
 // Commands that publish a claim somewhere durable — an artifact another
 // engineer (or a future session) will act on without seeing the reasoning.
-const DURABLE_CMD = [
-  /\bgh\s+issue\s+(create|comment|edit)\b/,
-  /\bgh\s+pr\s+(create|comment|edit|review)\b/,
+//
+// `create`/`comment` always carry authored prose. `edit`/`review` do NOT: an
+// `--add-label` or a bare `--approve` publishes no claim, and firing on those
+// is the desensitisation this hook exists to avoid (review finding MAJOR 3), so
+// they qualify only when they carry a body.
+const BODY_FLAG = /(^|\s)(--body|--body-file|-b|-F|--notes|--notes-file)(\s|=)/;
+const DURABLE_ALWAYS = [
+  /\bgh\s+issue\s+create\b/,
+  /\bgh\s+issue\s+comment\b/,
+  /\bgh\s+pr\s+create\b/,
+  /\bgh\s+pr\s+comment\b/,
+];
+const DURABLE_IF_BODY = [
+  /\bgh\s+issue\s+edit\b/,
+  /\bgh\s+pr\s+(edit|review)\b/,
   /\bgh\s+release\s+(create|edit)\b/,
 ];
 
-// Paths whose whole purpose is to be a durable record.
-const DURABLE_PATH = [
-  /(^|\/)docs\/(adr|rfc)\//i,
-  /(^|\/)reviews\//i,
-  /(^|\/)CLAUDE\.md$/i,
-];
+// Paths whose whole purpose is to be a durable record. Matched against the
+// path RELATIVE to the project root and anchored, so `src/reviews/helper.ts`
+// and `node_modules/x/docs/adr/y.md` do not qualify (review finding MAJOR 3).
+const DURABLE_PATH = [/^docs\/(adr|rfc)\//i, /^reviews\//i, /^CLAUDE\.md$/i];
+
+// Vendored trees are never this repo's durable record, even at a matching path.
+const VENDORED = /(^|\/)(node_modules|vendor|dist|build|\.git)\//i;
+
+// A command mentioning `gh issue create` inside a quoted string, a comment, or
+// a grep pattern is talking ABOUT the command, not running it. Strip those
+// spans before matching so discussion does not trip the Brake.
+function stripNonExecutable(cmd) {
+  return cmd
+    .replace(/'[^']*'/g, ' ')
+    .replace(/"[^"]*"/g, ' ')
+    .replace(/(^|\s)#.*$/gm, ' ');
+}
+
+// Resolve to a project-root-relative path when we can, so the anchored patterns
+// above mean what they say. CLAUDE_PROJECT_DIR is set by the harness; without
+// it, fall back to matching any trailing segment (looser, but never silent).
+function relativize(p) {
+  const root = process.env.CLAUDE_PROJECT_DIR;
+  if (root && p.startsWith(root)) return p.slice(root.length).replace(/^\/+/, '');
+  if (!p.startsWith('/')) return p.replace(/^\.\//, '');
+  // Absolute path outside (or without) a known root: test the tail segments so
+  // an artifact still registers, at the cost of some imprecision.
+  const m = p.match(/(?:^|\/)((?:docs\/(?:adr|rfc)|reviews)\/.*|CLAUDE\.md)$/i);
+  return m ? m[1] : p;
+}
 
 const REMINDER = [
   'DURABLE ARTIFACT — verification is gated on durability, not severity (brain a1aea707436c).',
@@ -82,12 +118,33 @@ function emit(payload) {
   let hit = false;
 
   if (tool === 'Bash') {
-    const cmd = String(input.command ?? '');
-    hit = DURABLE_CMD.some((re) => re.test(cmd));
+    const cmd = stripNonExecutable(String(input.command ?? ''));
+    hit =
+      DURABLE_ALWAYS.some((re) => re.test(cmd)) ||
+      (DURABLE_IF_BODY.some((re) => re.test(cmd)) && BODY_FLAG.test(cmd));
   } else if (['Write', 'Edit', 'MultiEdit', 'NotebookEdit'].includes(tool)) {
-    const p = String(input.file_path ?? input.filePath ?? '');
-    hit = DURABLE_PATH.some((re) => re.test(p));
+    const raw = String(input.file_path ?? input.filePath ?? '');
+    if (!VENDORED.test(raw)) {
+      const rel = relativize(raw);
+      hit = DURABLE_PATH.some((re) => re.test(rel));
+    }
   }
 
-  if (hit) process.stdout.write(REMINDER + '\n');
+  // The contract, VERIFIED by direct execution against the live harness and by
+  // two in-repo precedents (src/cli.ts:702-710 emits this shape for its own
+  // PreToolUse gate; the graphify hook-guard emits it with `additionalContext`
+  // and that text demonstrably reaches the agent). Bare stdout does NOT reach
+  // the model — the first cut of this hook wrote prose and was INERT, caught by
+  // the ADR-0052 review. That is the failure this whole file exists to prevent,
+  // committed by the file itself; hence the shape is asserted in the selftest.
+  if (hit) {
+    process.stdout.write(
+      JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          additionalContext: REMINDER,
+        },
+      }),
+    );
+  }
 }
