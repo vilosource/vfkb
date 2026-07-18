@@ -1,0 +1,53 @@
+{
+  "recordVersion": 1,
+  "sha": "638ce4ada068952f896880c81bef76d5351a6585",
+  "governing": [
+    "docs/adr/ADR-0063-cross-repo-brain-write.md",
+    "docs/adr/ADR-0030-consumer-integration-and-distribution.md",
+    "docs/adr/ADR-0052-review-gate.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "opus", "rounds": 2 },
+  "generated": "2026-07-18T22:15:00Z",
+  "findings": [
+    {
+      "id": "upgraded-flag-vacuous-and-unreachable",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "The `upgraded` reporting was both untested and unrendered. Collapsing broadcast.ts's `if (absent) healed = true; else upgraded = true;` to a bare `healed = true` left the suite 407/407 green, and src/cli.ts -- the only renderer of BroadcastResult -- branched on `r.healed` alone, so an upgrade printed nothing on the shipped surface and the collapsed branch printed the actively false '(manifest healed -- brain was wired but manifest-less, vfkb#193)' for a brain whose manifest was present throughout. Fixed on both halves: cli.ts now renders `upgraded` distinctly, and the guard drives the BUILT BUNDLE over a subprocess reading stdout (asserting the BroadcastResult field alone cannot catch an unrendered field -- the renderer is a different file). Re-mutation, each confirmed applied first: collapsing the branches -> 3 failed (the failure output captured the false #193 line verbatim); deleting only the renderer branch -> 1 failed. Both were fully green before.",
+      "acceptedBy": null
+    },
+    {
+      "id": "missing-commit-branch-passes-for-wrong-reason",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "The test named 're-stamps a manifest that carries no engine_commit at all' did not exercise isUnknownCommit's `!commit` half: it drove writeManifest, whose preservation guard tests the INCOMING identity (a real sha), so cur.engine_commit never reached isUnknownCommit. Deleting `!commit ||` left 407/407 green. Fixed where the branch is load-bearing -- a manifestNeedsStamp(brainWith(undefined), REAL) assertion plus its unknown-engine complement, and an end-to-end broadcast case over a commit-less manifest. Re-mutation: `return commit === 'dev'` -> 2 failed (mutation confirmed applied at manifest.ts:32).",
+      "acceptedBy": null
+    },
+    {
+      "id": "upgrade-failure-reason-string-untested",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "The per-target failure wording `manifest ${absent ? 'heal' : 'provenance upgrade'} failed` was unguarded -- collapsing it to the `heal` literal left 407/407 green. Fixed with a deterministic case that forces writeManifest to throw on the PRESENT-manifest path via a directory at manifest.json (EISDIR), chosen over a chmod because a root CI user would sail straight through a permission-based mutation. Re-mutation: collapsed to the literal -> 1 failed.",
+      "acceptedBy": null
+    },
+    {
+      "id": "no-adr-0052-review-record",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "No record existed for the prior head 9d2d78b, and PR #221's review-gate check was observed FAILURE. This record is filed at the merge-candidate head 638ce4a, which is the fix commit -- so it is not invalidated by the fix, the ordering hazard the reviewer flagged.",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 4,
+  "ruledOut": [
+    "The reviewer's four ruled-out reproductions of the implementer's original mutation claims were not re-litigated; this round re-verified only the mutations tied to the open findings, each checked as APPLIED (grep/tsc) before concluding, per the two-causes-of-a-green-mutation rule.",
+    "The core #212 fix (src/manifest.ts, src/broadcast.ts) was NOT modified in this round -- git diff --stat shows only src/cli.ts and test/manifest-provenance.test.ts. The reviewer had already confirmed the core assertions read the manifest.json actually written and drive initProject/broadcast rather than helpers.",
+    "Reviewer UNVERIFIED item (a) is now CLOSED: the new CLI describe builds through scripts/build-bundles.mjs, so ENGINE_COMMIT arrives via esbuild's `define` -- the production identity path, previously exercised by nothing in the suite. The test asserts headSha !== 'dev' as an explicit precondition, so it cannot pass vacuously on a build that does not know its own commit.",
+    "Reviewer UNVERIFIED item (b) remains OPEN and is not cheaply closable here: ViloGate's committed manifest reading engine_commit:'dev' is still relayed from issue #212; that repo was not opened.",
+    "No AI attribution: `git log -1 --format=%B` grepped for claude|anthropic|co-authored|generated with|robot-emoji returns 0 matches. Author Jason Viloria <jason.viloria@optiscangroup.com>.",
+    "No scope creep: the CLI change is confined to the broadcast result-rendering ternary; no new flags, no test-only backdoor into the engine identity (the bundle build was chosen precisely to avoid adding one).",
+    "Append-only JSONL semantics untouched; the ADR-0063 §3 wire-less-brain guard still precedes the widened stamp condition.",
+    "Full suite 413/413 green with all mutations reverted (407 before, +6 new tests)."
+  ],
+  "verdict": "MERGE"
+}
