@@ -217,7 +217,7 @@ export function initProject(root: string, opts: { project?: string } = {}): Init
   // 4. .gitignore — the derived/operational stanza (append once).
   {
     const path = join(root, '.gitignore');
-    const lines = ['.vfkb/index-meta.json', '.vfkb/.sessions/', '.vfkb/.signals/'];
+    const lines = ['.vfkb/index-meta.json', '.vfkb/.sessions/', '.vfkb/.signals/', '.vfkb/.journal/'];
     const existed = existsSync(path);
     const cur = existed ? readFileSync(path, 'utf8') : '';
     const missing = lines.filter((l) => !cur.split(/\r?\n/).includes(l));

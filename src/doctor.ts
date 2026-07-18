@@ -7,6 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { SCHEMA_VERSION, ENGINE_VERSION, ENGINE_COMMIT } from './version.js';
+import { journalStatus } from './journal.js';
 import { readManifest } from './manifest.js';
 import type { GitRunner } from './session-end.js';
 
@@ -434,6 +435,49 @@ export function runDoctor(opts: DoctorOpts): DoctorReport {
     // Drift signal: same schema but a different engine build last stamped the brain.
     if (mf.engine_commit && ENGINE_COMMIT !== 'dev' && mf.engine_commit !== ENGINE_COMMIT) {
       add('engine drift', 'warn', `brain last stamped by engine ${mf.engine_commit}, running ${ENGINE_COMMIT} — possible dual-clone drift`);
+    }
+  }
+
+  // 2b. Durable-capture journal (ADR-0064): what would recovery do, and is a
+  // redaction half-done? Read-only — recovery itself runs at session start.
+  {
+    const js = journalStatus(brainDir);
+    if (js.suppressedInEntries > 0) {
+      add(
+        'journal',
+        'warn',
+        `${js.suppressedInEntries} suppressed (purged) pair(s) still present in entries.jsonl — a redaction is half-done: remove the line(s) from entries.jsonl too (ADR-0064 §4)`,
+      );
+    } else if (js.restorable > 0) {
+      add(
+        'journal',
+        'warn',
+        `${js.restorable} journaled entr${js.restorable === 1 ? 'y' : 'ies'} missing from entries.jsonl — the next session-start restores them (or run \`vfkb hook session-start\` after checking why they vanished; recovery runs ONLY there)`,
+      );
+    } else {
+      add('journal', 'ok', `${js.walLines} line(s) in the uncommitted window, nothing to restore`);
+    }
+    // Migration gap (review M3): an existing consumer that never re-ran init
+    // has no .journal/ gitignore line — its next `git add .vfkb` would COMMIT
+    // the wal (a tracked journal dies by the same reset --hard, RFC-034
+    // Alternatives; and a committed wal defeats §4 redaction).
+    if (existsSync(join(brainDir, '.journal'))) {
+      try {
+        execFileSync('git', ['-C', root, 'check-ignore', '-q', join(brainDir, '.journal', 'wal.jsonl')], {
+          stdio: 'ignore',
+        });
+      } catch {
+        try {
+          execFileSync('git', ['-C', root, 'rev-parse', '--is-inside-work-tree'], { stdio: 'ignore' });
+          add(
+            'journal gitignore',
+            'warn',
+            `.vfkb/.journal/ exists but is NOT gitignored — add '.vfkb/.journal/' to .gitignore before the next brain commit (a committed journal defeats its purpose and the ADR-0064 §4 redaction)`,
+          );
+        } catch {
+          /* not a git repo — nothing to ignore */
+        }
+      }
     }
   }
 

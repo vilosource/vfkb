@@ -1,0 +1,57 @@
+{
+  "recordVersion": 1,
+  "sha": "15a9cb39860daa039ccf273c7f32420f1faf5836",
+  "governing": [
+    "docs/adr/ADR-0064-durable-capture-journal.md",
+    "docs/rfc/RFC-034-durable-capture-journal.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "claude-fable-5", "rounds": 2 },
+  "generated": "2026-07-18T10:05:00Z",
+  "findings": [
+    {
+      "id": "M1",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "torn-tail glue: recovery onto an entries.jsonl ending in a partial line glued the restored JSON onto it, and the same-pass non-git prune then dropped the wal copy — recovery itself could permanently destroy the entry it exists to save; fixed with a newline-prefix guard, probe-confirmed in both git and non-git variants, torn-tail unit test revert-checked RED",
+      "acceptedBy": null
+    },
+    {
+      "id": "M2",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "three raw NUL bytes (the pair separator written literally) made src/journal.ts a binary file — the core new module rendered as 'Binary file not shown' in PR diffs, defeating the review gate; replaced with \\u0000 source escapes, pinned by a no-NUL source-hygiene test",
+      "acceptedBy": null
+    },
+    {
+      "id": "M3",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "gitignore migration gap: existing consumers (including this repo) would commit the untracked wal on their next 'git add .vfkb' — the tracked-journal design RFC-034 rejects as circular; fixed for this repo's .gitignore plus a doctor warn when a git brain's .journal/ exists unignored",
+      "acceptedBy": null
+    },
+    {
+      "id": "F4",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "round-1 minors m4-m9 all addressed: doctor wording no longer claims any command restores; wal rewrites temp+rename with the residual lock-free race documented; unknown-HEAD passes prune nothing; VFKB_NO_JOURNAL disables recovery too; hook e2e test pins the restore note inside additionalContext; writeMeta refresh after restore",
+      "acceptedBy": null
+    },
+    {
+      "id": "F5",
+      "severity": "minor",
+      "status": "open",
+      "summary": "m10: journal recovery runs only in the Claude Code session-start hook — pi face and kb_resume never heal (spec-conformant; the vilonotes tier is where incident 3 lives) — tracked as #205",
+      "acceptedBy": null
+    },
+    {
+      "id": "F6",
+      "severity": "minor",
+      "status": "open",
+      "summary": "m11 (round 2, new): doctor 'journal gitignore' warn false-positives when the brain lives outside the repo (check-ignore exit 128 read as not-ignored) — cosmetic wrong-advice, tracked as #206",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 6,
+  "ruledOut": [],
+  "verdict": "MERGE"
+}

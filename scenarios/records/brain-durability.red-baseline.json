@@ -1,0 +1,75 @@
+{
+  "scenario": "brain-durability",
+  "model": "claude-haiku-4-5",
+  "trials": 3,
+  "generated": "2026-07-18T06:20:31.682Z",
+  "wired": 0,
+  "contrast": 0,
+  "demonstrated": false,
+  "structural": {
+    "wired": [
+      {
+        "restoredSameId": false,
+        "injectionCarries": false
+      },
+      {
+        "restoredSameId": false,
+        "injectionCarries": false
+      },
+      {
+        "restoredSameId": false,
+        "injectionCarries": false
+      }
+    ],
+    "contrast": [
+      {
+        "restoredSameId": false,
+        "injectionCarries": false
+      },
+      {
+        "restoredSameId": false,
+        "injectionCarries": false
+      },
+      {
+        "restoredSameId": false,
+        "injectionCarries": false
+      }
+    ]
+  },
+  "arms": {
+    "wired": [
+      {
+        "hit": false,
+        "out": "UNKNOWN ",
+        "err": ""
+      },
+      {
+        "hit": false,
+        "out": "UNKNOWN ",
+        "err": ""
+      },
+      {
+        "hit": false,
+        "out": "UNKNOWN ",
+        "err": ""
+      }
+    ],
+    "contrast": [
+      {
+        "hit": false,
+        "out": "UNKNOWN ",
+        "err": ""
+      },
+      {
+        "hit": false,
+        "out": "UNKNOWN ",
+        "err": ""
+      },
+      {
+        "hit": false,
+        "out": "UNKNOWN ",
+        "err": ""
+      }
+    ]
+  }
+}

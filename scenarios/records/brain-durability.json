@@ -1,0 +1,75 @@
+{
+  "scenario": "brain-durability",
+  "model": "claude-haiku-4-5",
+  "trials": 3,
+  "generated": "2026-07-18T06:34:30.452Z",
+  "wired": 3,
+  "contrast": 0,
+  "demonstrated": true,
+  "structural": {
+    "wired": [
+      {
+        "restoredSameId": true,
+        "injectionCarries": true
+      },
+      {
+        "restoredSameId": true,
+        "injectionCarries": true
+      },
+      {
+        "restoredSameId": true,
+        "injectionCarries": true
+      }
+    ],
+    "contrast": [
+      {
+        "restoredSameId": false,
+        "injectionCarries": false
+      },
+      {
+        "restoredSameId": false,
+        "injectionCarries": false
+      },
+      {
+        "restoredSameId": false,
+        "injectionCarries": false
+      }
+    ]
+  },
+  "arms": {
+    "wired": [
+      {
+        "hit": true,
+        "out": "gorsefen-ledger-83 ",
+        "err": ""
+      },
+      {
+        "hit": true,
+        "out": "gorsefen-ledger-83 ",
+        "err": ""
+      },
+      {
+        "hit": true,
+        "out": "gorsefen-ledger-83 ",
+        "err": ""
+      }
+    ],
+    "contrast": [
+      {
+        "hit": false,
+        "out": "UNKNOWN ",
+        "err": ""
+      },
+      {
+        "hit": false,
+        "out": "UNKNOWN ",
+        "err": ""
+      },
+      {
+        "hit": false,
+        "out": "UNKNOWN ",
+        "err": ""
+      }
+    ]
+  }
+}
