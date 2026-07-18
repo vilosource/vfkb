@@ -547,21 +547,57 @@ export function renderContextBundle(project = defaultProject(), budget = SESSION
   // Context Map (ADR-0006): the navigational index, always injected, never dropped.
   body += renderContextMap() + '\n\n';
 
+  // Ranked lines are collected (not appended) so the omission note can evict
+  // trailing lines when needed — under the old append-as-you-go shape, a body
+  // that filled the budget exactly silently dropped the note itself, hiding
+  // that anything was cut at all (#177, the quiet-omission case).
+  const kept: string[] = [];
+  let keptLen = 0;
   let dropped = 0;
+  const fixedLen = () => header.length + body.length + footer.length;
   for (const e of injectable) {
     if (constitutionalIds.has(e.id)) continue; // already in the Constitution section
     if (handoff && e.id === handoff.id) continue; // already pinned in Last handoff
     if (crossRepo && e.id === crossRepo.id) continue; // already pinned in Cross-repo operations
     const line = `- [${e.type} ${trustGlyph(e)}] ${e.text}\n`;
-    if (header.length + body.length + line.length + footer.length > budget) {
+    if (fixedLen() + keptLen + line.length > budget) {
       dropped++;
       continue;
     }
-    body += line;
+    kept.push(line);
+    keptLen += line.length;
   }
   if (dropped > 0) {
-    const note = `<!-- ${dropped} lower-ranked entries omitted for the ${budget}-char budget -->\n`;
-    if (header.length + body.length + note.length + footer.length <= budget) body += note;
+    // Visible and actionable, not an HTML comment: name the count and the pull
+    // path. Evicting a kept line changes `dropped` and possibly the note's
+    // digit count, so the fit is re-checked each round.
+    const note = () =>
+      `(+ ${dropped} lower-ranked entries omitted for the ${budget}-char budget — kb_search / kb_list pulls them)\n`;
+    const evicted: string[] = [];
+    while (kept.length > 0 && fixedLen() + keptLen + note().length > budget) {
+      const line = kept.pop()!;
+      keptLen -= line.length;
+      evicted.push(line);
+      dropped++;
+    }
+    if (fixedLen() + keptLen + note().length <= budget) {
+      body += kept.join('') + note();
+    } else {
+      // The note cannot fit even with everything evicted (fixed never-dropped
+      // sections leave less slack than one note line). Losing content to a
+      // note that then never renders would be a double loss — restore the
+      // evicted lines and emit without the note (review finding, round 1:
+      // the empty-kept fallback rendered FEWER entries than stock, noteless).
+      while (evicted.length > 0) {
+        const line = evicted.pop()!;
+        kept.push(line);
+        keptLen += line.length;
+        dropped--;
+      }
+      body += kept.join('');
+    }
+  } else {
+    body += kept.join('');
   }
   return header + body + footer;
 }
