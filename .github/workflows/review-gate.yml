@@ -27,6 +27,13 @@ jobs:
       - name: The gate is connected — negative checks go red
         run: node scripts/review-gate.selftest.mjs
 
+      # Same discipline for the durable-claim Brake (brain gotcha a1aea707436c):
+      # it must speak on artifact writes, stay silent on ordinary work, and fail
+      # open on garbage. A hook that always speaks gets read past, so the silence
+      # cases are asserted as hard as the speaking ones.
+      - name: The durable-claim Brake is connected — negative checks go red
+        run: node scripts/hook-durable-claim-check.selftest.mjs
+
       - name: An implementation change carries a review record (ADR-0052)
         run: |
           BASE="origin/${{ github.base_ref || 'main' }}"
