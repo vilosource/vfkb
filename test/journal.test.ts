@@ -147,6 +147,58 @@ describe('durable-capture journal (ADR-0064)', () => {
     }
   });
 
+  it('torn-tail guard: recovery onto a partial trailing line never glues JSON (review M1)', () => {
+    const e = addEntry('decision', 'the entry the tail must not eat', { role: 'human' });
+    // simulate a crash mid-append / hand-redaction saved without a final newline
+    writeFileSync(entriesFile(), '{"id":"tttttttttttt","type":"fact","te'); // torn, no \n
+    const r = recoverFromJournal(brain);
+    expect(r.restored).toBe(1);
+    const lines = entriesText().split('\n').filter((l) => l.trim());
+    const restored = lines.find((l) => l.includes(e.id));
+    expect(restored).toBeDefined();
+    expect(() => JSON.parse(restored!)).not.toThrow();
+    // and the journal copy survives until the pair is durable (unborn HEAD → no prune)
+    expect(walText()).toContain(e.id);
+  });
+
+  it('kill switch disables recovery too — no restores from a stale wal (review m7)', () => {
+    const e = addEntry('fact', 'journaled before the emergency', { role: 'human' });
+    writeFileSync(entriesFile(), '');
+    process.env.VFKB_NO_JOURNAL = '1';
+    const r = recoverFromJournal(brain);
+    expect(r.restored).toBe(0);
+    expect(entriesText()).not.toContain(e.id);
+  });
+
+  it('the hook e2e: session-start restores and the note rides INSIDE additionalContext (review m8)', () => {
+    const cli = join(__dirname, '..', 'dist', 'cli.js');
+    const env = { ...process.env, VFKB_DATA_DIR: brain, VFKB_PROJECT: 'journaltest' };
+    delete (env as Record<string, string | undefined>).VFKB_DIR;
+    execFileSync('node', [cli, 'add', 'fact', 'baseline entry'], { env });
+    git('add', '.vfkb/entries.jsonl');
+    git('commit', '-q', '-m', 'baseline');
+    const out = execFileSync('node', [cli, 'add', 'decision', 'destroyed-then-restored capture'], {
+      env,
+      encoding: 'utf8',
+    });
+    const id = (out.match(/([0-9a-f]{12})/) || [])[1];
+    git('checkout', '--', '.vfkb/entries.jsonl');
+    const hookOut = execFileSync('node', [cli, 'hook', 'session-start'], {
+      env,
+      encoding: 'utf8',
+      input: JSON.stringify({ session_id: 'jt', hook_event_name: 'SessionStart' }),
+    });
+    const payload = JSON.parse(hookOut); // the envelope must stay valid JSON
+    const ctx = payload.hookSpecificOutput.additionalContext as string;
+    expect(ctx).toMatch(/vfkb restored 1 journaled entry/);
+    expect(entriesText()).toContain(id!);
+  });
+
+  it('source hygiene: journal.ts carries no raw NUL bytes — the diff must stay reviewable (review M2)', () => {
+    const src = readFileSync(join(__dirname, '..', 'src', 'journal.ts'));
+    expect(src.includes(0)).toBe(false);
+  });
+
   it('journalAppend mirrors arbitrary records without touching entries.jsonl', () => {
     mkdirSync(brain, { recursive: true });
     journalAppend(brain, { id: 'abcabcabcabc', updated: '2026-07-18T00:00:00Z', text: 'x' });

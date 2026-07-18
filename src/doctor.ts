@@ -452,10 +452,32 @@ export function runDoctor(opts: DoctorOpts): DoctorReport {
       add(
         'journal',
         'warn',
-        `${js.restorable} journaled entr${js.restorable === 1 ? 'y' : 'ies'} missing from entries.jsonl — the next session-start restores them (or run any vfkb command after checking why they vanished)`,
+        `${js.restorable} journaled entr${js.restorable === 1 ? 'y' : 'ies'} missing from entries.jsonl — the next session-start restores them (or run \`vfkb hook session-start\` after checking why they vanished; recovery runs ONLY there)`,
       );
     } else {
       add('journal', 'ok', `${js.walLines} line(s) in the uncommitted window, nothing to restore`);
+    }
+    // Migration gap (review M3): an existing consumer that never re-ran init
+    // has no .journal/ gitignore line — its next `git add .vfkb` would COMMIT
+    // the wal (a tracked journal dies by the same reset --hard, RFC-034
+    // Alternatives; and a committed wal defeats §4 redaction).
+    if (existsSync(join(brainDir, '.journal'))) {
+      try {
+        execFileSync('git', ['-C', root, 'check-ignore', '-q', join(brainDir, '.journal', 'wal.jsonl')], {
+          stdio: 'ignore',
+        });
+      } catch {
+        try {
+          execFileSync('git', ['-C', root, 'rev-parse', '--is-inside-work-tree'], { stdio: 'ignore' });
+          add(
+            'journal gitignore',
+            'warn',
+            `.vfkb/.journal/ exists but is NOT gitignored — add '.vfkb/.journal/' to .gitignore before the next brain commit (a committed journal defeats its purpose and the ADR-0064 §4 redaction)`,
+          );
+        } catch {
+          /* not a git repo — nothing to ignore */
+        }
+      }
     }
   }
 

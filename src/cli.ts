@@ -16,7 +16,7 @@ import {
   deriveTrust,
 } from './engine.js';
 import { SessionState, effectiveSessionId } from './session.js';
-import { brainDir, defaultProject, withExclusive } from './storage.js';
+import { brainDir, defaultProject, withExclusive, writeMeta } from './storage.js';
 import { purgeJournal, recoverFromJournal } from './journal.js';
 import { runExport } from './export.js';
 import { broadcast as runBroadcast } from './broadcast.js';
@@ -567,6 +567,10 @@ async function dispatch() {
       try {
         const rec = withExclusive(() => recoverFromJournal(brainDir()));
         if (rec.restored > 0) {
+          // Restores bypass appendRecord (no re-journaling loop), so refresh
+          // the freshness meta here — a long-lived index consumer must not
+          // keep serving a pre-restore view (review m9).
+          writeMeta();
           restoreNote =
             `⚠ vfkb restored ${rec.restored} journaled entr${rec.restored === 1 ? 'y' : 'ies'} ` +
             `lost from entries.jsonl — likely a destructive git operation on uncommitted brain ` +
