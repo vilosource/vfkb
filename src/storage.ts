@@ -63,10 +63,14 @@ export function defaultProject(): string {
 //     GUARANTEED side-effect (mykb L11; ADR-0014) — policy, so it lives here,
 //     above the backend's raw append. ---
 export function appendRecord(rec: StoredRecord): void {
+  const be = storageBackend();
   // ADR-0064: journal-first untracked mirror — the durability floor for the
-  // window between this append and the next brain commit.
-  journalAppend(storageBackend().location(), rec);
-  storageBackend().append(rec);
+  // window between this append and the next brain commit. JSONL-fs only: the
+  // journal is the file tier's crash net; a non-fs backend owns its own
+  // durability, and its location() is not a filesystem path (mirroring it
+  // materialized a literal 'memory:/test/.journal' dir in the cwd).
+  if (be.name === 'jsonl-fs') journalAppend(be.location(), rec);
+  be.append(rec);
   writeMeta();
 }
 

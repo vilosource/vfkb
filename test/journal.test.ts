@@ -6,6 +6,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  rmSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -197,6 +198,36 @@ describe('durable-capture journal (ADR-0064)', () => {
   it('source hygiene: journal.ts carries no raw NUL bytes — the diff must stay reviewable (review M2)', () => {
     const src = readFileSync(join(__dirname, '..', 'src', 'journal.ts'));
     expect(src.includes(0)).toBe(false);
+  });
+
+  it('the mirror is jsonl-fs-only: a non-fs backend never materializes its pseudo-location on disk', async () => {
+    const { setStorageBackend, storageBackend } = await import('../src/backend.js');
+    const original = storageBackend();
+    const records: unknown[] = [];
+    setStorageBackend({
+      name: 'mem-test',
+      location: () => 'memory://test',
+      append: (rec: unknown) => void records.push(rec),
+      readAllRaw: () => ({ records: [...records], malformed: [] }),
+      readMetaRaw: () => null,
+      writeMetaRaw: () => {},
+      readSpine: () => null,
+      writeSpine: () => {},
+      spinePath: () => 'memory://test/context.md',
+      listSessionIds: () => [],
+      readSessionRecord: () => null,
+      writeSessionRecord: () => {},
+      withExclusive: <T,>(fn: () => T) => fn(),
+    });
+    rmSync('memory:', { recursive: true, force: true }); // hermetic: drop any prior run's pollution
+    try {
+      addEntry('fact', 'in-memory capture', { role: 'human' });
+      expect(records.length).toBeGreaterThan(0);
+      expect(existsSync('memory:')).toBe(false); // the PR #204 stray-dir defect
+    } finally {
+      setStorageBackend(original);
+      rmSync('memory:', { recursive: true, force: true });
+    }
   });
 
   it('journalAppend mirrors arbitrary records without touching entries.jsonl', () => {
