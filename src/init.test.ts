@@ -69,6 +69,41 @@ describe('vfkb init (FR-1)', () => {
     expect(read('AGENTS.md')).toContain('How we track work HERE');
   });
 
+  // The generator, not the symptom. A 10-repo sweep (2026-07-18) added
+  // `.vfkb/.lock` and corrected a false comment across every consumer — and
+  // `vfkb init` would have re-introduced both on the next new repo. Fixing ten
+  // copies without fixing what emits them is a sweep you run again.
+  describe('the emitted .gitignore stanza is correct at the source', () => {
+    it('ignores every derived/operational path, including the lock', () => {
+      initProject(root, { project: 'demo' });
+      const gi = read('.gitignore');
+      for (const p of ['.vfkb/index-meta.json', '.vfkb/.sessions/', '.vfkb/.signals/', '.vfkb/.journal/', '.vfkb/.lock']) {
+        expect(gi, `missing ignore rule ${p}`).toContain(p);
+      }
+    });
+
+    it('does NOT ignore the two committed files', () => {
+      initProject(root, { project: 'demo' });
+      const gi = read('.gitignore')
+        .split(/\r?\n/)
+        .filter((l) => l.trim() && !l.trim().startsWith('#'));
+      // entries.jsonl is the brain; manifest.json is the ADR-0030 engine stamp.
+      expect(gi).not.toContain('.vfkb/entries.jsonl');
+      expect(gi).not.toContain('.vfkb/manifest.json');
+      expect(gi).not.toContain('.vfkb/');
+    });
+
+    it('does not claim entries.jsonl is the ONLY committed file', () => {
+      // That comment was false and load-bearing: the natural response to an
+      // untracked manifest.json is to gitignore it, which is exactly how one
+      // consumer ended up with no engine stamp at all.
+      initProject(root, { project: 'demo' });
+      const gi = read('.gitignore');
+      expect(gi).not.toMatch(/only .vfkb\/entries\.jsonl is committed/i);
+      expect(gi).toMatch(/manifest\.json/);
+    });
+  });
+
   it('defaults the project name to the directory basename', () => {
     initProject(root, {});
     const mcp = JSON.parse(read('.mcp.json'));

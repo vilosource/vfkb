@@ -217,7 +217,18 @@ export function initProject(root: string, opts: { project?: string } = {}): Init
   // 4. .gitignore — the derived/operational stanza (append once).
   {
     const path = join(root, '.gitignore');
-    const lines = ['.vfkb/index-meta.json', '.vfkb/.sessions/', '.vfkb/.signals/', '.vfkb/.journal/'];
+    // Every derived/operational path. `.lock` is the ADR-0040 concurrency lock:
+    // transient, but a `git add .vfkb` timed against a concurrent write would
+    // commit it. Keep in step with vfkb's own .gitignore — a consumer whose
+    // ignore set is narrower than the engine's is a sweep waiting to happen
+    // (one ran across 10 repos on 2026-07-18 for exactly this).
+    const lines = [
+      '.vfkb/index-meta.json',
+      '.vfkb/.sessions/',
+      '.vfkb/.signals/',
+      '.vfkb/.journal/',
+      '.vfkb/.lock',
+    ];
     const existed = existsSync(path);
     const cur = existed ? readFileSync(path, 'utf8') : '';
     const missing = lines.filter((l) => !cur.split(/\r?\n/).includes(l));
@@ -225,7 +236,16 @@ export function initProject(root: string, opts: { project?: string } = {}): Init
       changes.push({ path: '.gitignore', action: 'skipped' });
     } else {
       const prefix = cur && !cur.endsWith('\n') ? '\n' : '';
-      const block = `${prefix}${cur ? '\n' : ''}# vfkb — derived/operational (only .vfkb/entries.jsonl is committed)\n${missing.join('\n')}\n`;
+      // The old comment said "only .vfkb/entries.jsonl is committed", which is
+      // FALSE — manifest.json is committed by design (ADR-0030, the brain↔engine
+      // stamp, distinct from the derived index-meta.json). That wrong sentence
+      // caused a real defect: the natural response to an untracked manifest.json
+      // is to gitignore it, and one consumer ended up with no engine stamp at all.
+      const block =
+        `${prefix}${cur ? '\n' : ''}` +
+        `# vfkb — entries.jsonl + manifest.json (the ADR-0030 engine stamp) are committed;\n` +
+        `# the vfkb paths below are derived/operational and stay out of git\n` +
+        `${missing.join('\n')}\n`;
       writeFileSync(path, cur + block);
       changes.push({ path: '.gitignore', action: existed ? 'updated' : 'created' });
     }
