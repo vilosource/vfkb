@@ -9,8 +9,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { renderCaptureFallback, renderContextBundle, SESSION_BUDGET_CHARS } from '../src/engine.js';
+import { join, basename } from 'node:path';
+import { renderCaptureFallback, renderContextBundle, resolveCliFace, SESSION_BUDGET_CHARS } from '../src/engine.js';
 
 let brain: string;
 let prevDir: string | undefined;
@@ -27,8 +27,19 @@ afterEach(() => {
 });
 
 describe('ADR-0065 §1 — the capture-fallback line', () => {
+  it('emits an honest marker when no CLI face can be found, never a wrong path', () => {
+    const d = join(brain, 'nohost');
+    mkdirSync(d, { recursive: true });
+    const line = renderCaptureFallback(d);
+    expect(line).toMatch(/not found beside the engine/);
+    expect(line).not.toMatch(/node "/);
+  });
+
   it('names the CLI write path, with the brain dir and a runnable shape', () => {
-    const line = renderCaptureFallback();
+    const d = join(brain, 'r');
+    mkdirSync(d, { recursive: true });
+    writeFileSync(join(d, 'cli.js'), '');
+    const line = renderCaptureFallback(d);
     expect(line).toContain('capture fallback');
     expect(line).toContain(brain);
     // Absolute, not the configured spelling: a relative VFKB_DATA_DIR (".vfkb")
@@ -44,20 +55,61 @@ describe('ADR-0065 §1 — the capture-fallback line', () => {
     // Plugin cache paths carry a version segment and may contain spaces. An
     // unquoted command would silently run against the wrong path: precisely the
     // quiet-failure class this ADR exists to eliminate.
-    const line = renderCaptureFallback();
+    const d = join(brain, 'q');
+    mkdirSync(d, { recursive: true });
+    writeFileSync(join(d, 'cli.js'), '');
+    const line = renderCaptureFallback(d);
     expect(line).toMatch(/VFKB_DATA_DIR="[^"]+"/);
     expect(line).toMatch(/node "[^"]+"/);
   });
 
-  it('resolves the path from the running process, not a registry lookup', () => {
-    // Self-knowable per RFC-035 §1: the renderer IS the vendored bundle.
-    const line = renderCaptureFallback();
+  it('names a CLI face — never the MCP server or a host script', () => {
+    // The assertion that matters. "absolute and non-empty" was TRUE of
+    // `node ".../dist/mcp-server.js"`, a command that starts a stdio server,
+    // blocks on stdin and writes nothing — shipped and unnoticed until the
+    // PR #217 review. Pin the filename, not just the shape.
+    // Given an MCP-face directory, it must still name the CLI sibling.
+    const d = join(brain, 'bundles');
+    mkdirSync(d, { recursive: true });
+    for (const f of ['vfkb.mjs', 'vfkb-mcp.mjs']) writeFileSync(join(d, f), '');
+    const line = renderCaptureFallback(d);
     const m = line.match(/node "([^"]+)"/);
     expect(m).not.toBeNull();
-    expect(m![1].length).toBeGreaterThan(0);
-    // It must be an absolute path — a bare relative one would resolve against
-    // whatever cwd the agent happens to be in.
+    expect(basename(m![1])).toMatch(/^(vfkb\.mjs|cli\.js|cli\.mjs)$/);
+    expect(m![1]).not.toMatch(/mcp-server|vfkb-mcp/);
+  });
+
+  it('ABSOLUTE-ises a relative brain dir (a second brain in the wrong cwd)', () => {
+    // Guards the off-spec absolute-ising: with VFKB_DATA_DIR always absolute in
+    // the other arms, dropping resolve() was undetectable (review minor 4).
+    process.env.VFKB_DATA_DIR = '.vfkb';
+    const m = renderCaptureFallback().match(/VFKB_DATA_DIR="([^"]+)"/);
+    expect(m).not.toBeNull();
     expect(m![1].startsWith('/')).toBe(true);
+    expect(m![1].endsWith('.vfkb')).toBe(true);
+  });
+
+  describe('resolveCliFace — the layout matrix behind that guarantee', () => {
+    const mk = (dir: string, files: string[]) => {
+      mkdirSync(dir, { recursive: true });
+      for (const f of files) writeFileSync(join(dir, f), '');
+      return dir;
+    };
+
+    it('plugin bundle layout: prefers vfkb.mjs over its MCP sibling', () => {
+      const d = mk(join(brain, 'bundles'), ['vfkb.mjs', 'vfkb-mcp.mjs']);
+      expect(basename(resolveCliFace(d)!)).toBe('vfkb.mjs');
+    });
+
+    it('npm dist layout: finds cli.js beside mcp-server.js', () => {
+      const d = mk(join(brain, 'dist'), ['cli.js', 'mcp-server.js']);
+      expect(basename(resolveCliFace(d)!)).toBe('cli.js');
+    });
+
+    it('returns undefined when no CLI face is present, rather than guessing', () => {
+      const d = mk(join(brain, 'hostbin'), ['some-host.mjs']);
+      expect(resolveCliFace(d)).toBeUndefined();
+    });
   });
 
   it('appears in the injected bundle', () => {
