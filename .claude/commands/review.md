@@ -32,7 +32,15 @@ this charge, and relay its findings verbatim before acting on them:
    `file:line`. Execute probes where you can; do not review by reading alone.
 6. **Hunt false positives too.** A gate that blocks honest work is a defect, not caution. For any
    check the diff adds, find the legitimate input it wrongly rejects.
-7. **Honest verdict.** Findings ranked by severity (`blocking` / `major` / `minor`), each with a
+7. **Cite or label — every claim, at every severity.** A causal claim ("X is written by Y", "Z
+   runs on every W") is a claim about **call sites**: enumerate them (`grep -rn "<symbol>" src/`)
+   and cite them. A definition-site plus a consumption-site citation does **not** establish
+   causation — that exact gap put a fix proposal for a non-existent code path into issue #212
+   (brain gotcha `a1aea707436c`). Anything you could not verify must be marked **UNVERIFIED** in
+   the finding itself. This binds on `minor` findings exactly as hard as on `blocking` ones:
+   severity governs whether a finding blocks the merge, never how much evidence it needs — a
+   minor finding is the one most likely to be relayed onward unchecked.
+8. **Honest verdict.** Findings ranked by severity (`blocking` / `major` / `minor`), each with a
    concrete failure scenario. End with exactly one of **MERGE / FIX-FIRST / REDESIGN**. "No
    findings" must state what was checked and ruled out, not merely assert cleanliness.
 
@@ -45,6 +53,11 @@ After the subagent reports:
   claims `MERGE` while carrying an unresolved `blocking` finding — the record's verdict is a
   claim; its findings are the evidence.
 - Record the outcome in the brain (`kb_add` fact, tags `review`), and note it in the PR.
+- **A finding is evidence, not a conclusion.** Before any of it crosses into a durable artifact —
+  an issue, ADR, brain entry, commit message or PR body — read the ground truth yourself. In an
+  otherwise well-cited report, the **uncited sentence is the one to check**; that asymmetry is the
+  tell. `scripts/hook-durable-claim-check.mjs` nudges at the moment of publication, but the
+  reviewer's own `UNVERIFIED` labels (step 7) are what make the gap visible in the first place.
 
 Only the operator may waive a `blocking` finding, and only on the record: set
 `status: "accepted"` with `acceptedBy`. The gate rejects a waiver with no name on it.

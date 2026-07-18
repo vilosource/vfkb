@@ -20,6 +20,17 @@
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PROJECT_DIR:-.}/scripts/hook-durable-claim-check.mjs"
+          }
+        ]
+      }
     ]
   }
 }
