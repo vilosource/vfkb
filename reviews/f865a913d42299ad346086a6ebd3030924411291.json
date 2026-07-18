@@ -1,0 +1,27 @@
+{
+  "recordVersion": 1,
+  "sha": "f865a913d42299ad346086a6ebd3030924411291",
+  "governing": [
+    "docs/adr/ADR-0064-durable-capture-journal.md",
+    "docs/adr/ADR-0044-storage-backend-seam.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "claude-fable-5", "rounds": 1 },
+  "generated": "2026-07-18T10:40:00Z",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "minor",
+      "status": "open",
+      "summary": "name string-match is precise today (setStorageBackend has zero production call sites) but a future second fs-like backend would silently ship without journal protection — promote to a StorageBackend journalDir() capability gating BOTH the mirror and hook-site recovery; tracked as #208",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 1,
+  "ruledOut": [
+    "revert-check: guard test observed RED against the unguarded c803c81 appendRecord, failing at the exact defect assertion",
+    "live behavior unchanged: every live face runs jsonl-fs (verified by grep, not asserted); 345/345 incl. the full journal battery through the gated path",
+    "pollution gone: full suite at head does not recreate the memory:/ dir",
+    "no AI attribution; scope confined to 2 files"
+  ],
+  "verdict": "MERGE"
+}
