@@ -8,9 +8,9 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { addEntry } from './engine.js';
-import { writeManifest } from './manifest.js';
+import { manifestNeedsStamp, writeManifest } from './manifest.js';
 import { defaultProject } from './storage.js';
-import { SCHEMA_VERSION } from './version.js';
+import { ENGINE_COMMIT, SCHEMA_VERSION } from './version.js';
 
 export interface BroadcastResult {
   target: string;
@@ -21,6 +21,8 @@ export interface BroadcastResult {
   reason?: string;
   /** true when a wired-but-manifest-less brain had its manifest engine-written first (#193) */
   healed?: boolean;
+  /** true when an existing stamp of UNKNOWN provenance ("dev") was upgraded to a real sha (#212) */
+  upgraded?: boolean;
 }
 
 /** The resident-pin tags a broadcast record must never carry (ADR-0063 §1). */
@@ -64,7 +66,7 @@ function gitPosture(repoDir: string): string {
 export function broadcast(
   text: string,
   targets: string[],
-  opts: { op?: string; tags?: string[] } = {},
+  opts: { op?: string; tags?: string[]; engineCommit?: string; engineVersion?: string } = {},
 ): BroadcastResult[] {
   const origin = defaultProject();
   const date = new Date().toISOString().slice(0, 10);
@@ -97,7 +99,14 @@ export function broadcast(
     const repoDir = resolve(brain, '..');
     const manifestPath = join(brain, 'manifest.json');
     let healed = false;
-    if (!existsSync(manifestPath)) {
+    let upgraded = false;
+    // #212 — the heal used to fire ONLY on absence, so a brain stamped by a
+    // dist-path build (engine_commit "dev") stayed unknown forever: nothing in
+    // any routine path ever re-stamped it, and doctor reported it against every
+    // real-sha engine. A running engine that knows its own commit is a genuine
+    // provenance upgrade for a brain that does not — unknown -> known.
+    const needsStamp = manifestNeedsStamp(brain, opts.engineCommit ?? ENGINE_COMMIT);
+    if (needsStamp) {
       // §3's rule is "never bootstrap a WIRE-LESS brain". A brain with a live
       // entries.jsonl is wired — the manifest is just missing because only
       // `vfkb init` ever writes it (plugin-born brains, vfkb#193). Heal it
@@ -107,15 +116,17 @@ export function broadcast(
         results.push({ target, ok: false, reason: `no brain (no entries.jsonl in ${brain}) — never bootstrap a wire-less brain (ADR-0063 §3)` });
         continue;
       }
+      const absent = !existsSync(manifestPath);
       try {
-        writeManifest(brain);
+        writeManifest(brain, { engineCommit: opts.engineCommit, engineVersion: opts.engineVersion });
       } catch (err) {
         // Per-target and loud, never a thrown abort — a heal failure on one
         // target must not swallow the rest of a partial broadcast.
-        results.push({ target, ok: false, reason: `manifest heal failed: ${(err as Error).message}` });
+        results.push({ target, ok: false, reason: `manifest ${absent ? 'heal' : 'provenance upgrade'} failed: ${(err as Error).message}` });
         continue;
       }
-      healed = true;
+      if (absent) healed = true;
+      else upgraded = true;
     }
     let schema: unknown;
     try {
@@ -135,11 +146,11 @@ export function broadcast(
       process.env.VFKB_DATA_DIR = brain;
       const e = addEntry('fact', stamped, { role: 'executor', tags: [...new Set(['cross-repo', ...extraTags])] });
       written.add(brain);
-      results.push({ target, ok: true, id: e.id, posture: gitPosture(repoDir), ...(healed ? { healed } : {}) });
+      results.push({ target, ok: true, id: e.id, posture: gitPosture(repoDir), ...(healed ? { healed } : {}), ...(upgraded ? { upgraded } : {}) });
     } catch (err) {
       // healed still reported on failure — the manifest stamp happened even
       // though the record did not land (heal is never silent).
-      results.push({ target, ok: false, reason: (err as Error).message, ...(healed ? { healed } : {}) });
+      results.push({ target, ok: false, reason: (err as Error).message, ...(healed ? { healed } : {}), ...(upgraded ? { upgraded } : {}) });
     } finally {
       if (prev === undefined) delete process.env.VFKB_DATA_DIR;
       else process.env.VFKB_DATA_DIR = prev;
