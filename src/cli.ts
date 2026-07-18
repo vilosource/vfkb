@@ -65,15 +65,43 @@ function packageVersion(): string {
   }
 }
 
+// The hook stdin-read convention (issue #214). A hook must NEVER wedge a tool
+// call — it fails open or it does not ship. Two things are required for that,
+// and the original guard only did the first:
+//
+//   1. RESOLVE on a deadline, so a writer that never closes stdin still yields
+//      whatever arrived (the pre-existing 2s watchdog did this correctly).
+//   2. RELEASE stdin once settled, so the PROCESS can actually exit. A live
+//      'data' listener refs the pipe and keeps the event loop alive — MEASURED
+//      2026-07-18: `dist/cli.js hook pre-tool-use` wrote its allow decision
+//      `{}` at 2s and then hung until SIGKILL at 10s. The right answer,
+//      delivered by a process the harness is still waiting on, is still a stall.
+//
+// Claude Code cancels a `command` hook only at its default 600s timeout
+// (code.claude.com/docs/en/hooks), and what it does on expiry — allow or deny —
+// is NOT documented. So the wedge is up to ten minutes and its outcome unknown;
+// neither is acceptable for a PreToolUse gate.
+const STDIN_WATCHDOG_MS = 2000;
+
 function readStdin(): Promise<string> {
   return new Promise((resolve) => {
     let data = '';
     if (process.stdin.isTTY) return resolve('');
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      // Stop holding the event loop open: without this the hook produces the
+      // correct output and still never exits (clause 2 above).
+      process.stdin.pause();
+      process.stdin.unref?.();
+      resolve(data);
+    };
     process.stdin.setEncoding('utf8');
     process.stdin.on('data', (c) => (data += c));
-    process.stdin.on('end', () => resolve(data));
-    // Guard: if nothing arrives, don't hang forever.
-    setTimeout(() => resolve(data), 2000).unref?.();
+    process.stdin.on('end', finish);
+    process.stdin.on('error', finish); // a broken pipe must fail open too
+    setTimeout(finish, STDIN_WATCHDOG_MS).unref?.();
   });
 }
 

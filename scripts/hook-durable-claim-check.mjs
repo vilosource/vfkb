@@ -34,17 +34,36 @@
 // (repo protocol: hooks fail open) — any error here must never block a tool call.
 // ============================================================================
 
+// Stdin read, on the repo's hook convention (issue #214, mirrored from
+// src/cli.ts's readStdin). "Fails open" is not only about not emitting a deny —
+// it is about TERMINATING. Awaiting 'end' alone means a writer that never
+// closes stdin pins this process, and Claude Code cancels a `command` hook only
+// at its 600s default timeout. MEASURED 2026-07-18: with stdin held open this
+// hook emitted nothing and never exited (SIGKILL at 10s).
+//
+// So settle on a deadline as well as on 'end', and act on whatever arrived —
+// a watchdog that fired but discarded the payload would silently make the Brake
+// inert, which is precisely the failure mode this file exists to prevent.
+const STDIN_WATCHDOG_MS = 2000;
+
 let raw = '';
-process.stdin.setEncoding('utf8');
-process.stdin.on('data', (c) => (raw += c));
-process.stdin.on('end', () => {
+let settled = false;
+function finish() {
+  if (settled) return;
+  settled = true;
   try {
     emit(JSON.parse(raw || '{}'));
   } catch {
     // Fail open, silently: a malformed payload must not block the tool call.
   }
   process.exit(0);
-});
+}
+
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', (c) => (raw += c));
+process.stdin.on('end', finish);
+process.stdin.on('error', finish);
+setTimeout(finish, STDIN_WATCHDOG_MS).unref?.();
 
 // Commands that publish a claim somewhere durable — an artifact another
 // engineer (or a future session) will act on without seeing the reasoning.
