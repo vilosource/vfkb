@@ -77,8 +77,13 @@ plugin predates that fix — update the plugin and restart.
   - **Session END** — leave continuity, then commit the brain:
     `VFKB_DATA_DIR=.vfkb node dist/cli.js resume-note "what the next session should pick up"`
     then `git add .vfkb && git commit` (the brain ships **with** the repo — ADR-0019).
-- Git is the source of truth; **only `.vfkb/entries.jsonl` is committed** — `.vfkb/.sessions/`,
-  `.signals/`, `index-meta.json` are gitignored (derived/operational, ADR-0019). So **cross-clone
+- Git is the source of truth; **`.vfkb/entries.jsonl` *and* `.vfkb/manifest.json` are committed** —
+  entries are the knowledge SoR (ADR-0019), `manifest.json` is the brain↔engine version stamp that
+  must travel with the brain (ADR-0030, engine-written, distinct from the derived `index-meta.json`).
+  **Never gitignore `manifest.json`** — it is written only by `vfkb init` and the broadcast heal, so a
+  plugin-born brain has none yet (vfkb#193); absent is a `doctor` warn, not a reason to ignore it.
+  Gitignored (derived/operational): `.vfkb/index-meta.json`, `.vfkb/.sessions/`, `.vfkb/.signals/`,
+  `.vfkb/.journal/`, `.vfkb/.lock`. So **cross-clone
   continuity lives in committed entries + this CLAUDE.md**, not in `resume-note` (session records are
   local). Record durable handoff state as **entries** (e.g. a `fact` tagged `status`/`handoff`), which
   `vfkb resume`'s knowledge bundle surfaces in any clone.

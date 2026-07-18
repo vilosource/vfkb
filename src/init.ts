@@ -109,8 +109,9 @@ This repo uses **vfkb** as its knowledge substrate (project \`${project}\`). Kno
 - **Record knowledge** with the \`mcp__vfkb__kb_add\` tool (or \`node .vfkb/bin/bootstrap.mjs cli add …\`):
   \`decision\`, \`fact\`, \`gotcha\`, \`pattern\`, \`link\` — put a decision's rationale in its text.
   **Capture load-bearing decisions immediately — don't defer.**
-- Only \`.vfkb/entries.jsonl\`, \`.vfkb/manifest.json\`, and \`.vfkb/bin/\` are committed;
-  \`.vfkb/index-meta.json\`, \`.sessions/\`, \`.signals/\` are derived/gitignored.
+- Committed: \`.vfkb/entries.jsonl\`, \`.vfkb/manifest.json\` (the ADR-0030 engine stamp —
+  **never gitignore \`manifest.json\`**), and \`.vfkb/bin/\`. Derived/gitignored, all five:
+  \`.vfkb/index-meta.json\`, \`.vfkb/.sessions/\`, \`.vfkb/.signals/\`, \`.vfkb/.journal/\`, \`.vfkb/.lock\`.
 
 Two env vars: **\`VFKB_DATA_DIR\`** = this repo's brain (\`.vfkb\`, set by the wiring) · **\`VFKB_BUNDLE_DIR\`**
 = the shared vfkb engine bundles — set it once per machine, e.g. \`export VFKB_BUNDLE_DIR=/path/to/vfkb/dist/bundles\`.

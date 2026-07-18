@@ -62,8 +62,10 @@ is a fallback only — use it solely if the repo deliberately isn't plugin-wired
 > **4. Commit the wiring + brain:**
 > ```bash
 > git add .claude/settings.json .claude/vfkb-guard.mjs .vfkb/entries.jsonl
+> git add .vfkb/manifest.json 2>/dev/null || true   # if present — plugin-born brains have none yet
 > # add .gitignore for the derived brain bits if this is the repo's first vfkb wiring:
-> #   .vfkb/index-meta.json  .vfkb/.sessions/  .vfkb/.signals/
+> #   .vfkb/index-meta.json  .vfkb/.sessions/  .vfkb/.signals/  .vfkb/.journal/  .vfkb/.lock
+> # do NOT gitignore .vfkb/manifest.json — it is COMMITTED (ADR-0030 engine stamp)
 > ```
 >
 > **5. Do the one-time install — vfkb is NOT live until this runs:**
@@ -82,7 +84,12 @@ is a fallback only — use it solely if the repo deliberately isn't plugin-wired
 >   var is only for the legacy bootstrap fallback.
 > - `VFKB_DATA_DIR=.vfkb` = this repo's *brain*; a **manual** `import`/`add` has no cwd auto-detection,
 >   so export it (step 3) or it targets the global `~/.vfkb`. The plugin's hooks set it for you.
-> - Only `.vfkb/entries.jsonl` is committed; `index-meta.json` / `.sessions/` / `.signals/` are gitignored.
+> - Committed from the brain: `.vfkb/entries.jsonl` **and** `.vfkb/manifest.json` (the ADR-0030
+>   brain↔engine stamp — it must travel with the brain; **never gitignore it**, that is what leaves a
+>   repo with no engine stamp). `manifest.json` is written only by `vfkb init` and the broadcast heal,
+>   so a **plugin-born brain has none yet** (vfkb#193) — `vfkb doctor` warns, which is expected, not a
+>   failure. Gitignored (derived/operational): `index-meta.json` / `.sessions/` / `.signals/` /
+>   `.journal/` / `.lock`. On the pre-plugin bootstrap wiring, `.vfkb/bin/bootstrap.mjs` is committed too.
 > - The **ADR-0059 guard's `enabledPlugins` check is inert in a bootstrap-wired repo** — a non-plugin
 >   repo relies on the bootstrap's own `VFKB_BUNDLE_DIR` banner instead.
 >

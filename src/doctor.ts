@@ -271,8 +271,9 @@ export interface NpmCurrencyOpts {
   fetch?: NpmFetch;
   // Injectable cache-file path for tests; defaults to
   // <brainDir>/.signals/npm-currency-cache.json. `.signals/` — NOT the brain
-  // dir root: consumers COMMIT the brain dir, and only `.signals/` (plus
-  // .sessions/ and index-meta.json) is in init's .gitignore stanza, which
+  // dir root: consumers COMMIT the brain dir (entries.jsonl + manifest.json),
+  // and only the derived paths — index-meta.json, .sessions/, .signals/,
+  // .journal/, .lock — are in init's .gitignore stanza, which
   // existing consumers never re-run. A root-level cache file would land in
   // their history and churn on every refresh. Nothing enumerates .signals/
   // (counters.ts reads only counters.jsonl by name), so a sibling file there
