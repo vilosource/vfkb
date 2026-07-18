@@ -1,0 +1,71 @@
+{
+  "recordVersion": 1,
+  "sha": "d5a72a1600f86709f7b0e3507b6252b0a9c1bab4",
+  "governing": [
+    "docs/adr/ADR-0030-consumer-integration-and-distribution.md",
+    "docs/adr/ADR-0052-review-gate.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "opus", "rounds": 2 },
+  "generated": "2026-07-18T22:45:00Z",
+  "findings": [
+    {
+      "id": "VAC-1-prose-rule-flip-undetected",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "Flipping the corrective instruction from 'do not gitignore manifest.json' to 'do gitignore manifest.json' left the suite green — the guards only inspected fenced blocks and statements containing entries.jsonl, so the prose polarity a reader acts on was unguarded. Fixed with a POLARITY guard: any statement applying the gitignore verb to manifest.json within 30 chars must carry an adjacent negation (NEVER_GITIGNORE). Re-mutated on four docs — CONSUMER-ONBOARDING (3 red), RUNBOOK (2 red), CONSUMER-ONBOARDING-PROMPT (1 red), CLAUDE.md (2 red). The window is [^\\n] not [^.\\n]: the dot-excluding first attempt stayed GREEN on '.vfkb/manifest.json' because the path's own dots ended the window, which is why the PROMPT flip initially survived.",
+      "acceptedBy": null
+    },
+    {
+      "id": "VAC-2-runbook-section-deletable",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "Deleting the RUNBOOK's whole '### Committed vs gitignored in .vfkb/' section left the suite green — the doc's other fence and table satisfied the document-wide toContain checks. Fixed with a section-structure guard anchored on the heading: the section must exist, have a non-trivial body, name entries.jsonl and manifest.json on the committed side (before the Gitignored bullet), enumerate all five derived paths, and carry the never-gitignore rule. Deleting the section is now RED; deleting only its Committed bullet is RED with the message 'the section no longer lists manifest.json as committed'.",
+      "acceptedBy": null
+    },
+    {
+      "id": "VAC-3-onboarding-rule-paragraph-deletable",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "The 'never gitignore manifest.json' rule paragraph was deletable with the suite staying green, and the redundancy of stating the rule twice in one section is what made any single deletion harmless. Fixed by removing the duplicate paragraph so the rule is stated ONCE, immediately after the copyable gitignore fence where a skimming reader lands, plus two guards that pin it there: a per-doc presence guard (the rule must be stated outright) and a post-fence guard (every copyable .vfkb gitignore fence must be followed within 12 lines by the rule, naming manifest.json). Deleting the paragraph is now RED on both (2 failures).",
+      "acceptedBy": null
+    },
+    {
+      "id": "GUARD-4-writeManifest-callsite-list-cannot-grow",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "The call-site guard filtered a hardcoded three-file list, so it could detect a caller being removed but was structurally blind to one being ADDED — self-refuting given its own 'if this list grows' comment. Fixed by scanning every tracked src/*.ts (excluding .test.ts) via git ls-files, with a floor asserting more than 10 files were scanned. Adding a third real writeManifest call site in src/engine.ts is now RED.",
+      "acceptedBy": null
+    },
+    {
+      "id": "SCOPE-5-init-emits-stale-derived-list",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "Fixed rather than deferred to a follow-up. src/init.ts's AGENTS.md snippet emitted only 3 of the 5 derived paths into every newly-initialized consumer repo, making the engine an active emitter of the defect the docs correct. The snippet now names the complete five-path derived set and carries the never-gitignore rule, and is guarded at the altitude of the SHIPPED artifact: the test runs initProject into a temp dir and asserts against the AGENTS.md file it actually writes, not the source template. Reverting the snippet to 3-of-5 is RED; flipping its polarity is RED.",
+      "acceptedBy": null
+    },
+    {
+      "id": "HIST-6-mislabeled-commit",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "Commit d13eff4 carried the subject of an unrelated hooks fix (#214) over 290 lines of this PR's doc corrections. Fixed by squashing the branch to a single commit with an accurate subject naming #220. Verified no AI attribution in the resulting commit.",
+      "acceptedBy": null
+    },
+    {
+      "id": "FRAGILE-7-order-dependent-nonvacuity-test",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "The non-vacuity floor read a module-level array populated by an earlier it.each, so it failed spuriously under -t, --shard, or a .only — a gate that blocks honest work. Fixed by extracting a pure gitignoreBlocks(doc) function called by both the per-doc guard and the floor. Verified: 'vitest run -t \"not vacuous\"' now passes (1 passed | 45 skipped) where it previously failed.",
+      "acceptedBy": null
+    },
+    {
+      "id": "SCOPE-8-live-docs-list-is-closed",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "LIVE_DOCS was a closed five-entry list, so the false claim could reappear in any other doc unguarded. Fixed with a repo-wide sweep over every tracked *.md except the immutable ADR/RFC records and CHANGELOG.md, where the sentence was true when written. The sweep is statement-level and exempts statements that name the claim in order to call it false or cite #220, so the roadmap's honest record of the defect is not a false positive. Appending the claim to docs/DESIGN.md is now RED.",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 8,
+  "ruledOut": [],
+  "verdict": "MERGE"
+}
