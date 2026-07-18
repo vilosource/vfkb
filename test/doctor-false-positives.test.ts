@@ -13,7 +13,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runDoctor, engineDrift, type DoctorReport } from '../src/doctor.js';
+import { runDoctor, engineDrift, isEngineWiring, type DoctorReport } from '../src/doctor.js';
 
 let root: string;
 
@@ -66,7 +66,7 @@ describe('#186 — the ADR-0059 guard is not double wiring', () => {
     const c = check(run(proj, cfg), '.claude/settings.json');
     // The bug: substring 'vfkb' in vfkb-guard.mjs classified the guard as old wiring,
     // so a correctly-migrated repo was told to delete its own INACTIVE detector.
-    expect(c?.status).not.toBe('warn');
+    expect(c?.status).toBe('ok');
     expect(c?.detail ?? '').not.toContain('double wiring');
   });
 
@@ -102,6 +102,11 @@ describe('#188 — the no-manifest message names the action that actually stamps
     const { proj, cfg } = setup({ SessionStart: [GUARD_HOOK] });
     const c = check(run(proj, cfg), 'brain manifest');
     expect(c?.detail ?? '').not.toContain('next write');
+    // Positive assertion: without it, gutting the message to a bare
+    // "no manifest.json" kept the suite green (observed, review of PR #216) —
+    // the negatives also hold when the check disappears entirely.
+    expect(c?.status).toBe('warn');
+    expect(c?.detail).toMatch(/broadcast|never creates one/);
   });
 
   it('still refuses to prescribe `vfkb init` on a plugin-wired repo (issue #77)', () => {
@@ -118,6 +123,73 @@ describe('#188 — the no-manifest message names the action that actually stamps
     const c = check(run(proj, cfg), 'brain manifest');
     expect(c?.detail ?? '').not.toContain('next write');
     expect(c?.detail ?? '').toMatch(/vfkb init/);
+  });
+});
+
+describe('#212 — the drift check as the SHIPPED tool reports it', () => {
+  // These drive runDoctor. The pure-predicate tests below are necessary but NOT
+  // sufficient: with only those, replacing the call site with `if (false)` — i.e.
+  // deleting engine-drift detection from the product — left the suite fully green
+  // (observed, review of PR #216). A test must fail when the feature is removed.
+  const withManifest = (commit: string) => {
+    const { proj, cfg } = setup({ SessionStart: [GUARD_HOOK] });
+    writeFileSync(
+      join(proj, '.vfkb', 'manifest.json'),
+      JSON.stringify({ schema_version: 1, engine_version: '0.4.0', engine_commit: commit }),
+    );
+    return { proj, cfg };
+  };
+  const report = (proj: string, cfg: string, engineCommit: string) =>
+    runDoctor({ root: proj, brainDir: join(proj, '.vfkb'), env: { HOME: root, CLAUDE_CONFIG_DIR: cfg }, engineCommit });
+
+  it('WARNS through runDoctor when two real, different shas disagree', () => {
+    const { proj, cfg } = withManifest('aaaaaaa');
+    const c = check(report(proj, cfg, 'bbbbbbb'), 'engine drift');
+    expect(c?.status).toBe('warn');
+    expect(c?.detail).toContain('aaaaaaa');
+    expect(c?.detail).toContain('bbbbbbb');
+  });
+
+  it('is silent through runDoctor when the manifest holds the sentinel', () => {
+    const { proj, cfg } = withManifest('dev');
+    expect(check(report(proj, cfg, 'bbbbbbb'), 'engine drift')).toBeUndefined();
+  });
+
+  it('still SURFACES the sentinel so the bad stamp is not invisible (#212 half two)', () => {
+    // Suppressing the false drift warning must not make the real condition —
+    // provenance genuinely unrecorded — undetectable.
+    const { proj, cfg } = withManifest('dev');
+    const c = check(report(proj, cfg, 'bbbbbbb'), 'brain↔engine compat');
+    expect(c?.status).toBe('ok');
+    expect(c?.detail).toContain('provenance unknown');
+  });
+
+  it('says nothing about provenance when the stamp is a real sha', () => {
+    const { proj, cfg } = withManifest('aaaaaaa');
+    const c = check(report(proj, cfg, 'aaaaaaa'), 'brain↔engine compat');
+    expect(c?.detail ?? '').not.toContain('provenance unknown');
+  });
+});
+
+describe('#186 — isEngineWiring recognises real wiring shapes, not the string "vfkb"', () => {
+  const j = (command: string) => JSON.stringify({ hooks: [{ type: 'command', command }] });
+
+  it('is silent for hooks that merely mention vfkb', () => {
+    expect(isEngineWiring(j('node ${CLAUDE_PROJECT_DIR:-.}/.claude/vfkb-guard.mjs'))).toBe(false);
+    expect(isEngineWiring(j('node ${CLAUDE_PROJECT_DIR:-.}/scripts/hook-durable-claim-check.mjs'))).toBe(false);
+  });
+
+  it('recognises every real engine-invocation shape', () => {
+    expect(isEngineWiring(j('VFKB_DATA_DIR=x node .vfkb/bin/bootstrap.mjs cli hook session-start'))).toBe(true);
+    expect(isEngineWiring(j('node .vfkb/bin/vfkb.mjs cli hook session-start'))).toBe(true);
+    expect(isEngineWiring(j('npx vfkb hook stop'))).toBe(true);
+    expect(isEngineWiring(j('node dist/cli.js hook session-end'))).toBe(true);
+  });
+
+  it('survives JSON escaping — quoted, tab- and newline-separated subcommands', () => {
+    expect(isEngineWiring(j('node x.mjs hook "session-start"'))).toBe(true);
+    expect(isEngineWiring(j('node x.mjs hook\tstop'))).toBe(true);
+    expect(isEngineWiring(j('node x.mjs hook\npre-tool-use'))).toBe(true);
   });
 });
 

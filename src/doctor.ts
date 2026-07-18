@@ -222,6 +222,11 @@ export interface DoctorOpts {
   pluginsFile?: string;
   knownMarketplacesFile?: string;
   git?: GitRunner; // injectable for tests (the src/session-end.ts seam)
+  // Injectable for tests. ENGINE_COMMIT is a module constant that resolves to the
+  // 'dev' sentinel under the tsc/test build, so without this seam the drift branch
+  // below is unreachable from a test and could be deleted with the suite green
+  // (observed — review of PR #216). Defaults to the real running identity.
+  engineCommit?: string;
 }
 
 /**
@@ -408,10 +413,14 @@ export async function checkNpmCurrency(opts: NpmCurrencyOpts): Promise<{ status:
 // buried in a warning consumers had learned to ignore.
 const HOOK_SUBCOMMANDS = ['session-start', 'pre-tool-use', 'post-tool-use', 'stop', 'session-end'];
 export function isEngineWiring(hookJson: string): boolean {
-  if (/bootstrap\.mjs/.test(hookJson)) return true;
-  // `... hook session-start`, `... cli hook stop`, etc. Matches the bundle and
-  // dist entry points without having to enumerate their filenames.
-  return new RegExp(`\\bhook\\\\?\\s+(${HOOK_SUBCOMMANDS.join('|')})\\b`).test(hookJson);
+  // Compare against the LITERAL command text, not its JSON encoding: a tab in the
+  // command is the two characters \\t once stringified, and a quoted subcommand is
+  // \\". Un-escaping first means the separator rule below is about real whitespace
+  // and quoting rather than about JSON spelling. (Review of PR #216, minor 5: the
+  // previous `\\?` sat before the whitespace, where JSON never puts a backslash.)
+  const text = hookJson.replace(/\\[tnr]/g, ' ').replace(/\\(.)/g, '$1');
+  if (/bootstrap\.mjs/.test(text)) return true;
+  return new RegExp(`\\bhook["'\\s]+(${HOOK_SUBCOMMANDS.join('|')})\\b`).test(text);
 }
 
 // #212 — a sentinel commit means "this build does not know its own identity"
@@ -459,11 +468,13 @@ function isUnder(parent: string | undefined, child: string): boolean {
 
 export function runDoctor(opts: DoctorOpts): DoctorReport {
   const { root, brainDir, env } = opts;
+  // The identity we compare the brain's stamp against (injectable — see DoctorOpts).
+  const runningCommit = opts.engineCommit ?? ENGINE_COMMIT;
   const checks: DoctorCheck[] = [];
   const add = (name: string, status: DoctorStatus, detail: string) => checks.push({ name, status, detail });
 
   // 1. Engine identity (info).
-  add('engine', 'ok', `version ${ENGINE_VERSION} · commit ${ENGINE_COMMIT} · schema v${SCHEMA_VERSION}`);
+  add('engine', 'ok', `version ${ENGINE_VERSION} · commit ${runningCommit} · schema v${SCHEMA_VERSION}`);
 
   // Read the project settings once (used by plugin detection, hooks checks, and
   // project-consistency below), and detect ADR-0045 plugin wiring up front — it changes
@@ -501,10 +512,20 @@ export function runDoctor(opts: DoctorOpts): DoctorReport {
   } else if (mf.schema_version < SCHEMA_VERSION) {
     add('brain↔engine compat', 'warn', `brain schema v${mf.schema_version} is older than engine v${SCHEMA_VERSION} — migration may be needed`);
   } else {
-    add('brain↔engine compat', 'ok', `schema v${mf.schema_version} matches`);
+    // #212 — a sentinel stamp is suppressed as DRIFT (it is not drift), but it must
+    // not become invisible: the brain's provenance genuinely is unrecorded, and the
+    // stamping half of #212 (a build that does not know its commit should not write
+    // one) is still open. Reported in the detail rather than as a new warn — it is a
+    // true statement, but not one the consumer can act on, and this PR exists to stop
+    // doctor crying wolf.
+    const sentinel =
+      mf.engine_commit === 'dev'
+        ? ` · stamped by a build that did not know its own commit ("dev") — provenance unknown (#212)`
+        : '';
+    add('brain↔engine compat', 'ok', `schema v${mf.schema_version} matches${sentinel}`);
     // Drift signal: same schema but a different engine build last stamped the brain.
-    if (engineDrift(mf.engine_commit, ENGINE_COMMIT)) {
-      add('engine drift', 'warn', `brain last stamped by engine ${mf.engine_commit}, running ${ENGINE_COMMIT} — possible dual-clone drift`);
+    if (engineDrift(mf.engine_commit, runningCommit)) {
+      add('engine drift', 'warn', `brain last stamped by engine ${mf.engine_commit}, running ${runningCommit} — possible dual-clone drift`);
     }
   }
 
