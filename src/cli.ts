@@ -187,7 +187,18 @@ async function dispatch() {
       let failed = 0;
       for (const r of results) {
         if (r.ok) {
-          process.stdout.write(`written\t${r.target}\t${r.id}\t${r.posture}${r.healed ? '\t(manifest healed — brain was wired but manifest-less, vfkb#193)' : ''}\n`);
+          // #212 — `healed` (manifest was ABSENT, #193) and `upgraded` (manifest
+          // was PRESENT but of unknown provenance, "dev") are different repairs
+          // and must read differently: reporting an upgrade as a heal tells the
+          // operator the manifest was missing when it never was, misdirecting
+          // diagnosis to #193. An unrendered `upgraded` is the same defect in
+          // silent form — the audit signal simply never reaches the operator.
+          const repair = r.healed
+            ? '\t(manifest healed — brain was wired but manifest-less, vfkb#193)'
+            : r.upgraded
+              ? '\t(manifest provenance upgraded — engine identity was unknown ("dev"), now the running sha, vfkb#212)'
+              : '';
+          process.stdout.write(`written\t${r.target}\t${r.id}\t${r.posture}${repair}\n`);
         } else {
           failed++;
           process.stdout.write(`REFUSED\t${r.target}\t${r.reason}\n`);
