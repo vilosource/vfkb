@@ -1,0 +1,61 @@
+{
+  "recordVersion": 1,
+  "sha": "8956c7d1d569ef6de487e194d9df2ab519f5f163",
+  "governing": [
+    "docs/adr/ADR-0052-review-gate.md",
+    "docs/adr/ADR-0029-sandbox-proven-definition-of-done.md"
+  ],
+  "reviewer": {
+    "agent": "general-purpose",
+    "model": "opus",
+    "rounds": 2
+  },
+  "generated": "2026-07-18T19:15:00Z",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "#212 tests called engineDrift() directly and never inspected a DoctorReport \u2014 deleting the drift warning from the shipped tool (if(false)) left 30/30 green; added 4 runDoctor integration cases + an injectable DoctorOpts.engineCommit seam (ENGINE_COMMIT is the 'dev' sentinel under the test build, making the branch otherwise unreachable)",
+      "acceptedBy": null
+    },
+    {
+      "id": "F2",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "#188 plugin arm asserted only negatives through c?.detail ?? '' \u2014 gutting the message to a bare 'no manifest.json' left 15/15 green; added positive status+content assertions",
+      "acceptedBy": null
+    },
+    {
+      "id": "F3",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "suppressing the sentinel as drift made the real condition invisible while #212's stamping half stays open; compat detail now reports 'provenance unknown (#212)' \u2014 verified reaching the terminal through the real CLI, not just the API",
+      "acceptedBy": null
+    },
+    {
+      "id": "F4",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "isEngineWiring exported with no consumer and no direct test \u2014 now covered by 3 unit cases",
+      "acceptedBy": null
+    },
+    {
+      "id": "F5",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "dead optional backslash before the separator meant a quoted subcommand missed; predicate now un-escapes to literal command text, re-probed over 20 shapes + 6 malformed inputs",
+      "acceptedBy": null
+    },
+    {
+      "id": "F6",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "not.toBe('warn') could pass with the check absent \u2014 tightened to toBe('ok')",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 6,
+  "ruledOut": [],
+  "verdict": "MERGE"
+}

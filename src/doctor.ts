@@ -4,8 +4,8 @@
 // a different engine build). Deterministic; unit-tested (the inner gate per ADR-0023).
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, realpathSync } from 'node:fs';
+import { join, dirname, relative, resolve, isAbsolute } from 'node:path';
 import { SCHEMA_VERSION, ENGINE_VERSION, ENGINE_COMMIT } from './version.js';
 import { journalStatus } from './journal.js';
 import { readManifest } from './manifest.js';
@@ -222,6 +222,11 @@ export interface DoctorOpts {
   pluginsFile?: string;
   knownMarketplacesFile?: string;
   git?: GitRunner; // injectable for tests (the src/session-end.ts seam)
+  // Injectable for tests. ENGINE_COMMIT is a module constant that resolves to the
+  // 'dev' sentinel under the tsc/test build, so without this seam the drift branch
+  // below is unreachable from a test and could be deleted with the suite green
+  // (observed — review of PR #216). Defaults to the real running identity.
+  engineCommit?: string;
 }
 
 /**
@@ -396,13 +401,80 @@ export async function checkNpmCurrency(opts: NpmCurrencyOpts): Promise<{ status:
   }
 }
 
+// #186 — what OLD (pre-plugin) vfkb wiring actually is: a hook command that
+// invokes the ENGINE's hook dispatcher, either through the committed bootstrap
+// (ADR-0031) or by naming a hook subcommand directly.
+//
+// The predicate used to be `JSON.stringify(hook).includes('vfkb')`, which
+// classified ANY hook mentioning the string as old wiring — including the
+// ADR-0059 INACTIVE guard (`.claude/vfkb-guard.mjs`) that the plugin's own
+// MIGRATION_GUIDE tells every consumer to commit. So a correctly migrated repo
+// was told to delete its own INACTIVE detector, and real double wiring was
+// buried in a warning consumers had learned to ignore.
+const HOOK_SUBCOMMANDS = ['session-start', 'pre-tool-use', 'post-tool-use', 'stop', 'session-end'];
+export function isEngineWiring(hookJson: string): boolean {
+  // Compare against the LITERAL command text, not its JSON encoding: a tab in the
+  // command is the two characters \\t once stringified, and a quoted subcommand is
+  // \\". Un-escaping first means the separator rule below is about real whitespace
+  // and quoting rather than about JSON spelling. (Review of PR #216, minor 5: the
+  // previous `\\?` sat before the whitespace, where JSON never puts a backslash.)
+  const text = hookJson.replace(/\\[tnr]/g, ' ').replace(/\\(.)/g, '$1');
+  if (/bootstrap\.mjs/.test(text)) return true;
+  return new RegExp(`\\bhook["'\\s]+(${HOOK_SUBCOMMANDS.join('|')})\\b`).test(text);
+}
+
+// #212 — a sentinel commit means "this build does not know its own identity"
+// (version.ts's honest `dev` fallback on the tsc/dist path), NOT "a different
+// engine stamped this brain". Comparing a sentinel against a real sha is not a
+// drift observation, it is an absence of one.
+//
+// The old predicate exempted a dev RUNNING engine but not a dev MANIFEST, so a
+// brain stamped by a dist-path build (e.g. the documented `node dist/cli.js`
+// fallback, which is how ViloGate's manifest got `"dev"`) reported drift forever
+// against every real-sha engine.
+export function engineDrift(manifestCommit: string | undefined, runningCommit: string): boolean {
+  if (!manifestCommit || manifestCommit === 'dev') return false;
+  if (!runningCommit || runningCommit === 'dev') return false;
+  return manifestCommit !== runningCommit;
+}
+
+// #206 — the work tree that actually governs a path, or undefined outside a repo.
+function repoToplevel(root: string): string | undefined {
+  try {
+    return execFileSync('git', ['-C', root, 'rev-parse', '--show-toplevel'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return undefined;
+  }
+}
+
+// Containment on path BOUNDARIES: `/repo` must not be judged to contain
+// `/repo-other/...`. Both sides are realpath'd so a symlinked brain dir (or a
+// /tmp that resolves to /private/tmp) compares honestly rather than by spelling.
+function isUnder(parent: string | undefined, child: string): boolean {
+  if (!parent) return false;
+  const real = (p: string) => {
+    try {
+      return realpathSync(p);
+    } catch {
+      return resolve(p);
+    }
+  };
+  const rel = relative(real(parent), real(child));
+  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
+}
+
 export function runDoctor(opts: DoctorOpts): DoctorReport {
   const { root, brainDir, env } = opts;
+  // The identity we compare the brain's stamp against (injectable — see DoctorOpts).
+  const runningCommit = opts.engineCommit ?? ENGINE_COMMIT;
   const checks: DoctorCheck[] = [];
   const add = (name: string, status: DoctorStatus, detail: string) => checks.push({ name, status, detail });
 
   // 1. Engine identity (info).
-  add('engine', 'ok', `version ${ENGINE_VERSION} · commit ${ENGINE_COMMIT} · schema v${SCHEMA_VERSION}`);
+  add('engine', 'ok', `version ${ENGINE_VERSION} · commit ${runningCommit} · schema v${SCHEMA_VERSION}`);
 
   // Read the project settings once (used by plugin detection, hooks checks, and
   // project-consistency below), and detect ADR-0045 plugin wiring up front — it changes
@@ -420,9 +492,18 @@ export function runDoctor(opts: DoctorOpts): DoctorReport {
     add(
       'brain manifest',
       'warn',
+      // #188 — the ordinary write path (addEntry → appendRecord → backend.append)
+      // never touches manifest.json. `writeManifest` has exactly two callers:
+      // `vfkb init` (init.ts) and the broadcast heal, which fires only when the
+      // manifest is ABSENT (broadcast.ts). Saying "on the next write" claimed
+      // behaviour the code does not have.
+      // On a PLUGIN-wired repo the message must not prescribe `vfkb init` — that
+      // advice is what scaffolds double wiring (issue #77), and the invariant is
+      // asserted in doctor.test.ts. A plugin-born brain simply has no manifest
+      // until a cross-repo broadcast heals it (vfkb#193).
       plugin
-        ? `no manifest.json in ${brainDir} — it will be stamped on the next write`
-        : `no manifest.json in ${brainDir} — run \`vfkb init\` (or it will be stamped on next write)`,
+        ? `no manifest.json in ${brainDir} — plugin-born brains have none until a cross-repo broadcast heals it (vfkb#193); the ordinary write path never creates one`
+        : `no manifest.json in ${brainDir} — run \`vfkb init\` to stamp it (the ordinary write path never creates one)`,
     );
   } else if (typeof mf.schema_version !== 'number') {
     add('brain manifest', 'warn', 'manifest has no numeric schema_version');
@@ -431,10 +512,20 @@ export function runDoctor(opts: DoctorOpts): DoctorReport {
   } else if (mf.schema_version < SCHEMA_VERSION) {
     add('brain↔engine compat', 'warn', `brain schema v${mf.schema_version} is older than engine v${SCHEMA_VERSION} — migration may be needed`);
   } else {
-    add('brain↔engine compat', 'ok', `schema v${mf.schema_version} matches`);
+    // #212 — a sentinel stamp is suppressed as DRIFT (it is not drift), but it must
+    // not become invisible: the brain's provenance genuinely is unrecorded, and the
+    // stamping half of #212 (a build that does not know its commit should not write
+    // one) is still open. Reported in the detail rather than as a new warn — it is a
+    // true statement, but not one the consumer can act on, and this PR exists to stop
+    // doctor crying wolf.
+    const sentinel =
+      mf.engine_commit === 'dev'
+        ? ` · stamped by a build that did not know its own commit ("dev") — provenance unknown (#212)`
+        : '';
+    add('brain↔engine compat', 'ok', `schema v${mf.schema_version} matches${sentinel}`);
     // Drift signal: same schema but a different engine build last stamped the brain.
-    if (mf.engine_commit && ENGINE_COMMIT !== 'dev' && mf.engine_commit !== ENGINE_COMMIT) {
-      add('engine drift', 'warn', `brain last stamped by engine ${mf.engine_commit}, running ${ENGINE_COMMIT} — possible dual-clone drift`);
+    if (engineDrift(mf.engine_commit, runningCommit)) {
+      add('engine drift', 'warn', `brain last stamped by engine ${mf.engine_commit}, running ${runningCommit} — possible dual-clone drift`);
     }
   }
 
@@ -461,7 +552,12 @@ export function runDoctor(opts: DoctorOpts): DoctorReport {
     // has no .journal/ gitignore line — its next `git add .vfkb` would COMMIT
     // the wal (a tracked journal dies by the same reset --hard, RFC-034
     // Alternatives; and a committed wal defeats §4 redaction).
-    if (existsSync(join(brainDir, '.journal'))) {
+    // #206 — judge only a journal the repo actually governs. With the brain on
+    // the default ~/.vfkb tier (VFKB_DATA_DIR outside the work tree),
+    // `check-ignore` exits 128 ("path outside work tree"), which the catch-all
+    // below read as plain "not ignored" — so doctor advised editing a .gitignore
+    // that does not govern that path at all.
+    if (existsSync(join(brainDir, '.journal')) && isUnder(repoToplevel(root), join(brainDir, '.journal'))) {
       try {
         execFileSync('git', ['-C', root, 'check-ignore', '-q', join(brainDir, '.journal', 'wal.jsonl')], {
           stdio: 'ignore',
@@ -524,7 +620,7 @@ export function runDoctor(opts: DoctorOpts): DoctorReport {
   // 5. Hooks wiring (same plugin logic as check 4).
   const hooks = settings?.hooks ?? {};
   const expected = ['SessionStart', 'PreToolUse', 'Stop', 'SessionEnd'];
-  const have = expected.filter((e) => JSON.stringify(hooks[e] ?? '').includes('vfkb'));
+  const have = expected.filter((e) => isEngineWiring(JSON.stringify(hooks[e] ?? '')));
   if (plugin && have.length > 0) {
     add('.claude/settings.json', 'warn', `vfkb hooks present ALONGSIDE the plugin (double wiring) — remove them; the plugin's hooks are primary (ADR-0045)`);
   } else if (plugin) {
