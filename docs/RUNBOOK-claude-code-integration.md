@@ -19,7 +19,7 @@
 | **PreToolUse hook** | `.claude/settings.json` | **denies** direct `Write/Edit/MultiEdit` into the brain dir → forces brain writes through the engine (normal code/doc edits pass through) |
 | **Stop hook** | `.claude/settings.json` | conditional end-of-turn **decision-capture reminder** (ADR-0027); native `stop_hook_active` loop guard; fail-open |
 | **PostToolUse hook** | `.claude/settings.json` | **OPTIONAL, OFF by default** — auto-captures tool calls; leave OFF for a *committed* design brain (tool-call noise), ON only for a private/operational brain |
-| **The brain** | `.vfkb/` (in the **target project**, not vfkb's source tree) | append-only JSONL knowledge store; `entries.jsonl` is committed, the rest is gitignored |
+| **The brain** | `.vfkb/` (in the **target project**, not vfkb's source tree) | append-only JSONL knowledge store; `entries.jsonl` **and** `manifest.json` (the ADR-0030 engine stamp) are committed; the derived/operational paths are gitignored (§9) |
 
 `VFKB_DIR` is resolved relative to the **Claude session's cwd** (your project root), independent of
 where vfkb's *code* lives — so the brain lives with your project even when vfkb is installed globally.
@@ -192,12 +192,17 @@ VFKB_DIR=.vfkb VFKB_PROJECT=myproject vfkb context init      # optional: scaffol
 Commit only the knowledge SoR; ignore the derived/operational files. Add to the project `.gitignore`:
 
 ```gitignore
+.vfkb/index-meta.json
 .vfkb/.sessions/
 .vfkb/.signals/
-.vfkb/index-meta.json
+.vfkb/.journal/
+.vfkb/.lock
 ```
 
-Then `git add .vfkb/entries.jsonl` (and `.vfkb/context.md` if you used it) — the brain ships **with**
+`.vfkb/manifest.json` is **not** on that list — it is committed (ADR-0030 engine stamp), so
+**never gitignore `manifest.json`**.
+
+Then `git add .vfkb/entries.jsonl .vfkb/manifest.json` (and `.vfkb/context.md` if you used it) — the brain ships **with**
 the repo (ADR-0019). Cross-clone continuity lives in committed **entries**, not in session records.
 
 ---
@@ -257,8 +262,15 @@ the `vfkb init` fallback, wiring coverage = the init emission unit tests + the
 distill | save | hook session-start | hook pre-tool-use | hook post-tool-use | hook stop>`
 
 ### Committed vs gitignored in `.vfkb/`
-- **Committed (SoR):** `entries.jsonl` (and `context.md` if used).
-- **Gitignored (derived/operational):** `.sessions/`, `.signals/`, `index-meta.json`.
+- **Committed:** `entries.jsonl` (the knowledge SoR, ADR-0019), `manifest.json` (the brain↔engine
+  schema/version stamp, ADR-0030) **whenever it exists**, and `context.md` if used. On the pre-plugin
+  bootstrap wiring, `bin/bootstrap.mjs` as well. `manifest.json` is written only by `vfkb init` and
+  the cross-repo broadcast heal, so a plugin-born brain has none until healed (vfkb#193) — absent is a
+  `doctor` warn, never a reason to gitignore it.
+- **Gitignored (derived/operational):** `index-meta.json`, `.sessions/`, `.signals/`, `.journal/`,
+  `.lock`.
+- `manifest.json` reads like a sibling of the derived `index-meta.json` but is not one:
+  **never gitignore `manifest.json`** — doing so strips the repo's engine stamp (issue #220).
 
 ---
 

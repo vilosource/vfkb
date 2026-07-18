@@ -130,10 +130,33 @@ data is only in a workspace journal, hand-fold the durable lines with `vfkb add`
 
 ```sh
 git add .claude/settings.json .claude/vfkb-guard.mjs .vfkb/entries.jsonl
+git add .vfkb/manifest.json 2>/dev/null || true   # only exists on some wirings — see below
 ```
 
-Only `.vfkb/entries.jsonl` is committed from the brain; `index-meta.json` / `.sessions/` / `.signals/`
-are derived and gitignored (add them to `.gitignore` if this is the repo's first vfkb wiring).
+Committed from the brain:
+
+- **`entries.jsonl`** — the knowledge SoR (ADR-0019). Always present.
+- **`manifest.json`** — the brain↔engine schema/version stamp (ADR-0030). **Committed whenever it
+  exists**, and it must travel with the brain. But it is **not always there**: `writeManifest` has
+  exactly two callers, `vfkb init` and the cross-repo broadcast heal, so a **plugin-born brain has
+  no manifest until a broadcast heals it** (vfkb#193) — the ordinary write path never creates one.
+  `vfkb doctor` reports its absence as a `warn`, not an error.
+- **`.vfkb/bin/bootstrap.mjs`** — only on the pre-plugin bootstrap wiring.
+
+Derived/operational and gitignored — add all five to `.gitignore` if this is the repo's first vfkb
+wiring (`vfkb init` writes the stanza for you):
+
+```gitignore
+.vfkb/index-meta.json
+.vfkb/.sessions/
+.vfkb/.signals/
+.vfkb/.journal/
+.vfkb/.lock
+```
+
+The rule that matters: **never gitignore `manifest.json`.** It looks derived next to
+`index-meta.json`, but it is not — whether or not it exists yet, it belongs on the committed side.
+Ignoring it is the exact mistake that left one consumer with no engine stamp (issue #220).
 
 ## Updating consumers when the engine moves
 
