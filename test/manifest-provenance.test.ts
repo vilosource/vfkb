@@ -13,6 +13,7 @@ import { join } from 'node:path';
 import { writeManifest, readManifest, manifestNeedsStamp } from '../src/manifest.js';
 import { SCHEMA_VERSION, ENGINE_COMMIT } from '../src/version.js';
 import { broadcast } from '../src/broadcast.js';
+import { initProject } from '../src/init.js';
 
 // ENGINE_COMMIT is 'dev' under the test build (no esbuild define), so a "real
 // sha" engine must be injected through the seam — the DoctorOpts.engineCommit
@@ -69,6 +70,30 @@ describe('#212 — the sentinel must never overwrite a known engine identity', (
     // 'dev' is the honest record of "this build did not know its own commit";
     // refusing to write at all would leave broadcast with an unreadable manifest.
     expect(onDisk(brain).engine_commit).toBe('dev');
+  });
+});
+
+describe('#212 — the downgrade path through `vfkb init` itself', () => {
+  // The issue's correction says "there is no overwrite path". That is true of
+  // broadcast, but init.ts:154 calls writeManifest UNCONDITIONALLY and there is
+  // no early return before it, so a re-run of `vfkb init` from a tsc/dist build
+  // IS one. Asserted through initProject — the shipped entry point — rather than
+  // through writeManifest, because the claim is about that call site.
+  it('a dev-build `vfkb init` re-run does not clobber an existing real sha', () => {
+    const root = join(tmp, 'consumer-init');
+    mkdirSync(join(root, '.vfkb'), { recursive: true });
+    writeFileSync(join(root, '.vfkb', 'entries.jsonl'), '');
+    writeFileSync(
+      join(root, '.vfkb', 'manifest.json'),
+      JSON.stringify({ schema_version: SCHEMA_VERSION, engine_version: '0.4.0', engine_commit: REAL }, null, 2) + '\n',
+    );
+
+    // ENGINE_COMMIT is 'dev' under the test build, so this IS the dist-path case.
+    expect(ENGINE_COMMIT).toBe('dev');
+    initProject(root, { project: 'demo' });
+
+    expect(onDisk(join(root, '.vfkb')).engine_commit).toBe(REAL);
+    expect(onDisk(join(root, '.vfkb')).engine_version).toBe('0.4.0');
   });
 });
 
