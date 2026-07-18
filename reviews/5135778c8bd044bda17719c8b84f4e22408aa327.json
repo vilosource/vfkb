@@ -1,0 +1,75 @@
+{
+  "recordVersion": 1,
+  "sha": "5135778c8bd044bda17719c8b84f4e22408aa327",
+  "governing": [
+    "docs/adr/ADR-0065-write-health-loudness.md",
+    "docs/rfc/RFC-035-write-health-loudness.md"
+  ],
+  "reviewer": {
+    "agent": "general-purpose",
+    "model": "opus",
+    "rounds": 2
+  },
+  "generated": "2026-07-18T21:05:00Z",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "\u00a71 resolved the CLI path from process.argv[1] with a vfkb.mjs-sibling preference, so the npm/dist MCP face emitted `node .../dist/mcp-server.js add \u2026` \u2014 a command that starts a stdio server, blocks on stdin and writes nothing; the pi/embedded face named the host's script. Now anchored to the engine module's own location with a CLI_FACES candidate list; verified live on 4 faces incl. an npm -g symlink prefix",
+      "acceptedBy": null
+    },
+    {
+      "id": "F2",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "the path guard was vacuous \u2014 'non-empty' and 'starts with /' were both true of the broken mcp-server.js path; the guarantee now asserted at built-artifact altitude via kb_resume plus a resolveCliFace layout matrix, and breaking the injectable default alone goes red",
+      "acceptedBy": null
+    },
+    {
+      "id": "F3",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "\u00a72a floor was kb_add-shaped though RFC-035 says 'every engine throw'; swallowing kb_supersede/kb_transition left the suite green. Table-driven over the write tools. NOTE: the first cut of this test itself passed for the wrong reason (passed `id` where kb_supersede takes `old_id` \u2192 schema rejection, never reached the engine); fixed and content-asserted against the engine's own complaint",
+      "acceptedBy": null
+    },
+    {
+      "id": "F4",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "absolute-ising of VFKB_DATA_DIR is off-spec (justified) but shipped with a test that could not detect its removal since every arm used an absolute brain dir; added a relative-'.vfkb' arm",
+      "acceptedBy": null
+    },
+    {
+      "id": "F5",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "the write-impossible arm only exercised file creation (dir chmod, no log); added the #176 field shape \u2014 an existing entries.jsonl made read-only",
+      "acceptedBy": null
+    },
+    {
+      "id": "F6",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "suite drives dist/, so running it alone against a stale build reports a false green; documented at the serverPath line (CI builds first, so CI is honest)",
+      "acceptedBy": null
+    },
+    {
+      "id": "F7",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "an auto-generated PR-body block claimed a behaviour change ('MCP add failures now report explicit errors instead of appearing successful') that the diff does not make; removed and explicitly corrected in the body",
+      "acceptedBy": null
+    },
+    {
+      "id": "F8",
+      "severity": "minor",
+      "status": "open",
+      "summary": "cosmetic: the unresolved-CLI marker renders as `node <vfkb CLI not found\u2026>`, which bash parses as an input redirection \u2014 it fails loudly (the correct outcome) but incidentally rather than by design; dropping the leading `node ` would make it unpasteable on purpose",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 8,
+  "ruledOut": [],
+  "verdict": "MERGE"
+}

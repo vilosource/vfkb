@@ -5,6 +5,9 @@
 // Pure Node stdlib, ZERO runtime deps.
 
 import { randomBytes } from 'node:crypto';
+import { existsSync } from 'node:fs';
+import { dirname, join, resolve as resolvePath } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   appendRecord,
   materialize,
@@ -15,6 +18,7 @@ import {
   readContextSpine,
   writeContextSpine,
   defaultProject,
+  brainDir,
 } from './storage.js';
 import { selectIndex } from './index-store.js';
 import { testHoldForRace } from './lock.js';
@@ -492,6 +496,51 @@ export function latestCrossRepo(
   return latest;
 }
 
+/**
+ * ADR-0065 §1 — the CLI write path an agent should reach for when the MCP face
+ * errors or disappears.
+ *
+ * Resolved from THIS MODULE's own location, never `process.argv[1]`. argv[1] is
+ * the *entry* script, which is only the CLI on one of the three faces:
+ *   - plugin bundles:  dist/bundles/{vfkb.mjs, vfkb-mcp.mjs}  — siblings
+ *   - npm install:     dist/{cli.js, mcp-server.js}           — siblings
+ *   - pi / embedded:   argv[1] is the HOST's script entirely
+ * Using argv[1] emitted `node ".../dist/mcp-server.js" add …` on the npm MCP
+ * face — a command that starts a stdio server, blocks on stdin and writes
+ * nothing (observed; review of PR #217, blocking 1). The engine module always
+ * ships beside its own CLI face, so its directory is the stable anchor.
+ *
+ * Both paths are QUOTED — plugin cache paths can contain spaces, and a command
+ * truncating at the first space is the quiet-failure class this ADR exists to
+ * remove. The brain dir is ABSOLUTE-ised for the same reason: VFKB_DATA_DIR is
+ * commonly configured relative (".vfkb"), and a command pasted from another cwd
+ * would otherwise create a second brain in the wrong directory.
+ */
+const CLI_FACES = ['vfkb.mjs', 'cli.js', 'cli.mjs'];
+
+/** The CLI entry point shipped beside the engine, or undefined if none is found. */
+export function resolveCliFace(engineDir: string): string | undefined {
+  return CLI_FACES.map((f) => join(engineDir, f)).find((p) => existsSync(p));
+}
+
+export function renderCaptureFallback(engineDir = dirname(fileURLToPath(import.meta.url))): string {
+  // engineDir is injectable for tests ONLY. Under vitest the engine runs from
+  // src/, where no BUILT cli face exists, so the default correctly yields the
+  // unresolved marker — the real-path guarantee is therefore asserted against
+  // the built artifact in test/mcp-write-loudness.test.ts, not here.
+  const cli = resolveCliFace(engineDir);
+  // Never emit a path we could not verify: a wrong command pasted mid-failure is
+  // worse than an honest gap (ADR-0051 §3 — say what is unknown, don't imply).
+  const target = cli
+    ? `node "${cli}"`
+    : `node <vfkb CLI not found beside the engine at ${engineDir} — locate vfkb.mjs or cli.js>`;
+  return (
+    `capture fallback: if the kb_* tools error or disappear, the CLI still writes ` +
+    `(same engine, separate process; journaled per ADR-0064) —\n` +
+    `  VFKB_DATA_DIR="${resolvePath(brainDir())}" ${target} add <type> "…" [--tags a,b] [--why "…"]`
+  );
+}
+
 export function renderContextBundle(project = defaultProject(), budget = SESSION_BUDGET_CHARS): string {
   const all = readAll();
   const today = nowIso().slice(0, 10);
@@ -546,6 +595,15 @@ export function renderContextBundle(project = defaultProject(), budget = SESSION
 
   // Context Map (ADR-0006): the navigational index, always injected, never dropped.
   body += renderContextMap() + '\n\n';
+
+  // Capture fallback (ADR-0065 §1 ← RFC-035): the hooks and the MCP server are
+  // separate processes over the same engine bundle, so a dead MCP face does not
+  // imply a dead CLI — and with ADR-0064's journal the CLI write is exactly as
+  // durable. That fallback already exists but is undocumented at the moment of
+  // failure; an agent mid-loss has no reason to know it. Joins the never-dropped
+  // preamble, costing at most one lowest-ranked entry — the same trade the
+  // ADR-0049/ADR-0063 pins already made, stated as a decision, not a side effect.
+  body += renderCaptureFallback() + '\n\n';
 
   // Ranked lines are collected (not appended) so the omission note can evict
   // trailing lines when needed — under the old append-as-you-go shape, a body
