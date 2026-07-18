@@ -1,0 +1,42 @@
+{
+  "recordVersion": 1,
+  "sha": "2bacc2989c6c5946b689bf80f3888752bc767f6d",
+  "governing": [
+    "docs/adr/ADR-0029-sandbox-proven-definition-of-done.md",
+    "docs/adr/ADR-0051-delivery-honesty.md",
+    "docs/adr/ADR-0052-review-gate.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "opus", "rounds": 2 },
+  "generated": "2026-07-18T22:25:00Z",
+  "findings": [
+    {
+      "id": "R1",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "SANDBOX LEAK — the probes spawned dist/cli.js hook subcommands with no VFKB_DATA_DIR, so post-tool-use resolved the brain dir to the operator's real git-tracked ~/.vfkb and captureToolCall appended junk fact entries (18 stray /etc/hostname entries observed; ~/.vfkb left dirty). Violates ADR-0029 clause 1. Fixed: both spawn sites (probeWithUnclosedStdin and the contrast arm) now use a shared sandboxEnv() pointing VFKB_DATA_DIR at an mkdtemp brain, torn down in afterAll. Verified across every subsequent run by md5 of ~/.vfkb/entries.jsonl, unchanged throughout.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "ASYMMETRIC GUARD — the .mjs side had an arm for 'watchdog fires but DISCARDS the payload' but cli.ts did not, so the mutation resolve(data) -> resolve('') in finish() left this file 8/8 green. Fixed by adding a payload-survival arm at the shipped altitude: post-tool-use captures its payload into the brain, so the sandbox entries.jsonl is the evidence the buffered bytes survived the deadline. Re-mutated after the fix: 1 failed | 8 passed, with the new arm the SOLE failure. Doubles as the self-enforcement for R1 — dropping VFKB_DATA_DIR empties the sandbox brain and takes this arm red (verified under a decoy HOME: 1 failed | 8 passed).",
+      "acceptedBy": null
+    },
+    {
+      "id": "R3",
+      "severity": "minor",
+      "status": "accepted",
+      "summary": "Wall-clock bound (elapsed < 1900ms) on a spawned Node process in the contrast arm. Accepted rather than removed, with mitigation. The bound cannot be loosened past 2000ms without ceasing to measure the thing it exists to measure — distinguishing 'exited via the end handler' from 'exited via the watchdog'. Mitigation applied: the arm now retries once, so a single transient runner stall is absorbed while a build in which the watchdog is the only exit route takes ~2s on both attempts and still goes red, preserving full mutation-detecting power. The co-located content assertion expect(out.trim()).toBe('{}') remains the primary guard. Residual flake risk under a saturated CI runner is UNVERIFIED; failure mode is a self-diagnosing false RED, never a bad merge.",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 3,
+  "ruledOut": [
+    "Round 1 (record reviews/b166053530963e30ff121251599cb5311908d284.json) independently reproduced all five claimed mutations at the claimed red counts, confirmed the assertion altitude is the shipped binary over a real pipe rather than readStdin() directly, confirmed the outright-deletion test is red on 7 of 8, and confirmed the F1 quiet-success vacuity is genuinely fixed by positive payload assertions. Those conclusions are unchanged by this round's diff, which touches only the test file.",
+    "This round's diff adds no production-code change: src/cli.ts and scripts/hook-durable-claim-check.mjs are byte-identical to the reviewed b166053, verified by restoring from backup and re-checking after each mutation run. The fail-open and append-only semantics reviewed in round 1 therefore stand unre-examined by design.",
+    "No AI attribution and no secrets in the new commit. The only string matching the attribution scan is prose naming Claude Code as the harness product whose 600s hook timeout is the subject under discussion, carried over from the round-1 commit body.",
+    "The harness's behaviour on hook-timeout expiry (allow vs deny) remains declared UNVERIFIED in the source comment, the test header and the PR body, per round 1's assessment that it is not establishable with modest effort and cannot change the conclusion."
+  ],
+  "verdict": "MERGE"
+}
