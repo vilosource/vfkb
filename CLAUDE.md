@@ -218,6 +218,19 @@ this is a **deliberate discipline**:
   it **does not converge after 3 rounds**, reporting the blocking findings. This is the
   "autonomous mode" the self-merge latitude requires — it is now **on by default for this repo**,
   not per-request.
+- **Release PRs need no approval and no re-review** (operator ruling 2026-07-18; brain decision
+  `872c1ff0ff90`). A release-please standing PR (`chore(main): release X.Y.Z`) contains only
+  commits that already passed the ADR-0052 gate on their way into `main` — it is downstream
+  bookkeeping, not a review surface, so do **not** hold it for the operator or run the adversarial
+  review on it. When the batch is complete, run the chain: **(1)** push a user-authored empty
+  commit to the release branch (bot-created PRs get no check runs — gotcha on record);
+  **(2)** squash-merge once required checks are green; **(3)** release-please creates the tag +
+  GitHub Release on merge; **(4)** dispatch `publish.yml` with the tag (`gh workflow run
+  publish.yml -f tag=vX.Y.Z` — the bot's tag fires nothing); **(5)** watch
+  prove → publish → canary to green; **(6)** report with the outward-publish callout. The only
+  judgment left is **cadence** ("is this batch complete?"). Don't push to `main` while executing
+  the chain — release-please force-pushes the release branch on every `main` push, wiping the
+  triggered checks.
 - **Guardrails that still bind under autonomous mode:** never commit/push directly to `main`/`v2`
   (always branch → PR → merge); the capability-level **DoD gate (ADR-0050/0051)** is unchanged; a
   PR whose merge triggers an **outward publish** (e.g. the npm release) is covered by the grant but
