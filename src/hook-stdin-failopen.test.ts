@@ -20,15 +20,44 @@
 // in whether the PROCESS terminates. A test of the helper would have stayed
 // green through the entire defect.
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const cliPath = join(repoRoot, 'dist', 'cli.js');
 const durableHook = join(repoRoot, 'scripts', 'hook-durable-claim-check.mjs');
+
+// SANDBOX (ADR-0029 clause 1: "isolated from the live/dogfooded system").
+// `hook post-tool-use` CAPTURES its payload into the brain, and the brain dir
+// defaults to ~/.vfkb — the operator's REAL, git-tracked global brain. Without
+// this every run of this file, and every RED mutation run a future engineer
+// performs to re-verify the guard, appends junk `fact` entries to a committed
+// file. That is not hypothetical: it was OBSERVED during review of this very
+// PR (18 stray `/etc/hostname` entries, ~/.vfkb left dirty).
+//
+// This is self-enforcing, not a convention: the payload-survival test below
+// asserts the entry lands in THIS dir, so dropping VFKB_DATA_DIR turns the
+// sandbox brain empty and takes the suite RED.
+let brainDir: string;
+beforeAll(() => {
+  brainDir = mkdtempSync(join(tmpdir(), 'vfkb-stdin-failopen-'));
+});
+afterAll(() => {
+  if (brainDir) rmSync(brainDir, { recursive: true, force: true });
+});
+
+/** Env for every spawned hook: the real harness vars, but a throwaway brain. */
+function sandboxEnv(): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    CLAUDE_PROJECT_DIR: repoRoot,
+    VFKB_DATA_DIR: brainDir,
+  };
+}
 
 // readStdin's watchdog is 2000ms. Allow generous headroom for process spawn +
 // a loaded CI box, but stay far below anything a human would call a stall.
@@ -56,7 +85,7 @@ function probeWithUnclosedStdin(
     const t0 = Date.now();
     const child = spawn(cmd, args, {
       cwd: repoRoot,
-      env: { ...process.env, CLAUDE_PROJECT_DIR: repoRoot },
+      env: sandboxEnv(),
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     let stdout = '';
@@ -138,6 +167,41 @@ describe('issue #214 — hooks fail open when stdin never closes', () => {
     }, 30000);
   }
 
+  // The cli.ts analogue of the durable-claim payload test below. Terminating is
+  // only half the contract: readStdin must resolve with the bytes that ARRIVED,
+  // not an empty string. A watchdog that fires and DISCARDS the buffer exits 0,
+  // emits `{}`, and passes every termination assertion above while silently
+  // making the hook inert — the quiet-success trap (ADR-0051 clause 3), and the
+  // exact asymmetry review finding R2 flagged (the .mjs side was guarded here,
+  // cli.ts was not). Mutation: `resolve(data)` -> `resolve('')` in finish().
+  //
+  // Observed at the shipped altitude: post-tool-use CAPTURES the payload into
+  // the brain, so the sandbox brain is the proof the bytes survived. This also
+  // pins the sandbox itself — with VFKB_DATA_DIR dropped, this file is empty.
+  it('post-tool-use still CAPTURES a payload whose stdin never closed (watchdog must not discard)', async () => {
+    const marker = `stdin-failopen-marker-${Date.now()}`;
+    const payload = JSON.stringify({
+      session_id: 'stdin-failopen-capture',
+      tool_name: 'Read',
+      tool_input: { file_path: `/probe/${marker}` },
+    });
+    const r = await probeWithUnclosedStdin('node', [cliPath, 'hook', 'post-tool-use'], payload);
+    expect(r.exited, 'post-tool-use did not exit with stdin held open').toBe(true);
+
+    const entriesPath = join(brainDir, 'entries.jsonl');
+    expect(
+      existsSync(entriesPath),
+      `no brain written at ${entriesPath} — the watchdog resolved but the payload was dropped, ` +
+        `so captureToolCall saw nothing. The hook is inert.`,
+    ).toBe(true);
+    const brain = readFileSync(entriesPath, 'utf8');
+    expect(
+      brain,
+      `the captured entry does not carry the payload's marker — readStdin settled on the ` +
+        `deadline but discarded the buffered bytes.`,
+    ).toContain(marker);
+  }, 30000);
+
   // The standalone Brake reads stdin with the same await-until-'end' pattern and
   // ships to this repo's own .claude/settings.json — issue #214's stated scope.
   it('scripts/hook-durable-claim-check.mjs TERMINATES with stdin held open', async () => {
@@ -167,19 +231,38 @@ describe('issue #214 — hooks fail open when stdin never closes', () => {
   // unaffected. If the watchdog became the only exit route, every hook would
   // suddenly cost 2s — a regression the termination assertions alone miss.
   it('the normal closed-stdin path stays fast (watchdog is not the exit route)', async () => {
-    const t0 = Date.now();
-    const out = await new Promise<string>((resolveP) => {
-      const child = spawn('node', [cliPath, 'hook', 'pre-tool-use'], { cwd: repoRoot });
-      let s = '';
-      child.stdout.on('data', (d) => (s += d));
-      child.on('exit', () => resolveP(s));
-      child.stdin.end(benignPayload); // properly closed
-    });
-    const elapsed = Date.now() - t0;
+    const runClosed = async (): Promise<{ out: string; elapsed: number }> => {
+      const t0 = Date.now();
+      const out = await new Promise<string>((resolveP) => {
+        const child = spawn('node', [cliPath, 'hook', 'pre-tool-use'], {
+          cwd: repoRoot,
+          env: sandboxEnv(),
+        });
+        let s = '';
+        child.stdout.on('data', (d) => (s += d));
+        child.on('exit', () => resolveP(s));
+        child.stdin.end(benignPayload); // properly closed
+      });
+      return { out, elapsed: Date.now() - t0 };
+    };
+
+    let r = await runClosed();
+    // The bound MUST stay below STDIN_WATCHDOG_MS (2000ms) or it asserts nothing
+    // — the whole point is distinguishing "exited via 'end'" from "exited via the
+    // watchdog". So instead of loosening it past the thing it measures, absorb a
+    // single transient runner stall by retrying once (review finding R3). A build
+    // where the watchdog IS the only exit route takes ~2s on BOTH attempts, so
+    // this keeps the full mutation-detecting power.
+    if (r.elapsed >= 1900) r = await runClosed();
+
     // Positive assertion: it must actually EMIT the allow decision on the normal
     // path. (Dropping the 'end' handler makes the process exit 0 fast and silent
     // — mutation M4 — which an `not.toContain('deny')` check passes happily.)
-    expect(out.trim()).toBe('{}');
-    expect(elapsed, `closed-stdin hook took ${elapsed}ms — the 2s watchdog should NOT be the exit route`).toBeLessThan(1900);
+    expect(r.out.trim()).toBe('{}');
+    expect(
+      r.elapsed,
+      `closed-stdin hook took ${r.elapsed}ms on two consecutive attempts — the 2s watchdog ` +
+        `should NOT be the exit route`,
+    ).toBeLessThan(1900);
   }, 30000);
 });
