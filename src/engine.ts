@@ -573,15 +573,27 @@ export function renderContextBundle(project = defaultProject(), budget = SESSION
     // digit count, so the fit is re-checked each round.
     const note = () =>
       `(+ ${dropped} lower-ranked entries omitted for the ${budget}-char budget — kb_search / kb_list pulls them)\n`;
+    const evicted: string[] = [];
     while (kept.length > 0 && fixedLen() + keptLen + note().length > budget) {
-      keptLen -= kept.pop()!.length;
+      const line = kept.pop()!;
+      keptLen -= line.length;
+      evicted.push(line);
       dropped++;
     }
     if (fixedLen() + keptLen + note().length <= budget) {
       body += kept.join('') + note();
     } else {
-      // Fixed (never-dropped) sections alone exceed the budget: nothing to
-      // evict, so the note cannot fit either — unchanged legacy behavior.
+      // The note cannot fit even with everything evicted (fixed never-dropped
+      // sections leave less slack than one note line). Losing content to a
+      // note that then never renders would be a double loss — restore the
+      // evicted lines and emit without the note (review finding, round 1:
+      // the empty-kept fallback rendered FEWER entries than stock, noteless).
+      while (evicted.length > 0) {
+        const line = evicted.pop()!;
+        kept.push(line);
+        keptLen += line.length;
+        dropped--;
+      }
       body += kept.join('');
     }
   } else {

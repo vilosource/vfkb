@@ -63,4 +63,38 @@ describe('budget-drop omission note (#177)', () => {
       expect(renderContextBundle('t', budget).length).toBeLessThanOrEqual(budget);
     }
   });
+
+  it('tiny-budget band (slack < note length): never renders FEWER entries than the note-less legacy would (review round-1 major)', () => {
+    // Short entries so at least one line fits into the small slack above the
+    // fixed sections. In the band where the note cannot fit even after full
+    // eviction, the render must fall back to emitting the lines it had — not
+    // an emptied body with no note (a strict regression vs stock).
+    for (let i = 1; i <= 10; i++) addEntry('fact', `tiny ${String(i).padStart(2, '0')}`, { role: 'human' });
+    const fixedOnly = renderContextBundle('t', 1).length; // fixed sections floor (never dropped)
+    // Measure the real rendered line lengths from an unconstrained render, in
+    // rank order — no format guessing.
+    const full = renderContextBundle('t', 100_000);
+    const lines = full.split('\n').filter((l) => /tiny \d\d/.test(l)).map((l) => l + '\n');
+    for (let budget = fixedOnly; budget <= fixedOnly + 150; budget += 3) {
+      const out = renderContextBundle('t', budget);
+      const kept = (out.match(/tiny \d\d/g) ?? []).length;
+      // Legacy-equivalent floor: greedy fit in rank order, no note reserved.
+      let slack = budget - fixedOnly;
+      let legacy = 0;
+      for (const l of lines) {
+        if (l.length <= slack) {
+          slack -= l.length;
+          legacy++;
+        }
+      }
+      // The round-1 regression was the DOUBLE loss: fewer entries than the
+      // note-less legacy AND no note saying so. Rendering fewer entries is
+      // legitimate only as the visible price of the note itself.
+      const noteless = !/omitted/.test(out);
+      expect(
+        !(noteless && kept < legacy),
+        `budget=${budget}: fixed=${fixedOnly} kept=${kept} legacy=${legacy} noteless=${noteless}`,
+      ).toBe(true);
+    }
+  });
 });
