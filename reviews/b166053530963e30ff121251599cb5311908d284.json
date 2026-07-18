@@ -1,0 +1,49 @@
+{
+  "recordVersion": 1,
+  "sha": "b166053530963e30ff121251599cb5311908d284",
+  "governing": [
+    "docs/adr/ADR-0027-stop-hook-decision-capture-reminder.md",
+    "docs/adr/ADR-0052-review-gate.md"
+  ],
+  "reviewer": {
+    "agent": "self-review (NO independent subagent — see note)",
+    "model": "claude-opus-4-8",
+    "rounds": 1
+  },
+  "generated": "2026-07-18T22:10:00Z",
+  "note": "HONESTY CAVEAT, read before trusting this record: .claude/commands/review.md requires a FRESH-EYES SUBAGENT. This review ran inside a workflow subagent with no subagent-spawning tool available, so no independent reviewer read this diff. What is recorded here is the author's own adversarial pass (mutation testing plus direct probes), which is weaker by construction. F1 was found by that pass and is a real self-caught defect, but a second reader is still owed before this is treated as a completed ADR-0052 review.",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "The contrast arm was vacuous: it asserted stdout did NOT contain 'deny', which empty stdout satisfies. Mutation M4 (delete readStdin's 'end' handler) made the hook exit 0 fast and SILENT and the whole suite stayed GREEN 8/8. Probed directly: mutated binary emitted 0 bytes, exit 0. This is the ADR-0051 clause-3 quiet-success trap, committed inside a test written to catch it. Fixed by asserting the emitted payload positively (stdout.trim() === '{}' on the pre-tool-use and closed-stdin arms; startsWith('{') on the other four subcommands). M4 re-run after the fix: RED 1/8.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F2",
+      "severity": "minor",
+      "status": "open",
+      "summary": "The closed-stdin contrast arm asserts elapsed < 1900ms to prove the 2s watchdog is not the exit route, so it is load-sensitive. Measured 5 consecutive runs at 97/102/107/115/117ms (~16x margin), so the risk is low, but whether a heavily loaded CI runner could exceed 1900ms is UNVERIFIED — not reproduced under contention. Mitigating: the same mutation is also caught by the content assertion in F1, so this timing bound is a secondary guard, not the only one.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F3",
+      "severity": "minor",
+      "status": "open",
+      "summary": "PRE-EXISTING, not introduced here: scripts/hook-durable-claim-check.mjs calls process.exit(0) immediately after process.stdout.write(), and Node can truncate an in-flight async pipe write on exit. Probed 3/3 through a pipe at a full 1079 bytes with no truncation, so not observed. The diff preserves this pattern rather than changing it (the pre-fix 'end' handler did the same); flagged so it is not silently inherited, out of scope for a convention-level stdin fix.",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 3,
+  "ruledOut": [
+    "Scope creep beyond hooks: enumerated all 5 readStdin() call sites (src/cli.ts:573,624,660,703,726) — every one is inside the `if (cmd === 'hook')` block that opens at src/cli.ts:571. No non-hook CLI command reads stdin, so pause()+unref() cannot affect normal CLI use.",
+    "Vacuity of the core guards: 5 mutations run, each with an applied-check before the suite (M1 drop pause+unref -> 5 RED; M2 delete the cli.ts watchdog -> 5 RED; M3 delete the .mjs watchdog -> 2 RED; M4 drop the 'end' handler -> 1 RED after F1's fix; M5 watchdog fires but discards the payload -> 1 RED). Baseline and post-restore both 8/8 green.",
+    "Tests assert at the shipped-artifact altitude: they spawn the built dist/cli.js and the real hook script as child processes over a real pipe, and never call readStdin() directly — so deleting the shipped behaviour cannot leave them green.",
+    "Fail-open protocol preserved: no code path added that can emit a deny; the pre-tool-use gate's deny branch is untouched and still reached only via isBrainWrite().",
+    "Regression risk to the durable-claim Brake: scripts/hook-durable-claim-check.selftest.mjs (the CI Brake in review-gate.yml) re-run and fully green, including its three fail-open cases.",
+    "Full suite: 401/401 vitest green (40 files) after the change.",
+    "No AI attribution in the commit (scanned git log -1 --format=%B; the only 'Claude Code' occurrences are prose naming the harness product whose 600s hook timeout is being described). No secrets added. Append-only storage semantics untouched — the diff adds no storage call."
+  ],
+  "verdict": "MERGE"
+}
