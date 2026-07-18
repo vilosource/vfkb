@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { mkdtempSync, mkdirSync, readFileSync, existsSync, writeFileSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
+import { spawnSync, execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { initProject } from './init.js';
@@ -67,6 +67,82 @@ describe('vfkb init (FR-1)', () => {
     expect(read('.vfkb/entries.jsonl')).toBe('');
     expect(read('.gitignore')).toContain('.vfkb/.sessions/');
     expect(read('AGENTS.md')).toContain('How we track work HERE');
+  });
+
+  // The generator, not the symptom. A 10-repo sweep (2026-07-18) added
+  // `.vfkb/.lock` and corrected a false comment across every consumer — and
+  // `vfkb init` would have re-introduced both on the next new repo. Fixing ten
+  // copies without fixing what emits them is a sweep you run again.
+  describe('the emitted .gitignore stanza is correct at the source', () => {
+    it('ignores every derived/operational path, including the lock', () => {
+      initProject(root, { project: 'demo' });
+      const gi = read('.gitignore');
+      for (const p of ['.vfkb/index-meta.json', '.vfkb/.sessions/', '.vfkb/.signals/', '.vfkb/.journal/', '.vfkb/.lock']) {
+        expect(gi, `missing ignore rule ${p}`).toContain(p);
+      }
+    });
+
+    it('does NOT ignore the two committed files', () => {
+      initProject(root, { project: 'demo' });
+      const gi = read('.gitignore')
+        .split(/\r?\n/)
+        .filter((l) => l.trim() && !l.trim().startsWith('#'));
+      // entries.jsonl is the brain; manifest.json is the ADR-0030 engine stamp.
+      expect(gi).not.toContain('.vfkb/entries.jsonl');
+      expect(gi).not.toContain('.vfkb/manifest.json');
+      expect(gi).not.toContain('.vfkb/');
+    });
+
+    // The assertion that can fail for the RIGHT reason. Substring checks match a
+    // COMMENTED-OUT path just as happily: prefixing every emitted path with '# '
+    // produced a stanza that ignores NOTHING and still passed them (review of
+    // PR #219, major 2). git is the only authority on what a .gitignore does.
+    it('git actually ignores the derived paths and NOT the committed ones', () => {
+      initProject(root, { project: 'demo' });
+      execFileSync('git', ['init', '-q'], { cwd: root });
+      const ignored = (p: string) => {
+        try {
+          execFileSync('git', ['check-ignore', '-q', p], { cwd: root, stdio: 'ignore' });
+          return true;
+        } catch {
+          return false;
+        }
+      };
+      for (const p of ['.vfkb/.lock', '.vfkb/.journal/wal.jsonl', '.vfkb/index-meta.json', '.vfkb/.sessions/x', '.vfkb/.signals/y']) {
+        expect(ignored(p), `${p} should be ignored`).toBe(true);
+      }
+      // The brain and the ADR-0030 engine stamp MUST stay committable.
+      expect(ignored('.vfkb/entries.jsonl'), 'entries.jsonl must not be ignored').toBe(false);
+      expect(ignored('.vfkb/manifest.json'), 'manifest.json must not be ignored').toBe(false);
+    });
+
+    it('HEALS an old stanza in place instead of appending a contradictory one', () => {
+      // Every existing consumer takes this path; greenfield is the rare case.
+      writeFileSync(
+        join(root, '.gitignore'),
+        '# vfkb — derived/operational (only .vfkb/entries.jsonl is committed)\n' +
+          '.vfkb/index-meta.json\n.vfkb/.sessions/\n.vfkb/.signals/\n.vfkb/.journal/\n',
+      );
+      initProject(root, { project: 'demo' });
+      const gi = read('.gitignore');
+      expect(gi, 'the false claim must not survive').not.toMatch(/only \.vfkb\/entries\.jsonl is committed/i);
+      // Exactly ONE stanza — not the old one plus a corrected one below it.
+      expect(gi.split('derived/operational').length - 1).toBe(1);
+      expect(gi).toContain('.vfkb/.lock');
+      // and the healed stanza still works
+      execFileSync('git', ['init', '-q'], { cwd: root });
+      expect(() => execFileSync('git', ['check-ignore', '-q', '.vfkb/.lock'], { cwd: root, stdio: 'ignore' })).not.toThrow();
+    });
+
+    it('does not claim entries.jsonl is the ONLY committed file', () => {
+      // That comment was false and load-bearing: the natural response to an
+      // untracked manifest.json is to gitignore it, which is exactly how one
+      // consumer ended up with no engine stamp at all.
+      initProject(root, { project: 'demo' });
+      const gi = read('.gitignore');
+      expect(gi).not.toMatch(/only .vfkb\/entries\.jsonl is committed/i);
+      expect(gi).toMatch(/manifest\.json/);
+    });
   });
 
   it('defaults the project name to the directory basename', () => {

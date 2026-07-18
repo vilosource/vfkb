@@ -217,15 +217,55 @@ export function initProject(root: string, opts: { project?: string } = {}): Init
   // 4. .gitignore — the derived/operational stanza (append once).
   {
     const path = join(root, '.gitignore');
-    const lines = ['.vfkb/index-meta.json', '.vfkb/.sessions/', '.vfkb/.signals/', '.vfkb/.journal/'];
+    // Every derived/operational path. `.lock` is the ADR-0040 concurrency lock:
+    // transient, but a `git add .vfkb` timed against a concurrent write would
+    // commit it. Keep in step with vfkb's own .gitignore — a consumer whose
+    // ignore set is narrower than the engine's is a sweep waiting to happen
+    // (one ran across 10 repos on 2026-07-18 for exactly this).
+    const lines = [
+      '.vfkb/index-meta.json',
+      '.vfkb/.sessions/',
+      '.vfkb/.signals/',
+      '.vfkb/.journal/',
+      '.vfkb/.lock',
+    ];
+    // The header the stanza should carry. The OLD one claimed "only
+    // .vfkb/entries.jsonl is committed", which is FALSE — manifest.json is
+    // committed by design (ADR-0030, the brain↔engine stamp, distinct from the
+    // derived index-meta.json). That sentence caused a real defect: the natural
+    // response to an untracked manifest.json is to gitignore it, and one
+    // consumer ended up with no engine stamp at all.
+    const HEADER = [
+      '# vfkb — entries.jsonl + manifest.json (the ADR-0030 engine stamp) are committed;',
+      '# the vfkb paths below are derived/operational and stay out of git',
+    ];
+    // Any header this generator has ever emitted, so an upgrade HEALS the stanza
+    // in place. Appending a corrected block while leaving the old one alone left
+    // the false claim intact AND first in the file, contradicted by a second
+    // stanza below it — worse than not fixing it (review of PR #219, blocking 1).
+    const STALE_HEADER = /^#\s*vfkb\s*—\s*derived\/operational \(only \.vfkb\/entries\.jsonl is committed\)\s*$/;
+
     const existed = existsSync(path);
     const cur = existed ? readFileSync(path, 'utf8') : '';
-    const missing = lines.filter((l) => !cur.split(/\r?\n/).includes(l));
-    if (missing.length === 0) {
+    const curLines = cur.split(/\r?\n/);
+    const missing = lines.filter((l) => !curLines.includes(l));
+    const staleAt = curLines.findIndex((l) => STALE_HEADER.test(l));
+
+    if (missing.length === 0 && staleAt === -1) {
       changes.push({ path: '.gitignore', action: 'skipped' });
+    } else if (staleAt !== -1) {
+      // Heal: swap the stale header for the correct one and fold any missing
+      // paths into THAT stanza, so the file ends up with exactly one.
+      const out = [...curLines];
+      out.splice(staleAt, 1, ...HEADER);
+      let last = staleAt + HEADER.length - 1;
+      for (let i = last + 1; i < out.length && /^\.vfkb\//.test(out[i].trim()); i++) last = i;
+      out.splice(last + 1, 0, ...missing);
+      writeFileSync(path, out.join('\n'));
+      changes.push({ path: '.gitignore', action: 'updated' });
     } else {
       const prefix = cur && !cur.endsWith('\n') ? '\n' : '';
-      const block = `${prefix}${cur ? '\n' : ''}# vfkb — derived/operational (only .vfkb/entries.jsonl is committed)\n${missing.join('\n')}\n`;
+      const block = `${prefix}${cur ? '\n' : ''}${HEADER.join('\n')}\n${missing.join('\n')}\n`;
       writeFileSync(path, cur + block);
       changes.push({ path: '.gitignore', action: existed ? 'updated' : 'created' });
     }

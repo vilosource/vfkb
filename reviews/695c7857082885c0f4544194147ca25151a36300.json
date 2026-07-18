@@ -1,0 +1,68 @@
+{
+  "recordVersion": 1,
+  "sha": "695c7857082885c0f4544194147ca25151a36300",
+  "governing": [
+    "docs/adr/ADR-0030-consumer-integration-and-distribution.md",
+    "docs/adr/ADR-0052-review-gate.md"
+  ],
+  "reviewer": {
+    "agent": "general-purpose",
+    "model": "opus",
+    "rounds": 2
+  },
+  "generated": "2026-07-18T22:10:00Z",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "the fix did not reach repos that HAVE the defect: `missing` diffs path lines but not the comment, so an upgrade left the false header intact and appended a corrected stanza below it \u2014 two contradictory stanzas with the false claim first, on the path every existing consumer takes. Generator now heals in place; verified live on a mixed .gitignore and via git check-ignore",
+      "acceptedBy": null
+    },
+    {
+      "id": "F2",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "the new tests asserted substrings, which match a COMMENTED-OUT path \u2014 prefixing every emitted path with '# ' yields a stanza that ignores nothing and passed 3/3. Added a test that git-inits a temp dir and asserts via git check-ignore; reviewer independently probed it fails safe when init writes nothing (7 red)",
+      "acceptedBy": null
+    },
+    {
+      "id": "F3",
+      "severity": "major",
+      "status": "open",
+      "summary": "REPORT-ONLY, cross-repo: the plugin's vendored engine bundle still carries the old stanza, so `vfkb init` AS DELIVERED still emits both defects until re-vendored and released. Named in the commit and PR body rather than claimed fixed (ADR-0051 \u00a72)",
+      "acceptedBy": null
+    },
+    {
+      "id": "F4",
+      "severity": "minor",
+      "status": "open",
+      "summary": "findIndex heals only the FIRST stale header; a hand-edited file with two would need a second run. Never emitted by the generator",
+      "acceptedBy": null
+    },
+    {
+      "id": "F5",
+      "severity": "minor",
+      "status": "open",
+      "summary": "a stale header at EOF loses the trailing newline in the heal branch; git parses it fine",
+      "acceptedBy": null
+    },
+    {
+      "id": "F6",
+      "severity": "minor",
+      "status": "open",
+      "summary": "the heal rewrites CRLF files to LF, producing whole-file churn for a Windows consumer; functionally correct",
+      "acceptedBy": null
+    },
+    {
+      "id": "F7",
+      "severity": "minor",
+      "status": "open",
+      "summary": "the false claim also survives in CLAUDE.md:80, docs/CONSUMER-ONBOARDING*.md, docs/RUNBOOK-claude-code-integration.md and the plugin's own .gitignore \u2014 deliberately out of scope for a 2-file generator fix; follow-up filed",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 7,
+  "ruledOut": [],
+  "verdict": "MERGE"
+}
