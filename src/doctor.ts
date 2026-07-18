@@ -7,6 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { SCHEMA_VERSION, ENGINE_VERSION, ENGINE_COMMIT } from './version.js';
+import { journalStatus } from './journal.js';
 import { readManifest } from './manifest.js';
 import type { GitRunner } from './session-end.js';
 
@@ -434,6 +435,27 @@ export function runDoctor(opts: DoctorOpts): DoctorReport {
     // Drift signal: same schema but a different engine build last stamped the brain.
     if (mf.engine_commit && ENGINE_COMMIT !== 'dev' && mf.engine_commit !== ENGINE_COMMIT) {
       add('engine drift', 'warn', `brain last stamped by engine ${mf.engine_commit}, running ${ENGINE_COMMIT} — possible dual-clone drift`);
+    }
+  }
+
+  // 2b. Durable-capture journal (ADR-0064): what would recovery do, and is a
+  // redaction half-done? Read-only — recovery itself runs at session start.
+  {
+    const js = journalStatus(brainDir);
+    if (js.suppressedInEntries > 0) {
+      add(
+        'journal',
+        'warn',
+        `${js.suppressedInEntries} suppressed (purged) pair(s) still present in entries.jsonl — a redaction is half-done: remove the line(s) from entries.jsonl too (ADR-0064 §4)`,
+      );
+    } else if (js.restorable > 0) {
+      add(
+        'journal',
+        'warn',
+        `${js.restorable} journaled entr${js.restorable === 1 ? 'y' : 'ies'} missing from entries.jsonl — the next session-start restores them (or run any vfkb command after checking why they vanished)`,
+      );
+    } else {
+      add('journal', 'ok', `${js.walLines} line(s) in the uncommitted window, nothing to restore`);
     }
   }
 

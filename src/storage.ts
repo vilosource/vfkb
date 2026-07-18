@@ -9,6 +9,7 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { storageBackend } from './backend.js';
+import { journalAppend } from './journal.js';
 import { normalizeEntry } from './validate.js';
 import type { KnowledgeEntry } from './types.js';
 
@@ -62,6 +63,9 @@ export function defaultProject(): string {
 //     GUARANTEED side-effect (mykb L11; ADR-0014) — policy, so it lives here,
 //     above the backend's raw append. ---
 export function appendRecord(rec: StoredRecord): void {
+  // ADR-0064: journal-first untracked mirror — the durability floor for the
+  // window between this append and the next brain commit.
+  journalAppend(storageBackend().location(), rec);
   storageBackend().append(rec);
   writeMeta();
 }

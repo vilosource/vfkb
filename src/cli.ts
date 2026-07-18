@@ -16,7 +16,8 @@ import {
   deriveTrust,
 } from './engine.js';
 import { SessionState, effectiveSessionId } from './session.js';
-import { defaultProject } from './storage.js';
+import { brainDir, defaultProject, withExclusive } from './storage.js';
+import { purgeJournal, recoverFromJournal } from './journal.js';
 import { runExport } from './export.js';
 import { broadcast as runBroadcast } from './broadcast.js';
 import {
@@ -107,7 +108,7 @@ async function main() {
 }
 
 const USAGE =
-  'usage: vfkb <add|broadcast|list|search|query|map|context|context init|resume|resume-note|curate|distill|save|' +
+  'usage: vfkb <add|broadcast|journal purge|list|search|query|map|context|context init|resume|resume-note|curate|distill|save|' +
   'export|import|init|doctor|supersede|context-block|context-block-naive|--version|' +
   'hook session-start|hook pre-tool-use|hook post-tool-use|hook stop|hook session-end>\n';
 
@@ -557,9 +558,28 @@ async function dispatch() {
       // NEXT session can resume from it (append-only). ADR-0039: the id comes from the
       // hook's own stdin (KB_SESSION_ID is an optional override) — no harness wiring needed.
       const session = SessionState.load(effectiveSessionId(payloadId));
-      const additionalContext = rest.includes('--naive')
-        ? renderNaiveDump(project, undefined, lim ? Number(lim) : undefined)
-        : renderResume(project, session);
+      // ADR-0064 §2: journal recovery runs BEFORE the digest renders, so a
+      // brain destroyed by a careless git operation is whole again by the time
+      // the session reads it. Fail-open (a hook must never error a session);
+      // the restore report rides the injected digest — the loud channel —
+      // because hook stderr is not reliably surfaced.
+      let restoreNote = '';
+      try {
+        const rec = withExclusive(() => recoverFromJournal(brainDir()));
+        if (rec.restored > 0) {
+          restoreNote =
+            `⚠ vfkb restored ${rec.restored} journaled entr${rec.restored === 1 ? 'y' : 'ies'} ` +
+            `lost from entries.jsonl — likely a destructive git operation on uncommitted brain ` +
+            `state (ADR-0064). Verify with kb_list and commit the brain on your next topic branch.\n\n`;
+        }
+      } catch {
+        /* fail-open — recovery must never cost a session its start */
+      }
+      const additionalContext =
+        restoreNote +
+        (rest.includes('--naive')
+          ? renderNaiveDump(project, undefined, lim ? Number(lim) : undefined)
+          : renderResume(project, session));
       session.save();
       process.stdout.write(
         JSON.stringify({
@@ -698,6 +718,28 @@ async function dispatch() {
     const p = parseArgs('save', argsOf(sub, rest), {});
     const r = save(p.positionals.join(' ').trim() || undefined);
     process.stdout.write((r.committed ? 'committed: ' : 'no-op: ') + r.message + '\n');
+    return;
+  }
+
+  // --- journal purge (--id <id> | --all) — the ADR-0064 §4 redaction escape
+  // hatch: removes journal lines and suppresses their (id, updated) pairs so
+  // recovery never resurrects a deliberately redacted entry.
+  if (cmd === 'journal') {
+    if (sub !== 'purge') {
+      throw new UsageError('usage: vfkb journal purge (--id <id> | --all)');
+    }
+    const p = parseArgs('journal purge', rest, { id: 'value', all: 'boolean' });
+    const id = flagValue(p, 'id');
+    const all = p.flags.has('all');
+    if (!!id === all) {
+      throw new UsageError('usage: vfkb journal purge (--id <id> | --all)');
+    }
+    const r = withExclusive(() => purgeJournal(brainDir(), { id, all }));
+    process.stdout.write(
+      r.purged > 0
+        ? `purged ${r.purged} journal line(s); pair(s) suppressed — recovery will never restore them (ADR-0064 §4). Remember: a redaction of entries.jsonl is complete only with this purge.\n`
+        : 'no matching journal lines\n',
+    );
     return;
   }
 
