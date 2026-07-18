@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.4.0](https://github.com/vilosource/vfkb/compare/v0.3.0...v0.4.0) (2026-07-18)
+
+
+### Features
+
+* **journal:** durable capture — untracked write-ahead journal + session-start recovery (ADR-0064, fixes [#175](https://github.com/vilosource/vfkb/issues/175)) ([a1cbc63](https://github.com/vilosource/vfkb/commit/a1cbc634f6ea3b352b6c9c24106085f3d0283cfc))
+* **journal:** durable capture — write-ahead journal + recovery (ADR-0064, fixes [#175](https://github.com/vilosource/vfkb/issues/175)) ([c803c81](https://github.com/vilosource/vfkb/commit/c803c81e98aa4894a85b8b39035aa74420ff5a39))
+
+
+### Bug Fixes
+
+* **journal:** mirror only on the jsonl-fs backend — a non-fs backend's pseudo-location must never materialize on disk ([f865a91](https://github.com/vilosource/vfkb/commit/f865a913d42299ad346086a6ebd3030924411291))
+* **journal:** mirror only on the jsonl-fs backend (stray memory:/ dir defect) ([f9181ee](https://github.com/vilosource/vfkb/commit/f9181eeb9820e0f94534124e1afc72eeef072e14))
+* review-gate round-1 findings — torn-tail guard, source de-NUL, gitignore migration, atomic wal rewrite, kill-switch symmetry ([15a9cb3](https://github.com/vilosource/vfkb/commit/15a9cb39860daa039ccf273c7f32420f1faf5836))
+
+
+### Documentation
+
+* **adr:** ADR-0064 + ADR-0065 — operator ratification of RFC-034 (durable-capture journal) and RFC-035 (write-health loudness) ([1868921](https://github.com/vilosource/vfkb/commit/1868921622e2acd9e78ceb114f442edbba76bc76))
+* **adr:** ADR-0064 + ADR-0065 — ratify RFC-034/RFC-035 (operator, 2026-07-18) ([b71491e](https://github.com/vilosource/vfkb/commit/b71491e928792a8a0dd60c5724ad63ace2a66df0))
+* **review:** ADR-0052 record for 15a9cb3 — 2 rounds, 3 majors + minors all fixed or tracked, verdict MERGE ([f662822](https://github.com/vilosource/vfkb/commit/f662822f55b743124c95d841835574a08faf0482))
+* **review:** ADR-0052 record for f865a91 — 1 round, verdict MERGE, capability-flag follow-up filed ([#208](https://github.com/vilosource/vfkb/issues/208)) ([adfc108](https://github.com/vilosource/vfkb/commit/adfc1089a4630b2afe6ffcd66adf88bf0c1527a0))
+* **review:** fix governing-doc path in the f865a91 record (ADR-0044 actual filename) ([48c1815](https://github.com/vilosource/vfkb/commit/48c18158529f817f8ef87ace03bc9ae2618a935d))
+
 ## [0.3.0](https://github.com/vilosource/vfkb/compare/v0.2.3...v0.3.0) (2026-07-18)
 
 
