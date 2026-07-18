@@ -64,16 +64,34 @@ map's "pull more" hint):
 Rationale: the hooks and the MCP server are *separate processes over the same engine bundle* —
 a dead MCP face does not imply a dead CLI, and with RFC-034's journal the CLI write is exactly
 as durable. Today that fallback exists but is undocumented at the moment of failure; an agent
-mid-loss has no reason to know it. Cost: one render line inside the existing budget.
+mid-loss has no reason to know it.
+
+Mechanics (review-hardened): the rendering process **is** the vendored bundle, so the path is
+self-knowable — `import.meta.url`/`argv[1]`, no registry lookup — and must be **quoted** in the
+rendered command (plugin cache paths can contain spaces). The line joins the never-dropped
+preamble of the 10k `SESSION_BUDGET_CHARS` render, costing at most one lowest-ranked entry —
+the same trade the ADR-0049/ADR-0063 pins already made, stated here so it is a decision and
+not a side effect.
 
 ### §2 Doctor write-probe (shape depends on §0)
 
-`vfkb doctor` gains a `write-health` line: a real append + read-back round-trip against a
-scratch id in the target brain (through the engine, lock held, entry removed after — or a
-dedicated probe namespace if removal offends append-only semantics; design detail for the
-build). Doctor is the CLI face, so this checks the *engine + filesystem* path an agent would
-fall back to — it deliberately cannot vouch for the MCP client's pipe, and its wording must not
-overclaim (the `6ad98196b5a2` lesson: a diagnostic that invites a false inference is a bug).
+`vfkb doctor` gains a `write-health` line. The probe's write target is **not**
+`entries.jsonl`: "append then remove" doesn't exist in an append-only log (the only delete is a
+tombstone — two permanent lines per doctor run), and a "probe namespace" inside `entries.jsonl`
+still dirties the working tree and grows the committed file on every run. The presumptive shape
+is a **round-trip against a non-entries file in the brain dir** (write + read-back + unlink of
+`.journal/.probe` or similar) — the same filesystem/permission path an entry append takes, zero
+pollution of the committed log. Doctor is the CLI face, so this checks the *engine +
+filesystem* path an agent would fall back to — it deliberately cannot vouch for the MCP
+client's pipe, and its wording must not overclaim (the `6ad98196b5a2` lesson: a diagnostic that
+invites a false inference is a bug).
+
+### §2a The engine-ownable loudness floor — buildable now
+
+#176's core sentence — *"a failed kb_add must never appear to succeed"* — has a deterministic,
+probe-independent slice: a unit check that the MCP server maps **every engine throw to an
+explicit tool error** (`is_error`/error content), never an empty-success shape. Cheap, in-scope,
+and exactly the ADR-0051 §3 content-assertion discipline applied to the capture path.
 
 ### §3 External escalation (blocked tier, named)
 
@@ -82,12 +100,21 @@ tool call), that is a Claude Code defect to report upstream — filed like the P
 failed-call gap (open finding 1 in CLAUDE.md), tracked as external-blocked, not worked around
 with engine theater.
 
-## What this deliberately does not do
+## Alternatives considered / deliberately not done
 
 - No engine-side heartbeat/reconnect machinery (the client owns the pipe).
 - No automatic dual-path writes (MCP + CLI simultaneously) — capture must stay deliberate;
   a hidden second writer would double-write every entry or silently mask the very failure this
   RFC wants loud.
+- No entries.jsonl-polluting probe shapes (§2 names why both obvious ones are wrong).
+
+## Consequences
+
+- One more never-dropped preamble line in every injected bundle (≈1 lowest-ranked entry of
+  budget, §1).
+- The failure taxonomy becomes explicit: engine+fs path (doctor-checkable), MCP handler mapping
+  (§2a unit-checkable), MCP client pipe (external, §0-probeable, §3-escalatable) — each layer
+  owned and named instead of one undifferentiated "writes stopped working".
 
 ## Definition of Done
 
@@ -99,6 +126,8 @@ with engine theater.
   server would ride the §0 probe's harness if §0 proves the failure reproducible).
 - §2: unit-tested + a doctor L4 re-pin only if the doctor scenario surface changes
   (gotcha `7bd9302b351e` precedent: touching doctor wording invalidates its L4).
+- §2a: deterministic unit test over the MCP handler's error mapping (engine throw → explicit
+  tool error, never empty success).
 
 ## Rollout
 
