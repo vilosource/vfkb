@@ -1,5 +1,50 @@
 # Changelog
 
+## [0.3.0](https://github.com/vilosource/vfkb/compare/v0.2.3...v0.3.0) (2026-07-18)
+
+
+### Features
+
+* cross-repo operations pin + vfkb broadcast (ADR-0063 §2/§3), scenario-first ([9aa13dc](https://github.com/vilosource/vfkb/commit/9aa13dc36eb80b44f66893c3ed958501f2146330))
+* cross-repo operations pin + vfkb broadcast (ADR-0063 §2/§3), scenario-first ([52cda30](https://github.com/vilosource/vfkb/commit/52cda30ed951d8be793d9629836bcdde98d190e4))
+* engine-delivery signal — auto re-vendor PR on normalized bundle drift (ADR-0062) ([#182](https://github.com/vilosource/vfkb/issues/182)) ([cb27745](https://github.com/vilosource/vfkb/commit/cb2774572d4f08f1ec1583ed259edc3b23f03a70))
+
+
+### Bug Fixes
+
+* **broadcast:** heal wired-but-manifest-less brains instead of refusing; dedupe the auto cross-repo tag ([46319b9](https://github.com/vilosource/vfkb/commit/46319b9847fe8f748d7a2ee4cad5f65e4f58e318))
+* **broadcast:** heal wired-but-manifest-less brains; dedupe auto cross-repo tag ([bd11887](https://github.com/vilosource/vfkb/commit/bd11887339895b77e9ad3f00d734cdd1c4993f52))
+* **render:** budget-drop omission note always present + actionable ([#177](https://github.com/vilosource/vfkb/issues/177)) ([a710bc7](https://github.com/vilosource/vfkb/commit/a710bc726967798c8e9d4c18d15d469ee473ebdf))
+* **render:** the budget-drop omission note is always present and actionable ([#177](https://github.com/vilosource/vfkb/issues/177)) ([359b9b1](https://github.com/vilosource/vfkb/commit/359b9b1df84c25438a158121b463294bb1dda131))
+* review round-1 major — restore evicted lines when the note cannot fit even after full eviction ([814d07a](https://github.com/vilosource/vfkb/commit/814d07a7540cc1051d24456c5f061c30ab1cee04))
+* review-gate findings — marker-shape prestamp guard, target dedup, dual-capability scenario gate, broadcast-seeded delivery arm ([bb254d0](https://github.com/vilosource/vfkb/commit/bb254d0ba9ab5ee527b9458b5c6799148c587308))
+* review-gate findings — per-target heal failure (no thrown abort), healed reported on failed writes, refusal reason names entries.jsonl ([4f10701](https://github.com/vilosource/vfkb/commit/4f10701cc82dda97a8272cb82c6f7d8a0c19894e))
+
+
+### Documentation
+
+* ADR-0060 — tag every plugin release vfkb--v{version} (Phase 0 of install-path L4) ([#172](https://github.com/vilosource/vfkb/issues/172)) ([695ca68](https://github.com/vilosource/vfkb/commit/695ca68d0016b811d382c80a96114a84df51837c))
+* ADR-0061 — enforce plugin bump-and-tag mechanically (version Brake + tag-on-merge; release-please rejected) ([#174](https://github.com/vilosource/vfkb/issues/174)) ([6f1b7d1](https://github.com/vilosource/vfkb/commit/6f1b7d1cef8d1dcf4c3900c2b1da3183adadfc17))
+* **adr:** ADR-0063 — cross-repo brain write (accepts RFC-033, operator ratification 2026-07-17) ([b1120ce](https://github.com/vilosource/vfkb/commit/b1120ce7669b93ddc113808af812bc6c1565c3b4))
+* **adr:** ADR-0063 — cross-repo brain write (accepts RFC-033) ([c69f564](https://github.com/vilosource/vfkb/commit/c69f5643fbfb3fe6f4e57e32f5071739c4ac2a9c))
+* **adr:** ADR-0063 fidelity nits — v1 no-brain prohibition explicit, pin/broadcast coupling wording; session handoff in brain ([b690315](https://github.com/vilosource/vfkb/commit/b6903150e819ebab78eda208b0be50415e03b9b4))
+* make the autonomous-PR workflow the standing default (Commit rules) ([#164](https://github.com/vilosource/vfkb/issues/164)) ([8bafa51](https://github.com/vilosource/vfkb/commit/8bafa516b59adc16ece14b840d2f2ce17eb90794))
+* plan for the install-path delivery-proof L4 ([#171](https://github.com/vilosource/vfkb/issues/171)) ([9571cd5](https://github.com/vilosource/vfkb/commit/9571cd55a0546213e712ce890a3bf9efbeccbc8d))
+* plugin-era consumer onboarding (ADR-0059 guard), bootstrap as fallback ([#168](https://github.com/vilosource/vfkb/issues/168)) ([d9752ed](https://github.com/vilosource/vfkb/commit/d9752edb0e2763917474d4bcbb1f132b6bc15c62))
+* **review:** ADR-0052 record for 4f10701 — 2 rounds, 1 major + 2 minor all fixed, verdict MERGE ([f66cd53](https://github.com/vilosource/vfkb/commit/f66cd53e04579f57127a1d774fb2359bbf0b0517))
+* **review:** ADR-0052 record for 814d07a — 2 rounds, 1 major + 2 minor, verdict MERGE ([f4d78aa](https://github.com/vilosource/vfkb/commit/f4d78aa45fa8932684703c47c8ef31879a192f56))
+* **review:** ADR-0052 record for bb254d0 — 2 rounds, 1 major + 6 minor all fixed/accepted, verdict MERGE ([e9a099b](https://github.com/vilosource/vfkb/commit/e9a099bcb67e51b527a3d37cff218016d7ec1964))
+* **rfc:** RFC-033 — cross-repo brain write (operation handoff broadcast) ([7ea540a](https://github.com/vilosource/vfkb/commit/7ea540ab21f21e477b0c4f1fb402da92d645f31b))
+* **rfc:** RFC-033 — cross-repo brain write (operation handoff broadcast) ([7582bf0](https://github.com/vilosource/vfkb/commit/7582bf00c04ec645209620028ede3ba8c95186a8))
+* **rfc:** RFC-033 amendments — ADR-0049 delivery channel decided, L4 contract hardened ([ef23908](https://github.com/vilosource/vfkb/commit/ef2390846aff491feb21712438c8d170e04f45cd))
+* **rfc:** RFC-033 amendments — ADR-0049 delivery channel decided, L4 contract hardened (independent review) ([62d7f7b](https://github.com/vilosource/vfkb/commit/62d7f7ba2c1045d1f21d3c24469cd3f0aced7cc5))
+* **rfc:** RFC-033 review fixes — compat-rule claim corrected, no-brain targets scoped out, ADR-0040 append safety cited ([df022ab](https://github.com/vilosource/vfkb/commit/df022abb6ab0c2c5a6c347afb7e4c267542ff5a7))
+* **rfc:** RFC-033 verification-round fixes — §6 split into per-capability arms, stale delivery claim annotated, scenario renamed ([8ee020e](https://github.com/vilosource/vfkb/commit/8ee020ee9966e70cf68fa8c8858e8f2bc055d7df))
+* **rfc:** RFC-034 durable capture (journal) + RFC-035 write-health loudness ([#175](https://github.com/vilosource/vfkb/issues/175)/[#176](https://github.com/vilosource/vfkb/issues/176)) ([51f294c](https://github.com/vilosource/vfkb/commit/51f294c44e0d997477f38515352eba6efce45c7e))
+* **rfc:** RFC-034 durable-capture journal + RFC-035 write-health loudness — the [#175](https://github.com/vilosource/vfkb/issues/175)/[#176](https://github.com/vilosource/vfkb/issues/176) brain-loss cluster ([2a9d0ea](https://github.com/vilosource/vfkb/commit/2a9d0ea232c48c770794ca97476276d50ca6eebb))
+* **rfc:** round-1 review fixes — engine facts corrected (LWW log, lock-free appends), (id,updated) prune key, redaction escape hatch, probe shape, index rows ([801210c](https://github.com/vilosource/vfkb/commit/801210c71f066c3de98235c9318d0ca3070cb5e9))
+* **rfc:** round-2 phrase fixes — the last two union-by-id survivors now say (id, updated)-pair (frontmatter description + DoD invariant list) ([3c4f593](https://github.com/vilosource/vfkb/commit/3c4f593a5d555f892260846f50cdc3ee030c8abe))
+
 ## [0.2.3](https://github.com/vilosource/vfkb/compare/v0.2.2...v0.2.3) (2026-07-14)
 
 
