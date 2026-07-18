@@ -3,7 +3,7 @@
   "sha": "f865a913d42299ad346086a6ebd3030924411291",
   "governing": [
     "docs/adr/ADR-0064-durable-capture-journal.md",
-    "docs/adr/ADR-0044-storage-backend-seam.md"
+    "docs/adr/ADR-0044-storage-backend-abstraction.md"
   ],
   "reviewer": { "agent": "general-purpose", "model": "claude-fable-5", "rounds": 1 },
   "generated": "2026-07-18T10:40:00Z",
