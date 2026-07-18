@@ -1,7 +1,7 @@
 ---
 type: RFC
 title: "RFC-034: Durable capture — an untracked write-ahead journal closes the brain-loss window between write and commit"
-description: "Every engine append is mirrored to an untracked journal inside the brain dir; a deterministic union-by-id recovery at session start re-appends any journaled entry the tracked entries.jsonl has lost. Kills the observed failure class (checkout --/reset --hard/stash destroying uncommitted knowledge) without touching commit cadence — per-write auto-commit is rejected by name because parked-on-main cross-repo records are uncommitted BY DESIGN (ADR-0063 §4) and commit cadence is entangled with the never-commit-on-main discipline (ADR-0033)."
+description: "Every engine append is mirrored to an untracked journal inside the brain dir; a deterministic (id, updated)-pair line-union recovery at session start re-appends any journaled line the tracked entries.jsonl has lost. Kills the observed failure class (checkout --/reset --hard/stash destroying uncommitted knowledge) without touching commit cadence — per-write auto-commit is rejected by name because parked-on-main cross-repo records are uncommitted BY DESIGN (ADR-0063 §4) and commit cadence is entangled with the never-commit-on-main discipline (ADR-0033)."
 status: "Proposed"
 timestamp: 2026-07-18
 ---
@@ -167,8 +167,9 @@ Named scenario: `scenarios/brain-durability.mjs` (this repo), RED-first:
   entries again (observed in the injected bundle / `kb_list`, ids identical to the originals).
 - **Contrast arm (can fail):** identical flow with the journal disabled — the entries must be
   observably gone. A recovery that cannot be seen failing proves nothing.
-- Structural invariants (union-by-id, newest-per-id, prune-at-HEAD, fail-open journal write,
-  lock held) are deterministic unit tests — the inner gate, per the testing pyramid.
+- Structural invariants (`(id, updated)`-pair line union, prune-at-HEAD-by-pair, fail-open
+  journal write, lock held) are deterministic unit tests — the inner gate, per the testing
+  pyramid.
 
 ## Rollout
 
