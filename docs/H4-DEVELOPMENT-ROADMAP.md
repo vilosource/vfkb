@@ -15,7 +15,12 @@
 
 ---
 
-## 1. Where we are (status snapshot, 2026-06-28)
+## 1. Where we are (status snapshot, 2026-06-28 — **STALE, see §4 Current action**)
+
+> ⚠️ **This snapshot is frozen at 2026-06-28 and is no longer true.** v2 shipped to `main` on
+> 2026-07-08 (PR #86); the suite is **345/345**, not 95/95; the frontier is the **P10 trust-and-cadence
+> phase** ratified 2026-07-18. Read [§4's Current action](#4-ratified-order--execution-protocol) for
+> where we actually are — this section is kept for the Track 1–4b history it records, not for status.
 
 `main` is green (**95/95** unit, @ `0e75823`). v1 (per-project tier) is shipped; **M1 (session-continuity
 Phase A)** (`ff61215`); **RFC-006 → ADR-0021**; **M2a (curator safety, `ee45289`) + M2b (distiller +
@@ -400,6 +405,8 @@ operator request. When it fires: schedule the existing deterministic `distill` +
 `→ Track 8 session-end continuity fork (RFC-011 → ADR-0033; SessionEnd contract verified ✅ gotcha f0e913b9) → GAP 2 brain auto-commit ✅ + GAP 1 B2 handoff floor ✅ (deterministic gate green + bundle smoke + live-wired) → GAP 1 B1 higher-quality Stop nudge ✅ (RFC-011 §B settled as B1+B2 → ADR-0034; L4 quality contrast DEMONSTRATED 3/3 vs 0/3, claude-haiku-4-5, 2026-07-01)` *(new fork, re-ratified 2026-06-30)*. **Track 8 COMPLETE (GAP 2 + GAP 1 B2 floor + GAP 1 B1 nudge).**
 `→ Track 9 memory quality & interop (landscape survey 2026-07-02, brain fact 9ebe4eaf → Q0 hygiene ✅ #27 → Q1 RFC-012 ACCEPTED ✅ → ADR-0037 (build on request/evidence, RED first) → Q2 use-feedback + Q3 AGENTS.md export queued, RFC numbers at draft; Q4 sleep-time + BM25-first S1 amendment + bi-temporal stay GATED)` *(reconciled ratification 2026-07-06 — v1-compatible quality queue, not the frontier; RFC-013 ACCEPTED ✅ → ADR-0038 rides this queue too)*.
 `→ **v2 fork — THE ACTIVE FRONTIER** (ADR-0036 two-branch strategy ✅ → V2-VISION ✅ → RFC-014..019 ACCEPTED ✅ 2026-07-06 → ADR-0039..0044; builds on the `v2` branch in order: 014 session backbone (precondition verified live) → 015 lock → 016 merge=union → 017 schema honesty; 018 build gated; 019 last)` *(fork ratified 2026-07-05; acceptances 2026-07-06)*.
+`→ **v2 SHIPPED to `main` 2026-07-08** (PR #86, merge `5bb087e`; ADR-0039..0044, V2-5 index stays GATED). Post-ship the frontier is maintenance-shaped: Track 10 distribution/hardening — plugin v0.6.0..v0.10.0, npm 0.2.1..0.4.0, ADR-0056/0057 release + publish chain, ADR-0060/0061 bump-and-tag Brakes, ADR-0063 broadcast, **ADR-0064 durable-capture journal ✅ shipped + delivered to all 12 consumers**, ADR-0065 write-health **accepted, not built**.`
+`→ **P10 trust-and-cadence phase** *(ratified 2026-07-18, see Current action below)*: **P10-a doctor trust cluster** (#186/#188/#206/#212 — unit-proof, no L4) → **P10-b release cadence** (#211 held: no `dist/` change) → **P10-c ADR-0065 write-health** (§0 probe first; tracking issue #176 is closed — resolve before starting) → **P10-d plugin release automation** (plugin #25/#26 — prose→Brake).`
 **Track 4b is COMPLETE** — D-i `verified`-filter (pi/claude 2/3, 2026-06-27); D-iii relabel-on-promotion
 (`promotion-relabel` pi/claude 2/3, ADR-0024, 2026-06-27); D-iv pi live tool-result capture
 (`live-capture-result` pi 3/3, 2026-06-27; claude failure-capture EXTERNAL-BLOCKED); **D-ii context-doc +
@@ -439,7 +446,64 @@ In all three cases the response is the same: **update this roadmap and re-ratify
 — never leave the next step to an ad-hoc question. (Scope: in-repo `vfkb` only; vafi/vtaskforge
 work stays out-of-scope/HITL per H2.)
 
-### ▶ Current action — **build the accepted v2 backbone on `v2`** (acceptances 2026-07-06)
+### ▶ Current action — **P10 trust-and-cadence phase** (ratified 2026-07-18)
+
+*Why a re-ratification:* the previous Current action ("build the v2 backbone on `v2`") **shipped**
+on 2026-07-08 (PR #86, merge `5bb087e`), and the frontier has since been maintenance-shaped —
+four plugin releases, npm 0.3.0/0.4.0, ADR-0064 durable capture. The roadmap said otherwise for ten
+days, so this section is the authority again. Per §4's own protocol, the "what's next?" urge is the
+signal to re-ratify rather than to poll. **§1's status snapshot (2026-06-28) is stale and is
+superseded by this section** until it is rewritten.
+
+**The order, and the reasoning for it:**
+
+**P10-a — the doctor trust cluster** *(first; four issues, one file, one PR)*.
+[#186](https://github.com/vilosource/vfkb/issues/186) double-wiring WARN false positive ·
+[#188](https://github.com/vilosource/vfkb/issues/188) inaccurate manifest message ·
+[#206](https://github.com/vilosource/vfkb/issues/206) journal-gitignore false-warn when the brain
+lives outside the repo · [#212](https://github.com/vilosource/vfkb/issues/212) `engine_commit: "dev"`
+sentinel read as engine drift. All four are the same defect class — `vfkb doctor` reporting problems
+that are not problems. **This is first because doctor is the tool a consumer runs to find out whether
+their wiring is healthy, and a check that cries wolf trains people to ignore it** — the same
+desensitisation argument the durable-claim Brake's design rests on. #212 additionally spans
+`manifest.ts`/`broadcast.ts`: a build that does not know its own commit should not stamp a brain with
+the sentinel, and a sentinel on either side of the comparison means "cannot compare", not "drift".
+*Proof form:* unit tests. Doctor is a structural invariant, not an agent-observable capability — the
+inner gate is the correct gate here (ADR-0029 "proof fits the capability"), and **no metered L4 is
+required**.
+
+**P10-b — release cadence, standing rule.** Release PRs need no approval and no re-review
+(operator ruling 2026-07-18, brain `872c1ff0ff90`, CLAUDE.md commit rules). The one judgment left is
+**cadence**, and it is a real one: [#211](https://github.com/vilosource/vfkb/pull/211) (0.4.1) is
+**deliberately held** — `package.json` ships `files: ["dist"]` and that release contains only docs and
+process tooling, so publishing it would push a byte-identical artifact under a new number. **Hold a
+release PR until something under `dist/` moves, then let it roll up.** P10-a will supply that change.
+
+**P10-c — ADR-0065 write-health loudness.** §0 the Tier-0 MCP-disconnect probe *first* (what does the
+agent actually observe when the plugin MCP server dies mid-session?), then §1 the injected
+CLI-fallback line and §2a the MCP error-mapping unit floor. **Blocked on a tracking question:** the
+handoff points at #176, which is **closed** — so this initiative currently has no open tracking issue.
+Resolve that before starting, or the work silently leaves the queue.
+
+**P10-d — plugin release automation** ([#25](https://github.com/vilosource/vfkb-claude-plugin/issues/25)
+under umbrella [#26](https://github.com/vilosource/vfkb-claude-plugin/issues/26)). P10-b settles this
+*in policy*; #25 asks to make it *mechanical*. That is the same prose→Brake move as ADR-0050 and the
+durable-claim hook, so it should be built with the same shape: a deterministic gate, watched failing.
+
+**Housekeeping (any time, no sequencing dependency):** `.vfkb/.lock` is ignored in vfkb's own
+`.gitignore` but in none of the 10 consumers (latent, not live — the lock is transient and was observed
+absent on disk everywhere; brain `ec437170420f`) · the "only entries.jsonl is committed" comment is
+false in 9 consumers **and in this repo's CLAUDE.md**, and it is what left ViloGate without an engine
+stamp (brain `c489198cce13`) · `vfwb` `9dbdf4a` and `viloforge-infra` `98d8dd1` still hold unpushed
+migration commits on in-flight branches · [#214](https://github.com/vilosource/vfkb/issues/214) hook
+stdin fail-open, to be fixed as a **convention** across `src/cli.ts`'s hook I/O, not in one file.
+
+**Unchanged and still gated:** S1 search-robustness (BM25-first amendment), P1 Claude-Code per-turn
+push (external-blocked), Track-9 Q4 + bi-temporal. **Parked:** H2 fleet wiring, H3 global tier.
+
+*(2026-07-06 v2-backbone state preserved below.)*
+
+### ▶ (prior) Current action — **build the accepted v2 backbone on `v2`** (acceptances 2026-07-06)
 **The per-initiative execution tracker is [V2-ROADMAP.md](V2-ROADMAP.md)** (created 2026-07-06) —
 statuses, DoD gates, and deviations are tracked there; this section stays the frontier pointer.
 **All eight pending RFCs were ACCEPTED by the operator on 2026-07-06** (→ ADR-0037..0044; RFC-014's
