@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.1](https://github.com/vilosource/vfkb/compare/v0.4.0...v0.4.1) (2026-07-18)
+
+
+### Bug Fixes
+
+* **doctor:** P10-a trust cluster — four false positives ([#186](https://github.com/vilosource/vfkb/issues/186), [#188](https://github.com/vilosource/vfkb/issues/188), [#206](https://github.com/vilosource/vfkb/issues/206), [#212](https://github.com/vilosource/vfkb/issues/212)) ([#216](https://github.com/vilosource/vfkb/issues/216)) ([372bab1](https://github.com/vilosource/vfkb/commit/372bab1569a156421987cc336fc8000fe20adbb8))
+
+
+### Documentation
+
+* **claude:** release PRs ride the autonomous grant — merge-and-publish chain, no approval hold ([#210](https://github.com/vilosource/vfkb/issues/210)) ([db94ec6](https://github.com/vilosource/vfkb/commit/db94ec65885495c1c8136bf6a9568d04b42b57aa))
+* **roadmap:** re-ratify — P10 trust-and-cadence phase (2026-07-18) ([#215](https://github.com/vilosource/vfkb/issues/215)) ([de11c68](https://github.com/vilosource/vfkb/commit/de11c6802e4914b76af84cf141bd46d97aa6efb8))
+
 ## [0.4.0](https://github.com/vilosource/vfkb/compare/v0.3.0...v0.4.0) (2026-07-18)
 
 
