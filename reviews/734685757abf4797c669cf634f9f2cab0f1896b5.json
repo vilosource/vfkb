@@ -28,7 +28,7 @@
     },
     {
       "id": "B3",
-      "severity": "fixed",
+      "severity": "blocking",
       "status": "fixed",
       "summary": "2 of RFC-035 \u00a70's 3 required outputs were missing: the retry was conditional so never fired in kill mode (now unconditional, with its own sentinel, and it landed); 'whether kb_* tools remain listed' proved NOT observable from the transcript at all (init enumerates only the 29 built-ins; the sole MCP signal is mcp_servers[].status='pending') \u2014 recorded as a gap in the observation surface, reviewer independently confirmed no other event carries the list",
       "acceptedBy": null
