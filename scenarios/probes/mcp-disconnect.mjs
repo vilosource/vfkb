@@ -41,6 +41,7 @@ const MODE = process.argv.includes('--mode') ? process.argv[process.argv.indexOf
 
 const SENTINEL_OK = 'PROBE-ALIVE-A7';
 const SENTINEL_DEAD = 'PROBE-DEAD-B9';
+const SENTINEL_RETRY = 'PROBE-RETRY-C3';
 
 function sandbox() {
   const root = mkdtempSync(join(tmpdir(), 'vfkb-probe-mcp-'));
@@ -84,18 +85,28 @@ Do these steps IN ORDER and report literally what happens at each one.
 
 1. Call kb_add with type=fact and text="${SENTINEL_OK}".
 2. Call kb_add AGAIN with type=fact and text="${SENTINEL_DEAD}".
-3. If step 2 failed, try it ONE more time.
+3. Call kb_add a THIRD time with type=fact and text="${SENTINEL_RETRY}" — do this
+   ALWAYS, whether or not step 2 succeeded.
 
 Then answer these four questions exactly, one per line:
 OBSERVED_1: <did step 1 succeed? yes/no>
 OBSERVED_2: <did step 2 succeed? yes/no — if it failed, quote the error verbatim>
 TOOLS_STILL_LISTED: <are the kb_* tools still offered to you? yes/no/unsure>
-RETRY_RECONNECTED: <did the retry in step 3 work? yes/no/not-attempted>
+RETRY_RECONNECTED: <did step 3 work? yes/no>
 
 Do not speculate. Report only what you actually observed.`;
 
 function run() {
   const s = sandbox();
+  try {
+    return probe(s);
+  } finally {
+    // The sandbox holds a real OAuth credential — remove it even if we threw.
+    if (!KEEP) rmSync(s.root, { recursive: true, force: true });
+  }
+}
+
+function probe(s) {
   const started = new Date().toISOString();
   let raw = '';
   let spawnError = null;
@@ -145,8 +156,30 @@ function run() {
     }
     for (const v of Object.values(node)) walk(v);
   };
+  // B3a: §0 requires "whether kb_* tools remain listed". The system init events
+  // carry the real MCP tool list; a first cut counted those events and threw the
+  // payload away, leaving the answer resting on the agent's self-report — which
+  // this probe's own doc says must not be trusted as observation.
+  const toolListSnapshots = [];
   for (const ev of events) {
     eventTypes[ev.type ?? '?'] = (eventTypes[ev.type ?? '?'] ?? 0) + 1;
+    // The tool list may be namespaced (mcp__<server>__kb_add) or hang off a
+    // different key than `tools`. Record the SHAPE alongside the match so a zero
+    // count is diagnosable rather than mistaken for "the tools vanished".
+    const tools = ev?.tools ?? ev?.mcp_servers?.flatMap?.((m) => m?.tools ?? []) ?? null;
+    if (Array.isArray(tools)) {
+      const names = tools.map((t) => (typeof t === 'string' ? t : t?.name)).filter(Boolean);
+      const kb = names.filter((n) => /kb_/.test(n));
+      toolListSnapshots.push({
+        type: ev.type,
+        total: tools.length,
+        kbTools: kb.length,
+        kbNames: kb.slice(0, 9),
+        sampleNames: names.slice(0, 12),
+        mcpServers: Array.isArray(ev?.mcp_servers) ? ev.mcp_servers.map((m) => ({ name: m?.name, status: m?.status })) : null,
+        eventKeys: Object.keys(ev).slice(0, 12),
+      });
+    }
     walk(ev);
   }
   // Only results belonging to a kb_* call are evidence about the MCP face.
@@ -159,13 +192,16 @@ function run() {
 
   const record = {
     probe: 'mcp-disconnect',
-    recordVersion: 1,
+    recordVersion: 2,
     adr: 'ADR-0065 §0',
     generated: started,
     cliVersion: (() => { try { return execFileSync('claude', ['--version'], { encoding: 'utf8' }).trim(); } catch { return 'unknown'; } })(),
     model: MODEL,
     mode: MODE,
-    method: 'real vfkb-mcp proxied by scenarios/probes/mcp-disconnect-server.mjs, SIGKILLed after the 1st tools/call',
+    method:
+      MODE === 'hang'
+        ? 'real vfkb-mcp proxied by scenarios/probes/mcp-disconnect-server.mjs; the BACKEND is SIGKILLed after the 1st tools/call while the wrapper stays alive holding the pipe open — the process never exits, so nothing signals a restart'
+        : 'real vfkb-mcp proxied by scenarios/probes/mcp-disconnect-server.mjs; the whole server EXITS after the 1st tools/call, severing the transport',
     spawnError,
     // OBSERVED — from the transcript, not from the agent's prose.
     observed: {
@@ -175,6 +211,8 @@ function run() {
       allToolResultCount: toolResults.length,
       anyResultFlaggedError: kbResults.some((r) => r.isError),
       kbResultsMatched: kbResults.length,
+      toolListSnapshots,
+      retrySentinelLanded: brainBody.includes(SENTINEL_RETRY),
       aliveSentinelLanded: brainBody.includes(SENTINEL_OK),
       deadSentinelLanded: brainBody.includes(SENTINEL_DEAD),
       serverEvents: probeLog,
@@ -195,7 +233,10 @@ function run() {
     // Ground truth from the brain file + our own server log — independent of any
     // transcript parsing.
     serverDied: probeLog.some((l) => l.includes('"dying"')),
-    serverRespawned: probeLog.filter((l) => l.includes('"dying"')).length > 1,
+    // From startup events, not from a second death: a respawn that serves no
+    // further call would otherwise read as false (review m1).
+    serverStarts: probeLog.filter((l) => l.includes('"starting"')).length,
+    serverRespawned: probeLog.filter((l) => l.includes('"starting"')).length > 1,
     writeSilentlyLost: record.observed.aliveSentinelLanded && !record.observed.deadSentinelLanded && !record.observed.anyResultFlaggedError,
     agentSawAnError: record.observed.anyResultFlaggedError,
     // If no kb_* tool_result was matched, the agent-observation half rests on
@@ -218,7 +259,6 @@ function run() {
   console.log(`  agent saw an error        : ${record.verdict.agentSawAnError}${record.verdict.agentObservationUnverified ? '  (UNVERIFIED — no kb result captured)' : ''}`);
   console.log(`  server died / respawned   : ${record.verdict.serverDied} / ${record.verdict.serverRespawned}`);
   console.log(`\nrecord → ${out.replace(REPO + '/', '')}`);
-  if (!KEEP) rmSync(s.root, { recursive: true, force: true });
 }
 
 run();

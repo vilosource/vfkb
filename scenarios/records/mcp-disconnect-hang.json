@@ -1,37 +1,82 @@
 {
   "probe": "mcp-disconnect",
-  "recordVersion": 1,
+  "recordVersion": 2,
   "adr": "ADR-0065 §0",
-  "generated": "2026-07-19T07:48:55.446Z",
+  "generated": "2026-07-19T09:02:23.178Z",
   "cliVersion": "2.1.215 (Claude Code)",
   "model": "claude-haiku-4-5-20251001",
   "mode": "hang",
-  "method": "real vfkb-mcp proxied by scenarios/probes/mcp-disconnect-server.mjs, SIGKILLed after the 1st tools/call",
+  "method": "real vfkb-mcp proxied by scenarios/probes/mcp-disconnect-server.mjs; the BACKEND is SIGKILLed after the 1st tools/call while the wrapper stays alive holding the pipe open — the process never exits, so nothing signals a restart",
   "spawnError": "spawnSync claude ETIMEDOUT",
   "observed": {
     "kbToolCallsAttempted": 2,
     "eventTypes": {
-      "system": 38,
+      "system": 52,
       "rate_limit_event": 1,
-      "assistant": 16,
-      "user": 9
+      "assistant": 17,
+      "user": 9,
+      "tool_progress": 6
     },
     "toolResults": [
       {
-        "forId": "toolu_01JfkUyZM6W2J2wnwqHgtcYJ",
+        "forId": "toolu_01MtdtSGXq4xTU98piquLHj1",
         "isError": false,
-        "text": "added 3963fe17511b [fact agent/unverified] PROBE-ALIVE-A7"
+        "text": "added 5c8b0af2a193 [fact agent/unverified] PROBE-ALIVE-A7"
       }
     ],
     "allToolResultCount": 7,
     "anyResultFlaggedError": false,
     "kbResultsMatched": 1,
+    "toolListSnapshots": [
+      {
+        "type": "system",
+        "total": 29,
+        "kbTools": 0,
+        "kbNames": [],
+        "sampleNames": [
+          "Task",
+          "Bash",
+          "CronCreate",
+          "CronDelete",
+          "CronList",
+          "DesignSync",
+          "Edit",
+          "EnterWorktree",
+          "ExitWorktree",
+          "Monitor",
+          "NotebookEdit",
+          "PushNotification"
+        ],
+        "mcpServers": [
+          {
+            "name": "vfkb",
+            "status": "pending"
+          }
+        ],
+        "eventKeys": [
+          "type",
+          "subtype",
+          "cwd",
+          "session_id",
+          "tools",
+          "mcp_servers",
+          "model",
+          "permissionMode",
+          "slash_commands",
+          "apiKeySource",
+          "claude_code_version",
+          "output_style"
+        ]
+      }
+    ],
+    "retrySentinelLanded": false,
     "aliveSentinelLanded": true,
     "deadSentinelLanded": false,
     "serverEvents": [
-      "{\"event\":\"tool_call_seen\",\"at\":\"2026-07-19T07:49:20.849Z\",\"n\":1,\"tool\":\"kb_add\"}",
-      "{\"event\":\"dying\",\"at\":\"2026-07-19T07:49:20.856Z\",\"mode\":\"hang\",\"afterToolCalls\":1}",
-      "{\"event\":\"backend_exit\",\"at\":\"2026-07-19T07:49:20.859Z\",\"code\":null,\"signal\":\"SIGKILL\"}"
+      "{\"event\":\"starting\",\"at\":\"2026-07-19T09:02:23.992Z\",\"pid\":1128876,\"dieAfter\":1,\"mode\":\"hang\"}",
+      "{\"event\":\"tool_call_seen\",\"at\":\"2026-07-19T09:03:01.849Z\",\"n\":1,\"tool\":\"kb_add\"}",
+      "{\"event\":\"dying\",\"at\":\"2026-07-19T09:03:01.855Z\",\"mode\":\"hang\",\"afterToolCalls\":1}",
+      "{\"event\":\"backend_exit\",\"at\":\"2026-07-19T09:03:01.859Z\",\"code\":null,\"signal\":\"SIGKILL\"}"
     ]
   },
   "agentAnswers": {
@@ -43,6 +88,7 @@
   "finalText": "",
   "verdict": {
     "serverDied": true,
+    "serverStarts": 1,
     "serverRespawned": false,
     "writeSilentlyLost": true,
     "agentSawAnError": false,

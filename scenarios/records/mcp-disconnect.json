@@ -1,56 +1,78 @@
 {
   "probe": "mcp-disconnect",
-  "recordVersion": 1,
+  "recordVersion": 2,
   "adr": "ADR-0065 §0",
-  "generated": "2026-07-19T07:46:47.206Z",
+  "generated": "2026-07-19T08:59:21.598Z",
   "cliVersion": "2.1.215 (Claude Code)",
   "model": "claude-haiku-4-5-20251001",
-  "method": "real vfkb-mcp proxied by scenarios/probes/mcp-disconnect-server.mjs, SIGKILLed after the 1st tools/call",
+  "mode": "kill",
+  "method": "real vfkb-mcp proxied by scenarios/probes/mcp-disconnect-server.mjs; the whole server EXITS after the 1st tools/call, severing the transport",
   "spawnError": null,
   "observed": {
-    "kbToolCallsAttempted": 2,
+    "kbToolCallsAttempted": 3,
     "eventTypes": {
-      "system": 88,
+      "system": 74,
       "rate_limit_event": 1,
-      "assistant": 18,
+      "assistant": 22,
       "user": 9,
       "result": 1
     },
     "toolResults": [
       {
-        "forId": "toolu_01Pp1gdT5K54UFJzTrN8Zx7N",
+        "forId": "toolu_01PjEwftjXwTwznFMXd974Qo",
         "isError": false,
-        "text": "added 639112d45262 [fact agent/unverified] PROBE-ALIVE-A7"
+        "text": "added 6206d4fa6b92 [fact agent/unverified] PROBE-ALIVE-A7"
       },
       {
-        "forId": "toolu_01BezqSFzmNpWQMfA5mEXimj",
+        "forId": "toolu_01J3UoTy9zgaWLwUoHFrVKsz",
         "isError": false,
-        "text": "added 894f5eac2e51 [fact agent/unverified] PROBE-DEAD-B9"
+        "text": "added 8ad681e1c53c [fact agent/unverified] PROBE-DEAD-B9"
+      },
+      {
+        "forId": "toolu_016kxVRuBfTQ4TtVGYx7koWf",
+        "isError": false,
+        "text": "added 6adb33694adf [fact agent/unverified] PROBE-RETRY-C3"
       }
     ],
-    "allToolResultCount": 8,
+    "allToolResultCount": 9,
     "anyResultFlaggedError": false,
-    "kbResultsMatched": 2,
+    "kbResultsMatched": 3,
+    "toolListSnapshots": [
+      {
+        "type": "system",
+        "total": 29,
+        "kbTools": 0,
+        "kbNames": []
+      }
+    ],
+    "retrySentinelLanded": true,
     "aliveSentinelLanded": true,
     "deadSentinelLanded": true,
     "serverEvents": [
-      "{\"event\":\"tool_call_seen\",\"at\":\"2026-07-19T07:47:40.884Z\",\"n\":1,\"tool\":\"kb_add\"}",
-      "{\"event\":\"dying\",\"at\":\"2026-07-19T07:47:40.892Z\",\"mode\":\"kill\",\"afterToolCalls\":1}",
-      "{\"event\":\"backend_exit\",\"at\":\"2026-07-19T07:47:40.898Z\",\"code\":null,\"signal\":\"SIGKILL\"}",
-      "{\"event\":\"tool_call_seen\",\"at\":\"2026-07-19T07:47:41.414Z\",\"n\":1,\"tool\":\"kb_add\"}",
-      "{\"event\":\"dying\",\"at\":\"2026-07-19T07:47:41.419Z\",\"mode\":\"kill\",\"afterToolCalls\":1}",
-      "{\"event\":\"backend_exit\",\"at\":\"2026-07-19T07:47:41.424Z\",\"code\":null,\"signal\":\"SIGKILL\"}"
+      "{\"event\":\"starting\",\"at\":\"2026-07-19T08:59:24.161Z\",\"pid\":1102946,\"dieAfter\":1,\"mode\":\"kill\"}",
+      "{\"event\":\"tool_call_seen\",\"at\":\"2026-07-19T09:00:06.814Z\",\"n\":1,\"tool\":\"kb_add\"}",
+      "{\"event\":\"dying\",\"at\":\"2026-07-19T09:00:06.822Z\",\"mode\":\"kill\",\"afterToolCalls\":1}",
+      "{\"event\":\"backend_exit\",\"at\":\"2026-07-19T09:00:06.826Z\",\"code\":null,\"signal\":\"SIGKILL\"}",
+      "{\"event\":\"starting\",\"at\":\"2026-07-19T09:00:14.079Z\",\"pid\":1116204,\"dieAfter\":1,\"mode\":\"kill\"}",
+      "{\"event\":\"tool_call_seen\",\"at\":\"2026-07-19T09:00:14.282Z\",\"n\":1,\"tool\":\"kb_add\"}",
+      "{\"event\":\"dying\",\"at\":\"2026-07-19T09:00:14.300Z\",\"mode\":\"kill\",\"afterToolCalls\":1}",
+      "{\"event\":\"backend_exit\",\"at\":\"2026-07-19T09:00:14.307Z\",\"code\":null,\"signal\":\"SIGKILL\"}",
+      "{\"event\":\"starting\",\"at\":\"2026-07-19T09:00:19.294Z\",\"pid\":1117051,\"dieAfter\":1,\"mode\":\"kill\"}",
+      "{\"event\":\"tool_call_seen\",\"at\":\"2026-07-19T09:00:19.490Z\",\"n\":1,\"tool\":\"kb_add\"}",
+      "{\"event\":\"dying\",\"at\":\"2026-07-19T09:00:19.497Z\",\"mode\":\"kill\",\"afterToolCalls\":1}",
+      "{\"event\":\"backend_exit\",\"at\":\"2026-07-19T09:00:19.501Z\",\"code\":null,\"signal\":\"SIGKILL\"}"
     ]
   },
   "agentAnswers": {
     "OBSERVED_1": "yes",
     "OBSERVED_2": "yes",
     "TOOLS_STILL_LISTED": "yes",
-    "RETRY_RECONNECTED": "not-attempted"
+    "RETRY_RECONNECTED": "yes"
   },
-  "finalText": "Based on the agent's execution, here are my observations:\n\nOBSERVED_1: yes\nOBSERVED_2: yes\nTOOLS_STILL_LISTED: yes\nRETRY_RECONNECTED: not-attempted",
+  "finalText": "All three calls have completed. Here are the results:\n\nOBSERVED_1: yes\nOBSERVED_2: yes\nTOOLS_STILL_LISTED: yes\nRETRY_RECONNECTED: yes",
   "verdict": {
     "serverDied": true,
+    "serverStarts": 3,
     "serverRespawned": true,
     "writeSilentlyLost": false,
     "agentSawAnError": false,

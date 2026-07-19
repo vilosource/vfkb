@@ -43,6 +43,12 @@ const log = (event, extra = {}) => {
   }
 };
 
+// B4 (review of #227): without a startup event, a fresh spawn and a second
+// pre-existing instance are indistinguishable in the log — both would log their
+// first call as n:1. This line is what turns "a second instance served it" into
+// "the harness spawned a new one".
+log('starting', { pid: process.pid, dieAfter: DIE_AFTER, mode: MODE });
+
 const child = spawn(process.execPath, [SERVER], {
   stdio: ['pipe', 'pipe', 'inherit'],
   env: process.env,
