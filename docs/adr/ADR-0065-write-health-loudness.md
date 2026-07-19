@@ -29,7 +29,19 @@ recorded findings gate §2's doctor write-probe shape and any §3 upstream escal
 injected CLI-fallback line) and §2a (the MCP error-mapping unit floor) are probe-independent
 and buildable immediately.
 
-## Status honesty (ADR-0050/0051)
+## Build status — tracked in [#176](https://github.com/vilosource/vfkb/issues/176), not here
 
-**Decided, NOT yet built.** §0's probe record and the §1/§2a deterministic tests are the first
-build artifacts; nothing here is claimable as done until they exist and are named.
+> **Maintainer-authorized correction, 2026-07-19.** This section previously asserted
+> *"Decided, NOT yet built"* for the whole ADR. That is now wrong in **both** directions:
+> §1 and §2a were built and shipped in plugin v0.11.0, while §0 and §2 remain unbuilt. A
+> single frozen sentence cannot describe a decision that ships in parts. ADR-0001 forbids
+> editing a decided body, so the operator made an explicit exception rather than leave the
+> record misleading.
+>
+> **The lesson:** an ADR's status tracks the *decision's* lifecycle, never the
+> *implementation's* — build state is mutable and belongs in the tracking issue, the roadmap,
+> the brain, and machine-derived files. Enforced from now on by `scripts/adr-lint.mjs`.
+
+The evidence rule this decision carries is unchanged and still binding: nothing here is
+claimable as done until §0's probe record and the §1/§2a deterministic tests exist **and are
+named** (ADR-0050/0051).

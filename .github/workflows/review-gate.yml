@@ -27,6 +27,15 @@ jobs:
       - name: The gate is connected — negative checks go red
         run: node scripts/review-gate.selftest.mjs
 
+      # An ADR records a DECISION; build state is mutable and belongs in the
+      # tracker. docs/adr/README.md already said so and three ADRs did it anyway
+      # (ADR-0064 was false within a day) — hence a Brake, not a sentence.
+      - name: The ADR lint is connected — negative checks go red
+        run: node scripts/adr-lint.selftest.mjs
+
+      - name: ADRs do not assert their own build state
+        run: node scripts/adr-lint.mjs
+
       # Same discipline for the durable-claim Brake (brain gotcha a1aea707436c):
       # it must speak on artifact writes, stay silent on ordinary work, and fail
       # open on garbage. A hook that always speaks gets read past, so the silence

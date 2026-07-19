@@ -17,7 +17,7 @@ timestamp: 2026-07-08
   wiring the gate originally validated), issue
   [vfkb#82](https://github.com/vilosource/vfkb/issues/82) (the staleness finding),
   [vfkb-claude-plugin#6](https://github.com/vilosource/vfkb-claude-plugin/issues/6) (the
-  relocated check, tracked — **not yet built**)
+  relocated check — see that issue for its state; it has since been closed)
 
 ## Context
 

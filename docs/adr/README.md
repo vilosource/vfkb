@@ -19,6 +19,19 @@ Immutable records of significant vfkb architecture decisions, in
   changed), `Amended by ADR-XXXX`. The only permitted edit to a decided ADR is this
   one-line status pointer.
 - Status lifecycle: `Proposed → Accepted → Amended by ADR-XXXX | Deprecated | Superseded by ADR-XXXX`.
+- **That status is the DECISION's lifecycle, never the implementation's.** `Accepted` means
+  *we decided this*, not *we built this*. **Do not write build state into an ADR** — no
+  "Status honesty" section, no "Decided, NOT yet built". It is mutable state in an immutable
+  document, so it rots: ADR-0064 said "NOT yet built" while the journal was shipping to all 12
+  consumers, and ADR-0065's single frozen sentence could not describe a decision that ships in
+  parts. Correcting them needed an explicit maintainer exception to the immutability rule
+  (2026-07-19).
+  Build state belongs where it is *allowed* to change — the tracking issue,
+  [the roadmap](../H4-DEVELOPMENT-ROADMAP.md), the brain, and machine-derived files like the
+  plugin's `DELIVERY-STATUS.json`. Have the ADR **point** there instead:
+  `## Build status — tracked in #NNN, not here`.
+  Enforced by [`scripts/adr-lint.mjs`](../../scripts/adr-lint.mjs) in CI, because this rule was
+  already written here and got skipped three times anyway.
 - This log is the **authoritative decision record**; `vfkb-DESIGN.md` is the
   narrative that points into it. The narrative's locked `Dn`/`D-On` decisions
   migrate here over time.
