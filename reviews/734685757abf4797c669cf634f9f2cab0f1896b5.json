@@ -1,0 +1,103 @@
+{
+  "recordVersion": 1,
+  "sha": "734685757abf4797c669cf634f9f2cab0f1896b5",
+  "governing": [
+    "docs/adr/ADR-0065-write-health-loudness.md",
+    "docs/rfc/RFC-035-write-health-loudness.md"
+  ],
+  "reviewer": {
+    "agent": "general-purpose",
+    "model": "opus",
+    "rounds": 2
+  },
+  "generated": "2026-07-19T10:30:00Z",
+  "findings": [
+    {
+      "id": "B1",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "the doc's load-bearing sentence quoted a DIFFERENT run than it shipped \u2014 '~17 s apart, the second serving the retry' vs 516 ms and RETRY_RECONNECTED 'not-attempted' in the committed record; the figure was real but from an earlier run, narrated from memory. Doc rewritten from the records with a standing instruction not to restate figures from memory",
+      "acceptedBy": null
+    },
+    {
+      "id": "B2",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "the kill record was not produced by the committed script (missing the mode key), and RECURRED one commit later (missing sampleNames/mcpServers/eventKeys) while asserting recordVersion 2 \u2014 a false provenance claim on the same file. Kill re-run; both records now carry identical shapes",
+      "acceptedBy": null
+    },
+    {
+      "id": "B3",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "2 of RFC-035 \u00a70's 3 required outputs were missing: the retry was conditional so never fired in kill mode (now unconditional, with its own sentinel, and it landed); 'whether kb_* tools remain listed' proved NOT observable from the transcript at all (init enumerates only the 29 built-ins; the sole MCP signal is mcp_servers[].status='pending') \u2014 recorded as a gap in the observation surface, reviewer independently confirmed no other event carries the list",
+      "acceptedBy": null
+    },
+    {
+      "id": "B4",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "'Claude Code transparently respawns a crashed server' was inferred from a second n:1 in the log, indistinguishable from a second pre-existing instance; the wrapper now logs a startup event with its pid, and the re-run shows 3 distinct spawns with 3 distinct pids each strictly after the prior exit \u2014 reviewer verified no third explanation survives",
+      "acceptedBy": null
+    },
+    {
+      "id": "M1",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "the record's method string claimed SIGKILL-after-first-call in BOTH modes, contradicting the hang column's whole point (the wrapper stays alive holding the pipe); now mode-aware",
+      "acceptedBy": null
+    },
+    {
+      "id": "M2",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "'no error surfaced' in hang mode is bounded by the probe's own 300s timeout, not a contract; now qualified in the findings table rather than only in the limits section",
+      "acceptedBy": null
+    },
+    {
+      "id": "m1",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "respawn was inferred from a second DEATH, so a respawn serving no further call read as false; now counted from startup events",
+      "acceptedBy": null
+    },
+    {
+      "id": "m4",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "sandbox cleanup was not in a finally; the sandbox holds a real OAuth credential and an exception path must not leave it in /tmp",
+      "acceptedBy": null
+    },
+    {
+      "id": "m6",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "the hang row said the retry 'never returned', implying a third call was made and hung; kbToolCallsAttempted is 2 \u2014 it was never ISSUED, the turn wedged on call #2",
+      "acceptedBy": null
+    },
+    {
+      "id": "m2",
+      "severity": "minor",
+      "status": "accepted",
+      "summary": "the agentObservationUnverified flag fires only at zero kb results, so a PARTIAL harvest raises no flag; mitigated because the hang conclusion rests on the brain file, independent of the parser",
+      "acceptedBy": "vilosource"
+    },
+    {
+      "id": "m3",
+      "severity": "minor",
+      "status": "accepted",
+      "summary": "the wrapper's death trigger assumes the next stdout chunk belongs to the Nth request; safe under serial request/response, which the reviewer exercised directly against a raw SDK client in both modes",
+      "acceptedBy": "vilosource"
+    },
+    {
+      "id": "m5",
+      "severity": "minor",
+      "status": "accepted",
+      "summary": "no dedupe by tool_use_id, so a result echoed in two events would double-count; unexercised risk (3 uses / 3 results observed)",
+      "acceptedBy": "vilosource"
+    }
+  ],
+  "findingsCount": 12,
+  "ruledOut": [],
+  "verdict": "MERGE"
+}
