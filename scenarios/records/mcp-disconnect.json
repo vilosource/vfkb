@@ -2,7 +2,7 @@
   "probe": "mcp-disconnect",
   "recordVersion": 2,
   "adr": "ADR-0065 §0",
-  "generated": "2026-07-19T08:59:21.598Z",
+  "generated": "2026-07-19T10:04:25.483Z",
   "cliVersion": "2.1.215 (Claude Code)",
   "model": "claude-haiku-4-5-20251001",
   "mode": "kill",
@@ -11,30 +11,30 @@
   "observed": {
     "kbToolCallsAttempted": 3,
     "eventTypes": {
-      "system": 74,
+      "system": 67,
       "rate_limit_event": 1,
-      "assistant": 22,
-      "user": 9,
+      "assistant": 24,
+      "user": 15,
       "result": 1
     },
     "toolResults": [
       {
-        "forId": "toolu_01PjEwftjXwTwznFMXd974Qo",
+        "forId": "toolu_01LoceUQWaeTe5TJMc2FZRvt",
         "isError": false,
-        "text": "added 6206d4fa6b92 [fact agent/unverified] PROBE-ALIVE-A7"
+        "text": "added 8ab36a6d5fd7 [fact agent/unverified] PROBE-ALIVE-A7"
       },
       {
-        "forId": "toolu_01J3UoTy9zgaWLwUoHFrVKsz",
+        "forId": "toolu_01BuaYgVhGDTKuCAhiH62CLS",
         "isError": false,
-        "text": "added 8ad681e1c53c [fact agent/unverified] PROBE-DEAD-B9"
+        "text": "added e1f880326446 [fact agent/unverified] PROBE-DEAD-B9"
       },
       {
-        "forId": "toolu_016kxVRuBfTQ4TtVGYx7koWf",
+        "forId": "toolu_01NR48PCuBJ9Sh4ywpepLWNr",
         "isError": false,
-        "text": "added 6adb33694adf [fact agent/unverified] PROBE-RETRY-C3"
+        "text": "added 1b76e889b571 [fact agent/unverified] PROBE-RETRY-C3"
       }
     ],
-    "allToolResultCount": 9,
+    "allToolResultCount": 12,
     "anyResultFlaggedError": false,
     "kbResultsMatched": 3,
     "toolListSnapshots": [
@@ -42,25 +42,59 @@
         "type": "system",
         "total": 29,
         "kbTools": 0,
-        "kbNames": []
+        "kbNames": [],
+        "sampleNames": [
+          "Task",
+          "Bash",
+          "CronCreate",
+          "CronDelete",
+          "CronList",
+          "DesignSync",
+          "Edit",
+          "EnterWorktree",
+          "ExitWorktree",
+          "Monitor",
+          "NotebookEdit",
+          "PushNotification"
+        ],
+        "mcpServers": [
+          {
+            "name": "vfkb",
+            "status": "pending"
+          }
+        ],
+        "eventKeys": [
+          "type",
+          "subtype",
+          "cwd",
+          "session_id",
+          "tools",
+          "mcp_servers",
+          "model",
+          "permissionMode",
+          "slash_commands",
+          "apiKeySource",
+          "claude_code_version",
+          "output_style"
+        ]
       }
     ],
     "retrySentinelLanded": true,
     "aliveSentinelLanded": true,
     "deadSentinelLanded": true,
     "serverEvents": [
-      "{\"event\":\"starting\",\"at\":\"2026-07-19T08:59:24.161Z\",\"pid\":1102946,\"dieAfter\":1,\"mode\":\"kill\"}",
-      "{\"event\":\"tool_call_seen\",\"at\":\"2026-07-19T09:00:06.814Z\",\"n\":1,\"tool\":\"kb_add\"}",
-      "{\"event\":\"dying\",\"at\":\"2026-07-19T09:00:06.822Z\",\"mode\":\"kill\",\"afterToolCalls\":1}",
-      "{\"event\":\"backend_exit\",\"at\":\"2026-07-19T09:00:06.826Z\",\"code\":null,\"signal\":\"SIGKILL\"}",
-      "{\"event\":\"starting\",\"at\":\"2026-07-19T09:00:14.079Z\",\"pid\":1116204,\"dieAfter\":1,\"mode\":\"kill\"}",
-      "{\"event\":\"tool_call_seen\",\"at\":\"2026-07-19T09:00:14.282Z\",\"n\":1,\"tool\":\"kb_add\"}",
-      "{\"event\":\"dying\",\"at\":\"2026-07-19T09:00:14.300Z\",\"mode\":\"kill\",\"afterToolCalls\":1}",
-      "{\"event\":\"backend_exit\",\"at\":\"2026-07-19T09:00:14.307Z\",\"code\":null,\"signal\":\"SIGKILL\"}",
-      "{\"event\":\"starting\",\"at\":\"2026-07-19T09:00:19.294Z\",\"pid\":1117051,\"dieAfter\":1,\"mode\":\"kill\"}",
-      "{\"event\":\"tool_call_seen\",\"at\":\"2026-07-19T09:00:19.490Z\",\"n\":1,\"tool\":\"kb_add\"}",
-      "{\"event\":\"dying\",\"at\":\"2026-07-19T09:00:19.497Z\",\"mode\":\"kill\",\"afterToolCalls\":1}",
-      "{\"event\":\"backend_exit\",\"at\":\"2026-07-19T09:00:19.501Z\",\"code\":null,\"signal\":\"SIGKILL\"}"
+      "{\"event\":\"starting\",\"at\":\"2026-07-19T10:04:26.626Z\",\"pid\":1305000,\"dieAfter\":1,\"mode\":\"kill\"}",
+      "{\"event\":\"tool_call_seen\",\"at\":\"2026-07-19T10:04:58.935Z\",\"n\":1,\"tool\":\"kb_add\"}",
+      "{\"event\":\"dying\",\"at\":\"2026-07-19T10:04:58.941Z\",\"mode\":\"kill\",\"afterToolCalls\":1}",
+      "{\"event\":\"backend_exit\",\"at\":\"2026-07-19T10:04:58.945Z\",\"code\":null,\"signal\":\"SIGKILL\"}",
+      "{\"event\":\"starting\",\"at\":\"2026-07-19T10:05:13.706Z\",\"pid\":1306665,\"dieAfter\":1,\"mode\":\"kill\"}",
+      "{\"event\":\"tool_call_seen\",\"at\":\"2026-07-19T10:05:13.872Z\",\"n\":1,\"tool\":\"kb_add\"}",
+      "{\"event\":\"dying\",\"at\":\"2026-07-19T10:05:13.877Z\",\"mode\":\"kill\",\"afterToolCalls\":1}",
+      "{\"event\":\"backend_exit\",\"at\":\"2026-07-19T10:05:13.882Z\",\"code\":null,\"signal\":\"SIGKILL\"}",
+      "{\"event\":\"starting\",\"at\":\"2026-07-19T10:05:30.089Z\",\"pid\":1307591,\"dieAfter\":1,\"mode\":\"kill\"}",
+      "{\"event\":\"tool_call_seen\",\"at\":\"2026-07-19T10:05:30.258Z\",\"n\":1,\"tool\":\"kb_add\"}",
+      "{\"event\":\"dying\",\"at\":\"2026-07-19T10:05:30.265Z\",\"mode\":\"kill\",\"afterToolCalls\":1}",
+      "{\"event\":\"backend_exit\",\"at\":\"2026-07-19T10:05:30.269Z\",\"code\":null,\"signal\":\"SIGKILL\"}"
     ]
   },
   "agentAnswers": {
@@ -69,7 +103,7 @@
     "TOOLS_STILL_LISTED": "yes",
     "RETRY_RECONNECTED": "yes"
   },
-  "finalText": "All three calls have completed. Here are the results:\n\nOBSERVED_1: yes\nOBSERVED_2: yes\nTOOLS_STILL_LISTED: yes\nRETRY_RECONNECTED: yes",
+  "finalText": "OBSERVED_1: yes\nOBSERVED_2: yes\nTOOLS_STILL_LISTED: yes\nRETRY_RECONNECTED: yes",
   "verdict": {
     "serverDied": true,
     "serverStarts": 3,

@@ -38,20 +38,19 @@ trusted as the observation.
 
 | | `--mode kill` (process exits) | `--mode hang` (alive, mute) |
 |---|---|---|
-| server **spawns** observed | **3** over 55.1 s | **1** |
+| server **spawns** observed | **3** over 63.5 s | **1** |
 | respawned by the harness | **yes** | **no** |
 | `kb_*` calls / results returned | 3 / **3** | 2 / **1** |
 | any result flagged `is_error` | no | no |
 | write #1 landed | yes | yes |
 | write #2 landed | **yes** | **no** |
-| retry landed | **yes** | never returned |
+| retry landed | **yes** | **never issued** — the turn wedged on call #2 |
 | agent's turn | completed normally | **timed out** (`spawnSync claude ETIMEDOUT`) |
 | **write silently lost** | **no** | **YES** |
 
 ### What this means
 
-- **A crashed server is benign on this stack.** Three distinct spawns with three distinct pids
-  were observed, each followed by an exit — so the harness genuinely *restarts* an exited stdio
+- **A crashed server is benign on this stack.** Three distinct spawns with three distinct pids were observed, each followed by an exit — so the harness genuinely *restarts* an exited stdio
   MCP server, and both the second write and the retry succeeded. Nothing is lost; building
   recovery for this would be engine theatre.
 - **A hung server is the real #176.** The process never exits, so nothing signals a restart. The
