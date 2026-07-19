@@ -1,0 +1,61 @@
+{
+  "recordVersion": 1,
+  "sha": "83bcbe2c3771e3fb9f3cf0f9f4ed2b2cc765d776",
+  "governing": [
+    "docs/adr/ADR-0001-record-decisions-as-adrs.md",
+    "docs/adr/ADR-0052-review-gate.md"
+  ],
+  "reviewer": {
+    "agent": "general-purpose",
+    "model": "opus",
+    "rounds": 1
+  },
+  "generated": "2026-07-19T07:00:00Z",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "ADR-0048's edit was unmarked while the commit claimed every correction was marked in place \u2014 a false claim about the exact discipline being established; now carries the dated exception note",
+      "acceptedBy": null
+    },
+    {
+      "id": "F2",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "lint and selftest both passed on ZERO files (ADR-0051 \u00a73 quiet-success trap); lintAll now reports a finding when it scans nothing, and the selftest asserts a floor plus an empty-dir-goes-red case",
+      "acceptedBy": null
+    },
+    {
+      "id": "F3",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "the lint did not catch ADR-0048's own cited shape ('tracked \u2014 not yet built') though the header and selftest claimed three shapes; third pattern added, which immediately found a FOURTH live stale claim in ADR-0051:134 (doctor-staleness described as Unbuilt though scenario, test and DEMONSTRATED record all exist)",
+      "acceptedBy": null
+    },
+    {
+      "id": "F4",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "two of five pinned false-positive sentences were near-verbatim rather than exact; all five now re-grepped and confirmed present verbatim",
+      "acceptedBy": null
+    },
+    {
+      "id": "F5",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "the ',\\s*not here' exemption matched any line as an escape hatch; now anchored to a heading",
+      "acceptedBy": null
+    },
+    {
+      "id": "F6",
+      "severity": "minor",
+      "status": "accepted",
+      "summary": "ADR-0064's rewrite drops its ADR-0050 evidence clause while ADR-0065 keeps its analogue \u2014 deliberate: the journal is DEMONSTRATED 3/3 with a 0/3 contrast arm so the condition is discharged, and ADR-0050 binds globally regardless",
+      "acceptedBy": "vilosource"
+    }
+  ],
+  "findingsCount": 6,
+  "ruledOut": [],
+  "verdict": "MERGE"
+}

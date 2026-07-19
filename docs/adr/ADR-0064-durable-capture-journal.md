@@ -32,9 +32,22 @@ restore report); pair-keyed prune at git HEAD with never-prune-on-uncertainty cl
 `vfkb journal purge` + `.journal/suppressed` as the redaction escape hatch; no commit-cadence
 change, no move of `entries.jsonl` out of git, no transcript mining.
 
-## Status honesty (ADR-0050/0051)
+## Build status — tracked in [#175](https://github.com/vilosource/vfkb/issues/175), not here
 
-**Decided, NOT yet built.** Build is scenario-contract-first: `scenarios/brain-durability.mjs`
-written and observed RED before the implementation lands; DEMONSTRATED ≥2/3 with the
-journal-disabled contrast arm observed failing. Until that record is committed, the only honest
-status of the capability is "built, NOT yet verified" — and before the build, simply "decided".
+> **Maintainer-authorized correction, 2026-07-19.** This section previously asserted
+> *"Decided, NOT yet built."* That became **false within a day** — the journal was built,
+> shipped as plugin v0.10.0 and delivered to all 12 consumers on 2026-07-18 — and ADR-0001
+> forbids editing a decided body, so it could not simply be fixed. The operator made an
+> explicit exception to the immutability rule to correct it rather than leave the record
+> stating the opposite of reality.
+>
+> **The lesson, not just the fix:** an ADR's status tracks the *decision's* lifecycle
+> (`Proposed → Accepted → Amended | Superseded`), never the *implementation's*. Build state is
+> mutable and belongs where it is allowed to change — the tracking issue, the roadmap, the
+> brain, and machine-derived files like `DELIVERY-STATUS.json`. Putting it in an immutable
+> document guarantees rot. Enforced from now on by `scripts/adr-lint.mjs`.
+
+The build discipline this decision requires is unchanged and still binding:
+scenario-contract-first, `scenarios/brain-durability.mjs` observed RED before the
+implementation lands, DEMONSTRATED ≥2/3 with the journal-disabled contrast arm observed
+failing.
