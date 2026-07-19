@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.6.0](https://github.com/vilosource/vfkb/compare/v0.5.0...v0.6.0) (2026-07-19)
+
+
+### Features
+
+* **doctor:** ADR-0065 §2 — write-health, scoped so it cannot be over-read ([#176](https://github.com/vilosource/vfkb/issues/176)) ([#228](https://github.com/vilosource/vfkb/issues/228)) ([492d12c](https://github.com/vilosource/vfkb/commit/492d12c1e9840120a6f8a904c7109742b6546df9))
+* **write-health:** ADR-0065 §0 — the MCP-disconnect probe, and it inverts the design ([#176](https://github.com/vilosource/vfkb/issues/176)) ([#227](https://github.com/vilosource/vfkb/issues/227)) ([de37f09](https://github.com/vilosource/vfkb/commit/de37f09af95e34f17eec6a034768149382e31100))
+
+
+### Bug Fixes
+
+* **adr:** correct three stale build-status claims, and Brake the practice ([#226](https://github.com/vilosource/vfkb/issues/226)) ([2c65862](https://github.com/vilosource/vfkb/commit/2c658623a47cb3bdabc2ac016c9acd0c5807530f))
+
+
+### Documentation
+
+* **rfc:** RFC-036 — machine-produced release evidence (plugin [#24](https://github.com/vilosource/vfkb/issues/24)) ([#224](https://github.com/vilosource/vfkb/issues/224)) ([cfc01a0](https://github.com/vilosource/vfkb/commit/cfc01a0f82123a37f44b09c3b1f92a6c30018f7b))
+
 ## [0.5.0](https://github.com/vilosource/vfkb/compare/v0.4.1...v0.5.0) (2026-07-18)
 
 
