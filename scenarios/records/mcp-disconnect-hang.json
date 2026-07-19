@@ -1,0 +1,51 @@
+{
+  "probe": "mcp-disconnect",
+  "recordVersion": 1,
+  "adr": "ADR-0065 §0",
+  "generated": "2026-07-19T07:48:55.446Z",
+  "cliVersion": "2.1.215 (Claude Code)",
+  "model": "claude-haiku-4-5-20251001",
+  "mode": "hang",
+  "method": "real vfkb-mcp proxied by scenarios/probes/mcp-disconnect-server.mjs, SIGKILLed after the 1st tools/call",
+  "spawnError": "spawnSync claude ETIMEDOUT",
+  "observed": {
+    "kbToolCallsAttempted": 2,
+    "eventTypes": {
+      "system": 38,
+      "rate_limit_event": 1,
+      "assistant": 16,
+      "user": 9
+    },
+    "toolResults": [
+      {
+        "forId": "toolu_01JfkUyZM6W2J2wnwqHgtcYJ",
+        "isError": false,
+        "text": "added 3963fe17511b [fact agent/unverified] PROBE-ALIVE-A7"
+      }
+    ],
+    "allToolResultCount": 7,
+    "anyResultFlaggedError": false,
+    "kbResultsMatched": 1,
+    "aliveSentinelLanded": true,
+    "deadSentinelLanded": false,
+    "serverEvents": [
+      "{\"event\":\"tool_call_seen\",\"at\":\"2026-07-19T07:49:20.849Z\",\"n\":1,\"tool\":\"kb_add\"}",
+      "{\"event\":\"dying\",\"at\":\"2026-07-19T07:49:20.856Z\",\"mode\":\"hang\",\"afterToolCalls\":1}",
+      "{\"event\":\"backend_exit\",\"at\":\"2026-07-19T07:49:20.859Z\",\"code\":null,\"signal\":\"SIGKILL\"}"
+    ]
+  },
+  "agentAnswers": {
+    "OBSERVED_1": "(not answered)",
+    "OBSERVED_2": "(not answered)",
+    "TOOLS_STILL_LISTED": "(not answered)",
+    "RETRY_RECONNECTED": "(not answered)"
+  },
+  "finalText": "",
+  "verdict": {
+    "serverDied": true,
+    "serverRespawned": false,
+    "writeSilentlyLost": true,
+    "agentSawAnError": false,
+    "agentObservationUnverified": false
+  }
+}

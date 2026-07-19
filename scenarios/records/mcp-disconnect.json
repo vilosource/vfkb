@@ -1,0 +1,59 @@
+{
+  "probe": "mcp-disconnect",
+  "recordVersion": 1,
+  "adr": "ADR-0065 §0",
+  "generated": "2026-07-19T07:46:47.206Z",
+  "cliVersion": "2.1.215 (Claude Code)",
+  "model": "claude-haiku-4-5-20251001",
+  "method": "real vfkb-mcp proxied by scenarios/probes/mcp-disconnect-server.mjs, SIGKILLed after the 1st tools/call",
+  "spawnError": null,
+  "observed": {
+    "kbToolCallsAttempted": 2,
+    "eventTypes": {
+      "system": 88,
+      "rate_limit_event": 1,
+      "assistant": 18,
+      "user": 9,
+      "result": 1
+    },
+    "toolResults": [
+      {
+        "forId": "toolu_01Pp1gdT5K54UFJzTrN8Zx7N",
+        "isError": false,
+        "text": "added 639112d45262 [fact agent/unverified] PROBE-ALIVE-A7"
+      },
+      {
+        "forId": "toolu_01BezqSFzmNpWQMfA5mEXimj",
+        "isError": false,
+        "text": "added 894f5eac2e51 [fact agent/unverified] PROBE-DEAD-B9"
+      }
+    ],
+    "allToolResultCount": 8,
+    "anyResultFlaggedError": false,
+    "kbResultsMatched": 2,
+    "aliveSentinelLanded": true,
+    "deadSentinelLanded": true,
+    "serverEvents": [
+      "{\"event\":\"tool_call_seen\",\"at\":\"2026-07-19T07:47:40.884Z\",\"n\":1,\"tool\":\"kb_add\"}",
+      "{\"event\":\"dying\",\"at\":\"2026-07-19T07:47:40.892Z\",\"mode\":\"kill\",\"afterToolCalls\":1}",
+      "{\"event\":\"backend_exit\",\"at\":\"2026-07-19T07:47:40.898Z\",\"code\":null,\"signal\":\"SIGKILL\"}",
+      "{\"event\":\"tool_call_seen\",\"at\":\"2026-07-19T07:47:41.414Z\",\"n\":1,\"tool\":\"kb_add\"}",
+      "{\"event\":\"dying\",\"at\":\"2026-07-19T07:47:41.419Z\",\"mode\":\"kill\",\"afterToolCalls\":1}",
+      "{\"event\":\"backend_exit\",\"at\":\"2026-07-19T07:47:41.424Z\",\"code\":null,\"signal\":\"SIGKILL\"}"
+    ]
+  },
+  "agentAnswers": {
+    "OBSERVED_1": "yes",
+    "OBSERVED_2": "yes",
+    "TOOLS_STILL_LISTED": "yes",
+    "RETRY_RECONNECTED": "not-attempted"
+  },
+  "finalText": "Based on the agent's execution, here are my observations:\n\nOBSERVED_1: yes\nOBSERVED_2: yes\nTOOLS_STILL_LISTED: yes\nRETRY_RECONNECTED: not-attempted",
+  "verdict": {
+    "serverDied": true,
+    "serverRespawned": true,
+    "writeSilentlyLost": false,
+    "agentSawAnError": false,
+    "agentObservationUnverified": false
+  }
+}
