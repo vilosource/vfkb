@@ -77,7 +77,7 @@ describe('vfkb init (FR-1)', () => {
     it('ignores every derived/operational path, including the lock', () => {
       initProject(root, { project: 'demo' });
       const gi = read('.gitignore');
-      for (const p of ['.vfkb/index-meta.json', '.vfkb/.sessions/', '.vfkb/.signals/', '.vfkb/.journal/', '.vfkb/.lock']) {
+      for (const p of ['.vfkb/index-meta.json', '.vfkb/.sessions/', '.vfkb/.signals/', '.vfkb/.journal/', '.vfkb/.lock', '.vfkb/.write-probe-*']) {
         expect(gi, `missing ignore rule ${p}`).toContain(p);
       }
     });
@@ -108,7 +108,7 @@ describe('vfkb init (FR-1)', () => {
           return false;
         }
       };
-      for (const p of ['.vfkb/.lock', '.vfkb/.journal/wal.jsonl', '.vfkb/index-meta.json', '.vfkb/.sessions/x', '.vfkb/.signals/y']) {
+      for (const p of ['.vfkb/.lock', '.vfkb/.journal/wal.jsonl', '.vfkb/index-meta.json', '.vfkb/.sessions/x', '.vfkb/.signals/y', '.vfkb/.write-probe-123-abc']) {
         expect(ignored(p), `${p} should be ignored`).toBe(true);
       }
       // The brain and the ADR-0030 engine stamp MUST stay committable.

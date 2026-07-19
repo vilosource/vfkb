@@ -1,0 +1,82 @@
+{
+  "recordVersion": 1,
+  "sha": "6a85f65800636fd4993cf361efbecf401802f287",
+  "governing": [
+    "docs/adr/ADR-0065-write-health-loudness.md",
+    "docs/rfc/RFC-035-write-health-loudness.md"
+  ],
+  "reviewer": {
+    "agent": "general-purpose",
+    "model": "opus",
+    "rounds": 1
+  },
+  "generated": "2026-07-19T10:50:00Z",
+  "findings": [
+    {
+      "id": "B1",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "src/doctor.ts cited scenarios/probes/mcp-disconnect.md, which existed only on the \u00a70 branch \u2014 merging \u00a72 first would have put a dangling citation on main and inverted the ratified \u00a70-gates-\u00a72 sequence. Resolved by merging the \u00a70 PR (#227, de37f09a) first and rebasing this branch onto it; the citation now resolves",
+      "acceptedBy": null
+    },
+    {
+      "id": "B2",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "THE ANTI-OVERCLAIM GUARD DID NOT GUARD. The reviewer grew the line to 'your brain is writable and capture is reaching disk' and the suite stayed 7/7 GREEN \u2014 gotcha 6ad98196b5a2 reproduced inside the PR that cites it, with the test defending the overclaim. The negatives were four phrasings I had thought of. Replaced with a shape invariant: any clause raising capture/kb_*/MCP must carry a negation. Verified the reviewer's mutation AND a fifth wording I never enumerated both go red",
+      "acceptedBy": null
+    },
+    {
+      "id": "M3",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "a FIXED probe path made concurrent doctors read each other's bytes and report 'read back different bytes' \u2014 a false alarm of silent disk corruption \u2014 with report.ok=false exiting 1. Reproduced by the reviewer at 4x200; path is now pid+random; re-verified at 4 processes x 300 runs with 0 false alarms and 0 leftover files",
+      "acceptedBy": null
+    },
+    {
+      "id": "M4",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "the doctor L4 re-pin obligation was undischarged: this adds a prominent line to the output scenarios/doctor-staleness.mjs feeds an agent, and gotcha 7bd9302b351e is an agent misreading an ADJACENT doctor line. Re-pinned rather than argued inert \u2014 DEMONSTRATED wired 3/3, contrast leaks 0/3, no trial misread the new line",
+      "acceptedBy": null
+    },
+    {
+      "id": "m1",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "the check is renamed 'write-health (filesystem)' so the scope survives skimming and truncation \u2014 the NAME is what gets quoted while the caveat trails ~200 chars behind; a test pins the scope in the name",
+      "acceptedBy": null
+    },
+    {
+      "id": "m2",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "\u00a70's timeout consequence is now named in-code rather than silently dropped: these are synchronous fs calls and a wedged NFS/FUSE mount blocks doctor; the bounded-round-trip requirement targeted an MCP-probing design this deliberately is not",
+      "acceptedBy": null
+    },
+    {
+      "id": "m3",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "comment referenced test/doctor-write-health.ts; the file is .test.ts",
+      "acceptedBy": null
+    },
+    {
+      "id": "m4",
+      "severity": "minor",
+      "status": "open",
+      "summary": "the read-back is defensive but UNGUARDED \u2014 the reviewer independently confirmed removing it leaves the suite green. It guards a real mode (full disk, an overlay that swallows writes) and stays untestable without ADR-0044's storage seam. Disclosed rather than dropped or claimed as covered",
+      "acceptedBy": null
+    },
+    {
+      "id": "m5",
+      "severity": "minor",
+      "status": "open",
+      "summary": "the probe file pattern is not gitignored, so a doctor killed between write and unlink leaves an untracked file in a repo that commits .vfkb/. OPEN at this sha \u2014 fixed in a later commit on the same PR, which carries its own record; a per-sha attestation must describe the state THIS sha had",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 9,
+  "ruledOut": [],
+  "verdict": "MERGE"
+}

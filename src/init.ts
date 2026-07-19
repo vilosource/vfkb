@@ -229,6 +229,7 @@ export function initProject(root: string, opts: { project?: string } = {}): Init
       '.vfkb/.signals/',
       '.vfkb/.journal/',
       '.vfkb/.lock',
+      '.vfkb/.write-probe-*',
     ];
     // The header the stanza should carry. The OLD one claimed "only
     // .vfkb/entries.jsonl is committed", which is FALSE — manifest.json is

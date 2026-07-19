@@ -1,0 +1,39 @@
+{
+  "recordVersion": 1,
+  "sha": "6e9609ea77d1c25d389a6f653558bad012905fe1",
+  "governing": [
+    "docs/adr/ADR-0065-write-health-loudness.md",
+    "docs/adr/ADR-0030-consumer-integration-and-distribution.md"
+  ],
+  "reviewer": {
+    "agent": "general-purpose",
+    "model": "opus",
+    "rounds": 1
+  },
+  "generated": "2026-07-19T11:10:00Z",
+  "findings": [
+    {
+      "id": "D1",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "the record for the previous sha marked m5 'fixed' while the fix lands in THIS commit \u2014 a per-sha attestation describing a state its own sha did not have. Corrected to 'open' there; this record covers the fix",
+      "acceptedBy": null
+    },
+    {
+      "id": "D2",
+      "severity": "minor",
+      "status": "accepted",
+      "summary": "the previous sha's review record rides along in this commit alongside an unrelated code fix \u2014 a governance artifact bundled with a behaviour change, defensible but a separate concern",
+      "acceptedBy": "vilosource"
+    }
+  ],
+  "findingsCount": 2,
+  "ruledOut": [
+    "pattern correctness: .vfkb/.write-probe-* matches what src/doctor.ts:555 builds (pid+random), verified live with git check-ignore",
+    "over-match: entries.jsonl and manifest.json remain un-ignored; `git ls-files | git check-ignore --stdin` is empty, so nothing tracked becomes hidden",
+    "generator half: the entry is in src/init.ts's emitted list and the tests assert the EMITTED file via real git check-ignore in a temp repo, not a source grep; deleting the line turns both red",
+    "consistency: vfkb's own .gitignore and init.ts's emitted stanza now carry the same six .vfkb/* paths in the same order \u2014 no remaining drift (the #219 class)",
+    "protocols: no AI attribution, no secrets"
+  ],
+  "verdict": "MERGE"
+}
