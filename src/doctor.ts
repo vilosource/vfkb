@@ -4,6 +4,7 @@
 // a different engine build). Deterministic; unit-tested (the inner gate per ADR-0023).
 
 import { execFileSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, realpathSync, unlinkSync } from 'node:fs';
 import { join, dirname, relative, resolve, isAbsolute } from 'node:path';
 import { SCHEMA_VERSION, ENGINE_VERSION, ENGINE_COMMIT } from './version.js';
@@ -545,9 +546,13 @@ export function runDoctor(opts: DoctorOpts): DoctorReport {
   // capture is fine" — the 6ad98196b5a2 failure, where a diagnostic was made
   // more CONFIDENT rather than more TRUE and an L4 went green because the claim
   // became more quotable. The scope caveat below is therefore part of the
-  // behaviour, not decoration, and is pinned by test/doctor-write-health.ts.
+  // behaviour, not decoration, and is pinned by test/doctor-write-health.test.ts.
   {
-    const probe = join(brainDir, '.write-probe');
+    // UNIQUE per run: with a fixed path, two doctors racing read each other's
+    // bytes and report "read back different bytes" — a false alarm of silent
+    // disk corruption, and report.ok=false exits 1 (reproduced: 4 processes x
+    // 200 runs, review of #228).
+    const probe = join(brainDir, `.write-probe-${process.pid}-${randomBytes(4).toString('hex')}`);
     const payload = `vfkb write-probe ${process.pid} ${Date.now()}`;
     let failure: string | undefined;
     try {
@@ -565,14 +570,19 @@ export function runDoctor(opts: DoctorOpts): DoctorReport {
         /* leaving the probe behind is not itself a write-health failure */
       }
     }
+    // §0 consequence #3 says a §2 design needs its own timeout or it inherits
+    // the hang. These are synchronous fs calls: on a wedged NFS/FUSE mount they
+    // block indefinitely and so does doctor. Named, not silently dropped — the
+    // bounded-round-trip requirement targets an MCP-probing design, which this
+    // deliberately is not.
     const SCOPE =
       ' — scope: this is the CLI/engine/filesystem path only; it does NOT check the MCP server, ' +
       'so it cannot tell you whether kb_* capture is reaching the brain (ADR-0065 §0: a hung MCP ' +
       'server loses a write with no error at all)';
     if (failure) {
-      add('write-health', 'fail', `cannot write to ${brainDir}: ${failure}${SCOPE}`);
+      add('write-health (filesystem)', 'fail', `cannot write to ${brainDir}: ${failure}${SCOPE}`);
     } else {
-      add('write-health', 'ok', `round-trip verified in ${brainDir}${SCOPE}`);
+      add('write-health (filesystem)', 'ok', `round-trip verified in ${brainDir}${SCOPE}`);
     }
   }
 

@@ -44,6 +44,7 @@ function setup() {
 const run = (proj: string, brain: string, cfg: string): DoctorReport =>
   runDoctor({ root: proj, brainDir: brain, env: { HOME: root, CLAUDE_CONFIG_DIR: cfg } });
 const check = (r: DoctorReport, name: string) => r.checks.find((c) => c.name === name);
+const WRITE_HEALTH = 'write-health (filesystem)';
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'vfkb-wh-'));
@@ -60,7 +61,7 @@ afterEach(() => {
 describe('ADR-0065 §2 — write-health round-trip', () => {
   it('reports ok when the engine can write to the brain dir', () => {
     const { proj, brain, cfg } = setup();
-    const c = check(run(proj, brain, cfg), 'write-health');
+    const c = check(run(proj, brain, cfg), WRITE_HEALTH);
     expect(c?.status).toBe('ok');
   });
 
@@ -68,7 +69,7 @@ describe('ADR-0065 §2 — write-health round-trip', () => {
     if (isRoot) return; // chmod is a no-op for root — skip rather than assert something untrue
     const { proj, brain, cfg } = setup();
     chmodSync(brain, 0o555);
-    const c = check(run(proj, brain, cfg), 'write-health');
+    const c = check(run(proj, brain, cfg), WRITE_HEALTH);
     chmodSync(brain, 0o755);
     expect(c?.status === 'fail' || c?.status === 'warn').toBe(true);
     expect(c?.detail ?? '').toMatch(/EACCES|permission|cannot write/i);
@@ -106,26 +107,47 @@ describe('ADR-0065 §2 — the line must not invite a false inference (gotcha 6a
   // decoration, and is pinned as such.
   it('names its scope: the CLI/engine/filesystem path', () => {
     const { proj, brain, cfg } = setup();
-    const d = check(run(proj, brain, cfg), 'write-health')?.detail ?? '';
+    const d = check(run(proj, brain, cfg), WRITE_HEALTH)?.detail ?? '';
     expect(d).toMatch(/CLI|engine|filesystem/i);
   });
 
   it('explicitly disclaims the MCP path it cannot see', () => {
     const { proj, brain, cfg } = setup();
-    const d = check(run(proj, brain, cfg), 'write-health')?.detail ?? '';
+    const d = check(run(proj, brain, cfg), WRITE_HEALTH)?.detail ?? '';
     expect(d).toMatch(/MCP/);
     expect(d).toMatch(/does not|cannot|not check/i);
   });
 
-  it('does NOT claim capture, kb_* tools, or the MCP server are healthy', () => {
-    // Negative assertions, deliberately: the failure mode here is the line
-    // GROWING into a claim the code never verified, and that is what a future
-    // "helpful" edit would do.
+  it('no clause may mention capture / kb_* / MCP without a negation', () => {
+    // SHAPE, not a phrase list. The first version of this test enumerated four
+    // wordings I had thought of, and the reviewer defeated it with a fifth:
+    // adding "your brain is writable and capture is reaching disk" left the
+    // suite 7/7 GREEN — gotcha 6ad98196b5a2 reproduced inside the PR that cites
+    // it, with my own test defending the overclaim.
+    //
+    // The invariant that cannot be satisfied by enumeration: this check may only
+    // speak about capture/kb_*/MCP in order to DISCLAIM them. Any clause that
+    // raises one of those subjects without a negation is an unverified claim.
     const { proj, brain, cfg } = setup();
-    const d = check(run(proj, brain, cfg), 'write-health')?.detail ?? '';
-    expect(d).not.toMatch(/capture is (working|healthy|fine)/i);
-    expect(d).not.toMatch(/kb_\* (?:tools )?(?:are |is )?(?:working|healthy)/i);
-    expect(d).not.toMatch(/MCP (?:server |face )?is (?:working|healthy|up)/i);
-    expect(d).not.toMatch(/your writes are safe/i);
+    const d = check(run(proj, brain, cfg), WRITE_HEALTH)?.detail ?? '';
+    expect(d.length).toBeGreaterThan(0);
+    const clauses = d.split(/[—;]/).map((c) => c.trim()).filter(Boolean);
+    const SUBJECT = /\b(capture|kb_|MCP)\b/i;
+    const NEGATION = /\b(not|cannot|can't|never|no|without)\b/i;
+    for (const clause of clauses) {
+      if (SUBJECT.test(clause)) {
+        expect(clause, `clause raises capture/kb_*/MCP with no negation: "${clause}"`).toMatch(NEGATION);
+      }
+    }
+  });
+
+  it('the scope caveat survives in the CHECK NAME, not only the detail', () => {
+    // A skimming reader sees "OK  write-health" and stops; the caveat trails
+    // ~200 characters behind. The name is the part that gets quoted, so the
+    // scope has to live there too (review of #228).
+    const { proj, brain, cfg } = setup();
+    const names = run(proj, brain, cfg).checks.map((c) => c.name);
+    expect(names.some((n) => /write-health/.test(n))).toBe(true);
+    expect(names.find((n) => /write-health/.test(n))).toMatch(/filesystem/i);
   });
 });
