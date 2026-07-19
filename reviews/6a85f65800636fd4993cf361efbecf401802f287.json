@@ -71,8 +71,8 @@
     {
       "id": "m5",
       "severity": "minor",
-      "status": "fixed",
-      "summary": "the probe file pattern was not gitignored, so a doctor killed between write and unlink left an untracked file in a repo that commits .vfkb/. Fixed here AND in src/init.ts's generated stanza, so new consumers get it too (the #219 lesson: fixing copies without fixing what emits them is a sweep you run again)",
+      "status": "open",
+      "summary": "the probe file pattern is not gitignored, so a doctor killed between write and unlink leaves an untracked file in a repo that commits .vfkb/. OPEN at this sha \u2014 fixed in a later commit on the same PR, which carries its own record; a per-sha attestation must describe the state THIS sha had",
       "acceptedBy": null
     }
   ],
