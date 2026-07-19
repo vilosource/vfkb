@@ -131,7 +131,12 @@ This ADR does **not** amend ADR-0022. Its ≥2/3 single-contrast rule is untouch
   constitutional rules by ordinary amendment, and it is emphatically not a precedent for doing so
   quietly.
 - **`vfkb doctor` still cannot detect a stale clone.** RFC-024 §1 specifies the detector and its own
-  agent-driven L4 (`scenarios/doctor-staleness.mjs`). Unbuilt; it is the remaining live work.
+  agent-driven L4 (`scenarios/doctor-staleness.mjs`) — see that issue for its state.
+  > **Maintainer-authorized correction, 2026-07-19.** This line read *"Unbuilt; it is the
+  > remaining live work."* It is now false: `scenarios/doctor-staleness.mjs`,
+  > `test/doctor-staleness.test.ts` and `scenarios/records/doctor-staleness.json` all exist.
+  > Found by the ADR lint added in #226, which caught this instance nobody had noticed.
+  > Build state does not belong in an immutable record — see `docs/adr/README.md`.
 - **The `install-path` L4 stays gated** (RFC-024 §4). Building it now would be the speculative build
   CLAUDE.md forbids. Its trigger: a delivery or upgrade defect the packaging check cannot see.
 

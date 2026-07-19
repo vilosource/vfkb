@@ -11,6 +11,8 @@
 //             shipped in v0.11.0 while §0/§2 did not. One frozen sentence
 //             cannot describe a decision that ships in parts.
 //   ADR-0048  "tracked — not yet built"  — the referenced issue is closed.
+//   ADR-0051  "Unbuilt; it is the remaining live work" — found by this lint's own
+//             third pattern during review; the detector and its record both exist.
 //
 // ADR-0001 makes ADRs immutable, so none of these could simply be corrected;
 // fixing them required an explicit maintainer exception to the immutability rule.
@@ -64,6 +66,14 @@ export const BUILD_STATUS_PATTERNS = [
     re: /\bDecided,?\s+NOT yet built\b/i,
     why: 'asserts this decision\'s own build state; it will go stale (ADR-0064 did, within a day)',
   },
+  {
+    // ADR-0048's shape ("tracked — not yet built") and ADR-0051's ("Unbuilt; it
+    // is the remaining live work"). The header cited the first as motivating and
+    // the lint did not catch it; the second was a live, false instance nobody had
+    // noticed (review of #226, major 3).
+    re: /\b(?:not yet built|unbuilt)\b/i,
+    why: 'asserts build state of something; name the tracker and let the issue carry the state',
+  },
 ];
 
 // An ADR may legitimately POINT at where build state lives. These shapes are the
@@ -72,7 +82,7 @@ const POINTER_ALLOW = [
   /tracked in \[?#\d+/i,
   /see that issue for its state/i,
   /Fixes on build:/i,
-  /,\s*not here\b/i,
+  /^#{1,4}\s.*,\s*not here\b/i, // only as a HEADING, not a whole-line escape hatch
 ];
 
 /** Lines that are inside a maintainer-authorized correction block are exempt:
@@ -104,11 +114,25 @@ export function lintAdr(text, file) {
 
 export function lintAll(dir = ADR_DIR) {
   const findings = [];
+  let scanned = 0;
   for (const name of readdirSync(dir).sort()) {
     if (!/^ADR-\d+.*\.md$/.test(name)) continue;
+    scanned++;
     findings.push(...lintAdr(readFileSync(join(dir, name), 'utf8'), `docs/adr/${name}`));
   }
+  // A gate that scans nothing and reports green is the ADR-0051 §3 quiet-success
+  // trap: a successful run lacking the capability. If the docs tree moves or the
+  // naming convention shifts, this must go RED, not quietly clean (review of
+  // #226, major 2).
+  if (scanned === 0) {
+    findings.push(`${dir}: scanned 0 ADRs — the corpus path or ADR-NNNN naming convention has moved; this gate was checking nothing`);
+  }
   return findings;
+}
+
+/** Files actually scanned — exposed so the selftest can assert a real floor. */
+export function scannedCount(dir = ADR_DIR) {
+  return readdirSync(dir).filter((n) => /^ADR-\d+.*\.md$/.test(n)).length;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -124,5 +148,5 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     );
     process.exit(1);
   }
-  console.log(`adr-lint: ${readdirSync(ADR_DIR).filter((n) => /^ADR-\d+.*\.md$/.test(n)).length} ADR(s) clean — no build-state assertions`);
+  console.log(`adr-lint: ${scannedCount()} ADR(s) clean — no build-state assertions`);
 }

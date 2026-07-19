@@ -17,7 +17,13 @@ timestamp: 2026-07-08
   wiring the gate originally validated), issue
   [vfkb#82](https://github.com/vilosource/vfkb/issues/82) (the staleness finding),
   [vfkb-claude-plugin#6](https://github.com/vilosource/vfkb-claude-plugin/issues/6) (the
-  relocated check — see that issue for its state; it has since been closed)
+  relocated check — see that issue for its state)
+
+> **Maintainer-authorized correction, 2026-07-19.** The reference above read
+> *"tracked — **not yet built**"*. That is now false: plugin #6 was closed 2026-07-13. Build
+> state does not belong in an immutable record; the ADR now points at the issue, which is
+> allowed to change. Corrected under the operator's explicit exception to ADR-0001, alongside
+> ADR-0051, ADR-0064 and ADR-0065 (#226).
 
 ## Context
 

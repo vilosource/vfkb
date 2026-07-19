@@ -12,7 +12,10 @@
 //
 //   node scripts/adr-lint.selftest.mjs
 // ============================================================================
-import { lintAdr, lintAll } from './adr-lint.mjs';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { lintAdr, lintAll, scannedCount } from './adr-lint.mjs';
 
 let failed = 0;
 const check = (label, got, want) => {
@@ -22,7 +25,7 @@ const check = (label, got, want) => {
 };
 const flags = (md) => lintAdr(md, 'test.md').length > 0;
 
-// ---- MUST flag: the three shapes actually observed in the repo -------------
+// ---- MUST flag: the shapes actually observed in the repo -------------------
 check(
   'a "Status honesty" section (ADR-0064/0065 shape)',
   flags('# ADR-0099\n\n## Status honesty (ADR-0050/0051)\n\nSomething.\n'),
@@ -33,6 +36,16 @@ check(
   flags('# ADR-0099\n\nThis is **Decided, NOT yet built.** and will rot.\n'),
   true,
 );
+check(
+  'the ADR-0048 shape "tracked — not yet built" (the header cited it; the lint missed it)',
+  flags('relocated check, tracked — **not yet built**)\n'),
+  true,
+);
+check(
+  'the ADR-0051 shape "Unbuilt; it is the remaining live work"',
+  flags('agent-driven L4 (`scenarios/x.mjs`). Unbuilt; it is the remaining live work.\n'),
+  true,
+);
 check('an "Implementation status" section', flags('# ADR-0099\n\n## Implementation status\n\nHalf done.\n'), true);
 check('a "Current status" section', flags('# ADR-0099\n\n### Current status\n\nShipping soon.\n'), true);
 
@@ -41,13 +54,13 @@ check('a "Current status" section', flags('# ADR-0099\n\n### Current status\n\nS
 // honest authorship, which is a worse defect than the one it prevents.
 check(
   'ADR-0050 DEFINING the phrase (not asserting its own state)',
-  flags('the only honest status is \'built, NOT yet verified\'."*\n'),
+  flags('only honest status is \'built, NOT yet verified\'."*\n'),
   false,
 );
 check('ADR-0043 policy prose "nothing is built speculatively"', flags('- The design exists when the evidence arrives; nothing is built speculatively.\n'), false);
 check('ADR-0015 sequencing prose "before … rendering is built"', flags('before ADR-0006/0008 rendering is built.\n'), false);
 check('ADR-0048 meta prose "does not claim the replacement is built"', flags('retires a stale gate; it does not claim the replacement is built.\n'), false);
-check('ADR-0012 architectural prose "is built behind the same pipeline"', flags('**Stage 1 candidate-narrowing is built behind the same pipeline** but is a\n'), false);
+check('ADR-0012 architectural prose "is built behind the same pipeline"', flags('3. **Stage 1 candidate-narrowing is built behind the same pipeline but is a\n'), false);
 
 // ---- MUST NOT flag: the recommended REPLACEMENT shape ----------------------
 check(
@@ -65,6 +78,13 @@ check(
 const corpus = lintAll();
 check(`the committed ADR corpus is clean (${corpus.length} finding(s))`, corpus.length > 0, false);
 if (corpus.length) corpus.forEach((f) => console.log(`      ${f}`));
+
+// A gate that scans nothing and reports green is the ADR-0051 §3 quiet-success
+// trap. Both the floor and its enforcement are asserted (review of #226, major 2).
+check(`the corpus is non-empty (${scannedCount()} ADRs scanned)`, scannedCount() < 10, false);
+const emptyDir = mkdtempSync(join(tmpdir(), 'adr-empty-'));
+check('an EMPTY corpus dir goes red rather than silently clean', lintAll(emptyDir).length > 0, true);
+rmSync(emptyDir, { recursive: true, force: true });
 
 if (failed) {
   console.error(`\n${failed} check(s) failed.`);
