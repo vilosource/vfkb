@@ -11,6 +11,7 @@ coverage/
 .vfkb/.signals/
 .vfkb/.journal/
 .vfkb/.lock
+.vfkb/.write-probe-*
 
 # local registry auth (token via env)
 .npmrc
