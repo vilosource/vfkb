@@ -2,13 +2,15 @@
 type: Proposal
 title: "RFC-037: The pi face is built but undeliverable — pi grew a package system and vfkb has no presence in it"
 description: "Research against pi 0.73.1 found the pi extension code broadly correct and the premise of its MCP bridge intact, while pi grew a full package/marketplace system (pi install npm:/git:, project-scoped .pi/settings.json, a public gallery) that vfkb has zero presence in. The only load path today is `pi -e /abs/path`, which is the ADR-0051 --plugin-dir trap exactly. Proposes a separate vfkb-pi-package repo mirroring vfkb-claude-plugin, with delivery — not capability — as milestone 1."
-status: "Proposed"
+status: "Ratified"
 timestamp: 2026-07-22
 ---
 
 # RFC-037: The pi face is built but undeliverable
 
-- **Status:** Proposed — needs operator ratification before any build
+- **Status:** **Ratified 2026-07-23** — D1/D2 ratified 2026-07-22, D3/D4/D5 ratified 2026-07-23.
+  One question remains open and blocks nothing: `npm:` vs git-only distribution (see Open
+  questions §3). Milestone 1 may be built.
 - **Relates:** [ADR-0015](../adr/ADR-0015-cross-harness-auto-layer.md) (the tiered
   parity model that defines what the pi face owes);
   [ADR-0045](../adr/ADR-0045-vfkb-claude-code-plugin.md) (the plugin split this mirrors);
@@ -16,7 +18,10 @@ timestamp: 2026-07-22
   [ADR-0051](../adr/ADR-0051-delivery-honesty.md) (delivery is a capability and needs its own
   proof); [RFC-036](RFC-036-machine-produced-release-evidence.md) (the credential bottleneck
   this face escapes)
-- **Brain:** research `16b8b6b018ea`; initiative shape `ae6feb81c738` (supersedes `d4864f7fa6de`)
+- **Brain:** research `16b8b6b018ea` (**counts corrected by `e739953d3dff`** — pi's `ExtensionAPI`
+  is 29 events / 22 methods and vfkb uses 7 / 1, not the 30/~30/6/0 that entry records; the RFC
+  body has always carried the right numbers); initiative shape `ae6feb81c738` (supersedes
+  `d4864f7fa6de`); D3/D4/D5 ratification `7729b402ef10`
 
 ## Context — what the research actually found
 
@@ -110,10 +115,13 @@ This table is the backlog, not this milestone. See D2.
 
 Both are recorded so they are not rediscovered, and neither blocks milestone 1:
 
-1. **A stale comment asserting a falsehood.** `pi-extension.ts:92-96` states *"a blocked write
-   never reaches `tool_execution_end`."* Brain gotcha `33d7dcc47598` proved that **false** on
-   0.73.1 — pi emits `tool_execution_end` for calls blocked at `tool_call`, which is what caused
-   the `tool-gating` false-RED. The code was fixed; the comment still lies.
+1. ~~**A stale comment asserting a falsehood.**~~ **FIXED 2026-07-23.** `pi-extension.ts:92-96`
+   stated *"a blocked write never reaches `tool_execution_end`."* Brain gotcha `33d7dcc47598`
+   proved that **false** on 0.73.1 — pi emits `tool_execution_end` for calls blocked at
+   `tool_call`, which is what caused the `tool-gating` false-RED. The code had been fixed; only
+   the comment still lied. It now states the observed behaviour and carries the reusable warning
+   it cost six docker reproductions to learn: a substring predicate over the brain matches the
+   attack payload's own audit trail and scores a **held** guard as corrupted.
 2. **An under-specified custom message.** The `context` handler returns
    `{role:'custom', content}`, but `CustomMessage` (`dist/core/messages.d.ts`) requires
    `customType`, `display` **and** `timestamp`. `convertToLlm` reads only `content`/`timestamp`,
@@ -166,7 +174,7 @@ Rejected: parity-first (slash commands, `resources_discover` skills, the two def
 pi-native-first (`session_before_compact` memory-at-compaction, the thing ADR-0015 already calls
 Pi-only). Both defer installability, and neither closes the gap that actually exists.
 
-### D3 — Keep vfkb's MCP bridge, or depend on a community adapter? — **OPEN**
+### D3 — Keep vfkb's MCP bridge, or depend on a community adapter? — **RATIFIED 2026-07-23: keep ours**
 
 `pi-mcp-bridge.ts` was written when it was the only option; it now appears to have several
 alternatives (see the UNVERIFIED section above — none audited). Keeping it means owning 106 lines
@@ -174,11 +182,38 @@ and a connect-per-call design already tuned for a real footgun (a persistent con
 `pi -p` hang, per the file's own header). Depending on one means inheriting an unaudited
 third-party extension into vfkb's trust boundary, under pi's own full-system-access warning.
 
-**Recommendation: keep ours, and say why in the README.** The bridge is small, working, and
-sandbox-proven across the whole L4 pi arm. This is a judgement to ratify, not a default to drift
-into.
+The operator ratified this **conditionally** — keep ours *"unless it is a huge set of tasks to make
+it work in pi."* **The condition was evaluated, not assumed, and does not bind:** the bridge already
+works in pi today and needs zero porting. Observed 2026-07-23 — it is a self-contained 106-line
+extension loaded exactly like any other, calling one `ExtensionAPI` method (`registerTool`), and it
+is **already exercised in the dockerized L4 pi arm**: `scenarios/l4-purpose.mjs:246` pushes
+`'-e', bridgePath` into pi's argv and `:247` sets `VFKB_MCP_CONFIG`, reached by the ten `mcp: true`
+run sites across the suite (`:509,633,637,690,710,739,740,757,791,849`) covering `kb_resume`,
+`kb_search`, `kb_map`, `kb_context` and `kb_add`. The remaining work is packaging, not porting.
 
-### D4 — What the pi install-path L4 must prove — **OPEN, proposed below**
+Adopting a community adapter is **rejected**: it moves vfkb's trust boundary under pi's own
+`docs/packages.md:20` full-system-access warning, in exchange for deleting 106 lines that already
+work and are already sandbox-exercised.
+
+> **Packaging consequence milestone 1 must not miss — and it is worse than it looks.** The pi face
+> is **two extensions, not one**: `pi-extension.ts` (injection, capture, gating) and
+> `pi-mcp-bridge.ts` (the `kb_*` tools) are separate default exports loaded by separate `-e` flags,
+> and the bridge is **inert** without `$VFKB_MCP_CONFIG` pointing at a real `mcpServers` JSON.
+>
+> **The two have never been loaded together in any proof vfkb owns.** In `l4-purpose.mjs` they sit
+> in **mutually exclusive branches** — `:245` `if (mcp)` loads *only* the bridge, and the `:248`
+> `else` is the only path that reaches `:261`'s `if (inject === 'vfkb') args.push('-e', extPath)`.
+> Every green pi record to date therefore exercised **one or the other, never both**. A real user
+> installing the vfkb pi package gets **both at once** — a configuration with **zero** sandbox
+> evidence behind it.
+>
+> Consequences for milestone 1: the package manifest must declare both; `vfkb init`'s pi wiring must
+> write the MCP config and the env; and the install-path L4 (D4) **must load both simultaneously**,
+> since that is the only configuration a user will actually run and the one nothing has yet proven.
+> A silent partial install — injection working, tools absent — is precisely the delivery failure
+> class ADR-0051 exists to catch.
+
+### D4 — What the pi install-path L4 must prove — **RATIFIED 2026-07-23: as proposed**
 
 Port the plugin's proven three-arm structure rather than inventing one:
 
@@ -186,9 +221,18 @@ Port the plugin's proven three-arm structure rather than inventing one:
   receiving injected brain content it could not otherwise know.
 - **upgrade** — install an older release, observe the capability **absent**, upgrade, observe it
   **present**. This is the arm that catches packaging and upgrade corruption.
-- **contrast** — the can-fail arm. With the capability stripped, the predicate must be **observed
-  failing**, with a content assertion over the output (ADR-0051 clause 3: exit status and error
-  flags are not admissible).
+- **contrast** — the can-fail arm. Per the ratified design the contrast is **"AGENTS.md only"**,
+  not "nothing": `vfkb init` already writes `AGENTS.md` and pi genuinely loads it
+  (`dist/core/resource-loader.js:31` reads `["AGENTS.md","AGENTS.MD","CLAUDE.md","CLAUDE.MD"]`), so
+  vfkb must be shown to beat its own **cold floor** rather than merely to beat nothing. The
+  predicate must be **observed failing**, with a content assertion over the output (ADR-0051
+  clause 3: exit status and error flags are not admissible).
+
+**Binding addition from D3:** every arm must load **both** extensions simultaneously — the
+injection extension *and* the MCP bridge, with `VFKB_MCP_CONFIG` set. That is the configuration a
+real install produces, and per the D3 note it is the one configuration no existing pi record covers.
+An install-path proof that exercises them separately would repeat, in a new place, exactly the
+capability-vs-delivery confusion ADR-0051 clause 1 was written about.
 
 **The strategic prize:** this proof is CI-automatable from day one. RFC-036 §D1 verifies that the
 Claude scenarios read `~/.claude/.credentials.json`, **throw** without a `claudeAiOauth` block,
@@ -205,12 +249,27 @@ demonstration that RFC-036's automation argument is sound.
 - The capability backlog in the table above — real work, explicitly deferred to milestone 2.
 - Publishing to the `pi.dev` gallery. That is an outward publish and needs its own call.
 
+### D5 — Repo name — **RATIFIED 2026-07-23: `vfkb-pi-package`**
+
+Owner `vilosource`, repo-local git identity on the GitHub noreply address, matching `vfkb` and
+`vfkb-claude-plugin`.
+
+Rejected: `vfkb-pi` and `pi-vfkb`; and `vfkb-pi-plugin`, which the operator named first and then
+ruled against when the two names in his message were put back to him as an explicit either/or. The
+chosen name matches **pi's own vocabulary** — pi calls these *packages* (`pi install`, the
+`pi-package` keyword, the gallery) — rather than mirroring the Claude side's "plugin". Recorded
+because "the operator said plugin" is a true quote of a superseded instruction, and a later session
+reading only that sentence would rename the repo wrongly.
+
 ## Open questions for the operator
 
-1. **D3** — keep vfkb's MCP bridge, or adopt a community adapter?
-2. **Repo name** — `vfkb-pi-package`, `vfkb-pi`, or `pi-vfkb`? (Gallery listings *appear* to
-   favour a `pi-*` prefix, but that is an impression from the same unverified fetch, not a
-   documented convention — `docs/packages.md` mandates only the `pi-package` **keyword**, which
-   is verified.)
-3. **npm or git-only** — the plugin ships via a git marketplace; pi supports both. `npm:` gets
-   gallery presence, and gallery presence is an outward publish.
+1. ~~**D3** — keep vfkb's MCP bridge, or adopt a community adapter?~~ **Ratified 2026-07-23: keep
+   ours** (see D3 — the operator's "unless it is a huge set of tasks" condition was evaluated and
+   does not bind).
+2. ~~**Repo name**~~ **Ratified 2026-07-23: `vfkb-pi-package`** (see D5).
+3. **npm or git-only** — **STILL OPEN.** The plugin ships via a git marketplace; pi supports both.
+   `npm:` gets gallery presence, and gallery presence is an outward publish. Not ruled on in the
+   2026-07-23 answers and deliberately **not inferred**: git-only matches the `vfkb-claude-plugin`
+   precedent and defers the outward publish, which is the reversible default, but the call is the
+   operator's. Milestone 1 can be built git-only and re-published to npm later without rework;
+   nothing below blocks on this.

@@ -90,10 +90,21 @@ export default function (pi: ExtensionAPI): void {
   });
 
   // Tool-gating (pre-execution). Gate brain-file writes here — the block MUST happen
-  // before the tool runs, so a blocked write never reaches tool_execution_end and is
-  // never captured. Capture itself moved to tool_execution_end (D-iv): tool_call has no
-  // result, so capturing here recorded every failure as capture:ok and the distiller
-  // could never act on a LIVE pi failure (the 2026-06-27 finding).
+  // before the tool runs, so the write never touches the brain. Capture itself moved to
+  // tool_execution_end (D-iv): tool_call has no result, so capturing here recorded every
+  // failure as capture:ok and the distiller could never act on a LIVE pi failure (the
+  // 2026-06-27 finding).
+  //
+  // NOTE — this comment previously claimed "a blocked write never reaches
+  // tool_execution_end and is never captured". That is FALSE on pi 0.73.1 and was proven so
+  // by six instrumented docker reproductions (brain gotcha 33d7dcc47598): pi DOES emit
+  // tool_execution_end for a call blocked at tool_call, so Tier-B capture writes a
+  // capture:error entry whose text contains the ATTEMPTED payload. The block still works —
+  // nothing reaches the brain file — but the attempt is audited. Consequence for anyone
+  // writing a gating assertion: a substring predicate over the brain will match the attack
+  // payload's own audit trail and score a HELD guard as corrupted (that is exactly issue
+  // #150's false RED). Assert structurally instead — JSONL still parses, sentinel entry
+  // survives — not by searching for the payload string.
   pi.on('tool_call', async (...args: unknown[]): Promise<unknown> => {
     const e = (args[0] as ToolCallEvent) || {};
     if (isBrainWrite(e.toolName, e.input)) {
