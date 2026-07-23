@@ -5,7 +5,7 @@
 // piece is created-if-absent / merged-if-present, and a brain is NEVER clobbered.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { basename, join, relative } from 'node:path';
 import { writeManifest } from './manifest.js';
 
 export type InitAction = 'created' | 'updated' | 'skipped';
@@ -16,6 +16,24 @@ export interface InitChange {
 
 const AGENTS_MARKER = '<!-- vfkb:how-we-track-work -->';
 const BOOTSTRAP_REL = '.vfkb/bin/bootstrap.mjs';
+
+// --- pi face wiring (ADR-0066) -------------------------------------------------
+// The pi package is git-only for milestone 1 (ADR-0066 §2). A project-scoped
+// `.pi/settings.json` is team-shareable and pi AUTO-INSTALLS missing packages at
+// startup, so this one line is the whole delivery path for a teammate.
+const PI_PACKAGE_SOURCE = 'git:github.com/vilosource/vfkb-pi-package';
+
+// NOTE — deliberately NO `.vfkb/mcp.json` here, and the reason is the whole point of
+// ADR-0066. The bridge is configured by $VFKB_MCP_CONFIG, and pi cannot set env vars
+// (no `env` key in its settings schema — observed live on 0.73.1, brain gotcha
+// 0f1441f9bff2). The fix lives in the PACKAGE: a wrapper extension, listed before the
+// bridge in the package manifest, resolves the vendored MCP server relative to its own
+// location and points the bridge at it. That is what makes `pi install` self-sufficient.
+//
+// Writing an mcp.json here pointing at `.vfkb/bin/bootstrap.mjs` would have re-imposed
+// $VFKB_BUNDLE_DIR — the old fallback mechanism (ADR-0030) the package exists to retire.
+// A consumer may still drop a `.vfkb/mcp.json` by hand to override or add servers; the
+// wrapper honours it first and `vfkb doctor` validates it. It is an override, not wiring.
 
 // The wiring entry-point is a COMMITTED, RELATIVE bootstrap (ADR-0031) — always
 // resolvable in any clone. The bootstrap resolves the real engine via $VFKB_HOME
@@ -98,7 +116,7 @@ function settingsHooks(project: string) {
   };
 }
 
-function agentsSnippet(project: string): string {
+function agentsSnippet(project: string, pi: boolean): string {
   return `${AGENTS_MARKER}
 ## How we track work HERE — vfkb
 
@@ -110,8 +128,19 @@ This repo uses **vfkb** as its knowledge substrate (project \`${project}\`). Kno
   \`decision\`, \`fact\`, \`gotcha\`, \`pattern\`, \`link\` — put a decision's rationale in its text.
   **Capture load-bearing decisions immediately — don't defer.**
 - Committed: \`.vfkb/entries.jsonl\`, \`.vfkb/manifest.json\` (the ADR-0030 engine stamp —
-  **never gitignore \`manifest.json\`**), and \`.vfkb/bin/\`. Derived/gitignored, all five:
-  \`.vfkb/index-meta.json\`, \`.vfkb/.sessions/\`, \`.vfkb/.signals/\`, \`.vfkb/.journal/\`, \`.vfkb/.lock\`.
+  **never gitignore \`manifest.json\`**), \`.vfkb/bin/\`${pi ? ', and \`.pi/settings.json\`' : ''}.
+  Derived/gitignored: \`.vfkb/index-meta.json\`, \`.vfkb/.sessions/\`, \`.vfkb/.signals/\`,
+  \`.vfkb/.journal/\`, \`.vfkb/.lock\`${pi ? ', and \`.pi/git/\` (pi\'s package clone)' : ''}.${pi ? `
+- **Works in [pi](https://pi.dev) too** (ADR-0066): \`.pi/settings.json\` loads the \`vfkb-pi-package\`
+  and pi auto-installs it at startup, so a teammate's clone wires itself. The package vendors its
+  own engine and finds this brain by itself — there is **no \`.vfkb/mcp.json\` to write, and its
+  absence is normal**. (You may add one to override or add MCP servers; \`vfkb doctor\` validates it
+  if present. Do NOT hand-write one pointing at \`.vfkb/bin/bootstrap.mjs\` — that re-imposes the
+  per-machine \`$VFKB_BUNDLE_DIR\` the package exists to retire, and shadows its bundled server.)
+  Run \`vfkb doctor\` to check the wiring.` : `
+- **This repo was wired for Claude Code only** (\`vfkb init --no-pi\`). If a \`.pi/settings.json\`
+  exists, the pi face was added later and IS in use — commit that file; this paragraph is not
+  updated on a re-init, because the snippet is written once.`}
 
 Two env vars: **\`VFKB_DATA_DIR\`** = this repo's brain (\`.vfkb\`, set by the wiring) · **\`VFKB_BUNDLE_DIR\`**
 = the shared vfkb engine bundles — set it once per machine, e.g. \`export VFKB_BUNDLE_DIR=/path/to/vfkb/dist/bundles\`.
@@ -128,6 +157,28 @@ function readJson(path: string): any | undefined {
   }
 }
 
+/**
+ * A config file that EXISTS but does not parse is about to be overwritten with a
+ * freshly-built one, silently destroying whatever the consumer had — reported as
+ * `updated`. A trailing comma is enough, and these are files pi's and Claude's docs
+ * encourage hand-editing.
+ *
+ * So: copy it aside first. Non-destructive, one line in the change list, and the
+ * operator can recover by hand. Returns the backup's relative path, or undefined when
+ * there was nothing to preserve (absent, or parses fine).
+ */
+function preserveUnparseable(root: string, path: string): string | undefined {
+  if (!existsSync(path)) return undefined;
+  if (readJson(path) !== undefined) return undefined; // parses — nothing to rescue
+  const backup = `${path}.corrupt-backup`;
+  try {
+    writeFileSync(backup, readFileSync(path, 'utf8'));
+    return relative(root, backup);
+  } catch {
+    return undefined; // best effort; never block init on it
+  }
+}
+
 function writeJson(path: string, value: unknown): void {
   writeFileSync(path, JSON.stringify(value, null, 2) + '\n');
 }
@@ -136,7 +187,7 @@ function eventHasVfkb(arr: unknown): boolean {
   return JSON.stringify(arr ?? '').includes(BOOTSTRAP_REL);
 }
 
-export function initProject(root: string, opts: { project?: string } = {}): InitChange[] {
+export function initProject(root: string, opts: { project?: string; pi?: boolean } = {}): InitChange[] {
   const project = opts.project || basename(root) || 'project';
   const changes: InitChange[] = [];
 
@@ -230,6 +281,13 @@ export function initProject(root: string, opts: { project?: string } = {}): Init
       '.vfkb/.journal/',
       '.vfkb/.lock',
       '.vfkb/.write-probe-*',
+      // Derived per-machine MCP config the pi package writes (absolute paths inside).
+      '.vfkb/.pi-mcp.json',
+      // pi clones the vfkb package (plus its node_modules) into the PROJECT when the
+      // package entry is project-scoped. Derived, multi-hundred-KB, and re-fetched on
+      // demand — never commit it. Without this line a consumer's `git status` fills
+      // with a vendored clone the moment they first start pi.
+      '.pi/git/',
     ];
     // The header the stanza should carry. The OLD one claimed "only
     // .vfkb/entries.jsonl is committed", which is FALSE — manifest.json is
@@ -292,6 +350,42 @@ export function initProject(root: string, opts: { project?: string } = {}): Init
     }
   }
 
+  // 4c. .pi/settings.json — load the vfkb pi package (ADR-0066 §1/§2). Skippable:
+  // wiring pi makes it clone+install the package at startup, which a Claude-only
+  // consumer may reasonably decline (`vfkb init --no-pi`).
+  if (opts.pi !== false)
+  // Project scope is deliberate: it is team-shareable and pi auto-installs missing
+  // packages at startup, so a teammate's clone wires itself. Merge, never clobber:
+  // keep the consumer's other packages and every other setting.
+  //
+  // NOTE the ordering contract this relies on: the package's OWN manifest lists the
+  // wrapper before the bridge, and pi honours manifest array order (verified 0.73.1 —
+  // reversing the manifest reverses what the later extension observes). Consumers do
+  // not control that order and must not need to.
+  {
+    const dir = join(root, '.pi');
+    const path = join(dir, 'settings.json');
+    const existed = existsSync(path);
+    // Rescue an unparseable file before rebuilding over it (see preserveUnparseable).
+    const rescued = preserveUnparseable(root, path);
+    if (rescued) changes.push({ path: rescued, action: 'created' });
+    const cfg = readJson(path) ?? {};
+    const cur: unknown[] = Array.isArray(cfg.packages) ? cfg.packages : [];
+    const has = cur.some((p) =>
+      typeof p === 'string'
+        ? p === PI_PACKAGE_SOURCE
+        : !!p && typeof p === 'object' && (p as { source?: unknown }).source === PI_PACKAGE_SOURCE,
+    );
+    if (has) {
+      changes.push({ path: '.pi/settings.json', action: 'skipped' });
+    } else {
+      cfg.packages = [...cur, PI_PACKAGE_SOURCE];
+      mkdirSync(dir, { recursive: true });
+      writeJson(path, cfg);
+      changes.push({ path: '.pi/settings.json', action: existed ? 'updated' : 'created' });
+    }
+  }
+
   // 5. AGENTS.md — the parameterized "how we track work HERE" snippet (append once).
   {
     const path = join(root, 'AGENTS.md');
@@ -301,7 +395,7 @@ export function initProject(root: string, opts: { project?: string } = {}): Init
       changes.push({ path: 'AGENTS.md', action: 'skipped' });
     } else {
       const sep = cur && !cur.endsWith('\n') ? '\n\n' : cur ? '\n' : '';
-      writeFileSync(path, cur + sep + agentsSnippet(project));
+      writeFileSync(path, cur + sep + agentsSnippet(project, opts.pi !== false));
       changes.push({ path: 'AGENTS.md', action: existed ? 'updated' : 'created' });
     }
   }

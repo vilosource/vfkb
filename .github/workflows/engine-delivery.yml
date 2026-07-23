@@ -85,6 +85,27 @@ jobs:
                exit "$rc" ;;
           esac
 
+      # ADR-0066 added a SECOND consumer that vendors these bundles. The plugin's
+      # re-vendor automation above is deliberately not duplicated for it (the pi package
+      # is unreleased and has no release flow yet) — but leaving it with NO staleness
+      # signal at all is how a vendored engine silently rots, which is the exact failure
+      # this workflow exists to prevent. Report-only for now: never blocks, always speaks.
+      - name: Drift check — vfkb-pi-package (report only)
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/vilosource/vfkb-pi-package.git /tmp/pipkg || {
+            echo "::notice::vfkb-pi-package not clonable — skipping (it is optional)"; exit 0; }
+          set +e
+          node scripts/bundle-drift.mjs dist/bundles /tmp/pipkg/bundles
+          rc=$?
+          set -e
+          if [ "$rc" = "1" ]; then
+            echo "::warning::vfkb-pi-package vendors a stale engine — re-vendor its bundles/ from this build"
+          elif [ "$rc" != "0" ]; then
+            echo "::warning::pi-package drift comparison failed (rc=$rc) — neither clean nor drift"
+          fi
+
       - name: Push re-vendor branch and open the plugin release PR
         if: steps.drift.outputs.drift != 'false'
         env:

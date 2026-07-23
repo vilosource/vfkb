@@ -57,14 +57,26 @@ export async function buildBundles(outdir = join(repoRoot, 'dist', 'bundles')) {
   const mcp = join(outdir, 'vfkb-mcp.mjs');
   await build({ ...common, entryPoints: [join(repoRoot, 'src/cli.ts')], outfile: cli });
   await build({ ...common, entryPoints: [join(repoRoot, 'src/mcp-server.ts')], outfile: mcp });
-  return { cli, mcp };
+
+  // The pi face (ADR-0066) — vendored by vfkb-pi-package so an install carries its own
+  // engine and needs no $VFKB_BUNDLE_DIR. These are pi EXTENSIONS, so unlike the two
+  // above they must keep a default export and must NOT get a shebang.
+  //
+  // Bundling the bridge inlines @modelcontextprotocol/sdk, exactly as vfkb-mcp.mjs does
+  // — the bridge is an MCP *client*, and a pi package cannot rely on the consumer having
+  // the SDK installed.
+  const piExt = join(outdir, 'vfkb-pi.mjs');
+  const piBridge = join(outdir, 'vfkb-pi-bridge.mjs');
+  await build({ ...common, entryPoints: [join(repoRoot, 'src/pi-extension.ts')], outfile: piExt });
+  await build({ ...common, entryPoints: [join(repoRoot, 'src/pi-mcp-bridge.ts')], outfile: piBridge });
+  return { cli, mcp, piExt, piBridge };
 }
 
 // Run as a script (not when imported by the test).
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const outdir = process.argv[2] ? resolve(process.argv[2]) : undefined;
   buildBundles(outdir)
-    .then((o) => console.log(`built bundles:\n  ${o.cli}\n  ${o.mcp}`))
+    .then((o) => console.log('built bundles:\n  ' + Object.values(o).join('\n  ')))
     .catch((e) => {
       console.error(e);
       process.exit(1);
