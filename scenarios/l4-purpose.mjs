@@ -56,6 +56,26 @@ const TRIALS = Math.max(1, parseInt(process.env.VFKB_L4_TRIALS || '3', 10));
 // pi harness; escape hatch VFKB_L4_PI_MODE=host runs the legacy host pi (used to
 // regenerate the known-good baseline records).
 const PI_MODE = process.env.VFKB_L4_PI_MODE || (HARNESS === 'pi' ? 'docker' : 'host');
+
+// CREDENTIAL PRECONDITION — deliberately at module scope, NOT inside run().
+//
+// A first attempt put this check inside run()'s try. run()'s catch turns any throw into
+// `__ERROR__ …` and the harness scores on: a single-arm guardrail scenario whose
+// predicate is "the secret was NOT stored" is satisfied by an error string, so a run
+// where NO AGENT EVER EXECUTED reported DEMONSTRATED 1/1. That is worse than the `|| ''`
+// it replaced — it mints false evidence for the ADR-0050 gate while looking fixed.
+//
+// A missing credential is a precondition of the whole harness, not a per-run outcome, so
+// it belongs here, where nothing can catch it. Mirrors the claude arm, which throws on a
+// missing ~/.claude/.credentials.json before any scenario runs.
+if (HARNESS === 'pi' && PI_MODE === 'docker' && !process.env.DEEPSEEK_TOKEN) {
+  console.error(
+    'DEEPSEEK_TOKEN is not set — the pi arm cannot authenticate.\n' +
+      'Refusing to run: an empty token yields a model auth error that scores as a scenario\n' +
+      'result, so the run would report DEMONSTRATED without any agent having executed.',
+  );
+  process.exit(2);
+}
 const PI_IMAGE = process.env.VFKB_L4_PI_IMAGE || 'vfkb-l4-pi:dev';
 // claude harness substrate (T5b): docker by default; VFKB_L4_CLAUDE_MODE=host runs the
 // legacy host claude (used to regenerate the known-good host baseline records).
@@ -270,18 +290,6 @@ function run({ harness = HARNESS, brain, prompt, inject = 'vfkb', mcp = false, c
     if (!docker) return sh('pi', args, { cwd: tmpdir(), timeout: TIMEOUT, env }).trim();
     // Dockerized: uid-matched (--user) so the agent's brain writes persist to the host
     // /brain mount (silent-write-fail-on-uid-mismatch gotcha = ref_harness_uid_mount).
-    // Assert the credential BEFORE the run, don't paper over it. `|| ''` passed the
-    // empty string on an unset secret, turning a missing credential into a downstream
-    // model auth error instead of a clean precondition stop — the quiet-success shape
-    // ADR-0051 clause 3 forbids, sitting inside the automation ADR-0066 calls its
-    // strategic prize. The claude arm already throws on a missing credential (:86);
-    // this is the pi arm's equivalent, and ADR-0066 assigns it to milestone 1.
-    if (!process.env.DEEPSEEK_TOKEN) {
-      throw new Error(
-        'DEEPSEEK_TOKEN is not set — the pi arm cannot authenticate. Refusing to run: ' +
-          'an empty token produces a model auth error that looks like a scenario failure.',
-      );
-    }
     const dargs = ['run', '--rm', '--user', `${UID}:${GID}`,
       '-e', `HOME=${C_HOME}`,
       '-e', `VFKB_DIR=${C_BRAIN}`,

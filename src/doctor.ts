@@ -893,19 +893,45 @@ export function runDoctor(opts: DoctorOpts): DoctorReport {
       // corruption. If it never did, the brain is standalone and none of git.ts's or
       // ADR-0033's project-commit machinery ever applied to it.
       const rel = relative(root, join(brainDir, 'entries.jsonl'));
-      let trackedByProject = false;
-      try {
-        trackedByProject =
-          realGit(['log', '--oneline', '-1', '--', rel], root).trim().length > 0 ||
-          realGit(['ls-files', '--', rel], root).trim().length > 0;
-      } catch {
-        trackedByProject = false; // no git / no commits yet → cannot claim corruption
-      }
-      if (trackedByProject) {
+      const brainRel = relative(root, brainDir);
+      const q = (args: string[]) => {
+        try {
+          return realGit(args, root).trim();
+        } catch {
+          return ''; // each probe independently — a `git log` that throws on a repo with
+          // no commits must not prevent `ls-files` from answering (they were chained by
+          // `||` inside one try, so a STAGED brain — an unambiguous ownership claim —
+          // went undetected).
+        }
+      };
+
+      // Does the project deliberately NOT track this brain? Then an embedded repo there
+      // is the owner's choice, not corruption. This is the dotfiles/standalone case, and
+      // getting it wrong told people to delete real history.
+      const ignored = q(['check-ignore', '--', brainRel]).length > 0;
+
+      // Positive proof the project owns it: a gitlink already recorded in the index, or
+      // the entries file present in history/index.
+      const gitlinked = /^160000/m.test(q(['ls-files', '-s', '--', brainRel]));
+      const inHistory = q(['log', '--oneline', '-1', '--', rel]).length > 0;
+      const inIndex = q(['ls-files', '--', rel]).length > 0;
+
+      if (!ignored && (gitlinked || inHistory || inIndex)) {
         add(
           'brain gitlink',
           'fail',
-          `${embedded} exists and this project tracks ${rel} — the brain is now an EMBEDDED git repo, so \`git add ${rel}\` silently tracks NOTHING and new entries are no longer reaching the project's history. Fix: remove ${embedded} (an older build created it; the project's own history of this brain is intact), then re-add the file`,
+          `${embedded} exists and this project tracks the brain — it is now an EMBEDDED git repo, so \`git add ${rel}\` silently tracks NOTHING and new entries stop reaching the project's history. Fix: remove ${embedded} (an older build created it), then re-add the file`,
+        );
+      } else if (!ignored) {
+        // The canonical shape right after the defect struck: `vfkb init` created the
+        // brain, a pi session gitlinked it, and the operator had not committed it yet —
+        // so there is no history and no index entry to point at. WARN rather than FAIL,
+        // because a brain that is genuinely meant to be standalone looks identical here;
+        // the remedy is therefore stated conditionally.
+        add(
+          'brain gitlink',
+          'warn',
+          `${embedded} exists inside this project and ${brainRel} is not gitignored. If this brain is meant to ship WITH the repo (ADR-0019, the default), it currently cannot: \`git add ${rel}\` exits 0 and tracks nothing. Fix: remove ${embedded}, then commit ${rel}. If this brain is deliberately standalone, gitignore ${brainRel} to silence this.`,
         );
       }
     }

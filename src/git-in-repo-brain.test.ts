@@ -183,22 +183,49 @@ describe('vfkb doctor — detects a brain already corrupted by an older build', 
     expect(c?.detail).toMatch(/silently tracks NOTHING/);
   });
 
-  it('does NOT fail a legitimate standalone brain that keeps its own history', async () => {
+  it('does NOT fail a standalone brain the project has gitignored', async () => {
     // The dotfiles shape: $HOME is a git repo and ~/.vfkb deliberately has its own
-    // history. git.ts explicitly supports this ("never disturb it"). The first version
-    // of this check called it corruption and told the user to `rm` that history.
+    // history. The first version called this corruption and told the user to `rm` it.
+    // Gitignoring the brain is the project saying "not mine" — the check must respect it.
     const { runDoctor } = await import('./doctor.js');
     const { repo, brain } = repoWithBrain();
     root = repo;
+    writeFileSync(join(repo, '.gitignore'), '.vfkb/\n');
     g(['init', '-q'], brain);
-    g(['config', 'user.email', 't@t'], brain);
-    g(['config', 'user.name', 't'], brain);
-    g(['add', '-A'], brain);
-    g(['commit', '-qm', 'brain history'], brain);
-    // The outer repo never tracked it — so it is not the project's to begin with.
     const r = runDoctor({ root: repo, brainDir: brain, env: {} });
     expect(r.checks.find((x) => x.name === 'brain gitlink')).toBeUndefined();
     expect(r.checks.some((c) => c.status === 'fail')).toBe(false);
+  });
+
+  it('WARNS on the canonical shape — gitlinked before the operator ever committed it', async () => {
+    // This is what the defect actually produced: `vfkb init` made the brain, a pi
+    // session gitlinked it, and nothing had been committed yet. Gating the check on
+    // "did the project track it" made doctor permanently MUTE in exactly this case —
+    // the one it was written for.
+    const { runDoctor } = await import('./doctor.js');
+    const { repo, brain } = repoWithBrain();
+    root = repo;
+    g(['init', '-q'], brain); // never committed by the outer repo
+    const c = runDoctor({ root: repo, brainDir: brain, env: {} }).checks.find(
+      (x) => x.name === 'brain gitlink',
+    );
+    expect(c?.status).toBe('warn');
+    expect(c?.detail).toMatch(/exits 0 and tracks nothing/);
+  });
+
+  it('detects a STAGED-but-uncommitted brain as owned by the project', async () => {
+    // `git log` throws in a repo with no commits; chaining it with `||` inside one try
+    // meant `ls-files` never ran, so a staged brain — an unambiguous ownership claim —
+    // was missed.
+    const { runDoctor } = await import('./doctor.js');
+    const { repo, brain } = repoWithBrain();
+    root = repo;
+    g(['add', '--', '.vfkb/entries.jsonl'], repo); // staged, never committed
+    g(['init', '-q'], brain);
+    const c = runDoctor({ root: repo, brainDir: brain, env: {} }).checks.find(
+      (x) => x.name === 'brain gitlink',
+    );
+    expect(c?.status).toBe('fail');
   });
 
   it('says nothing when the brain is clean (no embedded repo at all)', async () => {
