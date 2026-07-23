@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.7.0](https://github.com/vilosource/vfkb/compare/v0.6.0...v0.7.0) (2026-07-23)
+
+
+### Features
+
+* **doctor:** detect a brain already gitlinked out of its project ([#239](https://github.com/vilosource/vfkb/issues/239)) ([060d146](https://github.com/vilosource/vfkb/commit/060d146e651e52e4ea5a8e674e992d446156da78))
+* **pi:** wire the pi face into init + doctor, bundle it (ADR-0066 milestone 1) ([#240](https://github.com/vilosource/vfkb/issues/240)) ([6bf5fbe](https://github.com/vilosource/vfkb/commit/6bf5fbe7ab0ee46fdb128a78c5c9e08295311a72))
+
+
+### Bug Fixes
+
+* **git:** never `git init` inside an in-repo brain ([#238](https://github.com/vilosource/vfkb/issues/238)) ([b66c73b](https://github.com/vilosource/vfkb/commit/b66c73ba2ee5a8665f7ad9b564ad49a079aa2883))
+
+
+### Documentation
+
+* **rfc:** RFC-037 — the pi face is built but undeliverable ([#233](https://github.com/vilosource/vfkb/issues/233)) ([58817e9](https://github.com/vilosource/vfkb/commit/58817e9247f2d1334f00ebe812f7952411511973))
+
 ## [0.6.0](https://github.com/vilosource/vfkb/compare/v0.5.0...v0.6.0) (2026-07-19)
 
 
