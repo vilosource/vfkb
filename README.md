@@ -179,7 +179,9 @@ vfkb supersede <id> "Use NUMERIC(19,4) for money columns" --why "scale fixed by 
 
 # Health + delivery
 vfkb doctor                              # brain/engine/wiring diagnosis, incl. plugin staleness
-vfkb save                                # commit the brain (it ships with your repo)
+vfkb save                                # commit a STANDALONE brain (e.g. ~/.vfkb)
+                                         # an in-repo brain is committed by the project itself:
+                                         #   git add .vfkb/entries.jsonl && git commit
 vfkb export agents-md                    # generate an AGENTS.md projection for non-vfkb tooling
 ```
 

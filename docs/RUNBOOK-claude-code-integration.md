@@ -31,8 +31,9 @@ where vfkb's *code* lives — so the brain lives with your project even when vfk
 - **Node ≥ 20** (`node --version`; verified on v20.18.1). No native modules.
 - **Claude Code CLI** installed (`claude --version`; the Stop-hook contract is verified at **v2.1.195**
   — see §8 if yours differs).
-- The target project is a **git repo** (`git init` if not) — the Stop-hook heuristic and `vfkb save`
-  read git state.
+- The target project is a **git repo** (`git init` if not) — the Stop-hook heuristic reads git state.
+  (`vfkb save` is for a STANDALONE brain; the in-repo brain this runbook describes is committed by
+  the project itself — the SessionEnd hook does it for you.)
 - A built vfkb `dist/` (next step).
 
 ---
