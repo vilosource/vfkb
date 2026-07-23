@@ -2,7 +2,7 @@
 type: Proposal
 title: "RFC-037: The pi face is built but undeliverable — pi grew a package system and vfkb has no presence in it"
 description: "Research against pi 0.73.1 found the pi extension code broadly correct and the premise of its MCP bridge intact, while pi grew a full package/marketplace system (pi install npm:/git:, project-scoped .pi/settings.json, a public gallery) that vfkb has zero presence in. The only load path today is `pi -e /abs/path`, which is the ADR-0051 --plugin-dir trap exactly. Proposes a separate vfkb-pi-package repo mirroring vfkb-claude-plugin, with delivery — not capability — as milestone 1."
-status: "Accepted"
+status: "Accepted → ADR-0066 (ratified 2026-07-23)"
 timestamp: 2026-07-22
 ---
 
@@ -210,10 +210,12 @@ work and are already sandbox-exercised.
 > evidence behind it.
 >
 > Consequences for milestone 1: the package manifest must declare both; `vfkb init`'s pi wiring must
-> write the MCP config and the env; and the install-path L4 (D4) **must load both simultaneously**,
-> since that is the only configuration a user will actually run and the one nothing has yet proven.
-> A silent partial install — injection working, tools absent — is precisely the delivery failure
-> class ADR-0051 exists to catch.
+> write the MCP config and the env; and the install-path L4 (D4) **must load both simultaneously in
+> every arm where vfkb is installed** — the fresh arm and the post-upgrade half — since that is the
+> only configuration a user will actually run and the one nothing has yet proven. (Not the contrast
+> arm and not the pre-upgrade half: vfkb is deliberately absent there. See D4, which states the
+> scoping in full.) A silent partial install — injection working, tools absent — is precisely the
+> delivery failure class ADR-0051 exists to catch.
 
 ### D4 — What the pi install-path L4 must prove — **RATIFIED 2026-07-23: as proposed**
 
@@ -244,20 +246,30 @@ capability **absent**. Requiring both extensions in those places would load the 
 exist to do without, turning the can-fail arm into one that cannot fail. That is the ADR-0050
 violation this whole RFC is written to avoid, so the quantifier matters more than it looks.
 
-**The strategic prize:** this proof is CI-automatable from day one. RFC-036 §D1 verifies that the
-Claude scenarios read `~/.claude/.credentials.json`, **throw** without a `claudeAiOauth` block,
-and have **no API-key path in the code at all** — which is precisely why the four plugin records
-can only be produced by hand on the operator's machine. The pi arm instead runs on
-`DEEPSEEK_TOKEN`, a plain API key already injected at run time by
-`scenarios/docker/pi.Dockerfile`. So the pi face can have machine-produced release evidence
-**without waiting on RFC-036's trust-model ratification** — and in doing so becomes the working
-demonstration that RFC-036's automation argument is sound.
+**The strategic prize — and its exact size.** RFC-036 (Context, `:27-31`; back-referenced by its
+§D1 table) verifies that the Claude scenarios read `~/.claude/.credentials.json`, **throw** without
+a `claudeAiOauth` block (`scenarios/l4-purpose.mjs:84-86`; the plugin's `hooks-smoke.mjs:74-80` and
+`install-path.mjs:110-115` are identical), and have **no API-key path in the code at all** — which
+is precisely why the four plugin records can only be produced by hand on the operator's machine.
+The pi arm instead runs on a plain API key, `DEEPSEEK_TOKEN`, handed to the container at run time
+by the harness (`scenarios/l4-purpose.mjs:278`) and consumed through the baked provider config
+whose `apiKey` field names the env var rather than holding a literal
+(`scenarios/docker/pi.Dockerfile:27-30` — the Dockerfile *names* the variable, it does not inject
+it). So the pi face can have machine-produced release evidence **without waiting on RFC-036's
+trust-model ratification**.
 
-## Non-goals
+**Scope that claim honestly:** what pi escapes is the **credential** blocker, which is one of
+RFC-036's several. It does not by itself supply *runner capacity* — RFC-036 `:75` records ARC as
+"controller deployed, capacity absent" and recommends kagent, which is deployed but whose use for
+a dockerized L4 harness is unratified. Milestone 1 should budget for where the pi L4 actually
+runs rather than assume CI is free.
 
-- Any change to the engine. This milestone is packaging, wiring, doctoring and proving.
-- The capability backlog in the table above — real work, explicitly deferred to milestone 2.
-- Publishing to the `pi.dev` gallery. That is an outward publish and needs its own call.
+**And one defect to fix rather than inherit:** the injection at `l4-purpose.mjs:278` is
+`` `DEEPSEEK_TOKEN=${process.env.DEEPSEEK_TOKEN || ''}` `` — an unset secret passes the **empty
+string** instead of failing, where the Claude path throws. That turns a missing credential into a
+downstream model auth error rather than a clean stop: the quiet-success shape ADR-0051 clause 3
+forbids, sitting inside the automation this section calls a prize. The pi install-path L4 must
+assert the credential is present before it runs.
 
 ### D5 — Repo name — **RATIFIED 2026-07-23: `vfkb-pi-package`**
 
@@ -270,6 +282,12 @@ chosen name matches **pi's own vocabulary** — pi calls these *packages* (`pi i
 `pi-package` keyword, the gallery) — rather than mirroring the Claude side's "plugin". Recorded
 because "the operator said plugin" is a true quote of a superseded instruction, and a later session
 reading only that sentence would rename the repo wrongly.
+
+## Non-goals
+
+- Any change to the engine. This milestone is packaging, wiring, doctoring and proving.
+- The capability backlog in the table above — real work, explicitly deferred to milestone 2.
+- Publishing to the `pi.dev` gallery. That is an outward publish and needs its own call.
 
 ## Open questions for the operator
 
