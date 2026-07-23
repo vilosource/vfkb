@@ -241,3 +241,29 @@ describe('pi extension ORDER — the trap that fails silently', () => {
     expect(checks.find((c) => c.name === 'pi extension order')?.status).toBe('fail');
   });
 });
+
+describe('vfkb init — a malformed .pi/settings.json is preserved, not destroyed', () => {
+  it('backs up an unparseable file instead of silently overwriting it', () => {
+    // A trailing comma is enough, and pi's docs encourage hand-editing this file.
+    // Before this, init reported `updated` and the consumer's packages/model/extensions
+    // were simply gone.
+    const original =
+      '{"model":"deepseek-v4-pro","packages":["npm:their-package"],"skills":["./s"],}';
+    mkdirSync(join(root, '.pi'), { recursive: true });
+    writeFileSync(join(root, '.pi', 'settings.json'), original);
+
+    const changes = initProject(root, { project: 'demo' });
+
+    const backup = join(root, '.pi', 'settings.json.corrupt-backup');
+    expect(existsSync(backup)).toBe(true);
+    expect(readFileSync(backup, 'utf8')).toBe(original); // byte-identical
+    expect(changes.some((c) => c.path.includes('corrupt-backup'))).toBe(true); // and reported
+  });
+
+  it('does NOT create a backup when the file parses fine (no litter)', () => {
+    mkdirSync(join(root, '.pi'), { recursive: true });
+    writeFileSync(join(root, '.pi', 'settings.json'), JSON.stringify({ packages: [] }));
+    initProject(root, { project: 'demo' });
+    expect(existsSync(join(root, '.pi', 'settings.json.corrupt-backup'))).toBe(false);
+  });
+});

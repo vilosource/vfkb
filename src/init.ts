@@ -5,7 +5,7 @@
 // piece is created-if-absent / merged-if-present, and a brain is NEVER clobbered.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { basename, join, relative } from 'node:path';
 import { writeManifest } from './manifest.js';
 
 export type InitAction = 'created' | 'updated' | 'skipped';
@@ -154,6 +154,28 @@ function readJson(path: string): any | undefined {
     return JSON.parse(readFileSync(path, 'utf8'));
   } catch {
     return undefined;
+  }
+}
+
+/**
+ * A config file that EXISTS but does not parse is about to be overwritten with a
+ * freshly-built one, silently destroying whatever the consumer had — reported as
+ * `updated`. A trailing comma is enough, and these are files pi's and Claude's docs
+ * encourage hand-editing.
+ *
+ * So: copy it aside first. Non-destructive, one line in the change list, and the
+ * operator can recover by hand. Returns the backup's relative path, or undefined when
+ * there was nothing to preserve (absent, or parses fine).
+ */
+function preserveUnparseable(root: string, path: string): string | undefined {
+  if (!existsSync(path)) return undefined;
+  if (readJson(path) !== undefined) return undefined; // parses — nothing to rescue
+  const backup = `${path}.corrupt-backup`;
+  try {
+    writeFileSync(backup, readFileSync(path, 'utf8'));
+    return relative(root, backup);
+  } catch {
+    return undefined; // best effort; never block init on it
   }
 }
 
@@ -344,6 +366,9 @@ export function initProject(root: string, opts: { project?: string; pi?: boolean
     const dir = join(root, '.pi');
     const path = join(dir, 'settings.json');
     const existed = existsSync(path);
+    // Rescue an unparseable file before rebuilding over it (see preserveUnparseable).
+    const rescued = preserveUnparseable(root, path);
+    if (rescued) changes.push({ path: rescued, action: 'created' });
     const cfg = readJson(path) ?? {};
     const cur: unknown[] = Array.isArray(cfg.packages) ? cfg.packages : [];
     const has = cur.some((p) =>
