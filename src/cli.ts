@@ -764,11 +764,17 @@ async function dispatch() {
       // NOT a no-op: the brain lives inside a project repo and is committed by that
       // project, not by this command. Printing "no-op" here read as success and left a
       // script believing the brain was saved. Name the actual next step.
-      const rel = process.env.VFKB_DATA_DIR || '.vfkb';
+      // Exit 0 is DELIBERATE: a refusal is correct behaviour, not an error — this brain
+      // is simply not this command's to commit. Scripts should branch on the brain's
+      // shape (or use the engine's SaveResult.refused), not on this exit code.
+      //
+      // The path comes from r.message, which carries the brain the ENGINE resolved.
+      // Reading $VFKB_DATA_DIR instead printed the wrong path whenever it was unset and
+      // the default (~/.vfkb, under a git-managed home) was what refused.
       process.stdout.write(
         `not committed: ${r.message}\n` +
-          `  this brain ships INSIDE your project (ADR-0019), so commit it there:\n` +
-          `      git add ${rel}/entries.jsonl && git commit -m "vfkb: update"\n` +
+          '  this brain ships INSIDE a project repo (ADR-0019), so commit it there:\n' +
+          '      git add <brain>/entries.jsonl && git commit -m "vfkb: update"\n' +
           '  (a Claude Code session does this for you at session end — ADR-0033)\n',
       );
       return;
