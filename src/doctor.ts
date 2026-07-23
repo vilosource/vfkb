@@ -751,6 +751,94 @@ export function runDoctor(opts: DoctorOpts): DoctorReport {
     add('VFKB_PROJECT', 'ok', `${mcpProject ?? settingsProject}`);
   }
 
+  // 6b. An EMBEDDED git repo inside the brain (gotcha 80683290b4a8). git.ts no longer
+  // creates one, but a brain corrupted by an older build never heals itself — and the
+  // damage is invisible: `git add .vfkb/entries.jsonl` exits 0 and tracks nothing, so
+  // the brain silently stops reaching version control. Nothing else in doctor looks for
+  // it, and the repo's own `.gitignore`/journal checks report OK right through it.
+  {
+    const embedded = join(brainDir, '.git');
+    const inRepo = isUnder(repoToplevel(root), brainDir);
+    // When the brain dir IS the repo root (VFKB_DATA_DIR=. or a symlink resolving there),
+    // `<brainDir>/.git` is the PROJECT's own git directory, not an embedded brain repo —
+    // and entries.jsonl at the root is tracked normally. Firing here told the user to
+    // delete the whole project's history. `resolve()` both sides so a trailing slash or
+    // `.`-segment cannot slip past the equality.
+    const top = repoToplevel(root);
+    const brainIsRoot = top !== undefined && resolve(brainDir) === resolve(top);
+    if (inRepo && !brainIsRoot && existsSync(embedded)) {
+      const rel = relative(root, join(brainDir, 'entries.jsonl'));
+      const brainRel = relative(root, brainDir);
+      const gitRun = opts.git ?? realGit;
+
+      // Probe failure must be DISTINGUISHABLE from a negative answer. Returning '' for
+      // both meant a git lock (ADR-0033's SessionEnd auto-commit runs git in this same
+      // repo) or a 5s timeout silently downgraded a real FAIL to a WARN that then
+      // asserted "not gitignored" as fact and advised gitignoring — permanently hiding
+      // real corruption. RFC-024 §1: never imply health that was not verified.
+      const q = (args: string[]): string | undefined => {
+        try {
+          return gitRun(args, root).trim();
+        } catch {
+          return undefined;
+        }
+      };
+      // A LIVENESS probe, because a throwing probe is not the same as a failing one:
+      // `git log -- <path>` exits 128 in a repo with no commits, and `check-ignore`
+      // exits 1 when the path is not ignored — both legitimate NEGATIVE answers. Only
+      // if this baseline (which always succeeds inside a worktree) fails is git itself
+      // unusable, and only then may the individual answers be distrusted.
+      const degraded = q(['rev-parse', '--git-dir']) === undefined;
+      const ask = (args: string[]): string => q(args) ?? '';
+
+      // A SUBMODULE is a legitimate structure, not corruption, and its `.git` is a FILE.
+      // Telling that owner to `rm` it detaches the worktree from .git/modules and breaks
+      // the very path the remedy tells them to re-add.
+      const isSubmodule =
+        /^160000/m.test(q(['ls-files', '-s', '--', brainRel]) ?? '') &&
+        (q(['config', '--file', '.gitmodules', '--get-regexp', 'path']) ?? '').includes(brainRel);
+
+      // `--no-index` is load-bearing: git's default consults the index, so a TRACKED path
+      // exits 1 no matter what .gitignore says. Without it, the escape hatch this check
+      // advertises ("gitignore it to silence this") does not work in the one case it
+      // exists for — verified.
+      const ignored = ask(['check-ignore', '--no-index', '--', brainRel]).length > 0;
+
+      // The ONLY unambiguous proof the project owns this brain: its entries file in the
+      // project's history or index. A 160000 gitlink is deliberately NOT proof — git
+      // records one only when the embedded repo HAS commits (an embedded repo with none
+      // aborts `git add`), which is exactly the deliberate-standalone shape. Using it as
+      // a FAIL trigger re-created the dangerous false positive on a different input.
+      const inHistory = ask(['log', '--oneline', '-1', '--', rel]).length > 0;
+      const inIndex = ask(['ls-files', '--', rel]).length > 0;
+
+      if (isSubmodule) {
+        // Deliberate structure — say nothing.
+      } else if (degraded) {
+        add(
+          'brain gitlink',
+          'skip',
+          `${embedded} exists, but git could not be queried here (lock contention or timeout) — cannot tell a deliberately standalone brain from one gitlinked out of this project. Re-run when git is idle.`,
+        );
+      } else if (!ignored && (inHistory || inIndex)) {
+        add(
+          'brain gitlink',
+          'fail',
+          `${embedded} exists and this project tracks ${rel} — the brain is an EMBEDDED git repo, so \`git add ${rel}\` silently tracks NOTHING and new entries stop reaching the project's history. Fix: remove ${embedded}, then re-add the file`,
+        );
+      } else if (!ignored) {
+        // Ambiguous: `vfkb init` + a gitlinking session looks identical to a deliberately
+        // standalone in-repo brain. WARN with a conditional remedy rather than FAIL —
+        // guessing wrong here means telling someone to delete real history.
+        add(
+          'brain gitlink',
+          'warn',
+          `${embedded} exists inside this project and ${brainRel} is not gitignored. If this brain is meant to ship WITH the repo (ADR-0019, the default), it currently cannot: \`git add ${rel}\` exits 0 and tracks nothing. Fix: remove ${embedded}, then commit ${rel}. If this brain is deliberately standalone, gitignore ${brainRel} to silence this.`,
+        );
+      }
+    }
+  }
+
   return { checks, ok: !checks.some((c) => c.status === 'fail') };
 }
 
