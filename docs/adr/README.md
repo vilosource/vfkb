@@ -103,3 +103,4 @@ Immutable records of significant vfkb architecture decisions, in
 | [ADR-0063](ADR-0063-cross-repo-brain-write.md) | Cross-repo brain write — read the target's brain first, then one deliberate `cross-repo` record per operation, delivered via a second pinned section (accepts RFC-033) | Accepted |
 | [ADR-0064](ADR-0064-durable-capture-journal.md) | Durable capture — untracked write-ahead journal + `(id, updated)`-pair recovery closes the brain-loss window between write and commit (accepts RFC-034) | Accepted |
 | [ADR-0065](ADR-0065-write-health-loudness.md) | Write-health loudness — probe-first: silent MCP-disconnect must never look like successful capture (accepts RFC-035) | Accepted |
+| [ADR-0066](ADR-0066-pi-package-delivery.md) | The pi face ships as a package, not a path — separate `vfkb-pi-package` repo, git-only, vfkb's own MCP bridge kept, install-path L4 with an AGENTS.md-only contrast arm (accepts RFC-037) | Accepted |
