@@ -760,52 +760,69 @@ export function runDoctor(opts: DoctorOpts): DoctorReport {
     const embedded = join(brainDir, '.git');
     const inRepo = isUnder(repoToplevel(root), brainDir);
     if (inRepo && existsSync(embedded)) {
-      // A `.git` inside the brain is NOT by itself a defect, and treating it as one made
-      // this check dangerous: a standalone brain that deliberately keeps its own history
-      // — e.g. `~/.vfkb` when $HOME is a dotfiles repo, a shape `git.ts` explicitly
-      // supports ("never disturb it") — was told its brain "is not in version control"
-      // (false: it is, in its own) and instructed to delete that history.
-      //
-      // The discriminator is whether the OUTER repo ever tracked the brain's entries. If
-      // it did, the project owns this brain and an embedded repo has hidden it — the real
-      // corruption. If it never did, the brain is standalone and none of git.ts's or
-      // ADR-0033's project-commit machinery ever applied to it.
       const rel = relative(root, join(brainDir, 'entries.jsonl'));
       const brainRel = relative(root, brainDir);
-      const q = (args: string[]) => {
+      const gitRun = opts.git ?? realGit;
+
+      // Probe failure must be DISTINGUISHABLE from a negative answer. Returning '' for
+      // both meant a git lock (ADR-0033's SessionEnd auto-commit runs git in this same
+      // repo) or a 5s timeout silently downgraded a real FAIL to a WARN that then
+      // asserted "not gitignored" as fact and advised gitignoring — permanently hiding
+      // real corruption. RFC-024 §1: never imply health that was not verified.
+      const q = (args: string[]): string | undefined => {
         try {
-          return realGit(args, root).trim();
+          return gitRun(args, root).trim();
         } catch {
-          return ''; // each probe independently — a `git log` that throws on a repo with
-          // no commits must not prevent `ls-files` from answering (they were chained by
-          // `||` inside one try, so a STAGED brain — an unambiguous ownership claim —
-          // went undetected).
+          return undefined;
         }
       };
+      // A LIVENESS probe, because a throwing probe is not the same as a failing one:
+      // `git log -- <path>` exits 128 in a repo with no commits, and `check-ignore`
+      // exits 1 when the path is not ignored — both legitimate NEGATIVE answers. Only
+      // if this baseline (which always succeeds inside a worktree) fails is git itself
+      // unusable, and only then may the individual answers be distrusted.
+      const degraded = q(['rev-parse', '--git-dir']) === undefined;
+      const ask = (args: string[]): string => q(args) ?? '';
 
-      // Does the project deliberately NOT track this brain? Then an embedded repo there
-      // is the owner's choice, not corruption. This is the dotfiles/standalone case, and
-      // getting it wrong told people to delete real history.
-      const ignored = q(['check-ignore', '--', brainRel]).length > 0;
+      // A SUBMODULE is a legitimate structure, not corruption, and its `.git` is a FILE.
+      // Telling that owner to `rm` it detaches the worktree from .git/modules and breaks
+      // the very path the remedy tells them to re-add.
+      const isSubmodule =
+        /^160000/m.test(q(['ls-files', '-s', '--', brainRel]) ?? '') &&
+        (q(['config', '--file', '.gitmodules', '--get-regexp', 'path']) ?? '').includes(brainRel);
 
-      // Positive proof the project owns it: a gitlink already recorded in the index, or
-      // the entries file present in history/index.
-      const gitlinked = /^160000/m.test(q(['ls-files', '-s', '--', brainRel]));
-      const inHistory = q(['log', '--oneline', '-1', '--', rel]).length > 0;
-      const inIndex = q(['ls-files', '--', rel]).length > 0;
+      // `--no-index` is load-bearing: git's default consults the index, so a TRACKED path
+      // exits 1 no matter what .gitignore says. Without it, the escape hatch this check
+      // advertises ("gitignore it to silence this") does not work in the one case it
+      // exists for — verified.
+      const ignored = ask(['check-ignore', '--no-index', '--', brainRel]).length > 0;
 
-      if (!ignored && (gitlinked || inHistory || inIndex)) {
+      // The ONLY unambiguous proof the project owns this brain: its entries file in the
+      // project's history or index. A 160000 gitlink is deliberately NOT proof — git
+      // records one only when the embedded repo HAS commits (an embedded repo with none
+      // aborts `git add`), which is exactly the deliberate-standalone shape. Using it as
+      // a FAIL trigger re-created the dangerous false positive on a different input.
+      const inHistory = ask(['log', '--oneline', '-1', '--', rel]).length > 0;
+      const inIndex = ask(['ls-files', '--', rel]).length > 0;
+
+      if (isSubmodule) {
+        // Deliberate structure — say nothing.
+      } else if (degraded) {
+        add(
+          'brain gitlink',
+          'skip',
+          `${embedded} exists, but git could not be queried here (lock contention or timeout) — cannot tell a deliberately standalone brain from one gitlinked out of this project. Re-run when git is idle.`,
+        );
+      } else if (!ignored && (inHistory || inIndex)) {
         add(
           'brain gitlink',
           'fail',
-          `${embedded} exists and this project tracks the brain — it is now an EMBEDDED git repo, so \`git add ${rel}\` silently tracks NOTHING and new entries stop reaching the project's history. Fix: remove ${embedded} (an older build created it), then re-add the file`,
+          `${embedded} exists and this project tracks ${rel} — the brain is an EMBEDDED git repo, so \`git add ${rel}\` silently tracks NOTHING and new entries stop reaching the project's history. Fix: remove ${embedded}, then re-add the file`,
         );
       } else if (!ignored) {
-        // The canonical shape right after the defect struck: `vfkb init` created the
-        // brain, a pi session gitlinked it, and the operator had not committed it yet —
-        // so there is no history and no index entry to point at. WARN rather than FAIL,
-        // because a brain that is genuinely meant to be standalone looks identical here;
-        // the remedy is therefore stated conditionally.
+        // Ambiguous: `vfkb init` + a gitlinking session looks identical to a deliberately
+        // standalone in-repo brain. WARN with a conditional remedy rather than FAIL —
+        // guessing wrong here means telling someone to delete real history.
         add(
           'brain gitlink',
           'warn',

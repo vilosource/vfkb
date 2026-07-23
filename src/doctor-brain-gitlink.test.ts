@@ -91,7 +91,23 @@ describe('vfkb doctor — detects a brain already corrupted by an older build', 
     expect(c?.detail).toMatch(/exits 0 and tracks nothing/);
   });
 
-  it('detects a STAGED-but-uncommitted brain as owned by the project', async () => {
+  it('detects a COMMITTED brain via history even when the index no longer holds it', async () => {
+    // Isolates inHistory from inIndex: commit the brain, then `git rm --cached` so it is
+    // gone from the index but present in history — the project still owns it.
+    const { runDoctor } = await import('./doctor.js');
+    const { repo, brain } = repoWithBrain();
+    root = repo;
+    g(['add', '--', '.vfkb/entries.jsonl'], repo);
+    g(['commit', '-qm', 'tracked'], repo);
+    g(['rm', '--cached', '-q', '--', '.vfkb/entries.jsonl'], repo);
+    g(['init', '-q'], brain);
+    const c = runDoctor({ root: repo, brainDir: brain, env: {} }).checks.find(
+      (x) => x.name === 'brain gitlink',
+    );
+    expect(c?.status).toBe('fail');
+  });
+
+    it('detects a STAGED-but-uncommitted brain as owned by the project', async () => {
     // `git log` throws in a repo with no commits; chaining it with `||` inside one try
     // meant `ls-files` never ran, so a staged brain — an unambiguous ownership claim —
     // was missed.
@@ -112,5 +128,84 @@ describe('vfkb doctor — detects a brain already corrupted by an older build', 
     root = repo;
     const r = runDoctor({ root: repo, brainDir: brain, env: {} });
     expect(r.checks.find((x) => x.name === 'brain gitlink')).toBeUndefined();
+  });
+});
+
+describe('the shapes that made an earlier version of this check dangerous', () => {
+  // Each of these was a FAIL telling the owner to `rm` a .git holding real history.
+  it('a standalone brain with a 160000 gitlink recorded is NOT a FAIL', async () => {
+    // git records 160000 only when the embedded repo HAS commits — an embedded repo
+    // with none aborts `git add`. So a gitlink is evidence of a DELIBERATE standalone
+    // brain at least as much as of corruption, and cannot drive a FAIL.
+    const { runDoctor } = await import('./doctor.js');
+    const { repo, brain } = repoWithBrain();
+    root = repo;
+    g(['init', '-q'], brain);
+    g(['config', 'user.email', 't@t'], brain);
+    g(['config', 'user.name', 't'], brain);
+    g(['add', '-A'], brain);
+    g(['commit', '-qm', 'brain history'], brain);
+    g(['add', '-A'], repo); // records the gitlink
+    expect(g(['ls-files', '-s'], repo)).toMatch(/^160000/m); // precondition holds
+    const c = runDoctor({ root: repo, brainDir: brain, env: {} }).checks.find(
+      (x) => x.name === 'brain gitlink',
+    );
+    expect(c?.status).not.toBe('fail');
+  });
+
+  it('gitignoring a TRACKED brain actually silences the check (--no-index)', async () => {
+    // git's default check-ignore consults the index, so a tracked path exits 1 whatever
+    // .gitignore says — the advertised escape hatch did not work in the one case it
+    // exists for.
+    const { runDoctor } = await import('./doctor.js');
+    const { repo, brain } = repoWithBrain();
+    root = repo;
+    g(['add', '--', '.vfkb/entries.jsonl'], repo);
+    g(['commit', '-qm', 'tracked'], repo);
+    writeFileSync(join(repo, '.gitignore'), '.vfkb/\n');
+    g(['init', '-q'], brain);
+    const c = runDoctor({ root: repo, brainDir: brain, env: {} }).checks.find(
+      (x) => x.name === 'brain gitlink',
+    );
+    expect(c).toBeUndefined();
+  });
+
+  it('a real git SUBMODULE brain is left alone', async () => {
+    const { runDoctor } = await import('./doctor.js');
+    const { repo, brain } = repoWithBrain();
+    root = repo;
+    // Build a submodule the cheap way: an embedded repo with commits, a gitlink in the
+    // index, and a matching .gitmodules entry.
+    g(['init', '-q'], brain);
+    g(['config', 'user.email', 't@t'], brain);
+    g(['config', 'user.name', 't'], brain);
+    g(['add', '-A'], brain);
+    g(['commit', '-qm', 'sub'], brain);
+    g(['add', '-A'], repo);
+    writeFileSync(join(repo, '.gitmodules'), '[submodule ".vfkb"]\n\tpath = .vfkb\n\turl = ./x\n');
+    const c = runDoctor({ root: repo, brainDir: brain, env: {} }).checks.find(
+      (x) => x.name === 'brain gitlink',
+    );
+    expect(c).toBeUndefined();
+  });
+
+  it('reports SKIP, not a verdict, when git cannot be queried', async () => {
+    // A git lock (ADR-0033's SessionEnd runs git in this same repo) or a timeout used to
+    // silently downgrade a real FAIL to a WARN that then advised gitignoring — which
+    // would permanently hide the corruption. RFC-024 §1.
+    const { runDoctor } = await import('./doctor.js');
+    const { repo, brain } = repoWithBrain();
+    root = repo;
+    g(['add', '--', '.vfkb/entries.jsonl'], repo);
+    g(['commit', '-qm', 'tracked'], repo);
+    g(['init', '-q'], brain);
+    const brokenGit = () => {
+      throw new Error("fatal: Unable to create '.git/index.lock': File exists.");
+    };
+    const c = runDoctor({ root: repo, brainDir: brain, env: {}, git: brokenGit }).checks.find(
+      (x) => x.name === 'brain gitlink',
+    );
+    expect(c?.status).toBe('skip');
+    expect(c?.detail).toMatch(/cannot tell/);
   });
 });
