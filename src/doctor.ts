@@ -494,9 +494,14 @@ function piPackageListed(piSettings: any): boolean {
 export function piExtensionOrderProblem(piSettings: any): string | undefined {
   const exts: unknown[] = Array.isArray(piSettings?.extensions) ? piSettings.extensions : [];
   const paths = exts.filter((e): e is string => typeof e === 'string');
-  const bridgeAt = paths.findIndex((p) => p.includes('pi-mcp-bridge'));
+  // Match BOTH names the bridge ships under, or this check is decorative: the source
+  // tree builds `pi-mcp-bridge.js` while the package vendors `vfkb-pi-bridge.mjs`.
+  // Matching only the former meant the check never fired on the real package AND
+  // false-FAILed a correct hand-wiring against a source-tree bridge.
+  const bridgeAt = paths.findIndex((p) => /pi-mcp-bridge|vfkb-pi-bridge/.test(p));
   if (bridgeAt < 0) return undefined; // no hand-listed bridge → manifest order governs
-  const wrapperAt = paths.findIndex((p) => /vfkb-pi-wrapper|vfkb-wrapper/.test(p));
+  // Likewise the resolver: `00-vfkb-config.js` is what the package actually ships.
+  const wrapperAt = paths.findIndex((p) => /vfkb-config|vfkb-pi-wrapper|vfkb-wrapper/.test(p));
   if (wrapperAt < 0) {
     return 'pi-mcp-bridge is listed in .pi/settings.json `extensions` with no wrapper before it — the bridge reads $VFKB_MCP_CONFIG at import, so it will register ZERO kb_* tools (silently)';
   }
@@ -526,13 +531,27 @@ export function checkPiWiring(
   const listed = piPackageListed(piSettings);
   const hasMcp = !!piMcp?.mcpServers?.vfkb;
   const orderProblem = piExtensionOrderProblem(piSettings);
-  const handWired = Array.isArray(piSettings?.extensions) && piSettings.extensions.length > 0;
+  // "Hand-wired" must mean hand-wired *to vfkb*, not merely "has extensions". Keying on
+  // a non-empty array made doctor report healthy vfkb pi wiring for someone whose
+  // .pi/settings.json lists their own linter — and then warn them about an MCP config
+  // for a capability they never asked for.
+  const exts: unknown[] = Array.isArray(piSettings?.extensions) ? piSettings.extensions : [];
+  const handWired = exts.some((e) => typeof e === 'string' && /vfkb/i.test(e));
   const fix = pluginWired
     ? 'add `.pi/settings.json` (packages: ["' + PI_PACKAGE_SOURCE + '"]) and `.vfkb/mcp.json`'
     : 'run `vfkb init`';
 
-  if (!piSettingsExists && !piMcpExists) {
-    out.push({ name: 'pi wiring', status: 'skip', detail: 'no .pi/settings.json — pi face not wired (optional)' });
+  // `skip` keys on INTENT, not on file existence. A pi user who has never asked for vfkb
+  // still has a .pi/settings.json, and warning them to run `vfkb init` is nagging about a
+  // capability they did not request. Only speak up once something here references vfkb.
+  if (!listed && !handWired && !piMcpExists && !orderProblem) {
+    out.push({
+      name: 'pi wiring',
+      status: 'skip',
+      detail: piSettingsExists
+        ? '.pi/settings.json has no vfkb wiring — pi face not wired (optional)'
+        : 'no .pi/settings.json — pi face not wired (optional)',
+    });
     return out;
   }
 

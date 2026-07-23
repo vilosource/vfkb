@@ -128,13 +128,16 @@ This repo uses **vfkb** as its knowledge substrate (project \`${project}\`). Kno
   \`decision\`, \`fact\`, \`gotcha\`, \`pattern\`, \`link\` — put a decision's rationale in its text.
   **Capture load-bearing decisions immediately — don't defer.**
 - Committed: \`.vfkb/entries.jsonl\`, \`.vfkb/manifest.json\` (the ADR-0030 engine stamp —
-  **never gitignore \`manifest.json\`**), \`.vfkb/mcp.json\`, \`.vfkb/bin/\`, and \`.pi/settings.json\`.
-  Derived/gitignored, all five:
-  \`.vfkb/index-meta.json\`, \`.vfkb/.sessions/\`, \`.vfkb/.signals/\`, \`.vfkb/.journal/\`, \`.vfkb/.lock\`.
+  **never gitignore \`manifest.json\`**), \`.vfkb/bin/\`, and \`.pi/settings.json\`.
+  Derived/gitignored: \`.vfkb/index-meta.json\`, \`.vfkb/.sessions/\`, \`.vfkb/.signals/\`,
+  \`.vfkb/.journal/\`, \`.vfkb/.lock\`, and \`.pi/git/\` (pi's package clone).
 - **Works in [pi](https://pi.dev) too** (ADR-0066): \`.pi/settings.json\` loads the \`vfkb-pi-package\`
-  and pi auto-installs it at startup, so a teammate's clone wires itself. \`.vfkb/mcp.json\` is what
-  gives pi the \`kb_*\` tools — if it is missing you get injection and **no tools, silently**.
-  Run \`vfkb doctor\` to check both.
+  and pi auto-installs it at startup, so a teammate's clone wires itself. The package vendors its
+  own engine and finds this brain by itself — there is **no \`.vfkb/mcp.json\` to write, and its
+  absence is normal**. (You may add one to override or add MCP servers; \`vfkb doctor\` validates it
+  if present. Do NOT hand-write one pointing at \`.vfkb/bin/bootstrap.mjs\` — that re-imposes the
+  per-machine \`$VFKB_BUNDLE_DIR\` the package exists to retire, and shadows its bundled server.)
+  Run \`vfkb doctor\` to check the wiring.
 
 Two env vars: **\`VFKB_DATA_DIR\`** = this repo's brain (\`.vfkb\`, set by the wiring) · **\`VFKB_BUNDLE_DIR\`**
 = the shared vfkb engine bundles — set it once per machine, e.g. \`export VFKB_BUNDLE_DIR=/path/to/vfkb/dist/bundles\`.
@@ -159,7 +162,7 @@ function eventHasVfkb(arr: unknown): boolean {
   return JSON.stringify(arr ?? '').includes(BOOTSTRAP_REL);
 }
 
-export function initProject(root: string, opts: { project?: string } = {}): InitChange[] {
+export function initProject(root: string, opts: { project?: string; pi?: boolean } = {}): InitChange[] {
   const project = opts.project || basename(root) || 'project';
   const changes: InitChange[] = [];
 
@@ -253,6 +256,11 @@ export function initProject(root: string, opts: { project?: string } = {}): Init
       '.vfkb/.journal/',
       '.vfkb/.lock',
       '.vfkb/.write-probe-*',
+      // pi clones the vfkb package (plus its node_modules) into the PROJECT when the
+      // package entry is project-scoped. Derived, multi-hundred-KB, and re-fetched on
+      // demand — never commit it. Without this line a consumer's `git status` fills
+      // with a vendored clone the moment they first start pi.
+      '.pi/git/',
     ];
     // The header the stanza should carry. The OLD one claimed "only
     // .vfkb/entries.jsonl is committed", which is FALSE — manifest.json is
@@ -315,7 +323,10 @@ export function initProject(root: string, opts: { project?: string } = {}): Init
     }
   }
 
-  // 4c. .pi/settings.json — load the vfkb pi package (ADR-0066 §1/§2).
+  // 4c. .pi/settings.json — load the vfkb pi package (ADR-0066 §1/§2). Skippable:
+  // wiring pi makes it clone+install the package at startup, which a Claude-only
+  // consumer may reasonably decline (`vfkb init --no-pi`).
+  if (opts.pi !== false)
   // Project scope is deliberate: it is team-shareable and pi auto-installs missing
   // packages at startup, so a teammate's clone wires itself. Merge, never clobber:
   // keep the consumer's other packages and every other setting.

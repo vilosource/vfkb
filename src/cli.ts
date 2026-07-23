@@ -259,11 +259,14 @@ async function dispatch() {
   // init [project]: FR-1 (ADR-0030) — idempotently scaffold THIS repo (cwd) as a
   // vfkb consumer (portable $VFKB_HOME wiring + .gitignore + empty brain + snippet).
   if (cmd === 'init') {
-    const p = parseArgs('init', argsOf(sub, rest), {});
+    const p = parseArgs('init', argsOf(sub, rest), { 'no-pi': 'boolean' });
     if (p.positionals.length > 1) throw new UsageError('init: at most one [project] argument');
     const root = process.cwd();
     const project = p.positionals[0] || process.env.VFKB_PROJECT;
-    const changes = initProject(root, { project });
+    // --no-pi: skip the pi face wiring. The default is ON (ADR-0066), but wiring pi
+    // enrolls the repo in a package clone+install at pi startup, and a Claude-only
+    // consumer should be able to decline a dependency they will never use.
+    const changes = initProject(root, { project, pi: !p.flags.get('no-pi') });
     const resolved = project || root.split(/[/\\]/).filter(Boolean).pop() || 'project';
     for (const c of changes) process.stdout.write(`${c.action}\t${c.path}\n`);
     process.stdout.write('\n' + approvalNotice(resolved) + '\n');

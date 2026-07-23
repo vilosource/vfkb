@@ -64,6 +64,32 @@ describe('vfkb init — pi wiring (ADR-0066)', () => {
     expect(piSettings.packages).toEqual(['npm:someone-elses-pkg', PI_PACKAGE_SOURCE]);
   });
 
+  it('--no-pi (opts.pi === false) skips the pi wiring entirely', () => {
+    // Wiring pi enrolls the repo in a package clone+install at pi startup. A
+    // Claude-only consumer must be able to decline a dependency they will never use.
+    initProject(root, { project: 'demo', pi: false });
+    expect(existsSync(join(root, '.pi', 'settings.json'))).toBe(false);
+    // ...but the rest of the scaffold is untouched.
+    expect(existsSync(join(root, '.vfkb', 'entries.jsonl'))).toBe(true);
+    expect(existsSync(join(root, '.mcp.json'))).toBe(true);
+  });
+
+  it('gitignores .pi/git/ — pi clones the package INTO the repo at startup', () => {
+    initProject(root, { project: 'demo' });
+    expect(readFileSync(join(root, '.gitignore'), 'utf8')).toContain('.pi/git/');
+  });
+
+  it('the AGENTS.md snippet does not tell an agent to create .vfkb/mcp.json', () => {
+    initProject(root, { project: 'demo' });
+    // It said the opposite once: that .vfkb/mcp.json is committed and that its absence
+    // means "no tools, silently". An agent reading that would hand-write one pointing at
+    // the bootstrap, re-imposing $VFKB_BUNDLE_DIR and shadowing the vendored server —
+    // the regression this PR exists to avoid, shipped into every consumer repo.
+    const agents = readFileSync(join(root + '/AGENTS.md'), 'utf8');
+    expect(agents).not.toMatch(/Committed:[^\n]*mcp\.json/);
+    expect(agents).toMatch(/absence is normal/);
+  });
+
   it('never clobbers an existing brain while adding pi wiring', () => {
     mkdirSync(join(root, '.vfkb'), { recursive: true });
     writeFileSync(join(root, '.vfkb', 'entries.jsonl'), '{"id":"keepme"}\n');
@@ -108,7 +134,7 @@ describe('vfkb doctor — pi wiring checks', () => {
   });
 
   it('WARNS when extensions are hand-listed with no package and no override', () => {
-    const checks = checkPiWiring({ extensions: ['/x/vfkb-pi-wrapper.js'] }, undefined, true, false);
+    const checks = checkPiWiring({ extensions: ['/pkg/extensions/00-vfkb-config.js'] }, undefined, true, false);
     expect(checks.find((c) => c.name === 'pi mcp config')!.status).toBe('warn');
   });
 
@@ -130,6 +156,20 @@ describe('vfkb doctor — pi wiring checks', () => {
     expect(checks.find((c) => c.status === 'warn')!.detail).toContain('vfkb init');
   });
 
+  it('SKIPS a pi user who has never asked for vfkb — intent, not file existence', () => {
+    // Keying `skip` on "does .pi/settings.json exist" made doctor report healthy vfkb
+    // wiring for someone whose settings list their own linter, then warn them about an
+    // MCP config for a capability they never requested. Nagging is a defect.
+    const checks = checkPiWiring(
+      { defaultModel: 'deepseek-v4-pro', extensions: ['./my-linter.js'], packages: ['npm:someone-else'] },
+      undefined,
+      true,
+      false,
+    );
+    expect(checks).toHaveLength(1);
+    expect(checks[0].status).toBe('skip');
+  });
+
   it('does not fail a Claude-only repo just because pi wiring is absent', () => {
     const checks = checkPiWiring(undefined, undefined, false, false);
     expect(checks.some((c) => c.status === 'fail')).toBe(false);
@@ -140,19 +180,30 @@ describe('pi extension ORDER — the trap that fails silently', () => {
   // The bridge resolves $VFKB_MCP_CONFIG at module top level, and pi loads extensions
   // sequentially in array order (both verified live on 0.73.1). So a wrapper listed
   // after the bridge is indistinguishable, at runtime, from no wrapper at all.
-  const bridge = '/pkg/dist/pi-mcp-bridge.js';
-  const wrapper = '/pkg/extensions/vfkb-pi-wrapper.js';
+  // THESE MUST BE THE NAMES THE PACKAGE ACTUALLY SHIPS. An earlier version of this
+  // suite used a fictional `vfkb-pi-wrapper.js` and a source-tree-only `pi-mcp-bridge.js`,
+  // so every test passed over filenames that are never delivered — the check was
+  // decorative against the real package and false-FAILed a correct hand-wiring. Caught
+  // in review. Both real spellings are covered below.
+  const bridge = '/pkg/bundles/vfkb-pi-bridge.mjs'; // what the package vendors
+  const srcBridge = '/vfkb/dist/pi-mcp-bridge.js'; // what a source tree builds
+  const resolver = '/pkg/extensions/00-vfkb-config.js'; // what the package vendors
 
-  it('accepts wrapper BEFORE bridge', () => {
-    expect(piExtensionOrderProblem({ extensions: [wrapper, bridge] })).toBeUndefined();
+  it('accepts resolver BEFORE bridge — the package\'s real filenames', () => {
+    expect(piExtensionOrderProblem({ extensions: [resolver, bridge] })).toBeUndefined();
   });
 
-  it('rejects wrapper AFTER bridge', () => {
-    expect(piExtensionOrderProblem({ extensions: [bridge, wrapper] })).toMatch(/AFTER pi-mcp-bridge/);
+  it('accepts resolver before a SOURCE-TREE bridge (a legitimate hand-wiring)', () => {
+    expect(piExtensionOrderProblem({ extensions: [resolver, srcBridge] })).toBeUndefined();
   });
 
-  it('rejects a hand-listed bridge with no wrapper at all', () => {
+  it('rejects resolver AFTER bridge — the package\'s real filenames', () => {
+    expect(piExtensionOrderProblem({ extensions: [bridge, resolver] })).toMatch(/AFTER pi-mcp-bridge/);
+  });
+
+  it('rejects a hand-listed bridge with no resolver at all, under either spelling', () => {
     expect(piExtensionOrderProblem({ extensions: [bridge] })).toMatch(/no wrapper before it/);
+    expect(piExtensionOrderProblem({ extensions: [srcBridge] })).toMatch(/no wrapper before it/);
   });
 
   it('stays silent when the bridge is not hand-listed (package manifest governs order)', () => {
@@ -163,7 +214,7 @@ describe('pi extension ORDER — the trap that fails silently', () => {
 
   it('surfaces the order problem as a doctor FAIL', () => {
     const ok = { mcpServers: { vfkb: { command: 'node', args: [] } } };
-    const checks = checkPiWiring({ extensions: [bridge, wrapper] }, ok, true, true);
+    const checks = checkPiWiring({ extensions: [bridge, resolver] }, ok, true, true);
     expect(checks.find((c) => c.name === 'pi extension order')?.status).toBe('fail');
   });
 });

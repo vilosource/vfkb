@@ -27,7 +27,10 @@ import { createHash } from 'node:crypto';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-export const BUNDLES = ['vfkb.mjs', 'vfkb-mcp.mjs'];
+// Every bundle a downstream repo vendors. The pi pair (ADR-0066) is vendored by
+// vfkb-pi-package exactly as the first two are by vfkb-claude-plugin — omitting them
+// would leave the stale-vendoring detector blind to half the artifacts it exists for.
+export const BUNDLES = ['vfkb.mjs', 'vfkb-mcp.mjs', 'vfkb-pi.mjs', 'vfkb-pi-bridge.mjs'];
 
 export function normalizeBundle(text) {
   // `\d*` on the identifiers: esbuild resolves name collisions by suffixing
