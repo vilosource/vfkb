@@ -760,6 +760,19 @@ async function dispatch() {
   if (cmd === 'save') {
     const p = parseArgs('save', argsOf(sub, rest), {});
     const r = save(p.positionals.join(' ').trim() || undefined);
+    if (r.refused) {
+      // NOT a no-op: the brain lives inside a project repo and is committed by that
+      // project, not by this command. Printing "no-op" here read as success and left a
+      // script believing the brain was saved. Name the actual next step.
+      const rel = process.env.VFKB_DATA_DIR || '.vfkb';
+      process.stdout.write(
+        `not committed: ${r.message}\n` +
+          `  this brain ships INSIDE your project (ADR-0019), so commit it there:\n` +
+          `      git add ${rel}/entries.jsonl && git commit -m "vfkb: update"\n` +
+          '  (a Claude Code session does this for you at session end — ADR-0033)\n',
+      );
+      return;
+    }
     process.stdout.write((r.committed ? 'committed: ' : 'no-op: ') + r.message + '\n');
     return;
   }
