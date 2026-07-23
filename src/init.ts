@@ -256,6 +256,8 @@ export function initProject(root: string, opts: { project?: string; pi?: boolean
       '.vfkb/.journal/',
       '.vfkb/.lock',
       '.vfkb/.write-probe-*',
+      // Derived per-machine MCP config the pi package writes (absolute paths inside).
+      '.vfkb/.pi-mcp.json',
       // pi clones the vfkb package (plus its node_modules) into the PROJECT when the
       // package entry is project-scoped. Derived, multi-hundred-KB, and re-fetched on
       // demand — never commit it. Without this line a consumer's `git status` fills

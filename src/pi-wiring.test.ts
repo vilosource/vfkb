@@ -86,7 +86,13 @@ describe('vfkb init — pi wiring (ADR-0066)', () => {
     // the bootstrap, re-imposing $VFKB_BUNDLE_DIR and shadowing the vendored server —
     // the regression this PR exists to avoid, shipped into every consumer repo.
     const agents = readFileSync(join(root + '/AGENTS.md'), 'utf8');
-    expect(agents).not.toMatch(/Committed:[^\n]*mcp\.json/);
+    // Extract the whole "- Committed: …" bullet, which WRAPS over several lines. An
+    // earlier version of this assertion used /Committed:[^\n]*mcp\.json/ and was
+    // decorative: `[^\n]*` cannot cross the wrap, so reintroducing the exact lie on the
+    // bullet's second line left the suite green. Caught in review.
+    const bullet = agents.split(/\n- (?=[A-Z*])/).find((b) => b.startsWith('Committed:')) ?? '';
+    expect(bullet).not.toContain('mcp.json');
+    expect(bullet.length).toBeGreaterThan(40); // the bullet was actually found, not ''
     expect(agents).toMatch(/absence is normal/);
   });
 
