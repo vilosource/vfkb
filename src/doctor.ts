@@ -468,6 +468,109 @@ function isUnder(parent: string | undefined, child: string): boolean {
   return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
 }
 
+// --- pi face wiring (ADR-0066) -------------------------------------------------
+// pi is OPTIONAL: a repo wired only for Claude Code is healthy, so absent pi wiring
+// is `skip`, never `warn`. What is NOT healthy is HALF the pi wiring, because that
+// failure is silent — the extensions load, injection works, and the agent simply has
+// no kb_* tools. Nothing errors. See brain gotcha 0f1441f9bff2.
+export const PI_PACKAGE_SOURCE = 'git:github.com/vilosource/vfkb-pi-package';
+
+function piPackageListed(piSettings: any): boolean {
+  const pkgs: unknown[] = Array.isArray(piSettings?.packages) ? piSettings.packages : [];
+  return pkgs.some((p) =>
+    typeof p === 'string'
+      ? p.includes('vfkb-pi-package')
+      : !!p && typeof p === 'object' && String((p as { source?: unknown }).source ?? '').includes('vfkb-pi-package'),
+  );
+}
+
+// The ordering contract, and the reason it is a FAIL rather than a warning.
+// `pi-mcp-bridge` resolves $VFKB_MCP_CONFIG at MODULE TOP LEVEL (`const DEFS = await
+// discover()`), so anything that sets the var must run BEFORE the bridge is imported.
+// pi loads extensions sequentially in array order (verified on 0.73.1), so a settings
+// `extensions` array listing the bridge before the wrapper yields zero tools, silently.
+// Only relevant when a consumer hand-lists local extension paths; the package's own
+// manifest gets this right and is the supported path.
+export function piExtensionOrderProblem(piSettings: any): string | undefined {
+  const exts: unknown[] = Array.isArray(piSettings?.extensions) ? piSettings.extensions : [];
+  const paths = exts.filter((e): e is string => typeof e === 'string');
+  const bridgeAt = paths.findIndex((p) => p.includes('pi-mcp-bridge'));
+  if (bridgeAt < 0) return undefined; // no hand-listed bridge → manifest order governs
+  const wrapperAt = paths.findIndex((p) => /vfkb-pi-wrapper|vfkb-wrapper/.test(p));
+  if (wrapperAt < 0) {
+    return 'pi-mcp-bridge is listed in .pi/settings.json `extensions` with no wrapper before it — the bridge reads $VFKB_MCP_CONFIG at import, so it will register ZERO kb_* tools (silently)';
+  }
+  if (wrapperAt > bridgeAt) {
+    return `the vfkb pi wrapper is listed AFTER pi-mcp-bridge (index ${wrapperAt} vs ${bridgeAt}) — pi loads extensions in array order and the bridge resolves its config at import, so it will register ZERO kb_* tools (silently)`;
+  }
+  return undefined;
+}
+
+export interface PiWiringCheck {
+  name: string;
+  status: DoctorStatus;
+  detail: string;
+}
+
+export function checkPiWiring(
+  piSettings: any,
+  piMcp: any,
+  piSettingsExists: boolean,
+  piMcpExists: boolean,
+  // On a PLUGIN-wired repo (ADR-0045) no check may prescribe `vfkb init` — that advice
+  // is what scaffolds double wiring, issue #77, asserted in doctor.test.ts. The pi files
+  // can be added on their own, so name them instead of naming the command.
+  pluginWired = false,
+): PiWiringCheck[] {
+  const out: PiWiringCheck[] = [];
+  const listed = piPackageListed(piSettings);
+  const hasMcp = !!piMcp?.mcpServers?.vfkb;
+  const orderProblem = piExtensionOrderProblem(piSettings);
+  const handWired = Array.isArray(piSettings?.extensions) && piSettings.extensions.length > 0;
+  const fix = pluginWired
+    ? 'add `.pi/settings.json` (packages: ["' + PI_PACKAGE_SOURCE + '"]) and `.vfkb/mcp.json`'
+    : 'run `vfkb init`';
+
+  if (!piSettingsExists && !piMcpExists) {
+    out.push({ name: 'pi wiring', status: 'skip', detail: 'no .pi/settings.json — pi face not wired (optional)' });
+    return out;
+  }
+
+  if (listed) {
+    out.push({ name: 'pi wiring', status: 'ok', detail: `.pi/settings.json loads ${PI_PACKAGE_SOURCE}` });
+  } else if (handWired) {
+    out.push({ name: 'pi wiring', status: 'ok', detail: '.pi/settings.json hand-lists local extensions (package not used)' });
+  } else {
+    out.push({ name: 'pi wiring', status: 'warn', detail: `.pi/settings.json exists but does not load the vfkb pi package — ${fix}` });
+  }
+
+  // `.vfkb/mcp.json` is an OPTIONAL override. The package's wrapper resolves its own
+  // vendored MCP server, so an absent file is the normal, healthy case. What must not
+  // pass quietly is a file that EXISTS but does not configure anything — the consumer
+  // believes they have overridden the wiring and instead get zero kb_* tools, silently.
+  if (piMcpExists && !hasMcp) {
+    out.push({
+      name: 'pi mcp override',
+      status: 'fail',
+      detail: '.vfkb/mcp.json exists but has no mcpServers.vfkb — the bridge reads that exact shape, so it will register ZERO kb_* tools and NOTHING will report it; fix the file or delete it to fall back to the package\'s own server',
+    });
+  } else if (hasMcp) {
+    out.push({ name: 'pi mcp override', status: 'ok', detail: '.vfkb/mcp.json overrides the package\'s bundled MCP server' });
+  } else if (listed) {
+    out.push({ name: 'pi mcp config', status: 'ok', detail: `kb_* tools come from ${PI_PACKAGE_SOURCE}'s bundled MCP server (no .vfkb/mcp.json needed)` });
+  } else if (handWired) {
+    out.push({
+      name: 'pi mcp config',
+      status: 'warn',
+      detail: 'pi extensions are hand-listed with no .vfkb/mcp.json and no vfkb package — unless $VFKB_MCP_CONFIG is exported, the bridge will register ZERO kb_* tools',
+    });
+  }
+
+  if (orderProblem) out.push({ name: 'pi extension order', status: 'fail', detail: orderProblem });
+
+  return out;
+}
+
 export function runDoctor(opts: DoctorOpts): DoctorReport {
   const { root, brainDir, env } = opts;
   // The identity we compare the brain's stamp against (injectable — see DoctorOpts).
@@ -749,6 +852,17 @@ export function runDoctor(opts: DoctorOpts): DoctorReport {
     add('VFKB_PROJECT', 'fail', `mismatch: .mcp.json says "${mcpProject}", settings says "${settingsProject}"`);
   } else if (mcpProject || settingsProject) {
     add('VFKB_PROJECT', 'ok', `${mcpProject ?? settingsProject}`);
+  }
+
+  // 7. pi face wiring (ADR-0066) — optional, but half-wired is a silent tool outage.
+  {
+    const piSettingsPath = join(root, '.pi', 'settings.json');
+    const piSettings = readJson(piSettingsPath);
+    const piMcpPath = join(brainDir, 'mcp.json');
+    const piMcp = readJson(piMcpPath);
+    for (const c of checkPiWiring(piSettings, piMcp, existsSync(piSettingsPath), existsSync(piMcpPath), !!plugin)) {
+      add(c.name, c.status, c.detail);
+    }
   }
 
   return { checks, ok: !checks.some((c) => c.status === 'fail') };
