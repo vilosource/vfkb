@@ -189,7 +189,26 @@ describe('the shapes that made an earlier version of this check dangerous', () =
     expect(c).toBeUndefined();
   });
 
-  it('reports SKIP, not a verdict, when git cannot be queried', async () => {
+  it('is SILENT when the brain dir IS the repo root (its .git is the PROJECT\'s)', async () => {
+    // VFKB_DATA_DIR=. — entries.jsonl sits at the root and is tracked normally by the
+    // repo's own git. <root>/.git is NOT an embedded brain repo, and firing here told
+    // the user to delete the whole project's history.
+    const { runDoctor } = await import('./doctor.js');
+    const repo = mkdtempSync(join(tmpdir(), 'vfkb-rootbrain-'));
+    root = repo;
+    g(['init', '-q'], repo);
+    g(['config', 'user.email', 't@t'], repo);
+    g(['config', 'user.name', 't'], repo);
+    writeFileSync(join(repo, 'entries.jsonl'), '{"id":"a"}\n');
+    g(['add', '-A'], repo);
+    g(['commit', '-qm', 'root brain'], repo);
+    const c = runDoctor({ root: repo, brainDir: repo, env: {} }).checks.find(
+      (x) => x.name === 'brain gitlink',
+    );
+    expect(c).toBeUndefined();
+  });
+
+    it('reports SKIP, not a verdict, when git cannot be queried', async () => {
     // A git lock (ADR-0033's SessionEnd runs git in this same repo) or a timeout used to
     // silently downgrade a real FAIL to a WARN that then advised gitignoring — which
     // would permanently hide the corruption. RFC-024 §1.

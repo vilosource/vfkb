@@ -759,7 +759,14 @@ export function runDoctor(opts: DoctorOpts): DoctorReport {
   {
     const embedded = join(brainDir, '.git');
     const inRepo = isUnder(repoToplevel(root), brainDir);
-    if (inRepo && existsSync(embedded)) {
+    // When the brain dir IS the repo root (VFKB_DATA_DIR=. or a symlink resolving there),
+    // `<brainDir>/.git` is the PROJECT's own git directory, not an embedded brain repo —
+    // and entries.jsonl at the root is tracked normally. Firing here told the user to
+    // delete the whole project's history. `resolve()` both sides so a trailing slash or
+    // `.`-segment cannot slip past the equality.
+    const top = repoToplevel(root);
+    const brainIsRoot = top !== undefined && resolve(brainDir) === resolve(top);
+    if (inRepo && !brainIsRoot && existsSync(embedded)) {
       const rel = relative(root, join(brainDir, 'entries.jsonl'));
       const brainRel = relative(root, brainDir);
       const gitRun = opts.git ?? realGit;
