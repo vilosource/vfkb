@@ -751,6 +751,70 @@ export function runDoctor(opts: DoctorOpts): DoctorReport {
     add('VFKB_PROJECT', 'ok', `${mcpProject ?? settingsProject}`);
   }
 
+  // 6b. An EMBEDDED git repo inside the brain (gotcha 80683290b4a8). git.ts no longer
+  // creates one, but a brain corrupted by an older build never heals itself — and the
+  // damage is invisible: `git add .vfkb/entries.jsonl` exits 0 and tracks nothing, so
+  // the brain silently stops reaching version control. Nothing else in doctor looks for
+  // it, and the repo's own `.gitignore`/journal checks report OK right through it.
+  {
+    const embedded = join(brainDir, '.git');
+    const inRepo = isUnder(repoToplevel(root), brainDir);
+    if (inRepo && existsSync(embedded)) {
+      // A `.git` inside the brain is NOT by itself a defect, and treating it as one made
+      // this check dangerous: a standalone brain that deliberately keeps its own history
+      // — e.g. `~/.vfkb` when $HOME is a dotfiles repo, a shape `git.ts` explicitly
+      // supports ("never disturb it") — was told its brain "is not in version control"
+      // (false: it is, in its own) and instructed to delete that history.
+      //
+      // The discriminator is whether the OUTER repo ever tracked the brain's entries. If
+      // it did, the project owns this brain and an embedded repo has hidden it — the real
+      // corruption. If it never did, the brain is standalone and none of git.ts's or
+      // ADR-0033's project-commit machinery ever applied to it.
+      const rel = relative(root, join(brainDir, 'entries.jsonl'));
+      const brainRel = relative(root, brainDir);
+      const q = (args: string[]) => {
+        try {
+          return realGit(args, root).trim();
+        } catch {
+          return ''; // each probe independently — a `git log` that throws on a repo with
+          // no commits must not prevent `ls-files` from answering (they were chained by
+          // `||` inside one try, so a STAGED brain — an unambiguous ownership claim —
+          // went undetected).
+        }
+      };
+
+      // Does the project deliberately NOT track this brain? Then an embedded repo there
+      // is the owner's choice, not corruption. This is the dotfiles/standalone case, and
+      // getting it wrong told people to delete real history.
+      const ignored = q(['check-ignore', '--', brainRel]).length > 0;
+
+      // Positive proof the project owns it: a gitlink already recorded in the index, or
+      // the entries file present in history/index.
+      const gitlinked = /^160000/m.test(q(['ls-files', '-s', '--', brainRel]));
+      const inHistory = q(['log', '--oneline', '-1', '--', rel]).length > 0;
+      const inIndex = q(['ls-files', '--', rel]).length > 0;
+
+      if (!ignored && (gitlinked || inHistory || inIndex)) {
+        add(
+          'brain gitlink',
+          'fail',
+          `${embedded} exists and this project tracks the brain — it is now an EMBEDDED git repo, so \`git add ${rel}\` silently tracks NOTHING and new entries stop reaching the project's history. Fix: remove ${embedded} (an older build created it), then re-add the file`,
+        );
+      } else if (!ignored) {
+        // The canonical shape right after the defect struck: `vfkb init` created the
+        // brain, a pi session gitlinked it, and the operator had not committed it yet —
+        // so there is no history and no index entry to point at. WARN rather than FAIL,
+        // because a brain that is genuinely meant to be standalone looks identical here;
+        // the remedy is therefore stated conditionally.
+        add(
+          'brain gitlink',
+          'warn',
+          `${embedded} exists inside this project and ${brainRel} is not gitignored. If this brain is meant to ship WITH the repo (ADR-0019, the default), it currently cannot: \`git add ${rel}\` exits 0 and tracks nothing. Fix: remove ${embedded}, then commit ${rel}. If this brain is deliberately standalone, gitignore ${brainRel} to silence this.`,
+        );
+      }
+    }
+  }
+
   return { checks, ok: !checks.some((c) => c.status === 'fail') };
 }
 
