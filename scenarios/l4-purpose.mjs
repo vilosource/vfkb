@@ -56,6 +56,26 @@ const TRIALS = Math.max(1, parseInt(process.env.VFKB_L4_TRIALS || '3', 10));
 // pi harness; escape hatch VFKB_L4_PI_MODE=host runs the legacy host pi (used to
 // regenerate the known-good baseline records).
 const PI_MODE = process.env.VFKB_L4_PI_MODE || (HARNESS === 'pi' ? 'docker' : 'host');
+
+// CREDENTIAL PRECONDITION — deliberately at module scope, NOT inside run().
+//
+// A first attempt put this check inside run()'s try. run()'s catch turns any throw into
+// `__ERROR__ …` and the harness scores on: a single-arm guardrail scenario whose
+// predicate is "the secret was NOT stored" is satisfied by an error string, so a run
+// where NO AGENT EVER EXECUTED reported DEMONSTRATED 1/1. That is worse than the `|| ''`
+// it replaced — it mints false evidence for the ADR-0050 gate while looking fixed.
+//
+// A missing credential is a precondition of the whole harness, not a per-run outcome, so
+// it belongs here, where nothing can catch it. Mirrors the claude arm, which throws on a
+// missing ~/.claude/.credentials.json before any scenario runs.
+if (HARNESS === 'pi' && PI_MODE === 'docker' && !process.env.DEEPSEEK_TOKEN) {
+  console.error(
+    'DEEPSEEK_TOKEN is not set — the pi arm cannot authenticate.\n' +
+      'Refusing to run: an empty token yields a model auth error that scores as a scenario\n' +
+      'result, so the run would report DEMONSTRATED without any agent having executed.',
+  );
+  process.exit(2);
+}
 const PI_IMAGE = process.env.VFKB_L4_PI_IMAGE || 'vfkb-l4-pi:dev';
 // claude harness substrate (T5b): docker by default; VFKB_L4_CLAUDE_MODE=host runs the
 // legacy host claude (used to regenerate the known-good host baseline records).
@@ -275,7 +295,7 @@ function run({ harness = HARNESS, brain, prompt, inject = 'vfkb', mcp = false, c
       '-e', `VFKB_DIR=${C_BRAIN}`,
       '-e', 'VFKB_PROJECT=l4',
       '-e', `KB_SESSION_ID=${env.KB_SESSION_ID}`,
-      '-e', `DEEPSEEK_TOKEN=${process.env.DEEPSEEK_TOKEN || ''}`];
+      '-e', `DEEPSEEK_TOKEN=${process.env.DEEPSEEK_TOKEN}`];
     if (env.VFKB_MCP_CONFIG) dargs.push('-e', `VFKB_MCP_CONFIG=${env.VFKB_MCP_CONFIG}`);
     dargs.push('-v', `${brain}:${C_BRAIN}`, PI_IMAGE, 'pi', ...args);
     return sh('docker', dargs, { timeout: DOCKER_TIMEOUT, env: process.env }).trim();

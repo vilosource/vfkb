@@ -1,0 +1,21 @@
+{
+  "recordVersion": 1,
+  "sha": "70d70b0100d97de801cf6a9707c5733e51908b61",
+  "governing": ["docs/adr/ADR-0066-pi-package-delivery.md", "docs/adr/ADR-0050-l4-dod-constitutional-brake.md", "docs/adr/ADR-0051-delivery-honesty.md"],
+  "reviewer": { "agent": "general-purpose", "model": "opus", "rounds": 1 },
+  "generated": "2026-07-23T21:05:00Z",
+  "findings": [],
+  "findingsCount": 0,
+  "ruledOut": [
+    "the doctor.ts hand-merge is purely additive: the #239 gitlink block is byte-identical to main, exactly one return, no duplicated/dropped check; both the gitlink and pi checks fire together in one live run",
+    "the cli.ts hand-merge preserves #238's save-refusal and adds --no-pi; the only deletions are the two original init lines replaced",
+    "no silent revert of any #238/#239 work; all six wholesale files byte-identical to the #236 source",
+    "the proof can fail: reverting piExtensionOrderProblem or preserveUnparseable reds the suite",
+    "the l4 DEEPSEEK_TOKEN precondition is at module scope outside run()'s try; with the token unset the harness exits 2 with no scenario run and no DEMONSTRATED minted",
+    "full install-path E2E through real pi 0.73.1: pi install git: into a clean HOME, agent kb_search retrieved a seeded fact, brain tracked, no .vfkb/.git, .pi/git gitignored, doctor exit 0",
+    "delivery honesty: no DEMONSTRATED record or install-path.json claimed; DELIVERY-STATUS/README remain unproven",
+    "issue #77: pi checks name files, never vfkb init, on a plugin-wired repo",
+    "526/526 unit green; bundle-drift subset-aware; build-bundles emits the shebang-free pi pair"
+  ],
+  "verdict": "MERGE"
+}

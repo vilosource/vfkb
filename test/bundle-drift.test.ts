@@ -10,7 +10,7 @@ import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 // @ts-expect-error — plain .mjs module without type declarations
-import { normalizeBundle, fingerprint, BUNDLES } from '../scripts/bundle-drift.mjs';
+import { normalizeBundle, fingerprint, BUNDLES, vendoredBundles } from '../scripts/bundle-drift.mjs';
 
 // The real emitted shapes, verbatim from built bundles (observed 2026-07-16).
 const stamped = (commit: string, version: string) =>
@@ -40,14 +40,36 @@ describe('bundle-drift normalization (ADR-0062)', () => {
     expect(normalized).toContain('#!/usr/bin/env node');
   });
 
-  it('fingerprint covers both bundles and throws on a missing one', () => {
+  it('fingerprint covers every bundle present, and throws when an EXPECTED one is missing', () => {
+    // The contract changed with ADR-0066: consumers vendor different SUBSETS (the Claude
+    // plugin ships 2 of 4, the pi package 4 of 4). So bare `fingerprint(dir)` auto-detects
+    // what is there, while `fingerprint(dir, names)` — the form the CLI uses, passing the
+    // vendored dir's own contents — still THROWS on a name it was told to expect.
+    // Hard-coding all four and throwing unconditionally broke the plugin's
+    // engine-delivery workflow: it exited 2 ("comparison broke") on every push.
     const dir = mkdtempSync(join(tmpdir(), 'drift-test-'));
     try {
       for (const name of BUNDLES) writeFileSync(join(dir, name), stamped('aaaaaaa', '1.0.0'));
-      const fp = fingerprint(dir);
-      expect(Object.keys(fp).sort()).toEqual([...BUNDLES].sort());
+      expect(Object.keys(fingerprint(dir)).sort()).toEqual([...BUNDLES].sort());
+
       rmSync(join(dir, BUNDLES[0]));
-      expect(() => fingerprint(dir)).toThrow(/missing bundle/);
+      // Auto-detect: a subset is a legitimate consumer, not an error.
+      expect(Object.keys(fingerprint(dir)).sort()).toEqual(BUNDLES.slice(1).sort());
+      // Explicit expectation: still an error, which is what keeps a vendored bundle
+      // that silently vanished from passing as "clean".
+      expect(() => fingerprint(dir, [...BUNDLES])).toThrow(/missing bundle/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('vendoredBundles reports exactly what a consumer ships', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'drift-subset-'));
+    try {
+      // Mimic the Claude plugin: the CLI + MCP pair only.
+      for (const name of ['vfkb.mjs', 'vfkb-mcp.mjs']) writeFileSync(join(dir, name), stamped('aaaaaaa', '1.0.0'));
+      expect(vendoredBundles(dir).sort()).toEqual(['vfkb-mcp.mjs', 'vfkb.mjs']);
+      expect(() => fingerprint(dir, vendoredBundles(dir))).not.toThrow();
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
