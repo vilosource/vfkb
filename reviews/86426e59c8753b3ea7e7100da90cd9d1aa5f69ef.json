@@ -1,0 +1,25 @@
+{
+  "recordVersion": 1,
+  "sha": "86426e59c8753b3ea7e7100da90cd9d1aa5f69ef",
+  "governing": ["docs/adr/ADR-0019-self-hosted-design-brain.md", "docs/rfc/RFC-024-staleness-detection-and-delivery-honesty.md"],
+  "reviewer": { "agent": "general-purpose", "model": "opus", "rounds": 2 },
+  "generated": "2026-07-23T20:45:00Z",
+  "findings": [
+    { "id": "R1-B1", "severity": "blocking", "status": "fixed", "summary": "a 160000 gitlink drove a FAIL, false-FAILing a legitimate standalone brain with its own history (the #236 finding); a gitlink is recorded only when the embedded repo has commits, so it is no longer a FAIL trigger — only entries-in-history/index is" },
+    { "id": "R1-B2", "severity": "blocking", "status": "fixed", "summary": "the 'gitignore it to silence this' escape hatch did not work on a tracked path; check-ignore now uses --no-index" },
+    { "id": "R1-M3", "severity": "major", "status": "fixed", "summary": "a real git submodule brain FAILed with the destructive remedy; now detected via 160000 + .gitmodules and left alone" },
+    { "id": "R1-M4", "severity": "major", "status": "fixed", "summary": "q() swallowed git failures, downgrading a real FAIL to a misleading WARN on a lock/timeout; a rev-parse liveness probe now gates a SKIP via the injectable opts.git seam (RFC-024 §1)" },
+    { "id": "R1-M5", "severity": "major", "status": "fixed", "summary": "the 160000 and inHistory clauses had zero coverage; every clause now reverts red, inHistory isolated from inIndex via a git-rm--cached fixture" },
+    { "id": "R2-B4", "severity": "blocking", "status": "fixed", "summary": "brain dir == repo root: <brainDir>/.git is the PROJECT's git, not an embedded brain, and the remedy said rm the project's history; now skipped when resolve(brainDir)===resolve(toplevel)" },
+    { "id": "R1-m6", "severity": "minor", "status": "fixed", "summary": "FAIL asserted an unverifiable cause ('an older build created it'); removed" },
+    { "id": "R1-m7", "severity": "minor", "status": "open", "summary": "tests use absolute brainDir while the CLI passes relative; a doctor-wide pre-existing property of the relative default, correct in the normal case, not introduced here" }
+  ],
+  "findingsCount": 8,
+  "ruledOut": [
+    "read-only: every probe (rev-parse, check-ignore --no-index, config --file .gitmodules, ls-files, log) verified non-writing; realGit rejects fetch",
+    "no new false positives across worktree, monorepo inner package, nested repos, brain outside repo, submodule — all verdicts correct through the real CLI",
+    "the proof can fail: all 7 clauses mutation-tested red, verified live on every shape (standalone+160000 WARN, tracked+gitignored silent, submodule silent, canonical WARN, corrupted FAIL, git-locked SKIP, brain==root silent)",
+    "issue #77: the check never prescribes vfkb init and has no plugin coupling"
+  ],
+  "verdict": "MERGE"
+}
