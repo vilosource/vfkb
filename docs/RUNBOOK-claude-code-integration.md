@@ -33,7 +33,7 @@ where vfkb's *code* lives — so the brain lives with your project even when vfk
   — see §8 if yours differs).
 - The target project is a **git repo** (`git init` if not) — the Stop-hook heuristic reads git state.
   (`vfkb save` is for a STANDALONE brain; the in-repo brain this runbook describes is committed by
-  the project itself — the SessionEnd hook does it for you, or `git add .vfkb/entries.jsonl`.)
+  the project itself — the SessionEnd hook does it for you.)
 - A built vfkb `dist/` (next step).
 
 ---
