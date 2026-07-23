@@ -80,8 +80,9 @@ gallery publication is an **outward publish** needing its own decision.
 This is cheap to reverse, and the reason is verified rather than assumed: pi documents **three
 source types** — npm, git and filesystem paths — accepted by the same `pi install` and the same
 settings schema (`docs/packages.md:50`; raw `https://`/`ssh://` URLs are a git variant, `:22`,
-`:81-82`), and it runs `npm install` for the package's dependencies whichever source it came
-from (`:164`). Publishing to npm later changes the source URL, not the package's shape.
+`:81-82`), and for the two that matter here it runs `npm install` for the package's dependencies
+either way — "When pi installs a package from npm or git, it runs `npm install`" (`:164`).
+Publishing to npm later changes the source URL, not the package's shape.
 
 ### 3. vfkb keeps its own MCP bridge
 
@@ -157,7 +158,7 @@ field names the env var rather than holding a literal (`scenarios/docker/pi.Dock
 So the pi face can have **machine-produced release evidence from day one**.
 
 > **A defect to fix while building milestone 1, not to inherit.** That run-time injection is
-> `'-e', \`DEEPSEEK_TOKEN=${process.env.DEEPSEEK_TOKEN || ''}\`` — on an unset secret it passes
+> `` `DEEPSEEK_TOKEN=${process.env.DEEPSEEK_TOKEN || ''}` `` — on an unset secret it passes
 > the **empty string** rather than failing. The Claude path throws; the pi path does not. In CI
 > that yields a downstream model auth error instead of a clean precondition stop — the
 > quiet-success shape ADR-0051 clause 3 forbids, sitting inside the automation this ADR calls

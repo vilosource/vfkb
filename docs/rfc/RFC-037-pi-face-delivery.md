@@ -117,8 +117,9 @@ This table is the backlog, not this milestone. See D2.
 
 Both are recorded so they are not rediscovered, and neither blocks milestone 1:
 
-1. ~~**A stale comment asserting a falsehood.**~~ **FIXED 2026-07-23.** `pi-extension.ts:92-96`
-   stated *"a blocked write never reaches `tool_execution_end`."* Brain gotcha `33d7dcc47598`
+1. ~~**A stale comment asserting a falsehood.**~~ **FIXED 2026-07-23.** The `tool_call` handler's
+   comment in `src/pi-extension.ts` (`:92-96` as of `main` before this branch; the corrected text
+   now occupies those lines) stated *"a blocked write never reaches `tool_execution_end`."* Brain gotcha `33d7dcc47598`
    proved that **false** on 0.73.1 — pi emits `tool_execution_end` for calls blocked at
    `tool_call`, which is what caused the `tool-gating` false-RED. The code had been fixed; only
    the comment still lied. It now states the observed behaviour and carries the reusable warning
@@ -154,8 +155,9 @@ arbitrary code." Adopting any third-party adapter moves vfkb's trust boundary.
 ### D1 — Where the pi package lives — **RATIFIED 2026-07-22: separate repo**
 
 A **`vfkb-pi-package`** repo mirroring `vilosource/vfkb-claude-plugin`: vendors built engine
-bundles, carries its own release-gate + `DELIVERY-STATUS.json`, installs via
-`pi install git:` / `npm:`.
+bundles, carries its own release-gate + `DELIVERY-STATUS.json`, installs via `pi install`.
+(D1 was ratified 2026-07-22 when both `git:` and `npm:` were live options; the distribution
+question was settled the next day — **milestone 1 is git-only**, see Open questions §3.)
 
 Rejected: an in-repo `pi/` subdir published as its own npm package (avoids a third repo and
 vendoring drift, but diverges from the ADR-0045 precedent and couples pi releases to vfkb's
@@ -186,7 +188,10 @@ third-party extension into vfkb's trust boundary, under pi's own full-system-acc
 
 The operator ratified this **conditionally** — keep ours *"unless it is a huge set of tasks to make
 it work in pi."* **The condition was evaluated, not assumed, and does not bind:** the bridge already
-works in pi today and needs zero porting. Observed 2026-07-23 — it is a self-contained 106-line
+works **in the dockerized `pi -e` L4 arm** today and needs zero porting — stated that narrowly on
+purpose, since under ADR-0051 clause 1 `-e <path>` is the very load path this RFC calls a trap, so
+"it works in pi" is the phrasing to avoid; what milestone 1 must still show is its behaviour once
+*installed as a package*. Observed 2026-07-23 — it is a self-contained 106-line
 extension loaded exactly like any other, calling one `ExtensionAPI` method (`registerTool`), and it
 is **already exercised in the dockerized L4 pi arm**: `scenarios/l4-purpose.mjs:246` pushes
 `'-e', bridgePath` into pi's argv and `:247` sets `VFKB_MCP_CONFIG`, reached by the ten `mcp: true`
@@ -301,7 +306,8 @@ reading only that sentence would rename the repo wrongly.
    stays a separate, later call, consistent with this RFC's non-goals. The package can be
    published to npm afterwards without rework: pi treats `npm:`, `git:` and path sources as
    interchangeable source types accepted by the same `pi install` and the same settings schema
-   (`docs/packages.md:50`), and runs `npm install` for the package's dependencies either way
-   (`:164`). The decision changes the source URL, not the package's shape.
+   (`docs/packages.md:50`), and for the two that matter here it runs `npm install` for the
+   package's dependencies either way — "When pi installs a package from npm or git, it runs
+   `npm install`" (`:164`). The decision changes the source URL, not the package's shape.
 
 **All questions in this RFC are now ratified.** Milestone 1 is unblocked.
