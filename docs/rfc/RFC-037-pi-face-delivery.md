@@ -8,9 +8,8 @@ timestamp: 2026-07-22
 
 # RFC-037: The pi face is built but undeliverable
 
-- **Status:** **Ratified 2026-07-23** — D1/D2 ratified 2026-07-22, D3/D4/D5 ratified 2026-07-23.
-  One question remains open and blocks nothing: `npm:` vs git-only distribution (see Open
-  questions §3). Milestone 1 may be built.
+- **Status:** **Ratified 2026-07-23** — D1/D2 ratified 2026-07-22; D3/D4/D5 and the distribution
+  question ratified 2026-07-23. **No open questions remain.** Milestone 1 may be built.
 - **Relates:** [ADR-0015](../adr/ADR-0015-cross-harness-auto-layer.md) (the tiered
   parity model that defines what the pi face owes);
   [ADR-0045](../adr/ADR-0045-vfkb-claude-code-plugin.md) (the plugin split this mirrors);
@@ -267,9 +266,13 @@ reading only that sentence would rename the repo wrongly.
    ours** (see D3 — the operator's "unless it is a huge set of tasks" condition was evaluated and
    does not bind).
 2. ~~**Repo name**~~ **Ratified 2026-07-23: `vfkb-pi-package`** (see D5).
-3. **npm or git-only** — **STILL OPEN.** The plugin ships via a git marketplace; pi supports both.
-   `npm:` gets gallery presence, and gallery presence is an outward publish. Not ruled on in the
-   2026-07-23 answers and deliberately **not inferred**: git-only matches the `vfkb-claude-plugin`
-   precedent and defers the outward publish, which is the reversible default, but the call is the
-   operator's. Milestone 1 can be built git-only and re-published to npm later without rework;
-   nothing below blocks on this.
+3. ~~**npm or git-only**~~ **Ratified 2026-07-23: git-only for now.** Milestone 1 ships as
+   `pi install git:github.com/vilosource/vfkb-pi-package`, matching the `vfkb-claude-plugin`
+   precedent and deferring the outward publish. `npm:` — and with it `pi.dev` gallery presence —
+   stays a separate, later call, consistent with this RFC's non-goals. The package can be
+   published to npm afterwards without rework: pi treats `npm:`, `git:` and path sources as
+   interchangeable source types accepted by the same `pi install` and the same settings schema
+   (`docs/packages.md:50`), and runs `npm install` for the package's dependencies either way
+   (`:164`). The decision changes the source URL, not the package's shape.
+
+**All questions in this RFC are now ratified.** Milestone 1 is unblocked.
