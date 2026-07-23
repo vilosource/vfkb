@@ -13,10 +13,10 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { save } from './git.js';
+import { save, saveAndPush } from './git.js';
 
 let root: string;
 const g = (args: string[], cwd: string) =>
@@ -84,6 +84,58 @@ describe('in-repo brain (ADR-0019) — git.ts must not gitlink it', () => {
   });
 });
 
+describe('the guard cannot be walked around', () => {
+  it('a brain reached through a SYMLINK is still recognised as in-repo', () => {
+    // The first version asked dirname() of the symlink, which describes the LINK's
+    // parent, not the brain's real location — so a link from outside the repo answered
+    // "standalone" and the full gitlink defect came back (verified: mode 160000).
+    // Keeping a brain outside its project and symlinking it in is a documented shape.
+    const { repo, brain } = repoWithBrain();
+    root = repo;
+    const outside = mkdtempSync(join(tmpdir(), 'vfkb-outside-'));
+    try {
+      const link = join(outside, 'brainlink');
+      symlinkSync(brain, link);
+      const r = save('m', 'agent', link);
+      expect(r.committed).toBe(false);
+      expect(existsSync(join(brain, '.git'))).toBe(false);
+      g(['add', '-A'], repo);
+      expect(g(['ls-files', '-s'], repo)).not.toMatch(/^160000/m);
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  it('saveAndPush does NOT reach the surrounding project\'s remotes', () => {
+    // `git remote` walks up: with cwd=<repo>/.vfkb and no repo of its own it resolves
+    // the PROJECT's remotes, so this would push the operator's repository unattended.
+    // Pre-guard it was safe only because ensureRepo had just made an empty repo here.
+    const { repo, brain } = repoWithBrain();
+    root = repo;
+    g(['remote', 'add', 'origin', 'https://example.invalid/nope.git'], repo);
+    const r = saveAndPush('m', 'agent', brain); // must not throw, must not push
+    expect(r.committed).toBe(false);
+    expect(r.refused).toBe(true);
+  });
+
+  it('marks a refusal distinctly from "nothing to commit"', () => {
+    const { repo, brain } = repoWithBrain();
+    root = repo;
+    expect(save('m', 'agent', brain).refused).toBe(true);
+
+    const solo = mkdtempSync(join(tmpdir(), 'vfkb-solo-'));
+    try {
+      writeFileSync(join(solo, 'entries.jsonl'), '{"id":"a"}\n');
+      save('m', 'agent', solo); // first commit
+      const second = save('m', 'agent', solo); // genuinely nothing to do
+      expect(second.committed).toBe(false);
+      expect(second.refused).toBeUndefined(); // NOT a refusal
+    } finally {
+      rmSync(solo, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('standalone brain — unchanged behaviour (the L4 image and `vfkb save`)', () => {
   it('still initialises and commits a brain that is NOT inside a repo', () => {
     const brain = mkdtempSync(join(tmpdir(), 'vfkb-standalone-'));
@@ -111,5 +163,28 @@ describe('standalone brain — unchanged behaviour (the L4 image and `vfkb save`
     g(['config', 'user.email', 't@t'], brain);
     g(['config', 'user.name', 't'], brain);
     expect(save('m', 'agent', brain).committed).toBe(true);
+  });
+});
+
+describe('vfkb doctor — detects a brain already corrupted by an older build', () => {
+  it('FAILS on an embedded .git inside an in-repo brain (it never heals itself)', async () => {
+    const { runDoctor } = await import('./doctor.js');
+    const { repo, brain } = repoWithBrain();
+    root = repo;
+    // Exactly what a pre-fix pi session left behind.
+    g(['init', '-q'], brain);
+    const r = runDoctor({ root: repo, brainDir: brain, env: {} });
+    const c = r.checks.find((x) => x.name === 'brain gitlink');
+    expect(c?.status).toBe('fail');
+    expect(c?.detail).toMatch(/silently tracks NOTHING/);
+  });
+
+  it('says nothing when the brain is clean (the contrast)', () => {
+    const { repo, brain } = repoWithBrain();
+    root = repo;
+    return import('./doctor.js').then(({ runDoctor }) => {
+      const r = runDoctor({ root: repo, brainDir: brain, env: {} });
+      expect(r.checks.find((x) => x.name === 'brain gitlink')).toBeUndefined();
+    });
   });
 });

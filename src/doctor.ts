@@ -873,6 +873,23 @@ export function runDoctor(opts: DoctorOpts): DoctorReport {
     add('VFKB_PROJECT', 'ok', `${mcpProject ?? settingsProject}`);
   }
 
+  // 6b. An EMBEDDED git repo inside the brain (gotcha 80683290b4a8). git.ts no longer
+  // creates one, but a brain corrupted by an older build never heals itself — and the
+  // damage is invisible: `git add .vfkb/entries.jsonl` exits 0 and tracks nothing, so
+  // the brain silently stops reaching version control. Nothing else in doctor looks for
+  // it, and the repo's own `.gitignore`/journal checks report OK right through it.
+  {
+    const embedded = join(brainDir, '.git');
+    const inRepo = isUnder(repoToplevel(root), brainDir);
+    if (inRepo && existsSync(embedded)) {
+      add(
+        'brain gitlink',
+        'fail',
+        `${embedded} exists — this brain is an EMBEDDED git repo inside the project, so \`git add ${relative(root, brainDir)}/entries.jsonl\` silently tracks NOTHING and the brain is not in version control. Fix: remove ${embedded} (the brain's own history is separate from the project's), then re-add the file`,
+      );
+    }
+  }
+
   // 7. pi face wiring (ADR-0066) — optional, but half-wired is a silent tool outage.
   {
     const piSettingsPath = join(root, '.pi', 'settings.json');

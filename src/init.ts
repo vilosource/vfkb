@@ -116,7 +116,7 @@ function settingsHooks(project: string) {
   };
 }
 
-function agentsSnippet(project: string): string {
+function agentsSnippet(project: string, pi: boolean): string {
   return `${AGENTS_MARKER}
 ## How we track work HERE — vfkb
 
@@ -128,16 +128,19 @@ This repo uses **vfkb** as its knowledge substrate (project \`${project}\`). Kno
   \`decision\`, \`fact\`, \`gotcha\`, \`pattern\`, \`link\` — put a decision's rationale in its text.
   **Capture load-bearing decisions immediately — don't defer.**
 - Committed: \`.vfkb/entries.jsonl\`, \`.vfkb/manifest.json\` (the ADR-0030 engine stamp —
-  **never gitignore \`manifest.json\`**), \`.vfkb/bin/\`, and \`.pi/settings.json\`.
+  **never gitignore \`manifest.json\`**), \`.vfkb/bin/\`${pi ? ', and \`.pi/settings.json\`' : ''}.
   Derived/gitignored: \`.vfkb/index-meta.json\`, \`.vfkb/.sessions/\`, \`.vfkb/.signals/\`,
-  \`.vfkb/.journal/\`, \`.vfkb/.lock\`, and \`.pi/git/\` (pi's package clone).
+  \`.vfkb/.journal/\`, \`.vfkb/.lock\`${pi ? ', and \`.pi/git/\` (pi\'s package clone)' : ''}.${pi ? `
 - **Works in [pi](https://pi.dev) too** (ADR-0066): \`.pi/settings.json\` loads the \`vfkb-pi-package\`
   and pi auto-installs it at startup, so a teammate's clone wires itself. The package vendors its
   own engine and finds this brain by itself — there is **no \`.vfkb/mcp.json\` to write, and its
   absence is normal**. (You may add one to override or add MCP servers; \`vfkb doctor\` validates it
   if present. Do NOT hand-write one pointing at \`.vfkb/bin/bootstrap.mjs\` — that re-imposes the
   per-machine \`$VFKB_BUNDLE_DIR\` the package exists to retire, and shadows its bundled server.)
-  Run \`vfkb doctor\` to check the wiring.
+  Run \`vfkb doctor\` to check the wiring.` : `
+- **This repo is wired for Claude Code only** — \`vfkb init --no-pi\` was used, so there is no
+  \`.pi/settings.json\` and the pi face is not installed. Re-run \`vfkb init\` without \`--no-pi\`
+  to add it.`}
 
 Two env vars: **\`VFKB_DATA_DIR\`** = this repo's brain (\`.vfkb\`, set by the wiring) · **\`VFKB_BUNDLE_DIR\`**
 = the shared vfkb engine bundles — set it once per machine, e.g. \`export VFKB_BUNDLE_DIR=/path/to/vfkb/dist/bundles\`.
@@ -367,7 +370,7 @@ export function initProject(root: string, opts: { project?: string; pi?: boolean
       changes.push({ path: 'AGENTS.md', action: 'skipped' });
     } else {
       const sep = cur && !cur.endsWith('\n') ? '\n\n' : cur ? '\n' : '';
-      writeFileSync(path, cur + sep + agentsSnippet(project));
+      writeFileSync(path, cur + sep + agentsSnippet(project, opts.pi !== false));
       changes.push({ path: 'AGENTS.md', action: existed ? 'updated' : 'created' });
     }
   }

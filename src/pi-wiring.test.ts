@@ -74,6 +74,19 @@ describe('vfkb init — pi wiring (ADR-0066)', () => {
     expect(existsSync(join(root, '.mcp.json'))).toBe(true);
   });
 
+  it('--no-pi also writes an AGENTS.md that does NOT describe pi wiring', () => {
+    // The file-absence assertion above is not enough: the snippet was unconditional, so
+    // a --no-pi repo got an AGENTS.md telling its agent that `.pi/settings.json` is
+    // committed and "a teammate's clone wires itself" — for a file deliberately not
+    // created. Same false-instruction class as the earlier blocking finding, in the
+    // sibling branch. An agent reading it would create the wiring the operator declined.
+    initProject(root, { project: 'demo', pi: false });
+    const agents = readFileSync(join(root, 'AGENTS.md'), 'utf8');
+    expect(agents).not.toContain('.pi/settings.json` loads');
+    expect(agents).not.toMatch(/Committed:[\s\S]{0,200}\.pi\/settings\.json/);
+    expect(agents).toMatch(/Claude Code only/); // says so positively
+  });
+
   it('gitignores .pi/git/ — pi clones the package INTO the repo at startup', () => {
     initProject(root, { project: 'demo' });
     expect(readFileSync(join(root, '.gitignore'), 'utf8')).toContain('.pi/git/');
