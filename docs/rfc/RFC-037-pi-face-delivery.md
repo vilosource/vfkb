@@ -2,14 +2,17 @@
 type: Proposal
 title: "RFC-037: The pi face is built but undeliverable — pi grew a package system and vfkb has no presence in it"
 description: "Research against pi 0.73.1 found the pi extension code broadly correct and the premise of its MCP bridge intact, while pi grew a full package/marketplace system (pi install npm:/git:, project-scoped .pi/settings.json, a public gallery) that vfkb has zero presence in. The only load path today is `pi -e /abs/path`, which is the ADR-0051 --plugin-dir trap exactly. Proposes a separate vfkb-pi-package repo mirroring vfkb-claude-plugin, with delivery — not capability — as milestone 1."
-status: "Ratified"
+status: "Accepted"
 timestamp: 2026-07-22
 ---
 
 # RFC-037: The pi face is built but undeliverable
 
-- **Status:** **Ratified 2026-07-23** — D1/D2 ratified 2026-07-22; D3/D4/D5 and the distribution
-  question ratified 2026-07-23. **No open questions remain.** Milestone 1 may be built.
+- **Status:** **Accepted 2026-07-23 → [ADR-0066](../adr/ADR-0066-pi-package-delivery.md)** —
+  D1/D2 ratified 2026-07-22; D3/D4/D5 and the distribution question ratified 2026-07-23. **No
+  open questions remain.** Milestone 1 may be built. Per ADR-0007 the decisions now live in the
+  ADR, which is the immutable backstop; this RFC remains the full record of the research,
+  the rejected alternatives, and the honesty notes behind them.
 - **Relates:** [ADR-0015](../adr/ADR-0015-cross-harness-auto-layer.md) (the tiered
   parity model that defines what the pi face owes);
   [ADR-0045](../adr/ADR-0045-vfkb-claude-code-plugin.md) (the plugin split this mirrors);
@@ -227,11 +230,19 @@ Port the plugin's proven three-arm structure rather than inventing one:
   predicate must be **observed failing**, with a content assertion over the output (ADR-0051
   clause 3: exit status and error flags are not admissible).
 
-**Binding addition from D3:** every arm must load **both** extensions simultaneously — the
-injection extension *and* the MCP bridge, with `VFKB_MCP_CONFIG` set. That is the configuration a
-real install produces, and per the D3 note it is the one configuration no existing pi record covers.
-An install-path proof that exercises them separately would repeat, in a new place, exactly the
-capability-vs-delivery confusion ADR-0051 clause 1 was written about.
+**Binding addition from D3 — scoped to the vfkb-present configuration.** Wherever an arm has vfkb
+*installed*, it must load **both** extensions simultaneously — the injection extension *and* the MCP
+bridge, with `VFKB_MCP_CONFIG` set. That means the **fresh** arm, and the **post-upgrade** half of
+the upgrade arm. That is the configuration a real install produces, and per the D3 note it is the
+one configuration no existing pi record covers; an install-path proof that exercised the two
+extensions only separately would repeat, in a new place, exactly the capability-vs-delivery
+confusion ADR-0051 clause 1 was written about.
+
+**This must not be read as "every arm."** The **contrast** arm is "AGENTS.md only" — vfkb is *not*
+installed there, by design — and the **pre-upgrade** half of the upgrade arm must observe the
+capability **absent**. Requiring both extensions in those places would load the very thing they
+exist to do without, turning the can-fail arm into one that cannot fail. That is the ADR-0050
+violation this whole RFC is written to avoid, so the quantifier matters more than it looks.
 
 **The strategic prize:** this proof is CI-automatable from day one. RFC-036 §D1 verifies that the
 Claude scenarios read `~/.claude/.credentials.json`, **throw** without a `claudeAiOauth` block,

@@ -99,12 +99,22 @@ export default function (pi: ExtensionAPI): void {
   // tool_execution_end and is never captured". That is FALSE on pi 0.73.1 and was proven so
   // by six instrumented docker reproductions (brain gotcha 33d7dcc47598): pi DOES emit
   // tool_execution_end for a call blocked at tool_call, so Tier-B capture writes a
-  // capture:error entry whose text contains the ATTEMPTED payload. The block still works —
-  // nothing reaches the brain file — but the attempt is audited. Consequence for anyone
-  // writing a gating assertion: a substring predicate over the brain will match the attack
-  // payload's own audit trail and score a HELD guard as corrupted (that is exactly issue
-  // #150's false RED). Assert structurally instead — JSONL still parses, sentinel entry
-  // survives — not by searching for the payload string.
+  // capture:error entry whose text contains the ATTEMPTED payload. The block itself still
+  // holds — the blocked WRITE/EDIT call never touches the brain file — but the attempt is
+  // audited. Note the scope, which gating.ts:7-13 states and this file must not overstate:
+  // the guarantee is "the write/edit tools can't clobber the brain," NOT "no tool can."
+  // An exec tool (`bash`) is out of scope by design and really can clobber it (issue #151),
+  // which is why a pi arm containing an untrusted agent must also restrict the toolset.
+  //
+  // Consequence for anyone writing a gating assertion: a substring predicate over the brain
+  // will match the attack payload's own audit trail and score a HELD guard as corrupted
+  // (exactly issue #150's false RED). Assert structurally instead — JSONL still parses,
+  // sentinel entry survives — not by searching for the payload string. Be aware the payload
+  // can reach the entry text by TWO routes, so instrumenting only one will mislead: the
+  // captured tool_input (recorded at tool_execution_start below, rendered by engine.ts's
+  // inputSummary) and the result text on this end event. UNVERIFIED which route carried it
+  // in the #150 repro — gotcha 33d7dcc47598 records that the payload appeared, not by which
+  // path; determining that needs a live pi run, not a reading.
   pi.on('tool_call', async (...args: unknown[]): Promise<unknown> => {
     const e = (args[0] as ToolCallEvent) || {};
     if (isBrainWrite(e.toolName, e.input)) {
