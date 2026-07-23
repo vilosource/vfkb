@@ -85,6 +85,10 @@ describe('vfkb init — pi wiring (ADR-0066)', () => {
     expect(agents).not.toContain('.pi/settings.json` loads');
     expect(agents).not.toMatch(/Committed:[\s\S]{0,200}\.pi\/settings\.json/);
     expect(agents).toMatch(/Claude Code only/); // says so positively
+    // ...and must NOT instruct a re-init, which is self-falsifying: AGENTS.md is
+    // append-once, so following that advice creates .pi/settings.json while this
+    // paragraph permanently claims it does not exist.
+    expect(agents).not.toMatch(/Re-run .vfkb init. without/);
   });
 
   it('gitignores .pi/git/ — pi clones the package INTO the repo at startup', () => {

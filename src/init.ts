@@ -138,9 +138,9 @@ This repo uses **vfkb** as its knowledge substrate (project \`${project}\`). Kno
   if present. Do NOT hand-write one pointing at \`.vfkb/bin/bootstrap.mjs\` — that re-imposes the
   per-machine \`$VFKB_BUNDLE_DIR\` the package exists to retire, and shadows its bundled server.)
   Run \`vfkb doctor\` to check the wiring.` : `
-- **This repo is wired for Claude Code only** — \`vfkb init --no-pi\` was used, so there is no
-  \`.pi/settings.json\` and the pi face is not installed. Re-run \`vfkb init\` without \`--no-pi\`
-  to add it.`}
+- **This repo was wired for Claude Code only** (\`vfkb init --no-pi\`). If a \`.pi/settings.json\`
+  exists, the pi face was added later and IS in use — commit that file; this paragraph is not
+  updated on a re-init, because the snippet is written once.`}
 
 Two env vars: **\`VFKB_DATA_DIR\`** = this repo's brain (\`.vfkb\`, set by the wiring) · **\`VFKB_BUNDLE_DIR\`**
 = the shared vfkb engine bundles — set it once per machine, e.g. \`export VFKB_BUNDLE_DIR=/path/to/vfkb/dist/bundles\`.

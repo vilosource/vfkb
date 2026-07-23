@@ -270,12 +270,24 @@ function run({ harness = HARNESS, brain, prompt, inject = 'vfkb', mcp = false, c
     if (!docker) return sh('pi', args, { cwd: tmpdir(), timeout: TIMEOUT, env }).trim();
     // Dockerized: uid-matched (--user) so the agent's brain writes persist to the host
     // /brain mount (silent-write-fail-on-uid-mismatch gotcha = ref_harness_uid_mount).
+    // Assert the credential BEFORE the run, don't paper over it. `|| ''` passed the
+    // empty string on an unset secret, turning a missing credential into a downstream
+    // model auth error instead of a clean precondition stop — the quiet-success shape
+    // ADR-0051 clause 3 forbids, sitting inside the automation ADR-0066 calls its
+    // strategic prize. The claude arm already throws on a missing credential (:86);
+    // this is the pi arm's equivalent, and ADR-0066 assigns it to milestone 1.
+    if (!process.env.DEEPSEEK_TOKEN) {
+      throw new Error(
+        'DEEPSEEK_TOKEN is not set — the pi arm cannot authenticate. Refusing to run: ' +
+          'an empty token produces a model auth error that looks like a scenario failure.',
+      );
+    }
     const dargs = ['run', '--rm', '--user', `${UID}:${GID}`,
       '-e', `HOME=${C_HOME}`,
       '-e', `VFKB_DIR=${C_BRAIN}`,
       '-e', 'VFKB_PROJECT=l4',
       '-e', `KB_SESSION_ID=${env.KB_SESSION_ID}`,
-      '-e', `DEEPSEEK_TOKEN=${process.env.DEEPSEEK_TOKEN || ''}`];
+      '-e', `DEEPSEEK_TOKEN=${process.env.DEEPSEEK_TOKEN}`];
     if (env.VFKB_MCP_CONFIG) dargs.push('-e', `VFKB_MCP_CONFIG=${env.VFKB_MCP_CONFIG}`);
     dargs.push('-v', `${brain}:${C_BRAIN}`, PI_IMAGE, 'pi', ...args);
     return sh('docker', dargs, { timeout: DOCKER_TIMEOUT, env: process.env }).trim();

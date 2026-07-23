@@ -167,24 +167,45 @@ describe('standalone brain — unchanged behaviour (the L4 image and `vfkb save`
 });
 
 describe('vfkb doctor — detects a brain already corrupted by an older build', () => {
-  it('FAILS on an embedded .git inside an in-repo brain (it never heals itself)', async () => {
+  it('FAILS only when the PROJECT tracked the brain and an embedded repo now hides it', async () => {
     const { runDoctor } = await import('./doctor.js');
     const { repo, brain } = repoWithBrain();
     root = repo;
-    // Exactly what a pre-fix pi session left behind.
+    // The project owns this brain: it is tracked and committed...
+    g(['add', '--', '.vfkb/entries.jsonl'], repo);
+    g(['commit', '-qm', 'brain'], repo);
+    // ...and then an older build gitlinks it out of the project.
     g(['init', '-q'], brain);
-    const r = runDoctor({ root: repo, brainDir: brain, env: {} });
-    const c = r.checks.find((x) => x.name === 'brain gitlink');
+    const c = runDoctor({ root: repo, brainDir: brain, env: {} }).checks.find(
+      (x) => x.name === 'brain gitlink',
+    );
     expect(c?.status).toBe('fail');
     expect(c?.detail).toMatch(/silently tracks NOTHING/);
   });
 
-  it('says nothing when the brain is clean (the contrast)', () => {
+  it('does NOT fail a legitimate standalone brain that keeps its own history', async () => {
+    // The dotfiles shape: $HOME is a git repo and ~/.vfkb deliberately has its own
+    // history. git.ts explicitly supports this ("never disturb it"). The first version
+    // of this check called it corruption and told the user to `rm` that history.
+    const { runDoctor } = await import('./doctor.js');
     const { repo, brain } = repoWithBrain();
     root = repo;
-    return import('./doctor.js').then(({ runDoctor }) => {
-      const r = runDoctor({ root: repo, brainDir: brain, env: {} });
-      expect(r.checks.find((x) => x.name === 'brain gitlink')).toBeUndefined();
-    });
+    g(['init', '-q'], brain);
+    g(['config', 'user.email', 't@t'], brain);
+    g(['config', 'user.name', 't'], brain);
+    g(['add', '-A'], brain);
+    g(['commit', '-qm', 'brain history'], brain);
+    // The outer repo never tracked it — so it is not the project's to begin with.
+    const r = runDoctor({ root: repo, brainDir: brain, env: {} });
+    expect(r.checks.find((x) => x.name === 'brain gitlink')).toBeUndefined();
+    expect(r.checks.some((c) => c.status === 'fail')).toBe(false);
+  });
+
+  it('says nothing when the brain is clean (no embedded repo at all)', async () => {
+    const { runDoctor } = await import('./doctor.js');
+    const { repo, brain } = repoWithBrain();
+    root = repo;
+    const r = runDoctor({ root: repo, brainDir: brain, env: {} });
+    expect(r.checks.find((x) => x.name === 'brain gitlink')).toBeUndefined();
   });
 });

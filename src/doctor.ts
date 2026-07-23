@@ -882,11 +882,32 @@ export function runDoctor(opts: DoctorOpts): DoctorReport {
     const embedded = join(brainDir, '.git');
     const inRepo = isUnder(repoToplevel(root), brainDir);
     if (inRepo && existsSync(embedded)) {
-      add(
-        'brain gitlink',
-        'fail',
-        `${embedded} exists — this brain is an EMBEDDED git repo inside the project, so \`git add ${relative(root, brainDir)}/entries.jsonl\` silently tracks NOTHING and the brain is not in version control. Fix: remove ${embedded} (the brain's own history is separate from the project's), then re-add the file`,
-      );
+      // A `.git` inside the brain is NOT by itself a defect, and treating it as one made
+      // this check dangerous: a standalone brain that deliberately keeps its own history
+      // — e.g. `~/.vfkb` when $HOME is a dotfiles repo, a shape `git.ts` explicitly
+      // supports ("never disturb it") — was told its brain "is not in version control"
+      // (false: it is, in its own) and instructed to delete that history.
+      //
+      // The discriminator is whether the OUTER repo ever tracked the brain's entries. If
+      // it did, the project owns this brain and an embedded repo has hidden it — the real
+      // corruption. If it never did, the brain is standalone and none of git.ts's or
+      // ADR-0033's project-commit machinery ever applied to it.
+      const rel = relative(root, join(brainDir, 'entries.jsonl'));
+      let trackedByProject = false;
+      try {
+        trackedByProject =
+          realGit(['log', '--oneline', '-1', '--', rel], root).trim().length > 0 ||
+          realGit(['ls-files', '--', rel], root).trim().length > 0;
+      } catch {
+        trackedByProject = false; // no git / no commits yet → cannot claim corruption
+      }
+      if (trackedByProject) {
+        add(
+          'brain gitlink',
+          'fail',
+          `${embedded} exists and this project tracks ${rel} — the brain is now an EMBEDDED git repo, so \`git add ${rel}\` silently tracks NOTHING and new entries are no longer reaching the project's history. Fix: remove ${embedded} (an older build created it; the project's own history of this brain is intact), then re-add the file`,
+        );
+      }
     }
   }
 
