@@ -15,7 +15,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { initProject } from './init.js';
+import { initProject, approvalNotice } from './init.js';
 import { checkPiWiring, piExtensionOrderProblem, PI_PACKAGE_SOURCE } from './doctor.js';
 
 let root: string;
@@ -265,5 +265,33 @@ describe('vfkb init — a malformed .pi/settings.json is preserved, not destroye
     writeFileSync(join(root, '.pi', 'settings.json'), JSON.stringify({ packages: [] }));
     initProject(root, { project: 'demo' });
     expect(existsSync(join(root, '.pi', 'settings.json.corrupt-backup'))).toBe(false);
+  });
+});
+
+describe('approvalNotice — what it tells you to commit must match what init created', () => {
+  // This drifted once: the notice's `git add` line omitted `.pi`, so a consumer
+  // following it left the pi wiring untracked — silently defeating the
+  // team-shareable property git-only distribution rests on (ADR-0066 §1/§2).
+  // The assertion is DERIVED from initProject's own change report rather than
+  // hard-coded, so a future path cannot drift out of the notice unnoticed.
+  const topLevel = (p: string) => p.split('/')[0];
+
+  it('covers every path init reports creating', () => {
+    const changes = initProject(root, { project: 'demo' });
+    const notice = approvalNotice('demo', true);
+    const gitAdd = notice.split('\n').find((l) => l.includes('git add'))!;
+    expect(gitAdd).toBeTruthy();
+
+    const created = [...new Set(changes.map((c) => topLevel(c.path)))];
+    expect(created.length).toBeGreaterThan(3); // the fixture is meaningful
+    for (const p of created) {
+      expect(gitAdd, `notice must tell the consumer to commit ${p}`).toContain(p);
+    }
+  });
+
+  it('omits .pi when --no-pi was used (it was never created)', () => {
+    const changes = initProject(root, { project: 'demo', pi: false });
+    expect(changes.some((c) => c.path.startsWith('.pi'))).toBe(false);
+    expect(approvalNotice('demo', false)).not.toContain('.pi');
   });
 });
