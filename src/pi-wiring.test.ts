@@ -15,7 +15,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { initProject } from './init.js';
+import { initProject, approvalNotice } from './init.js';
 import { checkPiWiring, piExtensionOrderProblem, PI_PACKAGE_SOURCE } from './doctor.js';
 
 let root: string;
@@ -265,5 +265,47 @@ describe('vfkb init — a malformed .pi/settings.json is preserved, not destroye
     writeFileSync(join(root, '.pi', 'settings.json'), JSON.stringify({ packages: [] }));
     initProject(root, { project: 'demo' });
     expect(existsSync(join(root, '.pi', 'settings.json.corrupt-backup'))).toBe(false);
+  });
+});
+
+describe('approvalNotice — derived from what init created, in both directions', () => {
+  // This drifted twice by being restated: the `git add` line omitted `.pi`, so a
+  // consumer following it left the pi wiring untracked, defeating the
+  // team-shareable property git-only distribution rests on (ADR-0066 §1/§2).
+  // It is now DERIVED, so both failure directions are structurally impossible —
+  // and these tests compare TOKEN SETS, not substrings: an earlier version used
+  // `toContain`, so a new path that is a substring of an existing token (e.g.
+  // `.mcp/servers.json` inside `.mcp.json`) false-passed.
+  const addTokens = (notice: string) => {
+    const line = notice.split('\n').find((l) => l.includes('git add'))!;
+    return new Set(line.split('git add ')[1].trim().split(/\s+/));
+  };
+  const topLevel = (cs: { path: string }[]) => new Set(cs.map((c) => c.path.split('/')[0]));
+
+  it('names exactly the paths init created — no more, no fewer', () => {
+    const changes = initProject(root, { project: 'demo' });
+    expect(addTokens(approvalNotice('demo', changes))).toEqual(topLevel(changes));
+  });
+
+  it('catches a path added to init but missing from the notice (the drift scenario)', () => {
+    const changes = initProject(root, { project: 'demo' });
+    const drifted = [...changes, { path: '.newthing/config.json', action: 'created' as const }];
+    // Derivation means the notice follows automatically; a restated list would not.
+    expect(addTokens(approvalNotice('demo', drifted))).toContain('.newthing');
+  });
+
+  it('never names a path init did NOT create — `git add` on a missing pathspec is fatal', () => {
+    // The worse direction: exit 128, nothing staged. Unguarded before.
+    const changes = initProject(root, { project: 'demo', pi: false });
+    const tokens = addTokens(approvalNotice('demo', changes));
+    expect(tokens.has('.pi')).toBe(false);
+    expect(tokens).toEqual(topLevel(changes));
+  });
+
+  it('is substring-proof (an earlier toContain version was not)', () => {
+    const drifted = [{ path: '.mcp.json', action: 'created' as const }];
+    const tokens = addTokens(approvalNotice('demo', drifted));
+    expect(tokens.has('.mcp')).toBe(false); // would have false-passed under toContain
+    expect(tokens.has('.mcp.json')).toBe(true);
   });
 });

@@ -201,9 +201,12 @@ through **`$VFKB_BUNDLE_DIR`** instead of the plugin's vendored bundles.
 3. **Scaffold** from the target repo's root: `node "$VFKB_BUNDLE_DIR/vfkb.mjs" init <project-name>`.
    `init` is idempotent and writes `.vfkb/entries.jsonl` + `manifest.json`, `.vfkb/bin/bootstrap.mjs`,
    `.mcp.json`, `.claude/settings.json` (SessionStart / PreToolUse-gate / Stop hooks), the `.gitignore`
-   stanza, and an `AGENTS.md` snippet.
-4. **Approve once** (`claude` in the repo → approve the MCP server + hooks), then
-   `git add .mcp.json .claude .gitignore .vfkb AGENTS.md`.
+   and `.gitattributes` stanzas, an `AGENTS.md` snippet, and `.pi/settings.json` (the pi face —
+   ADR-0066; pass `--no-pi` to decline it).
+4. **Approve once** (`claude` in the repo → approve the MCP server + hooks), then commit the wiring.
+   **`init` prints the exact `git add` line for what it created — use that**, rather than a list copied
+   from here: it is derived from the actual changes, so it cannot drift. At time of writing it is
+   `git add .claude .gitattributes .gitignore .mcp.json .pi .vfkb AGENTS.md` (omit `.pi` with `--no-pi`).
 
 If `$VFKB_BUNDLE_DIR` is unset, the bootstrap degrades gracefully: a session-start
 **⚠️ "vfkb is INACTIVE: VFKB_BUNDLE_DIR is not set"** banner, the write-gate stops blocking, nothing
