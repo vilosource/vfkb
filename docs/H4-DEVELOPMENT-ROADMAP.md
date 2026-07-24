@@ -479,8 +479,14 @@ changed `git.ts`/`doctor` code sits off the Claude execution path is what predic
 **The automation boundary, stated honestly.** The four plugin L4s (`brief-skill`, `hooks-smoke`,
 `inactive-signal`, `install-path`) are metered, live, and read the operator's Claude OAuth
 (`install-path` also needs the real `~/.ssh` github key). CI deliberately does **not** run them
-(RELEASING.md §5) — that is the RFC-036 trust-model question. So "automate as much as possible"
-splits into two:
+(RELEASING.md §5) — that is the RFC-036 trust-model question. Applying §5 P9's three tiers
+(*mechanics · adversaries · evidence*): the release choreography is **mechanics** and gets automated to
+zero (P11-a); the metered L4s are **evidence** and get their *invocation* automated but never their
+verdict; moving them off the operator's machine is **constitutional** and needs ratification (P11-b).
+On **adversaries** — this phase is where the differently-failing reviewers get named: Codex and `agy`
+are being brought in as independent reviewers and sparring partners precisely because same-model review
+is what missed #236's shape for seven rounds. Their standing use is diff-level *and* direction-level;
+the tool names live here, not in the principle, because tools churn.
 
 **P11-a — the release wrapper *(build now; no ratification needed)*.** A single `scenarios/release.mjs`
 in the plugin repo (scenarios/ is not release surface → needs no bump) that drives every mechanical
@@ -757,16 +763,38 @@ These are the invariants every item above must honour — they are *why* the pla
    deterministic unit test stays the fast inner gate (P2); the scenario is the once-per-feature purpose gate.
    Structural invariants get **no** scenario — they stay unit tests (ADR-0022 #7). This is the process the
    2026-06-27 Track-4 build's three after-the-fact delivery findings argue for.
-9. **Build the thing that builds the thing.** *(operator motto, 2026-07-24)* Automating **development,
-   review, and release** is a first-class priority, not overhead — the leverage compounds: an automated
-   adversarial gate catches its *own* fixes' regressions (the ADR-0052 review gate did, across #236's seven
-   rounds), and a one-command release removes the hand-crank that lets version-bound evidence rot. Every
-   **recurring** manual step in the build→review→release loop is a candidate for a deterministic Brake or a
-   wrapper; a prose rule that "should" be followed each time is the anti-pattern this principle exists to kill
-   (the founding ADR-0050 lesson — a Brake that can be waved through is just prose). The boundary is honesty
-   (P6): automate the mechanics, but where a step is *deliberately* metered/credentialed (the live L4s), the
-   wrapper **invokes** it rather than faking it, and moving it off the operator's machine is a **constitutional**
-   decision (RFC-036), not a refactor.
+9. **Build the thing that builds the thing** — ***automate the mechanics · multiply the adversaries · never
+   fabricate the evidence.*** *(operator motto 2026-07-24; sharpened same day)*
+
+   Automating **development, review, and release** is a first-class priority, not overhead. But "automate as
+   much as possible" is the **wrong instruction** and was deliberately replaced: it is a *quantity* rule where
+   a *kind* rule is needed, it cannot express what must **not** be automated, and read literally it licenses
+   automating the evidence itself — the most "automated" release being one whose gate is always green. That is
+   not hypothetical: a credential precondition placed one scope too deep turned a missing secret into a
+   `DEMONSTRATED` verdict from a run in which **no agent executed** (2026-07-23, caught in review). Three tiers,
+   each with a *different* optimisation target:
+
+   - **Mechanics — automate toward zero.** Deterministic, repeatable, judgment-free: Brakes, wrappers,
+     re-vendor, tag creation, CI. Every recurring hand-crank is a defect, and a prose rule that "should" be
+     followed each time is the anti-pattern (founding ADR-0050 lesson: a Brake that can be waved through is
+     just prose). *Measure: hand-cranks remaining.*
+   - **Adversaries — automate the acquisition, maximise the diversity.** Do **not** remove judgment from the
+     loop; multiply and **vary** it. Spawn independent reviewers and sparring partners as a matter of course
+     ([ADR-0052](adr/ADR-0052-review-gate.md)), and prefer reviewers that **fail differently** —
+     different model, different vendor, different framing — because a monoculture converges on its own blind
+     spots. *Observed:* seven rounds of **same-model** adversarial review on #236 found real defects in every
+     round yet **never questioned the branch's shape**; recognising it should have been three PRs required
+     stepping outside the loop entirely. Adversaries operate at two levels and both are needed — **diff-level**
+     ("does this do what it claims?", the ADR-0052 gate, working) and **direction-level** ("is this the right
+     thing, in the right shape, at all?", the gap that cost those seven rounds). Name specific tools in the
+     *phase* section, never here: tools churn, the property wanted does not.
+     *Measure: how many independent, differently-biased checks a change survives — not how few.*
+   - **Evidence & constitution — automate the invocation, never the verdict.** A deliberately
+     metered/credentialed proof (the live L4s) is **invoked**, never faked or inferred, and a gate derives its
+     verdict from observations it did not author (RFC-024 §2a). *Who vouches* for a release is an operator
+     decision ([RFC-036](rfc/RFC-036-machine-produced-release-evidence.md)), not a refactor. **This is the tier
+     where "more automation" stops being a virtue** — and being able to say so is the whole reason this
+     principle is a kind-rule rather than a quantity-rule.
 
 ---
 
