@@ -407,6 +407,8 @@ operator request. When it fires: schedule the existing deterministic `distill` +
 `→ **v2 fork — THE ACTIVE FRONTIER** (ADR-0036 two-branch strategy ✅ → V2-VISION ✅ → RFC-014..019 ACCEPTED ✅ 2026-07-06 → ADR-0039..0044; builds on the `v2` branch in order: 014 session backbone (precondition verified live) → 015 lock → 016 merge=union → 017 schema honesty; 018 build gated; 019 last)` *(fork ratified 2026-07-05; acceptances 2026-07-06)*.
 `→ **v2 SHIPPED to `main` 2026-07-08** (PR #86, merge `5bb087e`; ADR-0039..0044, V2-5 index stays GATED). Post-ship the frontier is maintenance-shaped: Track 10 distribution/hardening — plugin v0.6.0..v0.10.0, npm 0.2.1..0.4.0, ADR-0056/0057 release + publish chain, ADR-0060/0061 bump-and-tag Brakes, ADR-0063 broadcast, **ADR-0064 durable-capture journal ✅ shipped + delivered to all 12 consumers**, ADR-0065 write-health **accepted, not built**.`
 `→ **P10 trust-and-cadence phase** *(ratified 2026-07-18, see Current action below)*: **P10-a doctor trust cluster** (#186/#188/#206/#212 — unit-proof, no L4) → **P10-b release cadence** (#211 held: no `dist/` change) → **P10-c ADR-0065 write-health** (§0 probe first; tracking issue #176 is closed — resolve before starting) → **P10-d plugin release automation** (plugin #25/#26 — prose→Brake).`
+`→ **PI-CODING-AGENT initiative** *(2026-07-22..23)*: RFC-037 → **ADR-0066** (pi ships as a package, delivery-before-capability) → delivered as a three-way split (**#238** git.ts in-repo-brain fix → **#239** doctor gitlink detection → **#240** pi wiring) after #236 would not converge in seven adversarial review rounds → **vfkb v0.7.0 shipped to npm 2026-07-23**. The **vfkb-pi-package** exists (public) but its delivery is UNPROVEN (ADR-0051): single-trial fresh-arm observation, install-path L4 still owed.`
+`→ **P11 "build the thing that builds the thing" — release & review automation** *(re-ratified 2026-07-24, see Current action below; subsumes P10-d)*: **P11-a release wrapper** (one-command plugin release; build now) → **P11-b RFC-036 CI automation** (move the metered L4 re-pins off the operator's laptop; needs operator rulings D1–D5). Immediate concrete action: complete plugin **PR #43** → ship **v0.13.0** carrying vfkb 0.7.0's engine.`
 **Track 4b is COMPLETE** — D-i `verified`-filter (pi/claude 2/3, 2026-06-27); D-iii relabel-on-promotion
 (`promotion-relabel` pi/claude 2/3, ADR-0024, 2026-06-27); D-iv pi live tool-result capture
 (`live-capture-result` pi 3/3, 2026-06-27; claude failure-capture EXTERNAL-BLOCKED); **D-ii context-doc +
@@ -446,7 +448,75 @@ In all three cases the response is the same: **update this roadmap and re-ratify
 — never leave the next step to an ad-hoc question. (Scope: in-repo `vfkb` only; vafi/vtaskforge
 work stays out-of-scope/HITL per H2.)
 
-### ▶ Current action — **P10 trust-and-cadence phase** (ratified 2026-07-18)
+### ▶ Current action — **"Build the thing that builds the thing": release & review automation (P11)** *(re-ratified 2026-07-24)*
+
+*Why a re-ratification:* since P10 (2026-07-18) the frontier moved again — the **PI-CODING-AGENT
+initiative** landed (RFC-037 → [ADR-0066](adr/ADR-0066-pi-package-delivery.md), pi ships as a
+package, delivery-before-capability), **vfkb v0.7.0 shipped to npm** (2026-07-23), and the umbrella
+PR #236 was delivered as a **three-way split** — [#238](https://github.com/vilosource/vfkb/pull/238)
+(`git.ts` never `git init`s inside an in-repo brain) → [#239](https://github.com/vilosource/vfkb/pull/239)
+(`vfkb doctor` detects an already-gitlinked brain) → [#240](https://github.com/vilosource/vfkb/pull/240)
+(the pi wiring) — after #236 would not converge in **seven** adversarial review rounds (each round's
+fixes kept introducing new blocking defects; one branch carried four independent changes). Per §4's
+protocol the "what's next?" urge is the signal to re-ratify, not to poll — this section is the
+authority again, and it **subsumes P10-d**.
+
+**The organizing principle — the operator's motto (2026-07-24):** ***"Build the thing that builds the
+thing."*** Automating **development, review, and release** is a first-class priority, not overhead.
+The three-way-split lesson made the case concretely: the ADR-0052 review gate caught its *own* fixes'
+regressions seven rounds running — that automated adversarial loop is *why* the build finally
+converged. The gap is that the **release** half of the loop is still hand-cranked. P11 closes it.
+
+**The immediate concrete action — complete plugin PR #43 (ship v0.13.0 carrying vfkb 0.7.0's
+engine).** vfkb `main` built a new engine (the #238/#239/#240 merges); `engine-delivery.yml`
+force-pushed it onto the plugin's `re-vendor/engine` branch, so PR #43 now vendors `6bf5fbe` — **born
+red on the evidence gate with 0 records re-pinned**. `vfkb--v0.12.0` is already tagged, so the version
+Brake will require a bump to **0.13.0**. Completing it = re-pinning the four metered L4 records against
+the new version and merging — which also **is** the observed proof that 0.7.0's engine did not break
+the Claude plugin (the `install-path` L4 green on the new engine; the structural argument that the
+changed `git.ts`/`doctor` code sits off the Claude execution path is what predicts it passes).
+
+**The automation boundary, stated honestly.** The four plugin L4s (`brief-skill`, `hooks-smoke`,
+`inactive-signal`, `install-path`) are metered, live, and read the operator's Claude OAuth
+(`install-path` also needs the real `~/.ssh` github key). CI deliberately does **not** run them
+(RELEASING.md §5) — that is the RFC-036 trust-model question. So "automate as much as possible"
+splits into two:
+
+**P11-a — the release wrapper *(build now; no ratification needed)*.** A single `scenarios/release.mjs`
+in the plugin repo (scenarios/ is not release surface → needs no bump) that drives every mechanical
+step around the metered runs: pre-flight credential/branch/clean-tree checks (fail-fast, name the
+missing thing) → idempotent re-vendor + `bundle-drift`-clean assertion → the `version-bump.mjs` Brake
+(bump if the tag exists) → run the four L4s **sequentially**, each **aborting loudly if not
+DEMONSTRATED ≥2/3 recomputed from per-trial observations** (never a `demonstrated` field, matching the
+gate) → the four deterministic gates locally → commit records + bump → push → poll CI → squash-merge
+on green → verify `vfkb--v{version}` auto-created. **Resumable:** skip any scenario already pinned to
+the target version, so an expired token mid-run resumes without redoing green arms. This turns
+RELEASING.md's six-step checklist into **one command**, reusable for every future engine release (the
+recurring cost: each engine change re-pins four metered L4s). *Proof form:* the wrapper is
+deterministic orchestration — a selftest that dry-runs it against fixture records is the inner gate;
+it **invokes** the L4s, it does not replace them.
+
+**P11-b — the durable prize: RFC-036 *(ratify + build; needs operator rulings)*.**
+[RFC-036](rfc/RFC-036-machine-produced-release-evidence.md) (**Proposed**) *is* "move the L4 re-pins
+off the operator's machine." It cannot be built without five operator decisions — chiefly **D1**
+(credential model: copy operator OAuth to the runner vs. a metered API key needing a Tier-0 harness
+probe) and **D2** (where it runs: kagent, already deployed). These are **constitutional** — *who
+vouches for a release* (ADR-0050/0051) — so they need the operator, not inference. **P11-a is not
+throwaway: its wrapper becomes the body of the RFC-036 CI job.** Asymmetry worth knowing: the
+**vfkb-pi-package**'s install-path L4 runs on `DEEPSEEK_TOKEN` (a plain API key), so it is
+CI-automatable from day one *without* RFC-036 — the OAuth bottleneck is specific to the Claude plugin.
+
+**Sequencing:** P11-a now (ship 0.13.0, leave a one-command release) → then, when releases should
+leave the laptop, ratify RFC-036 (bring the five decisions as an either/or) and fold P11-a into CI.
+**Delivery honesty (unchanged):** the vfkb-pi-package delivery is **UNPROVEN** (ADR-0051 clause 2) —
+single-trial fresh-arm observation, not the committed install-path L4; its own proof (upgrade arm +
+3 trials + `scenarios/records/install-path.json`) remains owed, and the contrast-arm design is already
+solved (brain gotcha `04099d65ed41`: write-shaped + structural predicate + a restricted toolset).
+
+**Subsumes:** P10-d. **Carries forward from P10 (still unbuilt):** P10-c ADR-0065 write-health (§0
+probe first; its tracking issue was #176, closed — resolve the tracking gap before starting).
+
+### ▶ (prior) Current action — **P10 trust-and-cadence phase** (ratified 2026-07-18)
 
 *Why a re-ratification:* the previous Current action ("build the v2 backbone on `v2`") **shipped**
 on 2026-07-08 (PR #86, merge `5bb087e`), and the frontier has since been maintenance-shaped —
@@ -687,6 +757,16 @@ These are the invariants every item above must honour — they are *why* the pla
    deterministic unit test stays the fast inner gate (P2); the scenario is the once-per-feature purpose gate.
    Structural invariants get **no** scenario — they stay unit tests (ADR-0022 #7). This is the process the
    2026-06-27 Track-4 build's three after-the-fact delivery findings argue for.
+9. **Build the thing that builds the thing.** *(operator motto, 2026-07-24)* Automating **development,
+   review, and release** is a first-class priority, not overhead — the leverage compounds: an automated
+   adversarial gate catches its *own* fixes' regressions (the ADR-0052 review gate did, across #236's seven
+   rounds), and a one-command release removes the hand-crank that lets version-bound evidence rot. Every
+   **recurring** manual step in the build→review→release loop is a candidate for a deterministic Brake or a
+   wrapper; a prose rule that "should" be followed each time is the anti-pattern this principle exists to kill
+   (the founding ADR-0050 lesson — a Brake that can be waved through is just prose). The boundary is honesty
+   (P6): automate the mechanics, but where a step is *deliberately* metered/credentialed (the live L4s), the
+   wrapper **invokes** it rather than faking it, and moving it off the operator's machine is a **constitutional**
+   decision (RFC-036), not a refactor.
 
 ---
 
