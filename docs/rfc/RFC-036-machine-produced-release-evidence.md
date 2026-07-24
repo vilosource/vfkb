@@ -8,10 +8,43 @@ timestamp: 2026-07-19
 
 # RFC-036: Machine-produced release evidence
 
-- **Status:** Proposed — needs operator ratification before any build
+- **Status:** Proposed — needs operator ratification before any build **for the Claude
+  plugin**. The **pi side is DONE and demonstrates the whole shape works** (see the update
+  banner below); the constitutional question that remains is scoped to the plugin only.
 - **Fixes on ratification+build:** [vfkb-claude-plugin#24](https://github.com/vilosource/vfkb-claude-plugin/issues/24);
   unblocks [#25](https://github.com/vilosource/vfkb-claude-plugin/issues/25) and the
   [#26](https://github.com/vilosource/vfkb-claude-plugin/issues/26) umbrella
+
+> ## Update 2026-07-24 — the pi package proved the shape; scope narrows to the Claude plugin
+>
+> Machine-produced release evidence is **live and proven for `vfkb-pi-package`**, without any
+> ratification of this RFC — because the pi arm sidesteps the one thing that makes this
+> constitutional. **D1 (credential model) does not arise for the pi package:** its install-path
+> L4 authenticates DeepSeek with a plain **metered API key** (`DEEPSEEK_TOKEN`), not the
+> operator's Claude identity, so a runner holding it **vouches for nothing personal**. There is
+> no "whose credential" question to answer.
+>
+> What shipped (roadmap P11-b): `vfkb-pi-package/.github/workflows/l4-install-path.yml` runs the
+> install-path L4 on a GitHub runner and — operator ruling 2026-07-24 — **the machine vouches**:
+> a two-job split (`produce` holds the key + cannot push; `vouch` can push + holds no key)
+> recomputes the verdict with the release gate and auto-commits the DEMONSTRATED record to
+> `main`. Verified end-to-end: bot commit `6e13292`, `delivery: proven`, arms 3/3·3/3·0/3.
+> The evidence rules (ADR-0050/0051) are unchanged — the machine produces, the gate still
+> **derives** the verdict from per-trial observations. Brain: `af129ce53586` (produce),
+> `44be0c1efb06` (vouch). Honest limit recorded in the workflow: `vouch` trusts
+> `produce`'s observations, so a pi supply-chain compromise could commit one auditable forged
+> record — bounded, not secret-exfiltration.
+>
+> **So this RFC's remaining scope is the four Claude-plugin L4s only** — they drive `claude -p`
+> and there is no non-Anthropic way to authenticate Claude Code (verified: the scenarios read
+> `~/.claude/.credentials.json` and have no API-key path). That collapses **D1 to a single real
+> option, A (copy the operator's Claude OAuth to the runner)** — B (a metered API key) is off
+> the table because it needs an Anthropic key the operator has declined *and* it would not
+> exercise Claude Code's plugin/hook behaviour anyway. A is a genuine risk (a runner holding
+> the operator's full Claude identity), so building it needs an **explicit** operator yes, not
+> an inference from "narrow the scope" — it is not ratified by this update. Until then the four
+> Claude-plugin L4s stay on the operator's machine, and the one-command release wrapper
+> (roadmap P11-a, `vfkb-claude-plugin/scenarios/release.mjs`) is how they are run.
 - **Relates:** [ADR-0050](../adr/ADR-0050-l4-dod-constitutional-brake.md) and
   [ADR-0051](../adr/ADR-0051-delivery-honesty.md) (the evidence rules this changes the
   *producer* of, never the *content* of); ADR-0060/0061 (tag + version Brake);
