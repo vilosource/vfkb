@@ -268,30 +268,44 @@ describe('vfkb init — a malformed .pi/settings.json is preserved, not destroye
   });
 });
 
-describe('approvalNotice — what it tells you to commit must match what init created', () => {
-  // This drifted once: the notice's `git add` line omitted `.pi`, so a consumer
-  // following it left the pi wiring untracked — silently defeating the
+describe('approvalNotice — derived from what init created, in both directions', () => {
+  // This drifted twice by being restated: the `git add` line omitted `.pi`, so a
+  // consumer following it left the pi wiring untracked, defeating the
   // team-shareable property git-only distribution rests on (ADR-0066 §1/§2).
-  // The assertion is DERIVED from initProject's own change report rather than
-  // hard-coded, so a future path cannot drift out of the notice unnoticed.
-  const topLevel = (p: string) => p.split('/')[0];
+  // It is now DERIVED, so both failure directions are structurally impossible —
+  // and these tests compare TOKEN SETS, not substrings: an earlier version used
+  // `toContain`, so a new path that is a substring of an existing token (e.g.
+  // `.mcp/servers.json` inside `.mcp.json`) false-passed.
+  const addTokens = (notice: string) => {
+    const line = notice.split('\n').find((l) => l.includes('git add'))!;
+    return new Set(line.split('git add ')[1].trim().split(/\s+/));
+  };
+  const topLevel = (cs: { path: string }[]) => new Set(cs.map((c) => c.path.split('/')[0]));
 
-  it('covers every path init reports creating', () => {
+  it('names exactly the paths init created — no more, no fewer', () => {
     const changes = initProject(root, { project: 'demo' });
-    const notice = approvalNotice('demo', true);
-    const gitAdd = notice.split('\n').find((l) => l.includes('git add'))!;
-    expect(gitAdd).toBeTruthy();
-
-    const created = [...new Set(changes.map((c) => topLevel(c.path)))];
-    expect(created.length).toBeGreaterThan(3); // the fixture is meaningful
-    for (const p of created) {
-      expect(gitAdd, `notice must tell the consumer to commit ${p}`).toContain(p);
-    }
+    expect(addTokens(approvalNotice('demo', changes))).toEqual(topLevel(changes));
   });
 
-  it('omits .pi when --no-pi was used (it was never created)', () => {
+  it('catches a path added to init but missing from the notice (the drift scenario)', () => {
+    const changes = initProject(root, { project: 'demo' });
+    const drifted = [...changes, { path: '.newthing/config.json', action: 'created' as const }];
+    // Derivation means the notice follows automatically; a restated list would not.
+    expect(addTokens(approvalNotice('demo', drifted))).toContain('.newthing');
+  });
+
+  it('never names a path init did NOT create — `git add` on a missing pathspec is fatal', () => {
+    // The worse direction: exit 128, nothing staged. Unguarded before.
     const changes = initProject(root, { project: 'demo', pi: false });
-    expect(changes.some((c) => c.path.startsWith('.pi'))).toBe(false);
-    expect(approvalNotice('demo', false)).not.toContain('.pi');
+    const tokens = addTokens(approvalNotice('demo', changes));
+    expect(tokens.has('.pi')).toBe(false);
+    expect(tokens).toEqual(topLevel(changes));
+  });
+
+  it('is substring-proof (an earlier toContain version was not)', () => {
+    const drifted = [{ path: '.mcp.json', action: 'created' as const }];
+    const tokens = addTokens(approvalNotice('demo', drifted));
+    expect(tokens.has('.mcp')).toBe(false); // would have false-passed under toContain
+    expect(tokens.has('.mcp.json')).toBe(true);
   });
 });

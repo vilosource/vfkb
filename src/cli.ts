@@ -269,7 +269,7 @@ async function dispatch() {
     const changes = initProject(root, { project, pi: !p.flags.get('no-pi') });
     const resolved = project || root.split(/[/\\]/).filter(Boolean).pop() || 'project';
     for (const c of changes) process.stdout.write(`${c.action}\t${c.path}\n`);
-    process.stdout.write('\n' + approvalNotice(resolved, !p.flags.get('no-pi')) + '\n');
+    process.stdout.write('\n' + approvalNotice(resolved, changes) + '\n');
     return;
   }
 

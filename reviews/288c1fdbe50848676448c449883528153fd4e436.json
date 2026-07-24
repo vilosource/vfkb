@@ -1,0 +1,57 @@
+{
+  "recordVersion": 1,
+  "sha": "288c1fdbe50848676448c449883528153fd4e436",
+  "governing": [
+    "docs/adr/ADR-0066-pi-package-delivery.md",
+    "docs/adr/ADR-0029-sandbox-proven-definition-of-done.md",
+    "docs/adr/ADR-0019-self-hosted-design-brain.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "claude-opus-4-8[1m]", "rounds": 1 },
+  "generated": "2026-07-24T16:30:00Z",
+  "findingsCount": 4,
+  "findings": [
+    {
+      "id": "M1",
+      "severity": "major",
+      "status": "open",
+      "summary": "the SAME defect survives in a second, more-read copy: docs/CONSUMER-ONBOARDING.md:206 still tells a consumer `git add .mcp.json .claude .gitignore .vfkb AGENTS.md` — omitting `.pi` (the exact omission this PR fixes) and `.gitattributes`; its step-3 prose enumeration at :202-204 omits both too. That section instructs `vfkb init <project-name>` with no --no-pi, so init DOES create both. src/docs-committed-brain-files.test.ts cannot catch it: its statement filter only inspects statements containing `entries.jsonl`, and that ordered-list item has none. Fixing the terminal notice while leaving the onboarding doc wrong leaves the ADR-0066 §1 team-shareable property reachable-broken.",
+      "acceptedBy": null
+    },
+    {
+      "id": "m2",
+      "severity": "minor",
+      "status": "open",
+      "summary": "the derived test binds, but by substring containment on the whole `git add` LINE, so a new top-level path whose name is a substring of an existing token false-passes. PROVED: pushing `{path:'.mcp/servers.json'}` onto initProject's change list left src/pi-wiring.test.ts 29/29 green. init.ts:412-414's claim that 'a future path cannot drift out of this notice unnoticed' is therefore slightly overstated. Fix: split the line after 'git add ' and compare token sets.",
+      "acceptedBy": null
+    },
+    {
+      "id": "m3",
+      "severity": "minor",
+      "status": "open",
+      "summary": "the derived test guards only one direction (init-created but unlisted). It never asserts the reverse — a path LISTED but not created. That failure is worse than the bug fixed: `git add real.txt .pi` in a repo with no .pi exits 128 with `fatal: pathspec '.pi' did not match any files` and stages NOTHING (verified). Both modes are empirically correct today (verified end-to-end in fresh git repos, with and without --no-pi), so this is unguarded, not broken.",
+      "acceptedBy": null
+    },
+    {
+      "id": "m4",
+      "severity": "minor",
+      "status": "open",
+      "summary": "src/init.ts:415 `approvalNotice(project, pi = true)` adds a second positional boolean defaulting to pi-on, duplicating initProject's path list at a distance. The single non-test call site (src/cli.ts:272) passes the correct value and matches src/cli.ts:269 exactly, so it is right today; but a future caller that passes {pi:false} to initProject and forgets the second arg produces the fatal-pathspec failure of m3. Deriving the notice's paths from initProject's returned `changes` would make the whole drift class structurally impossible.",
+      "acceptedBy": null
+    }
+  ],
+  "ruledOut": [
+    "correctness end-to-end: ran `node dist/cli.js init demo` in a fresh git repo, then executed the printed `git add` line verbatim — all 9 created files staged, zero untracked remaining; same for `init demo --no-pi` (.pi correctly absent from both the tree and the notice)",
+    "no over-listing: every path in the notice exists after init in both modes, so the instruction cannot hit the fatal-pathspec case today",
+    "the derived test is not decorative: mutation A (drop `.pi` from the notice) and mutation B (push a new `.newthing/config.json` onto initProject's change list — the real drift scenario) both RED it; baseline 29/29 green, restored clean",
+    "--no-pi parsing: src/cli.ts:262 declares it 'boolean', src/args.ts:44-47 sets it to `true` on presence and leaves it undefined otherwise, so `!p.flags.get('no-pi')` is correct for absent/present; `--no-pi=false` is rejected as an unknown flag by args.ts:35; cli.ts:269 and :272 use the identical expression so they cannot disagree",
+    "call sites: `approvalNotice` appears only in src/init.ts (definition), src/cli.ts:272, and src/pi-wiring.test.ts — no bundle, scenario, or plugin caller relies on the default",
+    "AGENTS.md snippet consistency: init.ts:129-130's 'Committed:' list (.vfkb/entries.jsonl, .vfkb/manifest.json, .vfkb/bin/, and .pi/settings.json when pi) is a subset of the notice's `git add` set and does not contradict it; the --no-pi else-branch correctly tells a later pi adopter to commit .pi/settings.json",
+    "gitignore interaction: `git add .pi` stages only .pi/settings.json — the `.pi/git/` package clone (init.ts:290) is correctly excluded",
+    "preserveUnparseable returns relative(root, backup) (init.ts:176), so no absolute path can vacuously satisfy the test's topLevel() split",
+    "regression: npm test 528/528 across 46 files green locally; CI on this sha green on node 20/22/24 plus CodeRabbit and GitGuardian; review-gate is the only red check and fails solely for the missing record this review produces",
+    "docs sweep: no live consumer doc other than CONSUMER-ONBOARDING.md carries an init path list; README.md:184, docs/RUNBOOK-claude-code-integration.md:206, docs/CONSUMER-ONBOARDING-PROMPT.md:64-65 and CONSUMER-ONBOARDING.md:132-133 all describe the brain/plugin path, not init's output, and none disagree",
+    "ADR-0029 scope: an output-string fix rides the unit gate — no L4 required (sub-task exemption); the unit test is mutation-proven can-fail",
+    "no .vfkb/ or docs/adr/ churn in the diff — 2 source files + 1 test file only, matching the stated scope"
+  ],
+  "verdict": "FIX-FIRST"
+}

@@ -405,16 +405,19 @@ export function initProject(root: string, opts: { project?: string; pi?: boolean
 
 // The one step init cannot do for you (printed by the CLI).
 //
-// Step 3's path list MUST cover everything init actually created, and that is not a
-// stylistic point: a consumer who follows it literally commits exactly these paths.
-// It omitted `.pi`, so anyone following it left the pi wiring UNTRACKED — silently
-// defeating the "team-shareable, a teammate's clone wires itself" property that
-// git-only pi distribution rests on (ADR-0066 §1/§2). `init.test.ts` now derives the
-// expected list from initProject's own change report, so a future path cannot drift
-// out of this notice unnoticed.
-export function approvalNotice(project: string, pi = true): string {
-  const paths = ['.mcp.json', '.claude', '.gitignore', '.gitattributes', '.vfkb', 'AGENTS.md'];
-  if (pi) paths.push('.pi');
+// Step 3's path list is DERIVED from what initProject actually created, never
+// restated. Restating it drifted twice: the list omitted `.pi`, so a consumer who
+// followed it left the pi wiring UNTRACKED — silently defeating the
+// "team-shareable, a teammate's clone wires itself" property git-only pi
+// distribution rests on (ADR-0066 §1/§2).
+//
+// Deriving makes the whole class structurally impossible, in BOTH directions:
+// a new path cannot drift out of the notice, and the notice cannot name a path
+// init did not create — which matters because `git add` on a missing pathspec is
+// fatal (exit 128) and stages nothing, a worse failure than the one first fixed.
+export function approvalNotice(project: string, changes: InitChange[]): string {
+  // Top-level segment: the consumer commits directories, not individual files.
+  const paths = [...new Set(changes.map((c) => c.path.split('/')[0]))].sort();
   return [
     `vfkb wired for project "${project}".`,
     '',
@@ -425,3 +428,4 @@ export function approvalNotice(project: string, pi = true): string {
     `  3. Commit the wiring + the empty brain: git add ${paths.join(' ')}`,
   ].join('\n');
 }
+
