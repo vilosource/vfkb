@@ -2,15 +2,18 @@
 type: Proposal
 title: "RFC-036: Machine-produced release evidence — moving the L4 re-pins off the operator's machine without weakening what they prove"
 description: "The plugin release gate demands four metered L4 records re-pinned to every shipping version, and today they can only be produced on the operator's laptop against interactive OAuth. This proposes the trust-model change that lets trusted automation produce them — the constitutional question ADR-0050/0051 leave open — plus the credential, hosting, fork-safety and flake decisions it forces. Pi side done (2026-07-24). The 2026-07-25 spike (plugin#45) falsified 'OAuth is the only credential the harness supports': headless Claude Code works on DeepSeek env auth, so D1 is now a three-way operator choice (OAuth / DeepSeek-CI / hybrid), unratified."
-status: "Proposed"
+status: "Accepted"
 timestamp: 2026-07-19
 ---
 
 # RFC-036: Machine-produced release evidence
 
-- **Status:** Proposed — needs operator ratification before any build **for the Claude
-  plugin**. The **pi side is DONE and demonstrates the whole shape works** (see the update
-  banner below); the constitutional question that remains is scoped to the plugin only.
+- **Status:** **ACCEPTED 2026-07-25** →
+  [ADR-0067](../adr/ADR-0067-hybrid-credential-model.md). The operator ratified **D1 =
+  hybrid** (per-release CI evidence on DeepSeek env auth via the pi package's produce→vouch
+  shape; the operator's Claude OAuth never leaves the laptop, which stays the occasional
+  full-fidelity check). D2–D5 are resolved in the ADR. The pi side was already DONE
+  (2026-07-24 banner below); build for the plugin side is now unblocked.
 - **Fixes on ratification+build:** [vfkb-claude-plugin#24](https://github.com/vilosource/vfkb-claude-plugin/issues/24);
   unblocks [#25](https://github.com/vilosource/vfkb-claude-plugin/issues/25) and the
   [#26](https://github.com/vilosource/vfkb-claude-plugin/issues/26) umbrella
