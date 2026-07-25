@@ -27,5 +27,12 @@ graphify-out/
 .understand-anything/.trash-*/
 .understand-anything/intermediate/
 .understand-anything/tmp/
+
+# A stray root-level `brain` file — the real brain is `.vfkb/`, never a bare `brain`.
+# A 1-byte one appeared on 2026-07-13 from a tool-gating repro whose sandbox redirect
+# (`echo > brain`, issue #151) escaped to the repo root; it sat untracked as `?? brain`
+# noise for a fortnight before anyone opened it. Root-anchored (`/brain`) so this only
+# silences that exact stray and never a legitimately-named `brain` anywhere deeper.
+/brain
 scenarios/records/*.log
 scenarios/records/*.debug.*.txt
