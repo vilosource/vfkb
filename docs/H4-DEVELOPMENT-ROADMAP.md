@@ -408,7 +408,7 @@ operator request. When it fires: schedule the existing deterministic `distill` +
 `→ **v2 SHIPPED to `main` 2026-07-08** (PR #86, merge `5bb087e`; ADR-0039..0044, V2-5 index stays GATED). Post-ship the frontier is maintenance-shaped: Track 10 distribution/hardening — plugin v0.6.0..v0.10.0, npm 0.2.1..0.4.0, ADR-0056/0057 release + publish chain, ADR-0060/0061 bump-and-tag Brakes, ADR-0063 broadcast, **ADR-0064 durable-capture journal ✅ shipped + delivered to all 12 consumers**, ADR-0065 write-health **accepted, not built**.`
 `→ **P10 trust-and-cadence phase** *(ratified 2026-07-18, see Current action below)*: **P10-a doctor trust cluster** (#186/#188/#206/#212 — unit-proof, no L4) → **P10-b release cadence** (#211 held: no `dist/` change) → **P10-c ADR-0065 write-health** (§0 probe first; tracking issue #176 is closed — resolve before starting) → **P10-d plugin release automation** (plugin #25/#26 — prose→Brake).`
 `→ **PI-CODING-AGENT initiative** *(2026-07-22..23)*: RFC-037 → **ADR-0066** (pi ships as a package, delivery-before-capability) → delivered as a three-way split (**#238** git.ts in-repo-brain fix → **#239** doctor gitlink detection → **#240** pi wiring) after #236 would not converge in seven adversarial review rounds → **vfkb v0.7.0 shipped to npm 2026-07-23**. The **vfkb-pi-package** exists (public) but its delivery is UNPROVEN (ADR-0051): single-trial fresh-arm observation, install-path L4 still owed.`
-`→ **P11 "build the thing that builds the thing" — release & review automation** *(re-ratified 2026-07-24, see Current action below; subsumes P10-d)*: **P11-a release wrapper** (one-command plugin release; build now) → **P11-b RFC-036 CI automation** (move the metered L4 re-pins off the operator's laptop; needs operator rulings D1–D5). Immediate concrete action: complete plugin **PR #43** → ship **v0.13.0** carrying vfkb 0.7.0's engine.`
+`→ **P11 "build the thing that builds the thing" — release & review automation** *(re-ratified 2026-07-24, see Current action below; subsumes P10-d)*: **P11-a release wrapper** (DONE 2026-07-24 — shipped v0.13.0; pi-package sibling DONE 2026-07-25, PR #5) → **P11-b RFC-036 CI automation** (RATIFIED 2026-07-25 → ADR-0067 hybrid; build unblocked — the plugin scenarios' auth seam + producedBy + produce→vouch workflow remain).`
 **Track 4b is COMPLETE** — D-i `verified`-filter (pi/claude 2/3, 2026-06-27); D-iii relabel-on-promotion
 (`promotion-relabel` pi/claude 2/3, ADR-0024, 2026-06-27); D-iv pi live tool-result capture
 (`live-capture-result` pi 3/3, 2026-06-27; claude failure-capture EXTERNAL-BLOCKED); **D-ii context-doc +
@@ -502,22 +502,25 @@ recurring cost: each engine change re-pins four metered L4s). *Proof form:* the 
 deterministic orchestration — a selftest that dry-runs it against fixture records is the inner gate;
 it **invokes** the L4s, it does not replace them.
 
-**P11-b — the durable prize: RFC-036 *(ratify + build; needs operator rulings)*.**
-[RFC-036](rfc/RFC-036-machine-produced-release-evidence.md) (**Proposed**) *is* "move the L4 re-pins
-off the operator's machine." It cannot be built without five operator decisions — chiefly **D1**
-(credential model: copy operator OAuth to the runner vs. a metered API key needing a Tier-0 harness
-probe) and **D2** (where it runs: kagent, already deployed). These are **constitutional** — *who
-vouches for a release* (ADR-0050/0051) — so they need the operator, not inference. **P11-a is not
-throwaway: its wrapper becomes the body of the RFC-036 CI job.** Asymmetry worth knowing: the
-**vfkb-pi-package**'s install-path L4 runs on `DEEPSEEK_TOKEN` (a plain API key), so it is
-CI-automatable from day one *without* RFC-036 — the OAuth bottleneck is specific to the Claude plugin.
+**P11-b — the durable prize: RFC-036 *(RATIFIED 2026-07-25 → ADR-0067; build unblocked)*.**
+[RFC-036](rfc/RFC-036-machine-produced-release-evidence.md) (**Accepted**) *is* "move the L4 re-pins
+off the operator's machine." *Status flip 2026-07-25:* the spike
+([plugin#45](https://github.com/vilosource/vfkb-claude-plugin/issues/45)) falsified the forced
+OAuth-only choice — headless Claude Code works on DeepSeek env auth, full pipeline observed — and the
+operator ratified **D1 = hybrid** ([ADR-0067](adr/ADR-0067-hybrid-credential-model.md)): per-release
+CI evidence on `DEEPSEEK_TOKEN` via the pi package's proven produce→vouch shape; the operator's OAuth
+never leaves the laptop, which stays the occasional full-fidelity check. D2 dissolved (GitHub-hosted
+runners, as the pi package); D3–D5 resolved in the ADR. **P11-a is not throwaway: its wrapper is the
+laptop leg of the hybrid, and its shape seeded the CI job.** Remaining build: the plugin scenarios'
+auth seam + `producedBy` provenance + the produce→vouch workflow; DoD = a full four-record re-pin
+produced unattended, gate-green, provenance present, can-fail arm observed failing (RFC-036 §DoD).
 
-**Sequencing:** P11-a now (ship 0.13.0, leave a one-command release) → then, when releases should
-leave the laptop, ratify RFC-036 (bring the five decisions as an either/or) and fold P11-a into CI.
-**Delivery honesty (unchanged):** the vfkb-pi-package delivery is **UNPROVEN** (ADR-0051 clause 2) —
-single-trial fresh-arm observation, not the committed install-path L4; its own proof (upgrade arm +
-3 trials + `scenarios/records/install-path.json`) remains owed, and the contrast-arm design is already
-solved (brain gotcha `04099d65ed41`: write-shaped + structural predicate + a restricted toolset).
+**Sequencing (historical, both halves done):** P11-a shipped v0.13.0 with the one-command release
+(2026-07-24); RFC-036 ratified 2026-07-25. **Delivery honesty (updated 2026-07-24/25):** the
+vfkb-pi-package delivery is **PROVEN** — install-path L4 DEMONSTRATED 3/3·3/3·0/3, machine-produced
+in CI and machine-vouched (`scenarios/records/install-path.json`, bot commits `6e13292`/`91b1dd9`),
+and its release automation (version Brake + tag workflow + wrapper) shipped 2026-07-25
+(vfkb-pi-package PR #5, tag `v0.1.0` bootstrap).
 
 **Subsumes:** P10-d. **Carries forward from P10 (still unbuilt):** P10-c ADR-0065 write-health (§0
 probe first; its tracking issue was #176, closed — resolve the tracking gap before starting).
