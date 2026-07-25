@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.7.1](https://github.com/vilosource/vfkb/compare/v0.7.0...v0.7.1) (2026-07-24)
+
+
+### Bug Fixes
+
+* **init:** approvalNotice told consumers to commit a list that omitted .pi ([#245](https://github.com/vilosource/vfkb/issues/245)) ([af7567b](https://github.com/vilosource/vfkb/commit/af7567bec47516f40e58eddd329a4f8d9d0a3aa9))
+
+
+### Documentation
+
+* **rfc-036:** the pi side is done; narrow the open scope to the Claude plugin ([#246](https://github.com/vilosource/vfkb/issues/246)) ([3f72fdd](https://github.com/vilosource/vfkb/commit/3f72fdd78d7f2e80cd78ecf3c5a2a0129e77f6f4))
+* **roadmap:** ratify P11 "build the thing that builds the thing" — release automation ([#242](https://github.com/vilosource/vfkb/issues/242)) ([983d99f](https://github.com/vilosource/vfkb/commit/983d99f9e893bd96bb8557b4b1a30bde17fd8c5f))
+* **roadmap:** replace "automate as much as possible" with a kind-rule ([#244](https://github.com/vilosource/vfkb/issues/244)) ([4e03c50](https://github.com/vilosource/vfkb/commit/4e03c504d58ded8a807d32e49889b9d7e934edbd))
+
 ## [0.7.0](https://github.com/vilosource/vfkb/compare/v0.6.0...v0.7.0) (2026-07-23)
 
 
