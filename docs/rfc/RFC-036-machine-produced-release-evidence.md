@@ -1,7 +1,7 @@
 ---
 type: Proposal
 title: "RFC-036: Machine-produced release evidence — moving the L4 re-pins off the operator's machine without weakening what they prove"
-description: "The plugin release gate demands four metered L4 records re-pinned to every shipping version, and today they can only be produced on the operator's laptop against interactive OAuth. This proposes the trust-model change that lets trusted automation produce them — the constitutional question ADR-0050/0051 leave open — plus the credential, hosting, fork-safety and flake decisions it forces. Recommends kagent (already deployed) over ARC (controller deployed, zero runners) and an OAuth-copy model gated behind a private mirror, because the harness supports no other credential today."
+description: "The plugin release gate demands four metered L4 records re-pinned to every shipping version, and today they can only be produced on the operator's laptop against interactive OAuth. This proposes the trust-model change that lets trusted automation produce them — the constitutional question ADR-0050/0051 leave open — plus the credential, hosting, fork-safety and flake decisions it forces. Pi side done (2026-07-24). The 2026-07-25 spike (plugin#45) falsified 'OAuth is the only credential the harness supports': headless Claude Code works on DeepSeek env auth, so D1 is now a three-way operator choice (OAuth / DeepSeek-CI / hybrid), unratified."
 status: "Proposed"
 timestamp: 2026-07-19
 ---
@@ -45,6 +45,45 @@ timestamp: 2026-07-19
 > an inference from "narrow the scope" — it is not ratified by this update. Until then the four
 > Claude-plugin L4s stay on the operator's machine, and the one-command release wrapper
 > (roadmap P11-a, `vfkb-claude-plugin/scenarios/release.mjs`) is how they are run.
+
+> ## Update 2026-07-25 — the Tier-0 probe ran, and D1 is no longer a forced choice
+>
+> The operator requested the spike ([vfkb-claude-plugin#45](https://github.com/vilosource/vfkb-claude-plugin/issues/45));
+> it is essentially the probe this RFC's original D1 recommendation asked for, executed with
+> **DeepSeek instead of an Anthropic key** — which matters, because the operator declined
+> Anthropic keys but already accepted `DEEPSEEK_TOKEN` as a repo secret for the pi arm.
+>
+> **Result: headless Claude Code works against DeepSeek's Anthropic-compatible endpoint**
+> (`ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic` + `ANTHROPIC_AUTH_TOKEN`, CLI
+> 2.1.220, `deepseek-v4-pro`, sandbox `HOME` with **no** `.credentials.json`). Observed, not
+> asserted: a 4-arm Tier-0 probe all HIT with the bogus-token contrast held, and then
+> **`hooks-smoke.mjs` run whole, modified only in auth** — wired arm hit **all six
+> observables** (injection, brain-write gate, Stop, SessionEnd auto-commit, deferred-tool
+> `kb_add` round-trip, nine MCP tools) through the **real marketplace add/install path**, with
+> the unwired contrast fully clean. `modelUsage` reports the pinned model faithfully
+> (`deepseek-v4-pro`), so the pinned-model-observed discipline survives — the pinned *value*
+> changes, not the mechanism. Full logs: the #45 issue comment; brain `98fa0f1d171f`.
+>
+> **Corrections to the 2026-07-24 banner above, on the record:** "there is no non-Anthropic
+> way to authenticate Claude Code" was wrong — env auth exists and works; what was true is
+> narrower: *the scenarios as written* stage an OAuth file and have no API-key path (a
+> one-function seam, `stageCreds`). And option B's "would not exercise Claude Code's
+> plugin/hook behaviour" applied to calling the API directly, not to swapping the backend under
+> the real CLI — the spike shows the full plugin pipeline exercised.
+>
+> **D1's choice set is therefore three-way, and still the operator's** (this update ratifies
+> nothing):
+>
+> | Option | Assessment after the spike |
+> |---|---|
+> | **A. Copy operator OAuth to the runner** | Full production fidelity (the config real consumers run). Carries the operator's full Claude identity; rotation fragile. |
+> | **C. DeepSeek env auth in CI** *(new)* | No identity on the runner; the secret model is the one already accepted for `vfkb-pi-package`; the produce→vouch pair ports directly. Records are honestly **scoped**: they prove harness wiring on DeepSeek, not the production model config; `brief-skill`'s Haiku-pin claim needs rescoped wording ("pin honored", not "runs on Haiku"). |
+> | **Hybrid** | CI evidence on DeepSeek per release; occasional laptop OAuth runs as the full-fidelity check. |
+>
+> Spike-level honesty limits, named: N=1 (ADR-0022 needs 3 trials for any release record);
+> `brief-skill`/`inactive-signal`/`install-path` not yet run under env auth; a **bad token
+> fails by hanging** to the per-turn timeout, not a fast auth error — ported workflows need
+> tight per-turn timeouts and should read first-turn timeout as auth-shaped.
 - **Relates:** [ADR-0050](../adr/ADR-0050-l4-dod-constitutional-brake.md) and
   [ADR-0051](../adr/ADR-0051-delivery-honesty.md) (the evidence rules this changes the
   *producer* of, never the *content* of); ADR-0060/0061 (tag + version Brake);
