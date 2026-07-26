@@ -231,17 +231,67 @@ export function exportAgentsMd(opts: ExportOpts = {}): { path: string } {
   if (spine) head += `## Context (authored spine)\n${spine.trim()}\n\n`;
 
   head += '## Knowledge (verified, published)\n';
-  let body = '';
+  const kept: string[] = [];
+  let keptLen = 0;
   let dropped = 0;
   for (const e of knowledge) {
     const line = `- [${e.type}] ${e.text}\n`;
-    if (head.length + body.length + line.length > budget) {
+    if (head.length + keptLen + line.length > budget) {
       dropped++;
       continue;
     }
-    body += line;
+    kept.push(line);
+    keptLen += line.length;
   }
-  if (dropped > 0) body += `<!-- ${dropped} entries omitted for the ${budget}-char budget -->\n`;
+  let body = '';
+  if (dropped > 0) {
+    // Issue #200 — parity with renderContextBundle's note discipline, in both
+    // respects the old line got wrong:
+    //   (1) FITS WHENEVER THE BUDGET EXCEEDS THE NEVER-DROPPED HEAD. The note
+    //       used to be appended unconditionally after the budget check, so the
+    //       export overshot by exactly the note's length — the opposite defect
+    //       of a note that goes quiet, but a budget a caller cannot rely on
+    //       either way. Now: evict kept lines until the note fits, re-checking
+    //       each round (evicting changes `dropped`, which can change the note's
+    //       digit width). The contract is scoped, not absolute, and the scope
+    //       is the same one renderContextBundle's fixedLen() carries: the head
+    //       is untruncatable, so a budget below it overshoots by construction.
+    //       No CLI path can ask for that — `runExport` exposes no --budget and
+    //       the default is EXPORT_BUDGET_CHARS — but the comment should not
+    //       claim more than the code does. Units are UTF-16 code units, as the
+    //       note's own "-char budget" wording says; a CJK/emoji-heavy brain can
+    //       therefore exceed the same number in BYTES.
+    //   (2) VISIBLE AND ACTIONABLE. An HTML comment is invisible in every
+    //       renderer an agent reads this through; name the count and the pull
+    //       path instead.
+    const note = () =>
+      `\n(+ ${dropped} lower-ranked entries omitted for the ${budget}-char budget — \`vfkb search\` / \`vfkb list\` pulls them)\n`;
+    const evicted: string[] = [];
+    while (kept.length > 0 && head.length + keptLen + note().length > budget) {
+      const line = kept.pop()!;
+      keptLen -= line.length;
+      evicted.push(line);
+      dropped++;
+    }
+    if (head.length + keptLen + note().length <= budget) {
+      body = kept.join('') + note();
+    } else {
+      // The note cannot fit even with everything evicted — the head alone
+      // leaves less slack than one note line. Losing content to a note that
+      // then never renders would be a double loss, so restore and emit
+      // noteless rather than shrink the export to nothing (the same fallback
+      // renderContextBundle carries).
+      while (evicted.length > 0) {
+        const line = evicted.pop()!;
+        kept.push(line);
+        keptLen += line.length;
+        dropped--;
+      }
+      body = kept.join('');
+    }
+  } else {
+    body = kept.join('');
+  }
 
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, head + body);
