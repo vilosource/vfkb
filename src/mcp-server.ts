@@ -299,7 +299,10 @@ server.registerTool(
   // the brain on harnesses that never run the CLI session-start hook, so it is
   // the other place ADR-0064 §2 recovery has to happen. A shared helper, not a
   // local expression, so it is behaviourally testable without booting a server.
-  async () => text(resumePayload(projectName())),
+  // debounce: this server is spawned FRESH PER CALL by pi's MCP bridge, so the
+  // process latch cannot bind and an unbounded re-restore loop is possible here
+  // and nowhere else. Every other face heals unconditionally.
+  async () => text(resumePayload(projectName(), undefined, { debounce: true })),
 );
 
 async function main(): Promise<void> {

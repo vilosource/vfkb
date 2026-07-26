@@ -101,12 +101,28 @@ describe('healBrain', () => {
     // A process latch alone is defeated by connect-per-call: each kb_resume gets
     // a new process and would heal again, unbounded. Simulate that by clearing
     // ONLY the in-process latch, leaving the on-disk marker.
+    // The bridge face is the ONLY caller that opts into the wall clock — scoping
+    // it there is what keeps a fresh Claude session from being suppressed, so
+    // this test must model that face, flag and all.
+    const bridge = () => healBrain({ debounce: true });
     const { id } = destroyedBrain();
-    expect(healBrain()).toMatch(/restored/);
+    expect(bridge()).toMatch(/restored/);
     git('checkout', '--', '.vfkb/entries.jsonl'); // destroy again
     healedProcessLatchOnly();
-    expect(healBrain()).toBe(''); // the marker held across the "new process"
+    expect(bridge()).toBe(''); // the marker held across the "new process"
     expect(entriesText()).not.toContain(id);
+  });
+
+  it('a fresh non-bridge process is NOT suppressed by the marker — the regression guard', () => {
+    // An earlier version applied the wall clock to every caller, so a brand-new
+    // CLI process within the window silently did not recover a destroyed brain.
+    // Without `debounce`, a fresh process always heals — as it did before #205.
+    const { id } = destroyedBrain();
+    expect(healBrain({ debounce: true })).toMatch(/restored/); // marker now stamped
+    git('checkout', '--', '.vfkb/entries.jsonl');
+    healedProcessLatchOnly();
+    expect(healBrain()).toMatch(/restored/); // no debounce → heals despite the fresh marker
+    expect(entriesText()).toContain(id);
   });
 
   it('a genuinely NEW session still heals immediately (the marker keys on session id)', () => {

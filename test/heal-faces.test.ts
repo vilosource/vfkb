@@ -57,6 +57,42 @@ afterEach(() => {
 });
 
 describe('the shipped entry points heal (issue #205)', () => {
+  it('a NEW Claude session heals, even seconds after the last one — the payload id is the key', () => {
+    // The regression this guards is one this PR itself introduced: healBrain
+    // read only $KB_SESSION_ID, while the hook's real session id arrives on
+    // STDIN, so every face fell back to a wall clock and a brand-new session
+    // did NOT recover a brain destroyed by `git checkout --` — RFC-034 incident
+    // 1, going unrecovered where the pre-#205 engine recovered it.
+    // KB_SESSION_ID is deliberately NOT set here: that override is not the path
+    // production takes, and testing it certified a claim the hook did not meet.
+    if (!existsSync(CLI)) throw new Error(`no ${CLI} — run npm run build`);
+    const { env } = destroyedBrain();
+    const hook = (sessionId: string) =>
+      execFileSync('node', [CLI, 'hook', 'session-start'], {
+        env,
+        encoding: 'utf8',
+        input: JSON.stringify({ session_id: sessionId, cwd: repo, hook_event_name: 'SessionStart' }),
+      });
+
+    const first = hook('session-AAA');
+    expect(first).toMatch(/restored 1 journaled entry/);
+    expect(readFileSync(join(brain, 'entries.jsonl'), 'utf8')).toContain(SENTINEL);
+
+    // Destroy again, then start a DIFFERENT session immediately.
+    git('checkout', '--', '.vfkb/entries.jsonl');
+    expect(readFileSync(join(brain, 'entries.jsonl'), 'utf8')).not.toContain(SENTINEL);
+    const second = hook('session-BBB');
+    expect(second).toMatch(/restored 1 journaled entry/);
+    expect(readFileSync(join(brain, 'entries.jsonl'), 'utf8')).toContain(SENTINEL);
+
+    // ...while the SAME session id re-running does not re-restore (once per session).
+    git('checkout', '--', '.vfkb/entries.jsonl');
+    const again = hook('session-BBB');
+    expect(again).not.toMatch(/restored/);
+    expect(readFileSync(join(brain, 'entries.jsonl'), 'utf8')).not.toContain(SENTINEL);
+  });
+
+
   it('`vfkb resume` restores the destroyed entry and reports it', () => {
     if (!existsSync(CLI)) throw new Error(`no ${CLI} — run npm run build`);
     const { env } = destroyedBrain();

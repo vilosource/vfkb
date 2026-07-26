@@ -611,7 +611,7 @@ async function dispatch() {
       // The lock, the meta refresh, the fail-open and the note text now live in
       // heal.ts, because the pi face and kb_resume must do exactly the same
       // thing (issue #205) and three hand-copies would drift.
-      const restoreNote = healBrain();
+      const restoreNote = healBrain({ sessionId: effectiveSessionId(payloadId) });
       const additionalContext =
         restoreNote +
         (rest.includes('--naive')

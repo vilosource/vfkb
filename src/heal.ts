@@ -58,11 +58,28 @@ let healedThisProcess = false;
 const MARKER_DEBOUNCE_MS = Number(process.env.VFKB_HEAL_DEBOUNCE_MS ?? 15 * 60 * 1000);
 const markerPath = (brain: string) => join(brain, '.journal', '.healed');
 
-function alreadyHealed(brain: string, sid: string | undefined): boolean {
+/**
+ * THE WALL CLOCK IS SCOPED TO ONE FACE, and getting that wrong was a silent
+ * data-loss regression. An earlier version applied the time window to every
+ * caller. But `effectiveSessionId()` reads only `$KB_SESSION_ID` or an argument
+ * — the Claude hook's real session id arrives on **stdin** — so with no id
+ * threaded through, every face fell to the clock, and a brand-new session
+ * starting within the window did NOT recover a brain destroyed by
+ * `git checkout --`. That is RFC-034 incident 1 going unrecovered, silently,
+ * where the pre-#205 engine recovered it.
+ *
+ * So: a face that knows its session id keys on that (a new session always
+ * heals). A face that is a fresh PROCESS PER CALL — only the MCP server as
+ * spawned by pi's connect-per-call bridge — opts into the window explicitly,
+ * because that is the one place an unbounded re-restore loop is possible and
+ * "same session" is genuinely unknowable. Everything else heals, as it always did.
+ */
+function alreadyHealed(brain: string, sid: string | undefined, debounce: boolean): boolean {
   try {
     const raw = readFileSync(markerPath(brain), 'utf8');
     const m = JSON.parse(raw) as { sessionId?: string; at?: number };
     if (sid) return m.sessionId === sid;
+    if (!debounce) return false; // fresh process, known session boundary → heal
     return typeof m.at === 'number' && Date.now() - m.at < MARKER_DEBOUNCE_MS;
   } catch {
     return false; // no marker, or unreadable → heal (fail toward recovery)
@@ -102,11 +119,12 @@ export function resetHealLatchForTests(brain?: string): void {
  * Fail-open by contract: recovery must never cost a session its start, so every
  * error is swallowed and the caller gets ''.
  */
-export function healBrain(): string {
+export function healBrain(opts: { sessionId?: string; debounce?: boolean } = {}): string {
   if (healedThisProcess) return '';
   const brain = brainDir();
-  const sid = effectiveSessionId();
-  if (alreadyHealed(brain, sid)) {
+  // The caller's id wins: only it can know the harness payload's session id.
+  const sid = opts.sessionId ?? effectiveSessionId();
+  if (alreadyHealed(brain, sid, opts.debounce === true)) {
     healedThisProcess = true;
     return '';
   }
@@ -149,7 +167,11 @@ export function healBrain(): string {
  * `renderResume` directly is what stopped #205 from having a third and fourth
  * uncovered surface.
  */
-export function resumePayload(project: string, session?: Parameters<typeof renderResume>[1]): string {
-  const note = healBrain();
+export function resumePayload(
+  project: string,
+  session?: Parameters<typeof renderResume>[1],
+  opts: { sessionId?: string; debounce?: boolean } = {},
+): string {
+  const note = healBrain(opts);
   return note + renderResume(project, session);
 }

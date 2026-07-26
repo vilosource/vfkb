@@ -69,10 +69,25 @@ describing one harness as if it were the rule.
    `src/pi-mcp-bridge.ts` is connect-per-call: every `kb_resume` from a pi session spawns a fresh
    `dist/mcp-server.js`, so a fresh process gets a fresh latch and heals again — the unbounded
    re-restore loop the latch was supposed to close. The latch is therefore backed by a marker in
-   the brain (`.vfkb/.journal/.healed`): keyed on the **session id** where one exists (the Claude
-   hook carries one, so a genuinely new session still heals immediately and that face loses
-   nothing), and falling back to a **time window** where none does (a bridge-spawned MCP process,
-   where "same session" is unknowable and an unbounded loop is worse than a bounded delay).
+   the brain (`.vfkb/.journal/.healed`), and **the scope of that marker is the load-bearing part**:
+
+   - a face that **knows its session id passes it** — the Claude hook threads the id from its own
+     stdin payload — and the marker keys on that, so a genuinely new session always heals;
+   - a face that is a **fresh process per call** opts into a time window explicitly. That is the
+     MCP server as spawned by pi's connect-per-call bridge, and nothing else: it is the one place
+     an unbounded re-restore loop is possible and "same session" is genuinely unknowable;
+   - **every other caller heals unconditionally**, exactly as before #205.
+
+   The first draft of this clause got that scope wrong and it was a silent data-loss regression:
+   `effectiveSessionId()` reads only `$KB_SESSION_ID` or an argument, while the hook's real id
+   arrives on stdin — so with no id threaded through, *every* face fell to the wall clock and a
+   brand-new session did **not** recover a brain destroyed by `git checkout --`. That is RFC-034
+   incident 1 going unrecovered where the pre-#205 engine recovered it, and the suite certified it
+   as correct because its only session-id test used the `$KB_SESSION_ID` override, which is not the
+   path production takes. The guard now drives `dist/cli.js hook session-start` with two different
+   payload ids (`test/heal-faces.test.ts`). Recorded here rather than quietly fixed, because the
+   lesson generalises: **a suppressor is only ever as safe as the identity it keys on**, and an
+   identity the production path does not supply is not an identity.
 5. **Fail-open remains absolute.** Recovery must never cost a session its start. Every error path
    returns an empty note and lets the session proceed.
 
