@@ -213,6 +213,13 @@ const CASES = [
     ctx: () => ctx({ readRecord: () => record({ mutations: [], mutationsNote: 'docs-only change; no guard touched' }) }),
   },
   {
+    // Valid JSON, reachable from a real record file — must be a finding, not a
+    // TypeError (review of #263, F4).
+    name: 'ADR-0070: a null mutations entry is a finding, not a crash',
+    expect: /\[review\].*mutations\[0\] is not an object/s,
+    ctx: () => ctx({ readRecord: () => record({ mutations: [null] }) }),
+  },
+  {
     // A mutation the guard did NOT catch is a finding, not a log entry.
     name: 'ADR-0070: observedRed !== true is refused — a green-under-mutation guard is vacuous',
     expect: /\[review\].*observedRed must be literally true/s,

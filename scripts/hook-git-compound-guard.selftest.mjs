@@ -18,12 +18,41 @@ const decision = (command) => {
   try { return JSON.parse(out)?.hookSpecificOutput?.permissionDecision ?? 'allow'; } catch { return 'allow'; }
 };
 
+// F1 (review of #263): the hook must TERMINATE when stdin never closes, and a
+// dangerous payload that arrived before the deadline must STILL be denied — a
+// watchdog that discards the buffer is a silently inert guard (ADR-0051 §3).
+import { spawn } from 'node:child_process';
+async function watchdogCase() {
+  return new Promise((resolveP) => {
+    const p = spawn('node', [HOOK], { stdio: ['pipe', 'pipe', 'ignore'] });
+    let out = '';
+    p.stdout.on('data', (d) => (out += d));
+    const killer = setTimeout(() => {
+      p.kill('SIGKILL');
+      resolveP({ terminated: false, out });
+    }, 5000);
+    p.on('exit', () => {
+      clearTimeout(killer);
+      resolveP({ terminated: true, out });
+    });
+    // Write a DENY-shaped payload and hold stdin open forever.
+    p.stdin.write(JSON.stringify({ tool_input: { command: 'git checkout main && rm -rf build' } }));
+  });
+}
+
 const CASES = [
   // The two shapes that actually bit (2026-07-26), both must DENY:
   ['git checkout docs/adr-0068-self-merge && python3 - <<EOF\nstuff\nEOF', 'deny'],
   ['git checkout -q feat/x 2>/dev/null || git checkout -q -b feat/x; git stash pop -q', 'deny'],
   ['git switch main && npm test', 'deny'],
   ['cd repo && git checkout main; rm -rf build', 'deny'],
+  // F2 (review of #263): a NEWLINE separates commands exactly like `;` — the
+  // routine multi-line Bash shape, not adversarial evasion. Both sides:
+  ['git checkout main\nrm -rf build', 'deny'],
+  ['echo prep\ngit checkout main && rm -rf build', 'deny'],
+  ['git checkout feat/x\ngit commit -m wip', 'deny'],
+  // F3: a global flag between git and the subcommand must not defeat the guard.
+  ['git -C /home/user/repo checkout main && rm -rf build', 'deny'],
   // Legitimate shapes that must stay ALLOWED (a gate that blocks honest work is a defect):
   ['git checkout feat/x', 'allow'],
   ['git switch -c feat/new', 'allow'],
@@ -57,6 +86,13 @@ for (const garbage of ['not json', '', '{"tool_input":{}}', '{"tool_input":{"com
   if (!ok) failed++;
   console.log(`${ok ? 'ok  ' : 'FAIL'}  [fail-open] ${JSON.stringify(garbage).slice(0, 40)}`);
 }
+
+const w = await watchdogCase();
+const wOk = w.terminated && w.out.includes('"deny"');
+if (!wOk) failed++;
+console.log(
+  `${wOk ? 'ok  ' : 'FAIL'}  [watchdog] stdin held open → terminated=${w.terminated}, denied=${w.out.includes('"deny"')}`,
+);
 
 if (failed) {
   console.error(`\ngit-compound-guard selftest FAILED: ${failed} case(s)`);

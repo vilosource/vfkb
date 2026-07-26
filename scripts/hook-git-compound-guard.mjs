@@ -6,32 +6,43 @@
 // exit codes, not intent: a failed switch leaves you somewhere, and the tail
 // neither knows nor cares where.
 //
-// Blocks: a Bash command containing `git checkout`/`git switch` followed by a
-// command separator (&& ; ||) with more to run after it. Branch-switch-only
-// chains of pure reads would be safe, but distinguishing reads from writes in
-// shell is a parser, not a regex — and the cost of splitting into two tool
-// calls is one round trip. Deny with the remedy named.
+// Blocks: a Bash command in which `git [-C <dir>] checkout|switch` sits at a
+// COMMAND POSITION and is followed by a separator (&& ; || or a NEWLINE — in
+// bash a newline separates commands exactly like `;`) with more to run.
+// File restores (`checkout -- <path>` / `checkout <ref> -- <path>`) are exempt.
 //
-// Fail-open everywhere else: a hook must never wedge a tool call (issue #214).
-// Malformed stdin, no command, or anything unexpected → allow silently.
+// The command-position anchor exists because this hook's FIRST live firing was
+// a false positive: \b matched `git` inside a heredoc's prose documenting this
+// very rule, and then blocked its own fix. Accepted residuals, both directions,
+// stated rather than implied: a heredoc LINE that itself begins with
+// `git checkout … ;` still trips (rare; costs a re-run), and `env`/`time`/
+// VAR=1-prefixed or quoted (`sh -c "…"`) switches pass unblocked (a shell
+// parser, not a regex, would be needed; the hook is a guardrail, not a jail).
+//
+// FAIL-OPEN ON A DEADLINE (issue #214): a hook must never wedge a tool call.
+// Reading stdin only until 'end' measurably never exits when the harness holds
+// stdin open — the sibling durable-claim hook documents the same measurement —
+// so: settle on a 2s watchdog, DECIDE ON WHATEVER ARRIVED (a dangerous payload
+// that arrived before the deadline is still denied — a watchdog that discarded
+// the buffer would make the guard silently inert), and release stdin so the
+// process can actually exit.
+const STDIN_WATCHDOG_MS = 2000;
+
 let raw = '';
+let settled = false;
 process.stdin.setEncoding('utf8');
-process.stdin.on('data', (c) => (raw += c));
-process.stdin.on('end', () => {
+
+function decide() {
+  if (settled) return;
+  settled = true;
+  process.stdin.pause();
+  process.stdin.unref?.();
   try {
     const cmd = String(JSON.parse(raw)?.tool_input?.command ?? '');
-    // `git checkout -- <path>` restores files and switches nothing — the brain
-    // recovery flows use it mid-chain legitimately; only branch switches chain
-    // dangerously. `git checkout <ref> -- <path>` is also a file restore.
-    // COMMAND-POSITION ANCHOR (learned on this hook's first live firing): the
-    // guard blocked a command whose HEREDOC contained prose describing this very
-    // rule — \b matched `git` inside quoted documentation, and then blocked the
-    // fix to itself for the same reason. `git` only starts a command at the
-    // string start or right after a separator/subshell/keyword, so anchor there.
-    // Residual accepted: a heredoc LINE that itself begins with
-    // "git checkout … ;" still trips — rare enough to pay for with a re-run.
     const switchThenMore =
-      /(?:^|&&|\|\||[;|(]|\bthen\b|\bdo\b)\s*(?:command\s+)?git\s+(checkout|switch)\b(?![^&;|]*\s--\s)[^&;|]*(?:&&|;|\|\|)/.test(cmd);
+      /(?:^|\n|&&|\|\||[;|(]|\bthen\b|\bdo\b)\s*(?:command\s+)?git\s+(?:-[Cc]\s+\S+\s+)*(checkout|switch)\b(?![^&;|\n]*\s--\s)[^&;|\n]*(?:&&|;|\|\||\n)/.test(
+        cmd,
+      );
     if (switchThenMore) {
       process.stdout.write(
         JSON.stringify({
@@ -40,9 +51,9 @@ process.stdin.on('end', () => {
             permissionDecision: 'deny',
             permissionDecisionReason:
               'ADR-0070 §5: a branch switch chained with more commands ran its tail on the wrong ' +
-              'branch twice on 2026-07-26 (a failed checkout does not stop `;`, and `&&` does not ' +
-              'tell the tail where it is). Run the switch as its OWN command, confirm the branch, ' +
-              'then run the rest. File restores (`git checkout -- <path>`) are not blocked.',
+              'branch twice on 2026-07-26 (a failed checkout does not stop `;` or a newline, and ' +
+              '`&&` does not tell the tail where it is). Run the switch as its OWN command, confirm ' +
+              'the branch, then run the rest. File restores (`git checkout -- <path>`) are not blocked.',
           },
         }),
       );
@@ -52,4 +63,9 @@ process.stdin.on('end', () => {
     /* fail open */
   }
   process.stdout.write('{}');
-});
+}
+
+process.stdin.on('data', (c) => (raw += c));
+process.stdin.on('end', decide);
+process.stdin.on('error', decide); // a broken pipe must fail open too
+setTimeout(decide, STDIN_WATCHDOG_MS).unref?.();

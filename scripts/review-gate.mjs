@@ -142,6 +142,14 @@ function validateRecord(rec, sha, docExists, isOperator) {
     }
   } else {
     for (const [i, m] of rec.mutations.entries()) {
+      // `[null]` is valid JSON and reachable from a real record file — it must
+      // be a finding, not a TypeError (same class this function already
+      // documents for isOperator; and the authoring of this very block hit an
+      // undefined-dereference crash once).
+      if (!m || typeof m !== 'object') {
+        bad.push(`mutations[${i}] is not an object`);
+        continue;
+      }
       if (typeof m.guard !== 'string' || !m.guard) bad.push(`mutations[${i}] names no guard`);
       if (typeof m.mutation !== 'string' || !m.mutation) bad.push(`mutations[${i}] names no mutation`);
       // A mutation the guard did NOT catch is a FINDING, not a log entry.
