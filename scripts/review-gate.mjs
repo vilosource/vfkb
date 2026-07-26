@@ -130,6 +130,33 @@ function validateRecord(rec, sha, docExists, isOperator) {
     bad.push(`record claims findingsCount ${rec.findingsCount} but carries ${rec.findings.length} findings`);
   }
 
+  // ADR-0070 §2 — every new/changed guard ships with the mutation it was
+  // OBSERVED failing under. Like the verdict, this is testimony the gate can
+  // shape-check but never prove ran; what it removes is the silent skip. An
+  // empty array is legal only with an explicit note saying why no guard changed.
+  if (!Array.isArray(rec.mutations)) {
+    bad.push('record carries no mutations array (ADR-0070 §2) — name the mutation each new/changed guard was observed failing under, or [] with a mutationsNote');
+  } else if (rec.mutations.length === 0) {
+    if (typeof rec.mutationsNote !== 'string' || rec.mutationsNote.trim().length === 0) {
+      bad.push('record has an empty mutations array and no mutationsNote — say why no guard changed (docs-only, records-only, existing coverage), not nothing');
+    }
+  } else {
+    for (const [i, m] of rec.mutations.entries()) {
+      // `[null]` is valid JSON and reachable from a real record file — it must
+      // be a finding, not a TypeError (same class this function already
+      // documents for isOperator; and the authoring of this very block hit an
+      // undefined-dereference crash once).
+      if (!m || typeof m !== 'object') {
+        bad.push(`mutations[${i}] is not an object`);
+        continue;
+      }
+      if (typeof m.guard !== 'string' || !m.guard) bad.push(`mutations[${i}] names no guard`);
+      if (typeof m.mutation !== 'string' || !m.mutation) bad.push(`mutations[${i}] names no mutation`);
+      // A mutation the guard did NOT catch is a FINDING, not a log entry.
+      if (m.observedRed !== true) bad.push(`mutations[${i}].observedRed must be literally true — a guard that stayed green under its mutation is a vacuous guard, which belongs in findings`);
+    }
+  }
+
   if (!VERDICTS.includes(rec.verdict)) {
     bad.push(`record asserts verdict ${JSON.stringify(rec.verdict)}; expected one of ${VERDICTS.join(' / ')}`);
     return bad;

@@ -21,11 +21,21 @@ this charge, and relay its findings verbatim before acting on them:
    routinely announce a property their code does not have.
 2. **Conformance.** Does the implementation do what the ADR *decided* — no more, no less? Flag
    scope creep and silent scope drops equally. Check the named constraints explicitly.
-3. **The proof can fail (ADR-0029).** Find the must-fail arm and check it actually exercises the
-   failure: **would the test still pass if the feature were deleted?** If yes, the proof proves
-   nothing — that is a blocking finding. Then go further: **revert each fix in isolation and
-   confirm its own guard goes red.** A guard whose revert changes nothing tests nothing, and a
-   guard shaped to miss its bug reads as coverage (pattern `2f14119266ef`).
+3. **The proof can fail (ADR-0029) — and this is the FIRST thing you do, before reading the
+   implementation (ADR-0070 §3).** Of every test the diff adds or changes, ask: *what mutation
+   makes this red?* — and RUN the cheapest one. Would the test still pass if the feature were
+   deleted? If yes, the proof proves nothing — blocking. Then revert each fix in isolation and
+   confirm its own guard goes red. A guard whose revert changes nothing tests nothing, and a
+   guard shaped to miss its bug reads as coverage (pattern `2f14119266ef` — observed three times
+   in one session, 2026-07-26, including in a fix FOR a vacuous guard).
+   Two hard rules while you are in there:
+   - **Source-text guards are banned (ADR-0070 §1).** A test that greps source, or drives a
+     mechanism through an entry point production does not take (an env override standing in for
+     a stdin payload), is not coverage — flag it blocking even if it currently passes.
+   - **Check the author's mutation log.** The review record's `mutations` field must name, for
+     each new/changed guard, the mutation it was observed failing under (gate-enforced,
+     ADR-0070 §2). Spot-check at least one entry by re-running it; a mutation that silently
+     fails to apply is indistinguishable from a passing guard, so verify the anchor applied.
 4. **Repo protocols.** Hooks fail open; deterministic backstop over probabilistic gate;
    append-only storage semantics; no secrets; **no AI attribution** anywhere in the commits.
 5. **Correctness hunt.** Concrete failure scenarios only — "inputs X → wrong behaviour Y", with

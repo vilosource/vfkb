@@ -1,0 +1,131 @@
+{
+  "recordVersion": 1,
+  "sha": "749631e4281b9728b4840d07033a19250f9c83bf",
+  "governing": [
+    "docs/adr/ADR-0070-guards-that-can-fail.md",
+    "docs/adr/ADR-0052-review-gate.md"
+  ],
+  "reviewer": {
+    "agent": "general-purpose",
+    "model": "opus",
+    "rounds": 3
+  },
+  "generated": "2026-07-26T13:52:53Z",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "the git-compound hook wedged when stdin never closed (issue #214 class, wired to every Bash call) \u2014 measured never-exiting at 5s while the sibling hook exits at 2s. Fixed with the sibling's settle-on-deadline pattern; the watchdog DECIDES ON WHAT ARRIVED, so a dangerous payload is still denied. Observed: terminated=false red without the watchdog, terminated+denied green with it.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F2",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "newline is a command separator and the regex treated it as prose \u2014 the false-negative hole covered the routine multi-line Bash shape, and the comment's claimed heredoc residual did not exist for the same reason. \\n added to both separator classes; 4 newline-chain deny cases observed red pre-fix.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F3",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "git -C <dir> checkout && tail defeated the anchor (subcommand required immediately after git). Global-flag skip added, deny case observed both ways.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F4",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "mutations:[null] threw a TypeError instead of producing a finding; null-entry guard + selftest case (63/63).",
+      "acceptedBy": null
+    },
+    {
+      "id": "F5",
+      "severity": "minor",
+      "status": "accepted",
+      "summary": "env/time/VAR=-prefixed and quoted branch switches pass the anchor \u2014 documented as accepted residuals in the hook header; a shell parser, not a regex, would be needed. Deliberate: the hook is a guardrail, not a jail.",
+      "acceptedBy": "vilosource"
+    },
+    {
+      "id": "F6",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "the PR body claimed 'hook selftest red 5/5 under a gutted deny'; the shipped selftest carried 4 deny cases. Post-fix tally: 8 deny cases, 10 FAILs observed under a gutted deny. Corrected here per ADR-0070's own corollary.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-F1",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "FIX-INTRODUCED by round 1's newline fix, disclosed per ADR-0070 \u00a74: the \\n tail alternation matched an empty tail, so a bare switch with a trailing newline \u2014 the deny message's own prescribed remedy \u2014 was denied. Tail now requires content; three trailing-newline allow cases observed red (3 FAILs) under the reverted lookahead, anchor asserted before substituting.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-F2",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "the guard's selftest was wired into no automated gate; now a review-gate.yml step mirroring the sibling durable-claim Brake's.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-F3",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "the record's mutation tallies each counted the selftest's own FAILED banner (grep -c artifact): honest counts are 9 (gutted deny: 8 deny cases + watchdog) and 3 (newline classes). Second tally correction on this PR; both on the record.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-F4",
+      "severity": "minor",
+      "status": "accepted",
+      "summary": "--git-dir/--no-pager long flags and -C \"path with space\" pass the flag skip \u2014 documented as accepted residuals in the header alongside env/time/VAR=/quoted (a shell parser, not a regex, would be needed).",
+      "acceptedBy": "vilosource"
+    }
+  ],
+  "findingsCount": 10,
+  "ruledOut": [],
+  "mutations": [
+    {
+      "guard": "scripts/review-gate.selftest.mjs > ADR-0070 cases (no array / empty-no-note / observedRed!==true)",
+      "mutation": "neutralized the bad.push calls in the mutations validation block",
+      "observedRed": true
+    },
+    {
+      "guard": "scripts/review-gate.selftest.mjs > a null mutations entry is a finding, not a crash",
+      "mutation": "reviewer probe: mutations:[null] against the pre-fix gate threw TypeError",
+      "observedRed": true
+    },
+    {
+      "guard": "scripts/hook-git-compound-guard.selftest.mjs > 8 deny cases",
+      "mutation": "gutted the deny branch (if(false)) \u2014 9 case FAILs (8 deny + watchdog; earlier count of 10 included the selftest FAILED banner)",
+      "observedRed": true
+    },
+    {
+      "guard": "scripts/hook-git-compound-guard.selftest.mjs > newline-chain deny cases",
+      "mutation": "removed \\n from both separator classes \u2014 3 case FAILs (earlier count of 4 included the FAILED banner)",
+      "observedRed": true
+    },
+    {
+      "guard": "scripts/hook-git-compound-guard.selftest.mjs > heredoc-prose allow cases",
+      "mutation": "the unanchored \\b regex (observed live: it blocked the rule's own documentation, then its own fix)",
+      "observedRed": true
+    },
+    {
+      "guard": "scripts/hook-git-compound-guard.selftest.mjs > [watchdog] stdin held open",
+      "mutation": "removed the setTimeout watchdog \u2014 terminated=false observed",
+      "observedRed": true
+    },
+    {
+      "guard": "scripts/hook-git-compound-guard.selftest.mjs > trailing-newline allow cases (3)",
+      "mutation": "reverted the empty-tail lookahead (?=\\s*\\S) \u2014 3 FAILs observed, anchor asserted before substituting",
+      "observedRed": true
+    },
+    {
+      "guard": ".github/workflows/review-gate.yml > 'git-compound guard is connected' step",
+      "mutation": "the step runs the same selftest observed failing under every mutation above; a selftest red reds the required check",
+      "observedRed": true
+    }
+  ],
+  "verdict": "MERGE"
+}
