@@ -60,6 +60,11 @@ machine-vouched, so the PR is no longer trusting a human's word about a run on t
 
 - The chain closes: engine change → re-vendor PR → evidence produced and vouched in CI → gates
   green → **merged** → tagged → consumers `plugin update`. No step waits on a person.
+  **Status: BUILT, NOT YET VERIFIED (ADR-0051 clause 2).** No release has yet self-merged and been
+  observed tagging end to end; both mechanisms above are reasoned from GitHub's documented
+  behaviour and deterministic tests, not from an observed release. Until one has been watched
+  through, that sentence describes an intended chain, not a demonstrated one — and the honest thing
+  to say when reporting a release is which of the two tag paths actually produced the tag.
 - The failure mode this introduces is a *bad release merging faster*, not a bad release merging
   that otherwise would not have: every gate that could have caught it still runs, and still blocks.
   What is lost is the incidental pause in which a human might have noticed something no gate
@@ -75,10 +80,22 @@ machine-vouched, so the PR is no longer trusting a human's word about a run on t
   push made with the repository's `GITHUB_TOKEN` — which is what a CI auto-merge is. So
   `release-tag.yml`, whose only trigger was `push: main`, would never have run for a self-merged
   release: merged, untagged, every job green. The correction is part of the decision, not a footnote
-  to it — the vouch job dispatches the tag workflow explicitly after a merge and then **asserts the
-  tag exists on `origin`** (a content assertion; a green job is not evidence a ref was created). The
-  laptop leg was never affected: an operator's own token triggers the workflow normally.
+  to it, and it needs **two** mechanisms because the merge can land on either side of the job's
+  lifetime:
+  - *merged while the vouch job still runs* — the job dispatches `release-tag.yml` explicitly and
+    then **asserts the tag exists on `origin`** (a content assertion; a green job is not evidence a
+    ref was created);
+  - *merged after it exits* — the common shape, since auto-merge typically waits for the empty
+    commit that re-runs the required check on the vouched head. **No step inside the run can observe
+    that**, so `release-tag.yml` also runs **hourly as a reconciler**: it re-verifies every gate, is
+    idempotent, and tags an untagged release or no-ops. Worst-case tag latency is therefore roughly
+    an hour rather than never.
+
+  The laptop leg was never affected: an operator's own token triggers the workflow normally.
 - **Scope is enforced by branch name, not by intent.** `release-gate` — the sole required check —
   runs on every pull request, so an unscoped auto-merge step would have merged *any* PR whose
   evidence run was dispatched, bypassing the ADR-0052 review gate (a process step, not a required
-  check). The vouch job therefore queues only `release/*`, `re-vendor/*` and `repin/*` branches.
+  check). The vouch job therefore queues only branches matching `release/*`, `re-vendor/*`,
+  `repin/*`, `chore/re-vendor*` or `chore/revendor*` — the names this repo has actually shipped
+  releases from, checked against merged-PR history rather than assumed. RELEASING.md tells operators
+  to name release branches accordingly; a differently-named branch falls back to a manual merge.
