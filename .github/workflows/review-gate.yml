@@ -43,6 +43,14 @@ jobs:
       - name: The durable-claim Brake is connected — negative checks go red
         run: node scripts/hook-durable-claim-check.selftest.mjs
 
+      # ADR-0070 §5's own guard, held to ADR-0070's own standard: found wired
+      # into NO automated gate by the round-2 review of the PR that introduced
+      # it — a guard outside every gate, in the PR whose ADR is about guards
+      # nobody watches. Covers the deny/allow directions, fail-open on garbage,
+      # and the stdin-watchdog TERMINATES + still-DENIES pair (issue #214).
+      - name: The git-compound guard is connected — both directions go red
+        run: node scripts/hook-git-compound-guard.selftest.mjs
+
       - name: An implementation change carries a review record (ADR-0052)
         run: |
           BASE="origin/${{ github.base_ref || 'main' }}"

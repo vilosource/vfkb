@@ -56,6 +56,12 @@ const CASES = [
   // Legitimate shapes that must stay ALLOWED (a gate that blocks honest work is a defect):
   ['git checkout feat/x', 'allow'],
   ['git switch -c feat/new', 'allow'],
+  // R2-F1 (fix-introduced, review of #263): a TRAILING newline is an invisible,
+  // natural line ending — a bare switch ending in one is the deny message's own
+  // prescribed remedy and must not deny (the empty-tail match briefly did).
+  ['git checkout feat/x\n', 'allow'],
+  ['cd repo && git checkout main\n', 'allow'],
+  ['git switch -c feat/new\r\n', 'allow'],
   ['git checkout -- .vfkb/entries.jsonl', 'allow'],                    // file restore (brain recovery)
   ['git checkout -q main -- docs/file.md && cat docs/file.md', 'allow'], // ref-scoped file restore
   ['git checkout -- .vfkb/entries.jsonl && git status', 'allow'],      // restore then read

@@ -15,9 +15,11 @@
 // a false positive: \b matched `git` inside a heredoc's prose documenting this
 // very rule, and then blocked its own fix. Accepted residuals, both directions,
 // stated rather than implied: a heredoc LINE that itself begins with
-// `git checkout … ;` still trips (rare; costs a re-run), and `env`/`time`/
-// VAR=1-prefixed or quoted (`sh -c "…"`) switches pass unblocked (a shell
-// parser, not a regex, would be needed; the hook is a guardrail, not a jail).
+// `git checkout … ;` still trips (rare; costs a re-run), and these pass
+// unblocked — `env`/`time`/VAR=1-prefixed switches, quoted ones (`sh -c "…"`),
+// `--git-dir=`/`--no-pager`-style long flags, and `-C "path with a space"`
+// (the flag skip matches `-C <bareword>` only). A shell parser, not a regex,
+// would be needed for those; the hook is a guardrail, not a jail.
 //
 // FAIL-OPEN ON A DEADLINE (issue #214): a hook must never wedge a tool call.
 // Reading stdin only until 'end' measurably never exits when the harness holds
@@ -40,7 +42,12 @@ function decide() {
   try {
     const cmd = String(JSON.parse(raw)?.tool_input?.command ?? '');
     const switchThenMore =
-      /(?:^|\n|&&|\|\||[;|(]|\bthen\b|\bdo\b)\s*(?:command\s+)?git\s+(?:-[Cc]\s+\S+\s+)*(checkout|switch)\b(?![^&;|\n]*\s--\s)[^&;|\n]*(?:&&|;|\|\||\n)/.test(
+      // The tail separator must be followed by CONTENT (`(?=\s*\S)`): a bare
+      // switch with a trailing newline is exactly the remedy the deny message
+      // prescribes, and the round-1 newline fix briefly made the hook deny it —
+      // an agent re-running the "fixed" command would loop on a deny whose
+      // remedy text could not help it (round-2 review, fix-introduced).
+      /(?:^|\n|&&|\|\||[;|(]|\bthen\b|\bdo\b)\s*(?:command\s+)?git\s+(?:-[Cc]\s+\S+\s+)*(checkout|switch)\b(?![^&;|\n]*\s--\s)[^&;|\n]*(?:&&|;|\|\||\n)(?=\s*\S)/.test(
         cmd,
       );
     if (switchThenMore) {
