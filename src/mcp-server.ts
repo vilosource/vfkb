@@ -13,7 +13,6 @@ import {
   readAll,
   renderContext,
   renderContextMap,
-  renderResume,
   supersede,
   transitionDecision,
 } from './engine.js';

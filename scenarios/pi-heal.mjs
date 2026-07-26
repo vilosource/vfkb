@@ -43,6 +43,7 @@
 //   VFKB_PH_TRIALS=1 node scenarios/pi-heal.mjs
 // ============================================================================
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { cpSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, existsSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -172,8 +173,11 @@ function probeInjection(arm) {
       timeout: 60000,
     });
     return out.includes(SENTINEL);
-  } catch {
-    return false; // a probe failure is never scored as a pass
+  } catch (e) {
+    // Not `false` — that is indistinguishable from "the injection genuinely
+    // lacked the sentinel", the same quiet-failure class the err→INVALID rule
+    // fixes one function away. Signal it so the trial is scored INVALID.
+    return { error: String((e && e.message) || e).slice(0, 120) };
   } finally {
     rmSync(copy, { recursive: true, force: true });
   }
@@ -225,15 +229,17 @@ for (let t = 1; t <= TRIALS; t++) {
     const arm = buildArm({ journal: name === 'wired' });
     try {
       destroy(arm);
-      const injectionCarries = probeInjection(arm);
+      const probe = probeInjection(arm);
+      const probeErr = typeof probe === 'object' ? probe.error : '';
+      const injectionCarries = probe === true;
       const r = piSession(arm);
       // A trial whose pi process errored is an OBSERVATION FAILURE, not an
       // observation: without this an expired token would score the contrast arm
       // "clean" for a reason that has nothing to do with the journal.
-      const invalid = Boolean(r.err);
+      const invalid = Boolean(r.err) || Boolean(probeErr);
       arms[name].trials.push({
         said: r.said, restoredSameId: r.restoredSameId, injectionCarries,
-        onDisk: r.onDisk, invalid, out: r.out, err: r.err,
+        onDisk: r.onDisk, invalid, out: r.out, err: [r.err, probeErr].filter(Boolean).join(' | '),
       });
       const hit = !invalid && arms[name].predicate.every((p) => ({ ...r, injectionCarries })[p] === true);
       console.log(
@@ -266,9 +272,19 @@ const record = {
   loadPath: 'pi -e (capability, not delivery — see vfkb-pi-package install-path for delivery)',
   outerModel: MODEL,
   // Engine identity, so "this ran against the pre-fix engine" is an observation
-  // in the record rather than a sentence in a note field.
+  // rather than a sentence in a note field. The HASH of the executed bundles is
+  // the load-bearing half: dist/ is gitignored, so checking out an old sha
+  // leaves the NEW build in place and a git sha alone would certify a baseline
+  // against an engine that never ran.
   engineSha: (() => { try { return sh('git', ['-C', REPO, 'rev-parse', 'HEAD']).trim(); } catch { return 'unknown'; } })(),
   engineDirty: (() => { try { return sh('git', ['-C', REPO, 'status', '--porcelain', '--', 'src']).trim().length > 0; } catch { return null; } })(),
+  engineBuildHash: (() => {
+    try {
+      const h = createHash('sha256');
+      for (const f of [CLI, EXT]) h.update(readFileSync(f));
+      return h.digest('hex').slice(0, 16);
+    } catch { return 'unknown'; }
+  })(),
   trials: TRIALS,
   generated: new Date().toISOString(),
   arms,

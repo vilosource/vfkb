@@ -29,16 +29,65 @@
 // restores the ADR-0064 cadence (a session-start event) on every face, and is
 // the boundary a "session-start recovery" was always meant to have.
 
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+
 import { renderResume } from './engine.js';
 import { recoverFromJournal } from './journal.js';
+import { effectiveSessionId } from './session.js';
 import { brainDir, withExclusive, writeMeta } from './storage.js';
 
 /** Per-process latch — see "ONCE PER PROCESS" above. */
 let healedThisProcess = false;
 
+/**
+ * A PROCESS latch is not enough on the pi tier, and that gap is the whole
+ * reason this marker exists. `src/pi-mcp-bridge.ts` is connect-per-call: every
+ * `kb_resume` spawns a fresh `dist/mcp-server.js`, so a fresh process gets a
+ * fresh latch and heals again — the unbounded re-restore loop the latch was
+ * supposed to close, on the tier it was built for.
+ *
+ * So the latch is backed by a marker in the brain:
+ *   - when a session id is available (the Claude hook carries one in its
+ *     payload), the marker keys on it — genuinely once per session, and a NEW
+ *     session still heals immediately, so the Claude face loses nothing;
+ *   - when there is none (a bridge-spawned MCP process), fall back to a time
+ *     window, because "same session" is unknowable there and an unbounded loop
+ *     is worse than a bounded delay.
+ */
+const MARKER_DEBOUNCE_MS = Number(process.env.VFKB_HEAL_DEBOUNCE_MS ?? 15 * 60 * 1000);
+const markerPath = (brain: string) => join(brain, '.journal', '.healed');
+
+function alreadyHealed(brain: string, sid: string | undefined): boolean {
+  try {
+    const raw = readFileSync(markerPath(brain), 'utf8');
+    const m = JSON.parse(raw) as { sessionId?: string; at?: number };
+    if (sid) return m.sessionId === sid;
+    return typeof m.at === 'number' && Date.now() - m.at < MARKER_DEBOUNCE_MS;
+  } catch {
+    return false; // no marker, or unreadable → heal (fail toward recovery)
+  }
+}
+
+function stampHealed(brain: string, sid: string | undefined): void {
+  try {
+    const p = markerPath(brain);
+    mkdirSync(dirname(p), { recursive: true });
+    writeFileSync(p, JSON.stringify({ sessionId: sid, at: Date.now() }), 'utf8');
+  } catch {
+    /* the marker is an optimisation, never a correctness requirement */
+  }
+}
+
 /** Test-only: forget the latch so a suite can exercise repeated heals. */
-export function resetHealLatchForTests(): void {
+export function resetHealLatchForTests(brain?: string): void {
   healedThisProcess = false;
+  try {
+    const b = brain ?? brainDir();
+    if (existsSync(markerPath(b))) writeFileSync(markerPath(b), JSON.stringify({ at: 0 }), 'utf8');
+  } catch {
+    /* nothing to clear */
+  }
 }
 
 /**
@@ -55,9 +104,18 @@ export function resetHealLatchForTests(): void {
  */
 export function healBrain(): string {
   if (healedThisProcess) return '';
-  healedThisProcess = true;
+  const brain = brainDir();
+  const sid = effectiveSessionId();
+  if (alreadyHealed(brain, sid)) {
+    healedThisProcess = true;
+    return '';
+  }
   try {
-    const rec = withExclusive(() => recoverFromJournal(brainDir()));
+    const rec = withExclusive(() => recoverFromJournal(brain));
+    // Latch on SUCCESS, not on entry: latching first meant one transient failure
+    // (a raced lock, EBUSY) disabled healing for the rest of the process.
+    healedThisProcess = true;
+    stampHealed(brain, sid);
     if (rec.restored <= 0) return '';
     // Build the note BEFORE any further I/O. writeMeta() can throw (read-only
     // mount, ENOSPC, a directory where the file should be — all reproduced in

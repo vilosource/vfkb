@@ -48,6 +48,18 @@ afterEach(() => {
 
 const SENTINEL = 'quillmarch-tessellate-19';
 
+/**
+ * Clear ONLY the in-process latch, leaving the on-disk marker — i.e. simulate a
+ * brand-new process against the same brain, which is exactly what the pi MCP
+ * bridge does on every kb_resume.
+ */
+function healedProcessLatchOnly(): void {
+  const marker = join(brain, '.journal', '.healed');
+  const saved = existsSync(marker) ? readFileSync(marker, 'utf8') : null;
+  resetHealLatchForTests();
+  if (saved !== null) writeFileSync(marker, saved, 'utf8');
+}
+
 /** A brain with a committed baseline and one uncommitted entry, then destroyed. */
 function destroyedBrain(): { id: string } {
   addEntry('fact', 'baseline knowledge that predates the loss');
@@ -83,6 +95,31 @@ describe('healBrain', () => {
     resetHealLatchForTests();
     expect(healBrain()).toMatch(/restored/);
     expect(entriesText()).toContain(id);
+  });
+
+  it('the MARKER binds across processes — the pi bridge spawns a fresh server per kb_resume', () => {
+    // A process latch alone is defeated by connect-per-call: each kb_resume gets
+    // a new process and would heal again, unbounded. Simulate that by clearing
+    // ONLY the in-process latch, leaving the on-disk marker.
+    const { id } = destroyedBrain();
+    expect(healBrain()).toMatch(/restored/);
+    git('checkout', '--', '.vfkb/entries.jsonl'); // destroy again
+    healedProcessLatchOnly();
+    expect(healBrain()).toBe(''); // the marker held across the "new process"
+    expect(entriesText()).not.toContain(id);
+  });
+
+  it('a genuinely NEW session still heals immediately (the marker keys on session id)', () => {
+    const { id } = destroyedBrain();
+    process.env.KB_SESSION_ID = 'session-one';
+    expect(healBrain()).toMatch(/restored/);
+    git('checkout', '--', '.vfkb/entries.jsonl');
+    // New session id + new process: recovery must NOT be suppressed.
+    process.env.KB_SESSION_ID = 'session-two';
+    healedProcessLatchOnly();
+    expect(healBrain()).toMatch(/restored/);
+    expect(entriesText()).toContain(id);
+    delete process.env.KB_SESSION_ID;
   });
 
   it('is silent when there is nothing to restore', () => {

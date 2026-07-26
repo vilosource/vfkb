@@ -36,3 +36,5 @@ graphify-out/
 /brain
 scenarios/records/*.log
 scenarios/records/*.debug.*.txt
+
+scenarios/records/*.partial.json
