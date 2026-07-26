@@ -284,15 +284,27 @@ describe('export agents-md — structure', () => {
   });
 
 
-  it('#200: when even the note cannot fit, content survives noteless rather than vanishing', () => {
+  it('#200: when even the note cannot fit, the evicted lines are RESTORED rather than lost', () => {
+    // The budget matters and the first version of this test got it wrong: at
+    // budget 200 the untruncatable head (~296 chars) means ZERO lines are ever
+    // packed, so `kept` is empty, `evicted` stays empty, and the restore loop
+    // never runs — the test named the fallback without reaching it, and three
+    // independent gut-jobs of that branch left it green (review of PR #258).
+    // 395 sits in the restore band: lines DO fit, eviction empties `kept`, the
+    // note still cannot fit, so the restore is the only thing that can produce
+    // this output.
     const seeds: Seed[] = [];
-    for (let i = 0; i < 30; i++) seeds.push({ id: `tiny${i}`, text: `tiny ${i} ${'y'.repeat(80)}` });
+    for (let i = 0; i < 40; i++) seeds.push({ id: `r${String(i).padStart(2, '0')}`, text: `E${String(i).padStart(2, '0')}` });
     seed(...seeds);
     const path = join(out, 'AGENTS-tiny.md');
-    // A budget below the head length: no line fits, so the note has no slack.
-    exportAgentsMd({ out: path, budget: 200 });
+    exportAgentsMd({ out: path, budget: 395 });
     const md = readFileSync(path, 'utf8');
-    expect(md.length).toBeGreaterThan(0); // the head still renders
+    const lines = md.split('\n').filter((l) => l.startsWith('- ['));
+    expect(lines.length).toBe(7); // content survived; 0 would mean the restore never fired
+    // ...and in the ORIGINAL order: the pop-out/pop-back pattern is a double
+    // stack reversal, so a naive "fix" that reverses once would show up here.
+    expect(lines.map((l) => l.slice(9))).toEqual(['E00', 'E01', 'E02', 'E03', 'E04', 'E05', 'E06']);
+    expect(md).not.toMatch(/omitted/); // noteless, as the fallback promises
     expect(md).not.toMatch(/<!--[^>]*omitted/);
   });
 

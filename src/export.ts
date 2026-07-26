@@ -247,12 +247,20 @@ export function exportAgentsMd(opts: ExportOpts = {}): { path: string } {
   if (dropped > 0) {
     // Issue #200 — parity with renderContextBundle's note discipline, in both
     // respects the old line got wrong:
-    //   (1) GUARANTEED FIT. The note used to be appended unconditionally after
-    //       the budget check, so the export overshot by exactly the note's
-    //       length — the opposite defect of a note that goes quiet, but a
-    //       budget that a caller cannot rely on either way. Evict kept lines
-    //       until the note fits (and re-check each round: evicting changes
-    //       `dropped`, which can change the note's digit count).
+    //   (1) FITS WHENEVER THE BUDGET EXCEEDS THE NEVER-DROPPED HEAD. The note
+    //       used to be appended unconditionally after the budget check, so the
+    //       export overshot by exactly the note's length — the opposite defect
+    //       of a note that goes quiet, but a budget a caller cannot rely on
+    //       either way. Now: evict kept lines until the note fits, re-checking
+    //       each round (evicting changes `dropped`, which can change the note's
+    //       digit width). The contract is scoped, not absolute, and the scope
+    //       is the same one renderContextBundle's fixedLen() carries: the head
+    //       is untruncatable, so a budget below it overshoots by construction.
+    //       No CLI path can ask for that — `runExport` exposes no --budget and
+    //       the default is EXPORT_BUDGET_CHARS — but the comment should not
+    //       claim more than the code does. Units are UTF-16 code units, as the
+    //       note's own "-char budget" wording says; a CJK/emoji-heavy brain can
+    //       therefore exceed the same number in BYTES.
     //   (2) VISIBLE AND ACTIONABLE. An HTML comment is invisible in every
     //       renderer an agent reads this through; name the count and the pull
     //       path instead.
