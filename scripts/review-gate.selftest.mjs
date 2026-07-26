@@ -52,6 +52,8 @@ const record = (over = {}) => ({
   governing: ['docs/adr/ADR-0052-review-gate.md'],
   reviewer: { agent: 'general-purpose', model: 'opus', rounds: 2 },
   findings: [{ id: 'F1', severity: 'major', status: 'fixed', summary: 'x' }],
+  // ADR-0070 §2: a valid default so every case fails for the ONE thing it breaks.
+  mutations: [{ guard: 'x.test', mutation: 'reverted the fix', observedRed: true }],
   verdict: 'MERGE',
   ...over,
 });
@@ -192,6 +194,36 @@ const CASES = [
     name: '"no findings" without saying what was ruled out',
     expect: /\[review\].*does not say what it checked and ruled out/s,
     ctx: () => ctx({ readRecord: () => record({ findings: [] }) }),
+  },
+  {
+    // ADR-0070 §2 — the mutation log, all four directions. Missing entirely:
+    name: 'ADR-0070: a record with no mutations array is refused',
+    expect: /\[review\].*no mutations array \(ADR-0070/s,
+    ctx: () => ctx({ readRecord: () => { const r = record(); delete r.mutations; return r; } }),
+  },
+  {
+    // Empty is legal ONLY with a note saying why no guard changed.
+    name: 'ADR-0070: an empty mutations array with no mutationsNote is refused',
+    expect: /\[review\].*empty mutations array and no mutationsNote/s,
+    ctx: () => ctx({ readRecord: () => record({ mutations: [] }) }),
+  },
+  {
+    name: 'ADR-0070: an empty mutations array WITH a note passes (the green half, else the reds are vacuous)',
+    expect: null,
+    ctx: () => ctx({ readRecord: () => record({ mutations: [], mutationsNote: 'docs-only change; no guard touched' }) }),
+  },
+  {
+    // Valid JSON, reachable from a real record file — must be a finding, not a
+    // TypeError (review of #263, F4).
+    name: 'ADR-0070: a null mutations entry is a finding, not a crash',
+    expect: /\[review\].*mutations\[0\] is not an object/s,
+    ctx: () => ctx({ readRecord: () => record({ mutations: [null] }) }),
+  },
+  {
+    // A mutation the guard did NOT catch is a finding, not a log entry.
+    name: 'ADR-0070: observedRed !== true is refused — a green-under-mutation guard is vacuous',
+    expect: /\[review\].*observedRed must be literally true/s,
+    ctx: () => ctx({ readRecord: () => record({ mutations: [{ guard: 'x.test', mutation: 'reverted', observedRed: false }] }) }),
   },
   {
     name: 'findingsCount does not match the findings array',

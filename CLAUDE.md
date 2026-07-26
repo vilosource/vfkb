@@ -211,6 +211,13 @@ this is a **deliberate discipline**:
 - **Always work on a branch — NEVER commit or push directly to `main`.** Every change (code *and*
   docs, incl. RFCs/ADRs) lands on a topic branch and is delivered as a **PR** for the operator to read
   on GitHub. **Definition of Done = the branch is mergeable to `main`** (green tests, review-ready).
+- **Never chain a branch switch with mutations in one command (ADR-0070 §5)** — a compounded
+  `checkout`/`switch` ran its tail on the wrong branch twice on 2026-07-26 (a failed switch does
+  not stop `;`, and `&&` does not tell the tail where it is). Switch, confirm the branch, then
+  act — the PreToolUse guard (`scripts/hook-git-compound-guard.mjs`) blocks the shape; file
+  restores (`-- <path>`) are exempt. Prefer **worktrees over `git stash -u`** here: a stash
+  swallowed two uncommitted brain entries the same day, caught only by checking `entries.jsonl`
+  for the ids (the check-.vfkb-before-destructive-git rule extends to stashes).
 - **Always report clickable GitHub URLs after a push** — the **PR URL** plus a `blob` URL for each
   added/changed file the operator will review (RFCs/ADRs especially). Repo: `vilosource/vfkb`.
 - **Standing default: the autonomous-PR workflow** (operator grant 2026-07-14; brain decision
@@ -219,8 +226,11 @@ this is a **deliberate discipline**:
   branch against its governing ADR/RFC, or a spawned adversarial-reviewer agent for a cross-repo /
   data-only PR, checking the diff against its stated purpose plus repo CI/CodeRabbit; **(2)** apply
   fixes for any real findings; **(3)** re-review; **(4)** **merge autonomously once it converges**
-  (required checks green, no blocking findings); **(5)** escalate to the operator (**HITL**) only if
-  it **does not converge after 3 rounds**, reporting the blocking findings. This is the
+  (required checks green, no blocking findings); **(5)** escalate to the operator (**HITL**) when
+  **a round's blocking findings were introduced by the previous round's fixes** — that is the
+  distress signal (the mechanism is being churned blind; ADR-0070 §4, from the 2026-07-26 arc
+  where rounds 2 and 3 both broke what round 1 fixed) — or, as the backstop ceiling, when it
+  **does not converge after 3 rounds**. Report the blocking findings either way. This is the
   "autonomous mode" the self-merge latitude requires — it is now **on by default for this repo**,
   not per-request.
 - **Release PRs need no approval and no re-review** (operator ruling 2026-07-18; brain decision
