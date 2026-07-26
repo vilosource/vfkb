@@ -17,7 +17,7 @@ import {
   supersede,
   transitionDecision,
 } from './engine.js';
-import { healBrain } from './heal.js';
+import { resumePayload } from './heal.js';
 import { query, queryExplained } from './read.js';
 import type { SearchDiagnosis } from './read.js';
 import { brainDir, defaultProject } from './storage.js';
@@ -298,9 +298,9 @@ server.registerTool(
   },
   // Heals before rendering (issue #205): kb_resume is a session's first read of
   // the brain on harnesses that never run the CLI session-start hook, so it is
-  // the other place ADR-0064 §2 recovery has to happen. The note leads the
-  // payload — a silent restore is a silent mutation.
-  async () => text(healBrain() + renderResume(projectName())),
+  // the other place ADR-0064 §2 recovery has to happen. A shared helper, not a
+  // local expression, so it is behaviourally testable without booting a server.
+  async () => text(resumePayload(projectName())),
 );
 
 async function main(): Promise<void> {

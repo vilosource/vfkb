@@ -17,7 +17,7 @@ import {
 } from './engine.js';
 import { SessionState, effectiveSessionId } from './session.js';
 import { brainDir, defaultProject, withExclusive, writeMeta } from './storage.js';
-import { healBrain } from './heal.js';
+import { healBrain, resumePayload } from './heal.js';
 import { purgeJournal } from './journal.js';
 import { runExport } from './export.js';
 import { broadcast as runBroadcast } from './broadcast.js';
@@ -393,7 +393,9 @@ async function dispatch() {
   if (cmd === 'resume') {
     const p = parseArgs('resume', argsOf(sub, rest), {});
     if (p.positionals.length > 1) throw new UsageError('resume: at most one [project] argument');
-    process.stdout.write(renderResume(p.positionals[0] || defaultProject(), SessionState.load()) + '\n');
+    // #205: `resume` is what CLAUDE.md tells operators to run at session start —
+    // the CLI analogue of kb_resume, so it heals through the same helper.
+    process.stdout.write(resumePayload(p.positionals[0] || defaultProject(), SessionState.load()) + '\n');
     return;
   }
 
