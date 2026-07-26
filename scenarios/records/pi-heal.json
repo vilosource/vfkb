@@ -1,0 +1,86 @@
+{
+  "scenario": "pi-heal",
+  "recordVersion": 2,
+  "issue": 205,
+  "harness": "pi",
+  "loadPath": "pi -e (capability, not delivery — see vfkb-pi-package install-path for delivery)",
+  "outerModel": "deepseek-v4-pro",
+  "engineSha": "43c39f5bcfd10c36b3e9439f30b7be507eae9688",
+  "engineDirty": false,
+  "trials": 3,
+  "generated": "2026-07-26T05:05:51.443Z",
+  "arms": {
+    "wired": {
+      "role": "positive",
+      "predicate": [
+        "said",
+        "restoredSameId",
+        "injectionCarries"
+      ],
+      "trials": [
+        {
+          "said": true,
+          "restoredSameId": true,
+          "injectionCarries": true,
+          "onDisk": true,
+          "invalid": false,
+          "out": "brackenvault-cinder-47 ",
+          "err": ""
+        },
+        {
+          "said": true,
+          "restoredSameId": true,
+          "injectionCarries": true,
+          "onDisk": true,
+          "invalid": false,
+          "out": "brackenvault-cinder-47 ",
+          "err": ""
+        },
+        {
+          "said": true,
+          "restoredSameId": true,
+          "injectionCarries": true,
+          "onDisk": true,
+          "invalid": false,
+          "out": "brackenvault-cinder-47 ",
+          "err": ""
+        }
+      ]
+    },
+    "contrast": {
+      "role": "contrast",
+      "predicate": [
+        "said"
+      ],
+      "trials": [
+        {
+          "said": false,
+          "restoredSameId": false,
+          "injectionCarries": false,
+          "onDisk": false,
+          "invalid": false,
+          "out": "UNKNOWN ",
+          "err": ""
+        },
+        {
+          "said": false,
+          "restoredSameId": false,
+          "injectionCarries": false,
+          "onDisk": false,
+          "invalid": false,
+          "out": "UNKNOWN ",
+          "err": ""
+        },
+        {
+          "said": false,
+          "restoredSameId": false,
+          "injectionCarries": false,
+          "onDisk": false,
+          "invalid": false,
+          "out": "UNKNOWN ",
+          "err": ""
+        }
+      ]
+    }
+  }
+}

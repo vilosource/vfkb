@@ -1,0 +1,47 @@
+{
+  "scenario": "pi-heal",
+  "recordVersion": 2,
+  "issue": 205,
+  "harness": "pi",
+  "loadPath": "pi -e (capability, not delivery \u2014 see vfkb-pi-package install-path for delivery)",
+  "outerModel": "deepseek-v4-pro",
+  "trials": 1,
+  "generated": "2026-07-26T04:23:17.717Z",
+  "arms": {
+    "wired": {
+      "role": "positive",
+      "predicate": [
+        "said",
+        "restoredSameId"
+      ],
+      "trials": [
+        {
+          "said": false,
+          "restoredSameId": false,
+          "onDisk": false,
+          "out": "UNKNOWN ",
+          "err": ""
+        }
+      ]
+    },
+    "contrast": {
+      "role": "contrast",
+      "predicate": [
+        "said"
+      ],
+      "trials": [
+        {
+          "said": false,
+          "restoredSameId": false,
+          "onDisk": false,
+          "out": "UNKNOWN ",
+          "err": ""
+        }
+      ]
+    }
+  },
+  "redBaseline": true,
+  "note": "RED-FIRST evidence gate (ADR-0023), observed 2026-07-26 against the PRE-FIX engine: the pi face never called recoverFromJournal, so the destroyed entry stayed destroyed \u2014 wired arm 0/1 with restoredSameId=false and the sentinel absent from disk, agent said UNKNOWN. This is the run the fix had to turn green.",
+  "provenance": "HAND-ANNOTATED, NOT SELF-OBSERVED. This record predates the engineSha/engineBuildHash fields, so the claim \"produced against the pre-fix engine\" rests on the run log and this note, not on anything inside the file. A record produced with VFKB_NO_JOURNAL forced onto the wired arm would look identical. Treated as evidence of the RED-first sequence, not as a self-certifying artifact; the next RED baseline cut on this scenario will carry the provenance fields.",
+  "predicateNote": "Wired predicate here is the 2-conjunct [said, restoredSameId]; the GREEN record uses the 3-conjunct [said, restoredSameId, injectionCarries]. Adding a conjunct only makes the arm HARDER, so RED under the weaker predicate implies RED under the stronger \u2014 the RED-first evidence is unweakened by the difference."
+}

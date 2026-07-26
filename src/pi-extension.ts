@@ -17,6 +17,7 @@ import {
   renderContextDelta,
   renderResume,
 } from './engine.js';
+import { healBrain } from './heal.js';
 import { SessionState } from './session.js';
 import { defaultProject } from './storage.js';
 import { isBrainWrite, GATING_REASON } from './gating.js';
@@ -69,13 +70,22 @@ export default function (pi: ExtensionAPI): void {
   // already injects renderResume — the pi half previously injected only the bundle, so
   // cross-session continuity was undelivered here. Mark the bundle's entries injected so
   // the per-turn delta won't repeat them.
+  //
+  // ADR-0064 §2 parity (issue #205): heal FIRST, then render. Recovery used to
+  // live only in `cli.ts hook session-start`, so a pi-only consumer whose
+  // uncommitted brain was destroyed by a careless git operation never got it
+  // back — while a Claude consumer in the same repo did. Ordering is
+  // load-bearing (the restored entries must be in the render, and the restore
+  // note must ride the injection, which is the only reliably-surfaced channel);
+  // healBrain is idempotent and fail-open, so calling it per injection is safe.
   pi.on('before_agent_start', async (...args: unknown[]): Promise<BeforeAgentStartResult> => {
     const e = (args[0] as BeforeAgentStartEvent) || {};
     const current = e.systemPrompt || '';
+    const restoreNote = healBrain();
     const resume = renderResume(project(), session);
     session.markInjected(currentInjectableIds());
     session.save();
-    return { systemPrompt: current + '\n\n' + resume };
+    return { systemPrompt: current + '\n\n' + restoreNote + resume };
   });
 
   // Tier C — per-turn delta (Pi-only). Inject ONLY entries new since the last turn

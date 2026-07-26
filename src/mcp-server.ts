@@ -13,10 +13,10 @@ import {
   readAll,
   renderContext,
   renderContextMap,
-  renderResume,
   supersede,
   transitionDecision,
 } from './engine.js';
+import { resumePayload } from './heal.js';
 import { query, queryExplained } from './read.js';
 import type { SearchDiagnosis } from './read.js';
 import { brainDir, defaultProject } from './storage.js';
@@ -295,7 +295,14 @@ server.registerTool(
       'Session-continuity resume (ADR-0020): the prior session’s derived digest (what was added/superseded/injected/captured — recomputed from the brain, so never stale) + the live knowledge bundle. Pull this to see where the last session left off.',
     inputSchema: {},
   },
-  async () => text(renderResume(projectName())),
+  // Heals before rendering (issue #205): kb_resume is a session's first read of
+  // the brain on harnesses that never run the CLI session-start hook, so it is
+  // the other place ADR-0064 §2 recovery has to happen. A shared helper, not a
+  // local expression, so it is behaviourally testable without booting a server.
+  // debounce: this server is spawned FRESH PER CALL by pi's MCP bridge, so the
+  // process latch cannot bind and an unbounded re-restore loop is possible here
+  // and nowhere else. Every other face heals unconditionally.
+  async () => text(resumePayload(projectName(), undefined, { debounce: true })),
 );
 
 async function main(): Promise<void> {

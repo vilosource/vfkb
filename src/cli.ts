@@ -17,7 +17,8 @@ import {
 } from './engine.js';
 import { SessionState, effectiveSessionId } from './session.js';
 import { brainDir, defaultProject, withExclusive, writeMeta } from './storage.js';
-import { purgeJournal, recoverFromJournal } from './journal.js';
+import { healBrain, resumePayload } from './heal.js';
+import { purgeJournal } from './journal.js';
 import { runExport } from './export.js';
 import { broadcast as runBroadcast } from './broadcast.js';
 import {
@@ -392,7 +393,9 @@ async function dispatch() {
   if (cmd === 'resume') {
     const p = parseArgs('resume', argsOf(sub, rest), {});
     if (p.positionals.length > 1) throw new UsageError('resume: at most one [project] argument');
-    process.stdout.write(renderResume(p.positionals[0] || defaultProject(), SessionState.load()) + '\n');
+    // #205: `resume` is what CLAUDE.md tells operators to run at session start —
+    // the CLI analogue of kb_resume, so it heals through the same helper.
+    process.stdout.write(resumePayload(p.positionals[0] || defaultProject(), SessionState.load()) + '\n');
     return;
   }
 
@@ -605,22 +608,10 @@ async function dispatch() {
       // the session reads it. Fail-open (a hook must never error a session);
       // the restore report rides the injected digest — the loud channel —
       // because hook stderr is not reliably surfaced.
-      let restoreNote = '';
-      try {
-        const rec = withExclusive(() => recoverFromJournal(brainDir()));
-        if (rec.restored > 0) {
-          // Restores bypass appendRecord (no re-journaling loop), so refresh
-          // the freshness meta here — a long-lived index consumer must not
-          // keep serving a pre-restore view (review m9).
-          writeMeta();
-          restoreNote =
-            `⚠ vfkb restored ${rec.restored} journaled entr${rec.restored === 1 ? 'y' : 'ies'} ` +
-            `lost from entries.jsonl — likely a destructive git operation on uncommitted brain ` +
-            `state (ADR-0064). Verify with kb_list and commit the brain on your next topic branch.\n\n`;
-        }
-      } catch {
-        /* fail-open — recovery must never cost a session its start */
-      }
+      // The lock, the meta refresh, the fail-open and the note text now live in
+      // heal.ts, because the pi face and kb_resume must do exactly the same
+      // thing (issue #205) and three hand-copies would drift.
+      const restoreNote = healBrain({ sessionId: effectiveSessionId(payloadId) });
       const additionalContext =
         restoreNote +
         (rest.includes('--naive')
