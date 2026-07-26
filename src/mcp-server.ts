@@ -17,6 +17,7 @@ import {
   supersede,
   transitionDecision,
 } from './engine.js';
+import { healBrain } from './heal.js';
 import { query, queryExplained } from './read.js';
 import type { SearchDiagnosis } from './read.js';
 import { brainDir, defaultProject } from './storage.js';
@@ -295,7 +296,11 @@ server.registerTool(
       'Session-continuity resume (ADR-0020): the prior session’s derived digest (what was added/superseded/injected/captured — recomputed from the brain, so never stale) + the live knowledge bundle. Pull this to see where the last session left off.',
     inputSchema: {},
   },
-  async () => text(renderResume(projectName())),
+  // Heals before rendering (issue #205): kb_resume is a session's first read of
+  // the brain on harnesses that never run the CLI session-start hook, so it is
+  // the other place ADR-0064 §2 recovery has to happen. The note leads the
+  // payload — a silent restore is a silent mutation.
+  async () => text(healBrain() + renderResume(projectName())),
 );
 
 async function main(): Promise<void> {

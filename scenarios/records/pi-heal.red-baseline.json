@@ -1,0 +1,45 @@
+{
+  "scenario": "pi-heal",
+  "recordVersion": 2,
+  "issue": 205,
+  "harness": "pi",
+  "loadPath": "pi -e (capability, not delivery \u2014 see vfkb-pi-package install-path for delivery)",
+  "outerModel": "deepseek-v4-pro",
+  "trials": 1,
+  "generated": "2026-07-26T04:23:17.717Z",
+  "arms": {
+    "wired": {
+      "role": "positive",
+      "predicate": [
+        "said",
+        "restoredSameId"
+      ],
+      "trials": [
+        {
+          "said": false,
+          "restoredSameId": false,
+          "onDisk": false,
+          "out": "UNKNOWN ",
+          "err": ""
+        }
+      ]
+    },
+    "contrast": {
+      "role": "contrast",
+      "predicate": [
+        "said"
+      ],
+      "trials": [
+        {
+          "said": false,
+          "restoredSameId": false,
+          "onDisk": false,
+          "out": "UNKNOWN ",
+          "err": ""
+        }
+      ]
+    }
+  },
+  "redBaseline": true,
+  "note": "RED-FIRST evidence gate (ADR-0023), observed 2026-07-26 against the PRE-FIX engine: the pi face never called recoverFromJournal, so the destroyed entry stayed destroyed \u2014 wired arm 0/1 with restoredSameId=false and the sentinel absent from disk, agent said UNKNOWN. This is the run the fix had to turn green."
+}

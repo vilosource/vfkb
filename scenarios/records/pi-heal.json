@@ -1,0 +1,71 @@
+{
+  "scenario": "pi-heal",
+  "recordVersion": 2,
+  "issue": 205,
+  "harness": "pi",
+  "loadPath": "pi -e (capability, not delivery — see vfkb-pi-package install-path for delivery)",
+  "outerModel": "deepseek-v4-pro",
+  "trials": 3,
+  "generated": "2026-07-26T04:29:54.427Z",
+  "arms": {
+    "wired": {
+      "role": "positive",
+      "predicate": [
+        "said",
+        "restoredSameId"
+      ],
+      "trials": [
+        {
+          "said": true,
+          "restoredSameId": true,
+          "onDisk": true,
+          "out": "brackenvault-cinder-47 ",
+          "err": ""
+        },
+        {
+          "said": true,
+          "restoredSameId": true,
+          "onDisk": true,
+          "out": "brackenvault-cinder-47 ",
+          "err": ""
+        },
+        {
+          "said": true,
+          "restoredSameId": true,
+          "onDisk": true,
+          "out": "brackenvault-cinder-47 ",
+          "err": ""
+        }
+      ]
+    },
+    "contrast": {
+      "role": "contrast",
+      "predicate": [
+        "said"
+      ],
+      "trials": [
+        {
+          "said": false,
+          "restoredSameId": false,
+          "onDisk": false,
+          "out": "UNKNOWN ",
+          "err": ""
+        },
+        {
+          "said": false,
+          "restoredSameId": false,
+          "onDisk": false,
+          "out": "UNKNOWN ",
+          "err": ""
+        },
+        {
+          "said": false,
+          "restoredSameId": false,
+          "onDisk": false,
+          "out": "UNKNOWN ",
+          "err": ""
+        }
+      ]
+    }
+  }
+}
