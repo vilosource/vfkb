@@ -70,4 +70,15 @@ machine-vouched, so the PR is no longer trusting a human's word about a run on t
   never reports looks identical to success in a summary. Any tooling that enables auto-merge must
   report the state it actually observed, and the release wrapper must distinguish
   *merged* from *queued to merge*.
-- The tag remains CI's job on merge (ADR-0060), so self-merge does not touch tagging.
+- **Self-merge DOES touch tagging, and an earlier draft of this ADR said otherwise.** Review of the
+  implementation (plugin #48) established that GitHub does not run `push:`-triggered workflows for a
+  push made with the repository's `GITHUB_TOKEN` — which is what a CI auto-merge is. So
+  `release-tag.yml`, whose only trigger was `push: main`, would never have run for a self-merged
+  release: merged, untagged, every job green. The correction is part of the decision, not a footnote
+  to it — the vouch job dispatches the tag workflow explicitly after a merge and then **asserts the
+  tag exists on `origin`** (a content assertion; a green job is not evidence a ref was created). The
+  laptop leg was never affected: an operator's own token triggers the workflow normally.
+- **Scope is enforced by branch name, not by intent.** `release-gate` — the sole required check —
+  runs on every pull request, so an unscoped auto-merge step would have merged *any* PR whose
+  evidence run was dispatched, bypassing the ADR-0052 review gate (a process step, not a required
+  check). The vouch job therefore queues only `release/*`, `re-vendor/*` and `repin/*` branches.
