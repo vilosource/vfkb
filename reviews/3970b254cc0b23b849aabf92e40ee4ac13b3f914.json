@@ -1,0 +1,166 @@
+{
+  "recordVersion": 1,
+  "sha": "3970b254cc0b23b849aabf92e40ee4ac13b3f914",
+  "governing": [
+    "docs/adr/ADR-0069-recovery-runs-on-every-face.md",
+    "docs/adr/ADR-0064-durable-capture-journal.md",
+    "docs/adr/ADR-0023-scenario-contract-first.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "opus", "rounds": 4 },
+  "generated": "2026-07-26T14:20:00Z",
+  "findings": [
+    {
+      "id": "R1-F1",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "the three call-site guards asserted over SOURCE TEXT and were defeated by a comment: a '// was: healBrain() ...' line satisfied the kb_resume guard with the call removed, and a comment mentioning healBrain() satisfied the ordering guard with heal running AFTER the render. Replaced with behavioural tests that drive the real pi handler via a stub ExtensionAPI and the real resumePayload.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-F2",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "kb_resume had no working guard at all — one of the two faces issue #205 names was unproven at every level. Now routed through a shared resumePayload() and behaviourally tested.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-F3",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "silent restore: writeMeta() ran before the note was built and inside the outer catch, so a throw there (read-only mount, ENOSPC, EISDIR) swallowed the operator note while entries were already restored — the silent mutation heal.ts's own header forbids. Note is built first; writeMeta has its own catch.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-F4",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "the FAILS-OPEN test could not fail: it passed a nonexistent path, which early-returns at existsSync(wal) before the try block, so deleting the entire try/catch left it green. It now forces a throw inside the critical section.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-F5",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "healing ran PER TURN, not per session: pi's before_agent_start fires on every user message and the wal is gitignored (survives git switch), so healing re-appended entries committed only on another branch into the checked-out tree. Reproduced by the reviewer on the operator's real checkout (reverted). Now latched once per process, backed by a brain marker.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-F6",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "the L4's `said` predicate was not attributable to the injection: with --tools read the agent could answer from reading the restored file. Added the structural injectionCarries observable, which drives the real before_agent_start handler against a byte-copy of the arm.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-F7",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "`vfkb resume` — the verb CLAUDE.md tells operators to run at session start — never healed either; 'all three faces' was really the CLI hook, the pi extension and kb_resume. Now routed through resumePayload().",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-F8",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "the governing docs still named the session-start hook literally (ADR-0064 §2, RFC-034 §2), which is how #205 was born. ADR-0069 amends ADR-0064 (immutable body); RFC-034 carries a dated amendment banner.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-F1",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "FIX-INTRODUCED: the guard moved down a level — resumePayload was well tested in isolation while NOTHING bound the two call sites the issue is about; reverting either to a bare renderResume was type-clean and left the suite green. Added test/heal-faces.test.ts, which spawns the real binaries (dist/cli.js resume; a real stdio kb_resume tools/call against dist/mcp-server.js).",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-F2",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "FIX-INTRODUCED: the process latch did not bind the pi tier — pi-mcp-bridge is connect-per-call, so every kb_resume spawns a fresh mcp-server with a fresh latch, leaving the unbounded re-restore loop open on the very tier ADR-0069 exists for. Backed the latch with a brain marker.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-F3",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "engineSha described src/ while the scenario executes dist/ — and dist/ is gitignored, so checking out the pre-fix sha leaves the NEW build in place and a record could certify a baseline against an engine that never ran. Records now carry engineBuildHash over the executed bundles.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-F4",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "the RED baseline — the record whose central claim most needed provenance — had none, and the provenance fields had been added only to the GREEN record. It now states explicitly that it is hand-annotated and NOT self-observed, naming the exact indistinguishability, plus a predicateNote recording the RED/GREEN predicate subset relation.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R3-F1",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "FIX-INTRODUCED, SILENT DATA LOSS: healBrain called effectiveSessionId() with no argument, and that reads only $KB_SESSION_ID — while the Claude hook's real session id arrives on STDIN. The session-keyed branch was dead in production, so every face fell to a 15-minute wall clock and a brand-new session did NOT recover a brain destroyed by `git checkout --` (RFC-034 incident 1, unrecovered where the pre-fix engine recovered it). Reproduced three ways against the real binaries. The suite certified it because its only session-id test used the $KB_SESSION_ID override, a path production never takes. Fixed by threading the payload sid from the hook and scoping the wall clock to the single connect-per-call face; every other caller heals unconditionally.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R4-F1",
+      "severity": "major",
+      "status": "open",
+      "summary": "residual of the same mechanism: kb_resume passes debounce unconditionally, so a hand-wired MCP-only consumer with NO SessionStart hook loses a recovery window (reproduced against the real stdio server). Not a wiring vfkb ships — `vfkb init` writes both the hook (init.ts:110) and the project .mcp.json (init.ts:223-236) — bounded to 15 minutes, and `vfkb resume` recovers on the spot. Filed as issue #259 (key the marker on parent pid) rather than held for a fifth round.",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 14,
+  "ruledOut": [],
+  "mutations": [
+    {
+      "guard": "test/heal.test.ts > the pi extension heals BEFORE it renders",
+      "mutation": "moved healBrain() after renderResume() in pi-extension.ts",
+      "observedRed": true
+    },
+    {
+      "guard": "test/heal.test.ts > kb_resume / vfkb resume heal before rendering",
+      "mutation": "gutted resumePayload's healBrain() call to ''",
+      "observedRed": true
+    },
+    {
+      "guard": "test/heal.test.ts > FAILS OPEN when recovery itself throws",
+      "mutation": "removed the outer try/catch from healBrain",
+      "observedRed": true
+    },
+    {
+      "guard": "test/heal.test.ts > heals ONCE PER PROCESS",
+      "mutation": "removed the healedThisProcess latch",
+      "observedRed": true
+    },
+    {
+      "guard": "test/heal.test.ts > STILL REPORTS when the meta refresh fails",
+      "mutation": "moved writeMeta() above the note construction with no inner catch (the faithful original defect; a first, unfaithful attempt kept an inner catch and stayed green — recorded because a mutation that does not reproduce the defect proves nothing)",
+      "observedRed": true
+    },
+    {
+      "guard": "test/heal.test.ts > the MARKER binds across processes",
+      "mutation": "disabled the alreadyHealed marker check",
+      "observedRed": true
+    },
+    {
+      "guard": "test/heal-faces.test.ts > the MCP kb_resume tool restores it too",
+      "mutation": "reverted mcp-server.ts:305 to a bare renderResume(projectName()) and rebuilt",
+      "observedRed": true
+    },
+    {
+      "guard": "test/heal-faces.test.ts > `vfkb resume` restores the destroyed entry",
+      "mutation": "reverted cli.ts:398 to a bare renderResume(...) and rebuilt — a first attempt at this substitution silently failed to apply and read as a PASSING guard, which is why the anchor is asserted before substituting",
+      "observedRed": true
+    },
+    {
+      "guard": "test/heal-faces.test.ts > a NEW Claude session heals, even seconds after the last one",
+      "mutation": "reverted BOTH the payload-sid threading and the !debounce early return (the R3-F1 regression)",
+      "observedRed": true
+    },
+    {
+      "guard": "scenarios/pi-heal.mjs > wired arm (the L4 itself)",
+      "mutation": "the pre-fix engine — RED baseline observed 0/1 with restoredSameId=false, preserved as scenarios/records/pi-heal.red-baseline.json",
+      "observedRed": true
+    }
+  ],
+  "verdict": "MERGE"
+}
