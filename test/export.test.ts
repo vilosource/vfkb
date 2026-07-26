@@ -263,14 +263,37 @@ describe('export agents-md — structure', () => {
   });
 
   it('respects the budget with an explicit omission note', () => {
+    // SHORT entries on purpose: the packing loop leaves at most one line's worth
+    // of slack, so with ~20-char lines the slack is far smaller than the ~110-char
+    // note. A fixture of long lines leaves enough slack to absorb the note and
+    // the overshoot hides — this test passed against the unfixed code until the
+    // line length was brought down (a guard shaped to miss its own bug).
     const seeds: Seed[] = [];
-    for (let i = 0; i < 50; i++) seeds.push({ id: `bulk${i}`, text: `bulk entry ${i} ${'x'.repeat(120)}` });
+    for (let i = 0; i < 200; i++) seeds.push({ id: `bulk${i}`, text: `bulk ${i}` });
     seed(...seeds);
     const path = join(out, 'AGENTS.md');
     exportAgentsMd({ out: path, budget: 2000 });
     const md = readFileSync(path, 'utf8');
-    expect(md.length).toBeLessThanOrEqual(2200); // budget + the omission note tolerance
+    // #200: the budget is a budget. The note used to be appended AFTER the fit
+    // check, so the export overshot by the note's own length — no tolerance now.
+    expect(md.length).toBeLessThanOrEqual(2000);
     expect(md).toMatch(/omitted/i);
+    // Visible and actionable, not an HTML comment nobody's renderer shows.
+    expect(md).not.toMatch(/<!--[^>]*omitted/);
+    expect(md).toMatch(/vfkb search/);
+  });
+
+
+  it('#200: when even the note cannot fit, content survives noteless rather than vanishing', () => {
+    const seeds: Seed[] = [];
+    for (let i = 0; i < 30; i++) seeds.push({ id: `tiny${i}`, text: `tiny ${i} ${'y'.repeat(80)}` });
+    seed(...seeds);
+    const path = join(out, 'AGENTS-tiny.md');
+    // A budget below the head length: no line fits, so the note has no slack.
+    exportAgentsMd({ out: path, budget: 200 });
+    const md = readFileSync(path, 'utf8');
+    expect(md.length).toBeGreaterThan(0); // the head still renders
+    expect(md).not.toMatch(/<!--[^>]*omitted/);
   });
 
   it('byte-identical across runs (agents-md determinism)', () => {
