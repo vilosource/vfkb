@@ -46,6 +46,15 @@ itself a reviewed change.
   ],
   "findingsCount": 1,                 // optional; must equal findings.length if present
   "ruledOut": [],                     // REQUIRED when findings is empty
+  "mutations": [                      // REQUIRED (ADR-0070 §2): per new/changed guard, the
+    {                                 // mutation it was OBSERVED failing under
+      "guard": "test/heal-faces.test.ts > a NEW Claude session heals",
+      "mutation": "reverted the sid threading in cli.ts",
+      "observedRed": true             // must be literally true — a guard that stayed green
+    }                                 // under its mutation is vacuous: a FINDING, not a log entry
+  ],
+  "mutationsNote": null,              // REQUIRED instead when mutations is [] — say why no
+                                      // guard changed (docs-only, records-only, existing coverage)
   "verdict": "MERGE"                  // a CLAIM — the gate recomputes it
 }
 ```
