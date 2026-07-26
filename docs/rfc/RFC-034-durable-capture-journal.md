@@ -8,6 +8,20 @@ timestamp: 2026-07-18
 
 # RFC-034: Durable capture — write-ahead journal + deterministic recovery
 
+> ## Amendment 2026-07-26 — recovery is not the Claude hook's private business (ADR-0069)
+>
+> §2 below names the **`session-start` hook** literally as where `recoverFromJournal()` runs, and
+> that is exactly how it was implemented: one call site, `cli.ts hook session-start`. The pi face,
+> the `kb_resume` MCP tool and the `vfkb resume` verb consequently never healed a destroyed brain
+> ([#205](https://github.com/vilosource/vfkb/issues/205)) — invisible precisely because nobody was
+> violating the spec; the spec was describing one harness as if it were the rule.
+>
+> [ADR-0069](../adr/ADR-0069-recovery-runs-on-every-face.md) rebinds recovery to the **event** (a
+> session's first read of the brain, on any face) and fixes the cadence at **once per process** —
+> pi's `before_agent_start` fires every turn, and the wal is gitignored so it survives `git
+> switch`, which made per-turn healing re-append another branch's entries into the working tree.
+> Read §2's "session-start hook" as "session start, on every face" throughout.
+
 - **Status:** **Accepted → [ADR-0064](../adr/ADR-0064-durable-capture-journal.md)** (operator
   ratification 2026-07-18)
 - **Date:** 2026-07-18

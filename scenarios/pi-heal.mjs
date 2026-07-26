@@ -43,7 +43,7 @@
 //   VFKB_PH_TRIALS=1 node scenarios/pi-heal.mjs
 // ============================================================================
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, existsSync } from 'node:fs';
+import { cpSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, existsSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -145,6 +145,41 @@ const entriesText = (arm) => {
 };
 
 /**
+ * STRUCTURAL: does the extension's own injection carry the sentinel?
+ *
+ * Review finding: with `--tools read` the agent could in principle answer from
+ * reading entries.jsonl rather than from the injection, so `said` alone does not
+ * attribute the hit to the injection path. This drives the REAL
+ * `before_agent_start` handler and inspects the systemPrompt it returns — a
+ * deterministic observation, no model involved.
+ *
+ * It runs against a BYTE-COPY of the arm so the probe's own heal cannot
+ * contaminate the arm the live pi session is about to exercise.
+ */
+function probeInjection(arm) {
+  const copy = mkdtempSync(join(tmpdir(), 'vfkb-ph-probe-'));
+  try {
+    cpSync(arm.dir, copy, { recursive: true });
+    const script =
+      `const ext = (await import(${JSON.stringify(EXT)})).default;` +
+      `const h = {};` +
+      `ext({ on: (e, fn) => { h[e] = fn; } });` +
+      `const out = await h['before_agent_start']({ systemPrompt: '' });` +
+      `process.stdout.write(String(out?.systemPrompt ?? ''));`;
+    const out = sh('node', ['--input-type=module', '-e', script], {
+      cwd: copy,
+      env: { ...arm.env, VFKB_DATA_DIR: join(copy, '.vfkb') },
+      timeout: 60000,
+    });
+    return out.includes(SENTINEL);
+  } catch {
+    return false; // a probe failure is never scored as a pass
+  } finally {
+    rmSync(copy, { recursive: true, force: true });
+  }
+}
+
+/**
  * The NEXT session starts — a REAL pi session with the REAL vfkb extension.
  * Recovery, if it happens at all, happens INSIDE pi (that is the thing under test).
  */
@@ -178,7 +213,10 @@ console.log(`vfkb pi-heal L4  (model=${MODEL}, trials=${TRIALS})`);
 console.log('only variable = the journal behind an identical destroy → REAL pi session flow\n');
 
 const arms = {
-  wired: { role: 'positive', predicate: ['said', 'restoredSameId'], trials: [] },
+  // injectionCarries is the STRUCTURAL half of the attribution: the sentinel
+  // reached the agent through the extension's own injection, not merely through
+  // a file the agent could have read.
+  wired: { role: 'positive', predicate: ['said', 'restoredSameId', 'injectionCarries'], trials: [] },
   contrast: { role: 'contrast', predicate: ['said'], trials: [] },
 };
 
@@ -187,12 +225,21 @@ for (let t = 1; t <= TRIALS; t++) {
     const arm = buildArm({ journal: name === 'wired' });
     try {
       destroy(arm);
+      const injectionCarries = probeInjection(arm);
       const r = piSession(arm);
-      arms[name].trials.push({ said: r.said, restoredSameId: r.restoredSameId, onDisk: r.onDisk, out: r.out, err: r.err });
-      const hit = arms[name].predicate.every((p) => r[p] === true);
+      // A trial whose pi process errored is an OBSERVATION FAILURE, not an
+      // observation: without this an expired token would score the contrast arm
+      // "clean" for a reason that has nothing to do with the journal.
+      const invalid = Boolean(r.err);
+      arms[name].trials.push({
+        said: r.said, restoredSameId: r.restoredSameId, injectionCarries,
+        onDisk: r.onDisk, invalid, out: r.out, err: r.err,
+      });
+      const hit = !invalid && arms[name].predicate.every((p) => ({ ...r, injectionCarries })[p] === true);
       console.log(
-        `  trial ${t}  ${name.padEnd(8)} ${name === 'wired' ? (hit ? 'HIT ' : 'miss') : (hit ? 'LEAK' : 'clean')}` +
-        `  said=${r.said} restored=${r.restoredSameId} onDisk=${r.onDisk}  — "${r.out}"${r.err ? '  ERR:' + r.err : ''}`,
+        `  trial ${t}  ${name.padEnd(8)} ${invalid ? 'INVALID' : name === 'wired' ? (hit ? 'HIT ' : 'miss') : (hit ? 'LEAK' : 'clean')}` +
+        `  said=${r.said} restored=${r.restoredSameId} inject=${injectionCarries} onDisk=${r.onDisk}` +
+        `  — "${r.out}"${r.err ? '  ERR:' + r.err : ''}`,
       );
     } finally {
       rmSync(arm.dir, { recursive: true, force: true });
@@ -202,12 +249,14 @@ for (let t = 1; t <= TRIALS; t++) {
 }
 
 // Record shape v2 — the verdict is recomputed from these observations, never asserted here.
-const hits = (arm) => arm.trials.filter((t) => arm.predicate.every((p) => t[p] === true)).length;
+const hits = (arm) => arm.trials.filter((t) => !t.invalid && arm.predicate.every((p) => t[p] === true)).length;
+const invalidTrials = Object.values(arms).reduce((n, a) => n + a.trials.filter((t) => t.invalid).length, 0);
 const wiredN = hits(arms.wired);
 const contrastN = hits(arms.contrast);
 const need = Math.ceil((2 * TRIALS) / 3);
 const allow = Math.floor(TRIALS / 3);
-const demonstrated = wiredN >= need && contrastN <= allow;
+// An invalid trial means the run did not observe what it claims to observe.
+const demonstrated = invalidTrials === 0 && wiredN >= need && contrastN <= allow;
 
 const record = {
   scenario: 'pi-heal',
@@ -216,16 +265,23 @@ const record = {
   harness: 'pi',
   loadPath: 'pi -e (capability, not delivery — see vfkb-pi-package install-path for delivery)',
   outerModel: MODEL,
+  // Engine identity, so "this ran against the pre-fix engine" is an observation
+  // in the record rather than a sentence in a note field.
+  engineSha: (() => { try { return sh('git', ['-C', REPO, 'rev-parse', 'HEAD']).trim(); } catch { return 'unknown'; } })(),
+  engineDirty: (() => { try { return sh('git', ['-C', REPO, 'status', '--porcelain', '--', 'src']).trim().length > 0; } catch { return null; } })(),
   trials: TRIALS,
   generated: new Date().toISOString(),
   arms,
 };
 mkdirSync(join(REPO, 'scenarios', 'records'), { recursive: true });
-writeFileSync(join(REPO, 'scenarios', 'records', 'pi-heal.json'), JSON.stringify(record, null, 2) + '\n');
+// A 1-trial smoke run must not overwrite the committed >=3-trial evidence
+// (ADR-0022 §5): it lands beside it, clearly named.
+const recordName = TRIALS >= 3 ? 'pi-heal.json' : 'pi-heal.partial.json';
+writeFileSync(join(REPO, 'scenarios', 'records', recordName), JSON.stringify(record, null, 2) + '\n');
 
 console.log(`\nwired ${wiredN}/${TRIALS} (need >=${need}) · contrast ${contrastN}/${TRIALS} (allow <=${allow})`);
 console.log(demonstrated
   ? 'DEMONSTRATED — the pi face heals a destroyed brain (ADR-0022, recomputed)'
   : 'NOT demonstrated');
-console.log('record → scenarios/records/pi-heal.json');
+console.log(`record → scenarios/records/${recordName}${invalidTrials ? ` (${invalidTrials} INVALID trial(s))` : ''}`);
 process.exit(demonstrated ? 0 : 1);
