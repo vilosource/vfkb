@@ -87,7 +87,9 @@ VFKB_DATA_DIR=.vfkb VFKB_PROJECT=<name> node ~/VFKB/vfkb/dist/cli.js add fact "G
    banner (correct: the plugin is *declared* but not yet *installed* for this new repo — this is the
    guard's can-fail proof that it works, and it exits 0 / fail-open).
 2. **Brain round-trips** — `VFKB_DATA_DIR=.vfkb node ~/VFKB/vfkb/dist/cli.js list` shows the seeded
-   entries; only `.vfkb/entries.jsonl` is committed (the rest is gitignored/derived).
+   entries; `.vfkb/entries.jsonl` **and** `.vfkb/manifest.json` (if present) are committed — never
+   gitignore `manifest.json` — the rest (`index-meta.json`, `.sessions/`, `.signals/`, `.journal/`,
+   `.lock`) is gitignored/derived.
 
 **Do NOT claim vfkb is "live" — it is not yet.** `enabledPlugins` in `settings.json` only *declares*
 the plugin; it does not install it, and a headless step can't (gotcha `8e76f8f72b64`: settings-wired
