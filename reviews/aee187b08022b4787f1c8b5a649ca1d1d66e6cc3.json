@@ -1,0 +1,49 @@
+{
+  "recordVersion": 1,
+  "sha": "aee187b08022b4787f1c8b5a649ca1d1d66e6cc3",
+  "governing": ["docs/adr/ADR-0071-consumer-wiring-hardening.md"],
+  "reviewer": { "agent": "general-purpose", "model": "sonnet", "rounds": 2 },
+  "generated": "2026-07-28T12:30:00Z",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": ".claude/commands/vfkb-new-project.md:90 claimed only .vfkb/entries.jsonl is committed, contradicting this repo's own governance (manifest.json is also committed, never gitignored) and failing the existing regression guard src/docs-committed-brain-files.test.ts (issue #220) — full suite was 551/552 red. Fixed in aee187b by correcting the line to name both files, matching the phrasing already used correctly elsewhere in the same diff (CONSUMER-ONBOARDING.md, CONSUMER-ONBOARDING-PROMPT.md). Full suite re-run green (552/552) after the fix.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F2",
+      "severity": "major",
+      "status": "open",
+      "summary": "ADR-0071's Consequences section cites vfkb-claude-plugin#50 / v0.14.0 as the companion hook-relocation PR; that PR lives in a sibling repo and its version/state is unverifiable from this repo alone (UNVERIFIED, informational). This PR's own fix (the consumer-settings template) does not depend on the sibling PR landing — the template simply omits the two broken hooks outright — so this does not block this merge. Left open rather than accepted: no operator sign-off was sought for this non-blocking item.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F3",
+      "severity": "minor",
+      "status": "open",
+      "summary": "test/consumer-settings-template.test.ts pins the template to an exact key/hook set via toEqual rather than an allowlist, so any legitimate future addition to the template needs a same-PR test edit. Appears intentional given the docs' explicit \"nothing else, ever\" framing (ADR-0071) — noted as a design choice, not a defect; not blocking.",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 3,
+  "mutations": [
+    {
+      "guard": "test/consumer-settings-template.test.ts > never references a scripts/ path",
+      "mutation": "re-added a PreToolUse hook to docs/templates/consumer-settings.json pointing at scripts/hook-git-compound-guard.mjs (the exact defect this Brake exists to catch)",
+      "observedRed": true
+    },
+    {
+      "guard": "test/consumer-settings-template.test.ts > declares only the three consumer-relevant top-level keys",
+      "mutation": "added an unrelated 4th top-level key (\"permissions\") to the template",
+      "observedRed": true
+    },
+    {
+      "guard": "test/consumer-settings-template.test.ts > declares the vfkb marketplace and plugin",
+      "mutation": "corrupted the marketplace repo value in the template",
+      "observedRed": true
+    }
+  ],
+  "verdict": "MERGE"
+}
