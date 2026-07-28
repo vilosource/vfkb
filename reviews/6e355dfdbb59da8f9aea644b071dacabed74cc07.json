@@ -1,6 +1,6 @@
 {
   "recordVersion": 1,
-  "sha": "aee187b08022b4787f1c8b5a649ca1d1d66e6cc3",
+  "sha": "6e355dfdbb59da8f9aea644b071dacabed74cc07",
   "governing": ["docs/adr/ADR-0071-consumer-wiring-hardening.md"],
   "reviewer": { "agent": "general-purpose", "model": "sonnet", "rounds": 2 },
   "generated": "2026-07-28T12:30:00Z",
