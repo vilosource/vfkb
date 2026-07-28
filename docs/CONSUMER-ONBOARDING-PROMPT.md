@@ -15,21 +15,24 @@ is a fallback only — use it solely if the repo deliberately isn't plugin-wired
 
 > **Onboard this repo to vfkb via its Claude Code plugin.**
 >
-> vfkb is wired into a repo by committing **two files** under `.claude/`, copied byte-for-byte from
-> vfkb's own `main` (the dogfooded reference). The plugin vendors its own engine — there is **no
-> `VFKB_BUNDLE_DIR` to set** and **no `npm install`**. Read `docs/CONSUMER-ONBOARDING.md` in the vfkb
-> repo first, then do this from this repo's root:
+> vfkb is wired into a repo by committing **two files** under `.claude/`, both sourced from vfkb's own
+> `main` (the dogfooded reference) — **never hand-crafted, and never copied from vfkb's own
+> `.claude/settings.json`** (that file also carries vfkb's *own* dogfooding hooks, which reference
+> scripts that don't exist in a fresh consumer repo — ADR-0071). The plugin vendors its own engine —
+> there is **no `VFKB_BUNDLE_DIR` to set** and **no `npm install`**. Read `docs/CONSUMER-ONBOARDING.md`
+> in the vfkb repo first, then do this from this repo's root:
 >
 > **1. Fetch the wiring from vfkb `main` (never hand-craft it):**
 > ```bash
 > mkdir -p .claude .vfkb
-> gh api repos/vilosource/vfkb/contents/.claude/settings.json?ref=main  --jq .content | base64 -d > .claude/settings.json
+> gh api repos/vilosource/vfkb/contents/docs/templates/consumer-settings.json?ref=main --jq .content | base64 -d > .claude/settings.json
 > gh api repos/vilosource/vfkb/contents/.claude/vfkb-guard.mjs?ref=main --jq .content | base64 -d > .claude/vfkb-guard.mjs
 > python3 -c 'import json; json.load(open(".claude/settings.json"))'   # settings.json is valid JSON
 > : > .vfkb/entries.jsonl        # empty brain (valid, committable)
 > ```
 > `.claude/settings.json` carries `extraKnownMarketplaces.vfkb` (→ `vilosource/vfkb-claude-plugin`),
-> `enabledPlugins["vfkb@vfkb"]`, and a `SessionStart` hook that runs the guard. `.claude/vfkb-guard.mjs`
+> `enabledPlugins["vfkb@vfkb"]`, and a `SessionStart` hook that runs the guard — nothing else, ever
+> (Brake-tested in vfkb's own `test/consumer-settings-template.test.ts`). `.claude/vfkb-guard.mjs`
 > is the ADR-0059 "vfkb INACTIVE" guard (engine-free, fails open) — it MUST be committed, because a
 > plugin that didn't load can't warn about its own absence.
 >
@@ -100,7 +103,9 @@ is a fallback only — use it solely if the repo deliberately isn't plugin-wired
 
 **Maintainer notes (not part of the prompt):**
 - Fetching the two files from vfkb `main` keeps consumers byte-identical to the dogfooded reference —
-  the same guard sweep the fleet runs. Don't template or paraphrase the files.
+  the same guard sweep the fleet runs. Don't template or paraphrase the files. `settings.json` comes
+  from `docs/templates/consumer-settings.json` specifically — **not** vfkb's own `.claude/settings.json`,
+  which carries vfkb's own dogfooding hooks and is not consumer-safe (ADR-0071).
 - **Fallback (bootstrap, ADR-0030/0031):** only for a repo that deliberately isn't plugin-wired. In a
   vfkb checkout `npm run build:bundles`, `export VFKB_BUNDLE_DIR=…/dist/bundles`, then
   `node "$VFKB_BUNDLE_DIR/vfkb.mjs" init <project>` (idempotent; **appends** to existing hooks — for a

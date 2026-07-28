@@ -1,0 +1,25 @@
+{
+  "extraKnownMarketplaces": {
+    "vfkb": {
+      "source": {
+        "source": "github",
+        "repo": "vilosource/vfkb-claude-plugin"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "vfkb@vfkb": true
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PROJECT_DIR:-.}/.claude/vfkb-guard.mjs"
+          }
+        ]
+      }
+    ]
+  }
+}

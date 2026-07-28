@@ -26,13 +26,19 @@ Under the plugin, the engine ships **inside the plugin** (it vendors its own bun
 
 ## Plugin wiring — the two committed files
 
-A plugin-wired repo commits exactly **two files** under `.claude/`, copied **byte-for-byte from vfkb's
-own `main`** (the dogfooded reference, kept current) — never hand-crafted:
+A plugin-wired repo commits exactly **two files** under `.claude/`, both sourced from vfkb's own
+`main` (kept current) — never hand-crafted:
 
-| Path | What |
-|---|---|
-| `.claude/settings.json` | `extraKnownMarketplaces.vfkb` (→ `vilosource/vfkb-claude-plugin`) + `enabledPlugins["vfkb@vfkb"]` + a `SessionStart` hook that runs the guard |
-| `.claude/vfkb-guard.mjs` | the **ADR-0059 "vfkb INACTIVE" guard** — engine-free (Node stdlib only), fails open |
+| Path | Sourced from | What |
+|---|---|---|
+| `.claude/settings.json` | `docs/templates/consumer-settings.json` | `extraKnownMarketplaces.vfkb` (→ `vilosource/vfkb-claude-plugin`) + `enabledPlugins["vfkb@vfkb"]` + a `SessionStart` hook that runs the guard — nothing else, ever |
+| `.claude/vfkb-guard.mjs` | `.claude/vfkb-guard.mjs` (this repo's own, dogfooded) | the **ADR-0059 "vfkb INACTIVE" guard** — engine-free (Node stdlib only), fails open |
+
+**`settings.json` is NOT copied from vfkb's own `.claude/settings.json`** (ADR-0071). That file also
+carries vfkb's *own* dogfooding hooks (currently `git-compound-guard`, `durable-claim-check`), which
+reference scripts that exist only in vfkb's own repo — a fresh consumer copying it verbatim would get
+`PreToolUse` hooks pointing at nothing, erroring on its first `Bash`/`Write`/`Edit` call. The dedicated
+template stays minimal by construction, Brake-tested by `test/consumer-settings-template.test.ts`.
 
 Everything else (the resume/gate/capture hooks, the MCP server, the engine) lives **inside the
 plugin**. That is why only these two files are committed: the plugin delivers the rest.
@@ -51,7 +57,7 @@ From the root of the target repo, fetch both files from vfkb `main`:
 
 ```sh
 mkdir -p .claude .vfkb
-gh api repos/vilosource/vfkb/contents/.claude/settings.json?ref=main  --jq .content | base64 -d > .claude/settings.json
+gh api repos/vilosource/vfkb/contents/docs/templates/consumer-settings.json?ref=main --jq .content | base64 -d > .claude/settings.json
 gh api repos/vilosource/vfkb/contents/.claude/vfkb-guard.mjs?ref=main --jq .content | base64 -d > .claude/vfkb-guard.mjs
 python3 -c 'import json; json.load(open(".claude/settings.json"))'   # settings.json is valid JSON
 : > .vfkb/entries.jsonl        # empty brain (a valid, committable starting point)
