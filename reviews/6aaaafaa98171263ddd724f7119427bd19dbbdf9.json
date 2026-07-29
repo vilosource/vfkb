@@ -1,0 +1,45 @@
+{
+  "recordVersion": 1,
+  "sha": "6aaaafaa98171263ddd724f7119427bd19dbbdf9",
+  "governing": [
+    "docs/adr/ADR-0045-vfkb-claude-code-plugin.md",
+    "docs/adr/ADR-0071-consumer-wiring-hardening.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "inherit", "rounds": 1 },
+  "generated": "2026-07-29T02:50:00Z",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "required check review-gate was red — this PR changes an implementation path (.claude/commands/vfkb-new-project.md) but carried no reviews/<sha>.json record (ADR-0052). This record closes it.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F2",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "the round-1 fix's own settings.json restore step used `git checkout -- .claude/settings.json`, which errors with 'pathspec did not match any file(s) known to git' on a never-committed file — reproduced directly (git init, write file, no add/commit, checkout errors exit 1). That is exactly the state of a brand-new project bootstrap, the one scenario this skill runs in. Replaced with a plain byte copy/restore (cp to /tmp, run install, cp back) that doesn't depend on git history existing.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F3",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "the install-record verification one-liner compared os.getcwd() to projectPath with no realpath normalization, unlike vfkb-guard.mjs's own samePath() in this same repo, which explicitly hardens that comparison against symlink mismatches. Not a live bug on this machine today, but a portability gap the repo already knows to guard against elsewhere. Both sides now go through os.path.realpath().",
+      "acceptedBy": null
+    },
+    {
+      "id": "F4",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "the claim 'the installer may reformat settings.json (harmless key reorder)' was asserted without citation, unlike the rest of the diff's citation-disciplined text. Replaced with what was actually observed running the install against vilosource/viloforge-discord on 2026-07-29 (same three top-level keys, reordered, no value changes) instead of an assumption.",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 4,
+  "ruledOut": [],
+  "mutations": [],
+  "mutationsNote": "Docs/skill-only change (a Claude Code slash-command markdown file) plus one committed brain-entry append; no src/, no test/ files touched, so there is no new or changed automated guard to mutate. The correctness claims instead rest on direct reproduction: F2's git-checkout failure was reproduced live (fresh git init + checkout -- on an untracked file, observed exit 1 with the exact pathspec error), the byte-backup replacement was then run through the same repro and observed to restore correctly (exit 0, original bytes intact), and the underlying activation claim (install record created, guard goes from banner to silent) was independently verified against a real bootstrapped project (vilosource/viloforge-discord) both before and after this PR's round 1.",
+  "verdict": "MERGE"
+}

@@ -82,18 +82,46 @@ python3 -c 'import json;json.load(open(".claude/settings.json"))'   # settings.j
 VFKB_DATA_DIR=.vfkb VFKB_PROJECT=<name> node ~/VFKB/vfkb/dist/cli.js add fact "GENESIS <date>: <name> created …" --role human --tag genesis,status
 ```
 
+**Activate the plugin now — do NOT defer this to the operator.** `enabledPlugins` in `settings.json`
+only *declares* the plugin; the install record (`~/.claude/plugins/installed_plugins.json`) is what
+actually loads it, and creating that record **does not require an interactive session on this
+machine** (gotcha `8e76f8f72b64` — confirmed working headlessly on 2026-07-29 against a real new
+project). Run it yourself:
+
+```sh
+# back up first — at this point in a brand-new repo nothing is committed yet, so
+# `git checkout -- <path>` has nothing to restore FROM and errors (pathspec did not match);
+# a plain byte copy works regardless of git state:
+cp .claude/settings.json /tmp/vfkb-new-project-settings.json.bak
+claude plugin install vfkb@vfkb --scope project
+# the installer reformats settings.json (observed 2026-07-29: same three top-level keys,
+# reordered, no value changes — not merely assumed harmless) — restore the fetched bytes:
+cp /tmp/vfkb-new-project-settings.json.bak .claude/settings.json
+rm /tmp/vfkb-new-project-settings.json.bak
+```
+
 **Verify (observed, not asserted):**
-1. **Guard fires** — `CLAUDE_PROJECT_DIR=$PWD node .claude/vfkb-guard.mjs` prints the `vfkb INACTIVE`
-   banner (correct: the plugin is *declared* but not yet *installed* for this new repo — this is the
-   guard's can-fail proof that it works, and it exits 0 / fail-open).
-2. **Brain round-trips** — `VFKB_DATA_DIR=.vfkb node ~/VFKB/vfkb/dist/cli.js list` shows the seeded
+1. **Install record exists** —
+   `python3 -c "import json,os; d=json.load(open(os.path.expanduser('~/.claude/plugins/installed_plugins.json'))); here=os.path.realpath(os.getcwd()); print(any(os.path.realpath(r.get('projectPath','')) == here for r in d['plugins'].get('vfkb@vfkb', [])))"`
+   must print `True` (realpath on both sides — a symlinked `~/VFKB/<name>` path must still match).
+2. **Guard goes silent** — `CLAUDE_PROJECT_DIR=$PWD node .claude/vfkb-guard.mjs` now prints
+   **nothing** and exits 0 (before the install it would have printed the `vfkb INACTIVE` banner —
+   that contrast, banner-then-silence, is the can-fail proof the activation actually did something).
+3. **Brain round-trips** — `VFKB_DATA_DIR=.vfkb node ~/VFKB/vfkb/dist/cli.js list` shows the seeded
    entries; `.vfkb/entries.jsonl` **and** `.vfkb/manifest.json` (if present) are committed — never
    gitignore `manifest.json` — the rest (`index-meta.json`, `.sessions/`, `.signals/`, `.journal/`,
    `.lock`) is gitignored/derived.
 
-**Do NOT claim vfkb is "live" — it is not yet.** `enabledPlugins` in `settings.json` only *declares*
-the plugin; it does not install it, and a headless step can't (gotcha `8e76f8f72b64`: settings-wired
-≠ loaded). The plugin becomes live only after the one-time interactive install in step 6.
+**If the install command errors** (non-zero exit, or a prompt demanding interactive approval this
+machine hasn't granted before) — that is the actual fallback case: state plainly that activation
+failed, paste the real error, and *then* tell the operator the one remaining manual step. Do not
+pre-emptively claim a manual step exists without having tried and failed first.
+
+One thing genuinely outside a headless step's reach: the **live-session proof** — `kb_*` MCP tools
+and the `SessionStart` resume digest actually appearing — can only be observed from a fresh
+interactive session opened in the new repo, because those are injected at that session's own
+startup. The install record + silent guard are strong, observed evidence it will work; say so, but
+don't conflate them with having watched the live injection fire.
 
 ## 6. Commit, push, report
 
@@ -107,7 +135,6 @@ the plugin; it does not install it, and a headless step can't (gotcha `8e76f8f72
   attribution**, then push.
 - Report **clickable URLs**: the repo, the commit, and a `blob` link for each key file (README, the
   spec/PRD, `CLAUDE.md`, `.claude/settings.json`) — unprompted, every time.
-- **Remind the operator of the one manual step:** in an interactive `claude` session inside the new
-  repo, run `claude plugin install vfkb@vfkb --scope project` (or approve the plugin's MCP server +
-  hooks when prompted) and restart. Until then the guard will banner `vfkb INACTIVE` every session —
-  which is the intended, honest signal, not a bug.
+- **Report vfkb as activated**, citing the two observations from step 5 (install record present,
+  guard silent) — not as a pending step. Only mention a manual step if the install command in step 5
+  actually failed; in that case say what failed and why, don't just assert it's manual by default.
