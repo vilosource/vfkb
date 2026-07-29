@@ -194,31 +194,63 @@ function newestHandoffTimestamp(brain: string): string | undefined {
   return newest;
 }
 
+const EMPTY_TREE_SHA = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'; // git's well-known empty-tree object
+
 /**
- * True when a commit landed (commit date after the pinned handoff's timestamp) that
- * touches something other than the brain file itself — the signal that the currently
+ * True when the tree at HEAD differs — outside the brain directory — from the tree as of
+ * the commit nearest the pinned handoff's timestamp. The signal that the currently
  * pinned handoff no longer reflects the branch's real state (e.g. a PR merged after the
- * handoff was written). General across projects: unlike `hasUncommittedWork`, this makes
- * no `src/`/`docs/` assumption, since a consumer repo may use neither layout.
+ * handoff was written).
+ *
+ * Deliberately a TREE diff between an anchor commit and HEAD, not a `git log --since`
+ * walk: `--name-only` prints no paths for an ordinary merge commit by default (verified
+ * empirically), so a long-lived branch whose own commits predate the handoff but whose
+ * merge lands after it would be silently missed by a log-walk. Diffing two trees
+ * sidesteps merge-commit display/simplification entirely, and `--quiet` (exit-code only,
+ * no captured output) avoids buffering a large file list for a repo with a lot of history
+ * since an old handoff.
+ *
+ * Resolves the repo root via `git rev-parse --show-toplevel` and runs there — pathspecs
+ * are resolved relative to the invocation cwd, so running from a subdirectory (a
+ * supported hook condition) without this would silently exclude the wrong path.
+ *
+ * General across projects: unlike `hasUncommittedWork`, this makes no `src/`/`docs/`
+ * assumption, since a consumer repo may use neither layout — and excludes the WHOLE
+ * brain directory (entries.jsonl, manifest.json, any future committed brain file), not
+ * one hardcoded filename.
  */
 export function handoffIsStale(cwd: string = process.cwd(), brain: string = brainDir()): boolean {
   const since = newestHandoffTimestamp(brain);
   if (!since) return false; // no handoff pinned yet — B1/B2 own that gap, not this trigger
-  const brainRel = relative(cwd, join(brain, 'entries.jsonl')).replace(/\\/g, '/');
-  let out: string;
+  let root: string;
   try {
-    out = execFileSync('git', ['log', `--since=${since}`, '--name-only', '--pretty=format:'], {
+    root = execFileSync('git', ['rev-parse', '--show-toplevel'], {
       cwd,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
-    });
+    }).trim();
   } catch {
     return false; // not a repo / git missing → fail-open (don't nag)
   }
-  return out.split('\n').some((line) => {
-    const f = line.trim();
-    return f !== '' && f !== brainRel;
-  });
+  const brainRel = relative(root, brain).replace(/\\/g, '/');
+  const exclude = `:(exclude)${brainRel}`;
+  let anchor: string;
+  try {
+    anchor = execFileSync('git', ['rev-list', '-1', `--before=${since}`, 'HEAD'], {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return false;
+  }
+  const base = anchor || EMPTY_TREE_SHA; // handoff predates all history → diff against nothing
+  try {
+    execFileSync('git', ['diff', '--quiet', base, 'HEAD', '--', '.', exclude], { cwd: root, stdio: 'ignore' });
+    return false; // exit 0: no non-brain difference
+  } catch (e) {
+    return (e as { status?: number }).status === 1; // exit 1: a real diff; anything else → fail-open
+  }
 }
 
 /** Impure shell: gather the real context for `decideStop` from git + the brain. */

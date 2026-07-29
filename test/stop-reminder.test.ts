@@ -211,6 +211,49 @@ describe('handoffIsStale', () => {
     writeFileSync(join(brain, 'entries.jsonl'), handoffLine('2020-01-01T00:00:00.000Z'));
     expect(handoffIsStale(dir, brain)).toBe(false);
   });
+
+  // Regression: a `git log --since --name-only` walk prints no paths for an ordinary
+  // merge commit, so a long-lived branch whose own commits predate the handoff but whose
+  // merge lands after would be silently missed. The tree-diff-against-an-anchor approach
+  // must catch this.
+  it('true when a long-lived branch merges in after the handoff (merge-commit case)', () => {
+    const { dir, brain, commit } = repoWithHandoff();
+    const git = (...a: string[]) => execFileSync('git', a, { cwd: dir, stdio: 'ignore' });
+    commit({ 'src/base.ts': 'x' }, '2025-01-01T00:00:00Z');
+    git('checkout', '-qb', 'feature');
+    commit({ 'src/feature.ts': 'y' }, '2025-01-15T00:00:00Z'); // feature work, BEFORE the handoff
+    git('checkout', '-q', '-'); // back to the branch repoWithHandoff started on
+    const handoffTs = '2025-03-01T00:00:00Z';
+    commit({ '.vfkb/entries.jsonl': handoffLine(handoffTs) }, handoffTs); // handoff pinned
+    execFileSync('git', ['merge', '-q', '--no-ff', 'feature', '-m', 'merge feature'], {
+      cwd: dir,
+      stdio: 'ignore',
+      env: { ...process.env, GIT_AUTHOR_DATE: '2025-06-01T00:00:00Z', GIT_COMMITTER_DATE: '2025-06-01T00:00:00Z' },
+    });
+    expect(handoffIsStale(dir, brain)).toBe(true);
+  });
+
+  // Regression: pathspecs are resolved relative to the invocation cwd, not the repo root
+  // — without resolving the root explicitly, this would silently exclude the wrong path
+  // and misreport a genuinely stale handoff as fresh.
+  it('resolves correctly when invoked from a subdirectory, not the repo root', () => {
+    const { dir, brain, commit } = repoWithHandoff();
+    const handoffTs = '2025-01-01T00:00:00Z';
+    commit({ '.vfkb/entries.jsonl': handoffLine(handoffTs), 'sub/x.ts': 'x' }, handoffTs);
+    commit({ 'sub/y.ts': 'y' }, '2025-06-01T00:00:00Z');
+    expect(handoffIsStale(join(dir, 'sub'), brain)).toBe(true);
+  });
+
+  // Regression: CLAUDE.md defines BOTH entries.jsonl and manifest.json as committed brain
+  // state — excluding only the former would misreport a manifest-only commit as stale.
+  it('false when the only commit since touches another committed brain file (manifest.json)', () => {
+    const { dir, brain, commit } = repoWithHandoff();
+    commit({ 'src/foo.ts': 'x' }, '2025-01-01T00:00:00Z');
+    const handoffTs = '2025-06-01T00:00:00Z';
+    commit({ '.vfkb/entries.jsonl': handoffLine(handoffTs) }, handoffTs);
+    commit({ '.vfkb/manifest.json': '{}' }, '2025-09-01T00:00:00Z');
+    expect(handoffIsStale(dir, brain)).toBe(false);
+  });
 });
 
 // ── CLI e2e: the verified Stop JSON contract shape (CLI v2.1.195) ─────────────
