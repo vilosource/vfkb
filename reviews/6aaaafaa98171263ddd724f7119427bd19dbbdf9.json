@@ -1,6 +1,6 @@
 {
   "recordVersion": 1,
-  "sha": "204a53ce055643e82bf36d180b7abefe46d14c6b",
+  "sha": "6aaaafaa98171263ddd724f7119427bd19dbbdf9",
   "governing": [
     "docs/adr/ADR-0045-vfkb-claude-code-plugin.md",
     "docs/adr/ADR-0071-consumer-wiring-hardening.md"
