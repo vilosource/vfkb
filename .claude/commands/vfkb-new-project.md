@@ -89,15 +89,21 @@ machine** (gotcha `8e76f8f72b64` — confirmed working headlessly on 2026-07-29 
 project). Run it yourself:
 
 ```sh
+# back up first — at this point in a brand-new repo nothing is committed yet, so
+# `git checkout -- <path>` has nothing to restore FROM and errors (pathspec did not match);
+# a plain byte copy works regardless of git state:
+cp .claude/settings.json /tmp/vfkb-new-project-settings.json.bak
 claude plugin install vfkb@vfkb --scope project
-# the installer may reformat settings.json (harmless key reorder) — restore committed bytes:
-git checkout -- .claude/settings.json
+# the installer reformats settings.json (observed 2026-07-29: same three top-level keys,
+# reordered, no value changes — not merely assumed harmless) — restore the fetched bytes:
+cp /tmp/vfkb-new-project-settings.json.bak .claude/settings.json
+rm /tmp/vfkb-new-project-settings.json.bak
 ```
 
 **Verify (observed, not asserted):**
 1. **Install record exists** —
-   `python3 -c "import json,os; d=json.load(open(os.path.expanduser('~/.claude/plugins/installed_plugins.json'))); print(any(r.get('projectPath')==os.getcwd() for r in d['plugins'].get('vfkb@vfkb', [])))"`
-   must print `True`.
+   `python3 -c "import json,os; d=json.load(open(os.path.expanduser('~/.claude/plugins/installed_plugins.json'))); here=os.path.realpath(os.getcwd()); print(any(os.path.realpath(r.get('projectPath','')) == here for r in d['plugins'].get('vfkb@vfkb', [])))"`
+   must print `True` (realpath on both sides — a symlinked `~/VFKB/<name>` path must still match).
 2. **Guard goes silent** — `CLAUDE_PROJECT_DIR=$PWD node .claude/vfkb-guard.mjs` now prints
    **nothing** and exits 0 (before the install it would have printed the `vfkb INACTIVE` banner —
    that contrast, banner-then-silence, is the can-fail proof the activation actually did something).
