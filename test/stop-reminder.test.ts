@@ -3,7 +3,14 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { decideStop, STOP_REMINDER, HANDOFF_REMINDER, HANDOFF_MIN_ENTRIES } from '../src/stop-reminder.js';
+import {
+  decideStop,
+  handoffIsStale,
+  STOP_REMINDER,
+  HANDOFF_REMINDER,
+  HANDOFF_MIN_ENTRIES,
+  STALE_HANDOFF_REMINDER,
+} from '../src/stop-reminder.js';
 
 const CLI = resolve(__dirname, '../dist/cli.js');
 
@@ -84,6 +91,128 @@ describe('decideStop — handoff nudge', () => {
   });
 });
 
+// ── B3: the stale-handoff nudge (pragmatic patch, built NOT yet verified) ────
+describe('decideStop — stale-handoff nudge', () => {
+  it('blocks with the stale-handoff reminder when handoffStale=true', () => {
+    const d = decideStop(
+      { stop_hook_active: false },
+      { uncommittedWork: false, newDecisions: 1, newEntries: 0, newHandoffs: 0, handoffStale: true },
+    );
+    expect(d).toEqual({ block: true, reminder: STALE_HANDOFF_REMINDER });
+  });
+
+  it('is NOT gated on uncommittedWork — the defining case is a clean tree', () => {
+    // everything already committed/merged, working tree clean, pin still stale
+    const d = decideStop(
+      { stop_hook_active: false },
+      { uncommittedWork: false, newDecisions: 1, handoffStale: true },
+    );
+    expect(d.block).toBe(true);
+  });
+
+  it('does NOT block when handoffStale is false/absent', () => {
+    expect(
+      decideStop({ stop_hook_active: false }, { uncommittedWork: false, newDecisions: 1, handoffStale: false }),
+    ).toEqual({ block: false });
+    expect(decideStop({ stop_hook_active: false }, { uncommittedWork: false, newDecisions: 1 })).toEqual({
+      block: false,
+    });
+  });
+
+  it('composes with the decision + handoff nudges when all three trigger', () => {
+    const d = decideStop(
+      { stop_hook_active: false },
+      { uncommittedWork: true, newDecisions: 0, newEntries: HANDOFF_MIN_ENTRIES, newHandoffs: 0, handoffStale: true },
+    );
+    expect(d.block).toBe(true);
+    if (d.block) {
+      expect(d.reminder).toContain(STOP_REMINDER);
+      expect(d.reminder).toContain(HANDOFF_REMINDER);
+      expect(d.reminder).toContain(STALE_HANDOFF_REMINDER);
+    }
+  });
+
+  it('native loop guard still wins over the stale-handoff trigger', () => {
+    expect(
+      decideStop({ stop_hook_active: true }, { uncommittedWork: false, newDecisions: 1, handoffStale: true }),
+    ).toEqual({ block: false });
+  });
+});
+
+// ── handoffIsStale: the impure git-comparison function ───────────────────────
+describe('handoffIsStale', () => {
+  // Commit dates are set EXPLICITLY via GIT_AUTHOR_DATE/GIT_COMMITTER_DATE rather than
+  // relying on wall-clock ordering — real `git commit` calls in quick succession can land
+  // within the same second, and git's commit-date precision is seconds, not milliseconds,
+  // which makes wall-clock-timed tests flaky/order-dependent.
+  function repoWithHandoff(): {
+    dir: string;
+    brain: string;
+    commit: (files: Record<string, string>, when: string) => void;
+  } {
+    const dir = mkdtempSync(join(tmpdir(), 'vfkb-stale-'));
+    const brain = join(dir, '.vfkb');
+    const git = (...a: string[]) => execFileSync('git', a, { cwd: dir, stdio: 'ignore' });
+    git('init', '-q');
+    git('config', 'user.email', 't@t');
+    git('config', 'user.name', 't');
+    mkdirSync(brain);
+    const commit = (files: Record<string, string>, when: string) => {
+      for (const [rel, content] of Object.entries(files)) {
+        mkdirSync(join(dir, rel, '..'), { recursive: true });
+        writeFileSync(join(dir, rel), content);
+      }
+      execFileSync('git', ['add', '.'], { cwd: dir, stdio: 'ignore' });
+      execFileSync('git', ['commit', '-qm', 'c'], {
+        cwd: dir,
+        stdio: 'ignore',
+        env: { ...process.env, GIT_AUTHOR_DATE: when, GIT_COMMITTER_DATE: when },
+      });
+    };
+    return { dir, brain, commit };
+  }
+
+  const handoffLine = (ts: string) =>
+    JSON.stringify({ type: 'fact', tags: ['handoff', 'next'], text: 'h', updated: ts, created: ts }) + '\n';
+
+  it('false when no handoff entry exists at all', () => {
+    const { dir, brain, commit } = repoWithHandoff();
+    commit({ 'src/foo.ts': 'x' }, '2025-01-01T00:00:00Z');
+    expect(handoffIsStale(dir, brain)).toBe(false);
+  });
+
+  it('false when nothing landed since the pinned handoff', () => {
+    const { dir, brain, commit } = repoWithHandoff();
+    const ts = '2025-06-01T00:00:00Z';
+    commit({ '.vfkb/entries.jsonl': handoffLine(ts) }, ts); // the handoff's own landing commit
+    expect(handoffIsStale(dir, brain)).toBe(false);
+  });
+
+  it('true when a non-brain commit landed after the pinned handoff', () => {
+    const { dir, brain, commit } = repoWithHandoff();
+    const handoffTs = '2025-01-01T00:00:00Z';
+    commit({ '.vfkb/entries.jsonl': handoffLine(handoffTs), 'src/foo.ts': 'x' }, handoffTs);
+    commit({ 'src/bar.ts': 'y' }, '2025-06-01T00:00:00Z'); // a real, later commit — the "merged PR"
+    expect(handoffIsStale(dir, brain)).toBe(true);
+  });
+
+  it('false when the only commit since is brain-only (e.g. the handoff-landing commit itself)', () => {
+    const { dir, brain, commit } = repoWithHandoff();
+    commit({ 'src/foo.ts': 'x' }, '2025-01-01T00:00:00Z'); // baseline, BEFORE the handoff
+    const handoffTs = '2025-06-01T00:00:00Z';
+    commit({ '.vfkb/entries.jsonl': handoffLine(handoffTs) }, handoffTs); // lands after baseline
+    expect(handoffIsStale(dir, brain)).toBe(false);
+  });
+
+  it('fails open (false) when not a git repo', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'vfkb-stale-nogit-'));
+    const brain = join(dir, '.vfkb');
+    mkdirSync(brain);
+    writeFileSync(join(brain, 'entries.jsonl'), handoffLine('2020-01-01T00:00:00.000Z'));
+    expect(handoffIsStale(dir, brain)).toBe(false);
+  });
+});
+
 // ── CLI e2e: the verified Stop JSON contract shape (CLI v2.1.195) ─────────────
 function gitRepo(): string {
   const dir = mkdtempSync(join(tmpdir(), 'vfkb-stop-'));
@@ -158,5 +287,29 @@ describe('cli hook stop — emits the verified Stop contract', () => {
       ),
     );
     expect(runStop(dir, { stop_hook_active: false })).toBe('{}');
+  });
+
+  it('B3: nudges for a stale pinned handoff even with a CLEAN working tree', () => {
+    const dir = gitRepo(); // baseline "init" commit lands at real wall-clock "now"
+    const commitDated = (files: string[], when: string, msg: string) => {
+      execFileSync('git', ['add', ...files], { cwd: dir, stdio: 'ignore' });
+      execFileSync('git', ['commit', '-qm', msg], {
+        cwd: dir,
+        stdio: 'ignore',
+        env: { ...process.env, GIT_AUTHOR_DATE: when, GIT_COMMITTER_DATE: when },
+      });
+    };
+    const handoffTs = '2030-01-01T00:00:00Z';
+    writeFileSync(
+      join(dir, '.vfkb', 'entries.jsonl'),
+      JSON.stringify({ type: 'fact', tags: ['handoff', 'next'], text: 'h', updated: handoffTs, created: handoffTs }) +
+        '\n',
+    );
+    commitDated(['.vfkb/entries.jsonl'], handoffTs, 'handoff'); // the pinned handoff, committed
+    writeFileSync(join(dir, 'src', 'bar.ts'), 'export const y = 1;\n');
+    commitDated(['src/bar.ts'], '2030-06-01T00:00:00Z', 'merged PR'); // lands after the handoff
+    // working tree is now clean — every other trigger (decision/B1) requires uncommittedWork
+    const out = JSON.parse(runStop(dir, { stop_hook_active: false }));
+    expect(out.hookSpecificOutput.additionalContext).toContain('stale-handoff check');
   });
 });
