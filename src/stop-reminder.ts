@@ -15,6 +15,8 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { brainDir } from './storage.js';
+import { isInjectable, supersededIds } from './engine.js';
+import type { KnowledgeEntry } from './types.js';
 
 export interface StopHookInput {
   stop_hook_active?: boolean;
@@ -164,11 +166,18 @@ export function uncommittedDecisionCount(brain: string = brainDir(), cwd: string
 const isHandoff = (e: BrainLine): boolean => (e.tags ?? []).some((t) => t === 'handoff' || t === 'next');
 
 /**
- * ISO timestamp of the most recently updated `handoff`/`next`-tagged entry in the WHOLE
- * brain (committed + uncommitted) — not just entries since HEAD. Deliberately simpler than
- * engine.ts's `latestHandoff()`: it does not replicate `isInjectable`'s supersession/expiry
- * filtering. The newest-by-timestamp entry is the pinned one in the overwhelming common
- * case; a future RFC can tighten this if that assumption ever breaks in practice.
+ * ISO timestamp of the currently PINNED handoff/next entry — the same selection engine.ts's
+ * `latestHandoff()` uses for `resume`/`/vfkb:brief` (newest-by-`updated`-then-`created` among
+ * INJECTABLE entries: not archived, not superseded, not deprecated, provenance not
+ * stale/expired, not past `valid_until`). Reuses the engine's own `isInjectable`/
+ * `supersededIds` rather than re-simplifying that logic — an earlier version of this function
+ * used bare newest-by-timestamp with no injectability filtering, which review found produces
+ * a real false negative: a later archived/superseded handoff entry can mask an earlier,
+ * actually-pinned one, making a genuinely stale handoff read as fresh.
+ *
+ * Reads the WHOLE brain (committed + uncommitted) directly from the file rather than via
+ * `readAll()`/`materialize()`, so it works with an explicit `brain` path for testability
+ * instead of env-var-based `brainDir()` resolution.
  */
 function newestHandoffTimestamp(brain: string): string | undefined {
   const file = join(brain, 'entries.jsonl');
@@ -178,20 +187,41 @@ function newestHandoffTimestamp(brain: string): string | undefined {
   } catch {
     return undefined; // no brain file yet
   }
-  let newest: string | undefined;
+  const all: KnowledgeEntry[] = [];
   for (const l of lines) {
-    let e: BrainLine;
     try {
-      e = JSON.parse(l);
+      all.push(JSON.parse(l) as KnowledgeEntry);
     } catch {
       continue;
     }
-    if (!isHandoff(e)) continue;
-    const ts = e.updated ?? e.created;
-    if (!ts) continue;
-    if (!newest || ts.localeCompare(newest) > 0) newest = ts;
   }
-  return newest;
+  const superseded = supersededIds(all);
+  const today = new Date().toISOString().slice(0, 10);
+  let newest: KnowledgeEntry | undefined;
+  for (const e of all) {
+    if (!isHandoff(e)) continue;
+    // Defensive: a malformed/partial entry (missing provenance/validity — should not exist
+    // in a real engine-written brain, but this reads the raw file directly, not through
+    // addEntry's guarantees) must not crash classification of every OTHER entry. Treat it
+    // as non-injectable — the safe default this file already uses elsewhere (skip, don't
+    // nag) when something is unexpected.
+    let injectable: boolean;
+    try {
+      injectable = isInjectable(e, today, superseded);
+    } catch {
+      continue;
+    }
+    if (!injectable) continue;
+    if (!newest) {
+      newest = e;
+      continue;
+    }
+    // Same total order as latestHandoff (engine.ts): updated, then created, `>=` keeps the
+    // later entry on a full-timestamp tie (the newest write in an append-only log).
+    const cmp = e.updated.localeCompare(newest.updated) || e.created.localeCompare(newest.created);
+    if (cmp >= 0) newest = e;
+  }
+  return newest?.updated;
 }
 
 const EMPTY_TREE_SHA = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'; // git's well-known empty-tree object
@@ -220,36 +250,35 @@ const EMPTY_TREE_SHA = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'; // git's well
  * one hardcoded filename.
  */
 export function handoffIsStale(cwd: string = process.cwd(), brain: string = brainDir()): boolean {
-  const since = newestHandoffTimestamp(brain);
-  if (!since) return false; // no handoff pinned yet — B1/B2 own that gap, not this trigger
-  let root: string;
+  // One outer backstop around the whole function, on top of the targeted inner handling
+  // below — defense in depth (review finding F3): every individual git call already fails
+  // open, but an uncaught exception ANYWHERE in this chain (this hook's own `main()` has no
+  // top-level catch) would otherwise crash `cli.ts hook stop` entirely — zero stdout, not
+  // fail-open — instead of just skipping this one nudge.
   try {
-    root = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+    const since = newestHandoffTimestamp(brain);
+    if (!since) return false; // no handoff pinned yet — B1/B2 own that gap, not this trigger
+    const root = execFileSync('git', ['rev-parse', '--show-toplevel'], {
       cwd,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
     }).trim();
-  } catch {
-    return false; // not a repo / git missing → fail-open (don't nag)
-  }
-  const brainRel = relative(root, brain).replace(/\\/g, '/');
-  const exclude = `:(exclude)${brainRel}`;
-  let anchor: string;
-  try {
-    anchor = execFileSync('git', ['rev-list', '-1', `--before=${since}`, 'HEAD'], {
+    const brainRel = relative(root, brain).replace(/\\/g, '/');
+    const exclude = `:(exclude)${brainRel}`;
+    const anchor = execFileSync('git', ['rev-list', '-1', `--before=${since}`, 'HEAD'], {
       cwd: root,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
     }).trim();
+    const base = anchor || EMPTY_TREE_SHA; // handoff predates all history → diff against nothing
+    try {
+      execFileSync('git', ['diff', '--quiet', base, 'HEAD', '--', '.', exclude], { cwd: root, stdio: 'ignore' });
+      return false; // exit 0: no non-brain difference
+    } catch (e) {
+      return (e as { status?: number }).status === 1; // exit 1: a real diff; anything else → fail-open
+    }
   } catch {
-    return false;
-  }
-  const base = anchor || EMPTY_TREE_SHA; // handoff predates all history → diff against nothing
-  try {
-    execFileSync('git', ['diff', '--quiet', base, 'HEAD', '--', '.', exclude], { cwd: root, stdio: 'ignore' });
-    return false; // exit 0: no non-brain difference
-  } catch (e) {
-    return (e as { status?: number }).status === 1; // exit 1: a real diff; anything else → fail-open
+    return false; // not a repo / git missing / anything unexpected → fail-open (don't nag)
   }
 }
 

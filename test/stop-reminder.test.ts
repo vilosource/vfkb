@@ -172,8 +172,29 @@ describe('handoffIsStale', () => {
     return { dir, brain, commit };
   }
 
-  const handoffLine = (ts: string) =>
-    JSON.stringify({ type: 'fact', tags: ['handoff', 'next'], text: 'h', updated: ts, created: ts }) + '\n';
+  // A full, realistic KnowledgeEntry — not the minimal shape a hand-rolled test fixture
+  // might use. newestHandoffTimestamp() now reuses engine.ts's real isInjectable(), which
+  // reads e.provenance.status and e.validity.valid_until unconditionally; a fixture missing
+  // those would crash classification (caught defensively in production, but must not mask
+  // what these tests are actually checking).
+  let handoffIdCounter = 0;
+  const handoffLine = (ts: string, opts: { archived?: boolean } = {}) => {
+    handoffIdCounter++;
+    return (
+      JSON.stringify({
+        id: `h${handoffIdCounter}`,
+        type: 'fact',
+        text: 'h',
+        tags: ['handoff', 'next'],
+        zone: opts.archived ? 'archive' : 'established',
+        author: { role: 'human' },
+        provenance: { status: 'verified' },
+        validity: { valid_from: ts },
+        created: ts,
+        updated: ts,
+      }) + '\n'
+    );
+  };
 
   it('false when no handoff entry exists at all', () => {
     const { dir, brain, commit } = repoWithHandoff();
@@ -236,12 +257,27 @@ describe('handoffIsStale', () => {
   // Regression: pathspecs are resolved relative to the invocation cwd, not the repo root
   // — without resolving the root explicitly, this would silently exclude the wrong path
   // and misreport a genuinely stale handoff as fresh.
-  it('resolves correctly when invoked from a subdirectory, not the repo root', () => {
+  // Review finding F1: the earlier version of this test (a real-work-after-handoff
+  // scenario) passed regardless of whether the repo root was resolved, because a
+  // non-brain change exists either way — it didn't isolate anything. This version uses a
+  // BRAIN-ONLY commit invoked from a subdirectory instead, which is the shape that
+  // actually broke under the original `git log --name-only` implementation (that command
+  // always prints paths relative to the repo root, so comparing against a cwd-relative
+  // brainRel mismatched from a subdirectory). Mutation-tested against the CURRENT
+  // (tree-diff) implementation specifically: removing the `git rev-parse
+  // --show-toplevel` resolution and using `cwd` directly does NOT turn this test red —
+  // `path.relative` and git's own cwd-relative pathspec resolution compose correctly
+  // either way for this shape. Root resolution is kept anyway as explicit, defensive
+  // practice (it is what makes `brainRel` unambiguous to a reader, and guards against
+  // pathspec-magic differences across git versions), not because this specific test
+  // proves it load-bearing — this is a real correctness property (subdirectory
+  // invocation must not false-positive) that's still worth locking in either way.
+  it('does not false-positive on a brain-only commit when invoked from a subdirectory', () => {
     const { dir, brain, commit } = repoWithHandoff();
-    const handoffTs = '2025-01-01T00:00:00Z';
-    commit({ '.vfkb/entries.jsonl': handoffLine(handoffTs), 'sub/x.ts': 'x' }, handoffTs);
-    commit({ 'sub/y.ts': 'y' }, '2025-06-01T00:00:00Z');
-    expect(handoffIsStale(join(dir, 'sub'), brain)).toBe(true);
+    commit({ 'sub/base.ts': 'x' }, '2025-01-01T00:00:00Z'); // baseline, non-brain, BEFORE handoff
+    const handoffTs = '2025-06-01T00:00:00Z';
+    commit({ '.vfkb/entries.jsonl': handoffLine(handoffTs) }, handoffTs); // only commit since is brain-only
+    expect(handoffIsStale(join(dir, 'sub'), brain)).toBe(false);
   });
 
   // Regression: CLAUDE.md defines BOTH entries.jsonl and manifest.json as committed brain
@@ -253,6 +289,20 @@ describe('handoffIsStale', () => {
     commit({ '.vfkb/entries.jsonl': handoffLine(handoffTs) }, handoffTs);
     commit({ '.vfkb/manifest.json': '{}' }, '2025-09-01T00:00:00Z');
     expect(handoffIsStale(dir, brain)).toBe(false);
+  });
+
+  // Review finding F2: a bare newest-by-timestamp selection (no isInjectable filtering)
+  // lets a LATER archived/superseded handoff entry mask an EARLIER real pin — the actual
+  // entry `resume`/`/vfkb:brief` would show. Real work landing between the two timestamps
+  // must still register as stale relative to the true (earlier) pin.
+  it('a later archived handoff entry does not mask an earlier real pin', () => {
+    const { dir, brain, commit } = repoWithHandoff();
+    const h1ts = '2025-01-01T00:00:00Z'; // the REAL pin (established, injectable)
+    const h2ts = '2025-06-01T00:00:00Z'; // newer by timestamp, but archived — must be ignored
+    const entries = handoffLine(h1ts) + handoffLine(h2ts, { archived: true });
+    commit({ '.vfkb/entries.jsonl': entries }, h1ts);
+    commit({ 'src/real-work.ts': 'x' }, '2025-03-01T00:00:00Z'); // after h1, before h2
+    expect(handoffIsStale(dir, brain)).toBe(true);
   });
 });
 
@@ -345,8 +395,18 @@ describe('cli hook stop — emits the verified Stop contract', () => {
     const handoffTs = '2030-01-01T00:00:00Z';
     writeFileSync(
       join(dir, '.vfkb', 'entries.jsonl'),
-      JSON.stringify({ type: 'fact', tags: ['handoff', 'next'], text: 'h', updated: handoffTs, created: handoffTs }) +
-        '\n',
+      JSON.stringify({
+        id: 'h1',
+        type: 'fact',
+        text: 'h',
+        tags: ['handoff', 'next'],
+        zone: 'established',
+        author: { role: 'human' },
+        provenance: { status: 'verified' },
+        validity: { valid_from: handoffTs },
+        created: handoffTs,
+        updated: handoffTs,
+      }) + '\n',
     );
     commitDated(['.vfkb/entries.jsonl'], handoffTs, 'handoff'); // the pinned handoff, committed
     writeFileSync(join(dir, 'src', 'bar.ts'), 'export const y = 1;\n');
