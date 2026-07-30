@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.8.0](https://github.com/vilosource/vfkb/compare/v0.7.1...v0.8.0) (2026-07-30)
+
+
+### Features
+
+* **#205:** every harness face heals a destroyed brain, not just the CLI hook ([#256](https://github.com/vilosource/vfkb/issues/256)) ([5d1d3d8](https://github.com/vilosource/vfkb/commit/5d1d3d85b954c7c4d8267c3c96fa716e12b462a0))
+* **adr-0070:** guards must be observed failing — mutation log, guard-audit-first, new escalation trigger, git-compound hook ([#263](https://github.com/vilosource/vfkb/issues/263)) ([f2ca756](https://github.com/vilosource/vfkb/commit/f2ca75642806272d078626decdbb49cbfeadbe85))
+* **adr-0071:** consumer settings.json sourced from a dedicated template, not vfkb's own dogfooded file ([#266](https://github.com/vilosource/vfkb/issues/266)) ([8b6e267](https://github.com/vilosource/vfkb/commit/8b6e267d2261a80453a11575f0ac4fa360008e9e))
+* stop-hook nudge for a stale pinned handoff (B3) ([#270](https://github.com/vilosource/vfkb/issues/270)) ([ad972ce](https://github.com/vilosource/vfkb/commit/ad972ce3db1cddb70ebedc6f78b0378788139a49))
+
+
+### Bug Fixes
+
+* **#200:** the AGENTS.md export budget is a budget ([#258](https://github.com/vilosource/vfkb/issues/258)) ([f79df5c](https://github.com/vilosource/vfkb/commit/f79df5c1d7ac2fc94261105e3bdc26ee652f3eb0))
+* **vfkb-new-project:** activate the vfkb plugin ourselves, don't defer to the operator ([#268](https://github.com/vilosource/vfkb/issues/268)) ([efc2892](https://github.com/vilosource/vfkb/commit/efc28929156510a2868337d2c4d3dcc0388be998))
+
+
+### Documentation
+
+* **adr-0067:** ratify RFC-036 D1 as hybrid — DeepSeek in CI, OAuth stays on the laptop ([#254](https://github.com/vilosource/vfkb/issues/254)) ([507b0e1](https://github.com/vilosource/vfkb/commit/507b0e10b7017c8d6580640734d95a5ca37eb951))
+* **adr-0068:** a green release PR merges itself ([#257](https://github.com/vilosource/vfkb/issues/257)) ([efd34c8](https://github.com/vilosource/vfkb/commit/efd34c8365c9596ba0d9e8c7d4e301e72205e4b1))
+* **rfc-036:** the D1 probe ran — DeepSeek env auth works, the choice is three-way now ([#252](https://github.com/vilosource/vfkb/issues/252)) ([144d5c2](https://github.com/vilosource/vfkb/commit/144d5c27d5f1509816f61979bd5722946dbe0e69))
+
 ## [0.7.1](https://github.com/vilosource/vfkb/compare/v0.7.0...v0.7.1) (2026-07-24)
 
 
