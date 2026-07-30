@@ -1,0 +1,88 @@
+{
+  "recordVersion": 1,
+  "sha": "a9d8ba4254177c41be12fb2e477fe525e5c47baa",
+  "governing": [
+    "docs/rfc/RFC-011-session-end-continuity.md",
+    "docs/adr/ADR-0033-session-end-continuity.md",
+    "docs/adr/ADR-0034-b1-handoff-nudge.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "claude-sonnet-5", "rounds": 1 },
+  "generated": "2026-07-30T06:00:00Z",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "blocking",
+      "status": "open",
+      "category": "test-coverage",
+      "file": "test/stop-reminder.test.ts",
+      "line": 275,
+      "summary": "F1 from the prior round (d3ba6c6) is NOT actually fixed. The replacement regression test 'does not false-positive on a brain-only commit when invoked from a subdirectory' is STILL vacuous — for a different structural reason than the original — because it never lands a commit after the pinned handoff, so `git rev-list -1 --before=$since HEAD` resolves the anchor to HEAD itself (self-diff, always empty) regardless of whether root-resolution or the exclude pathspec work at all.",
+      "failure_scenario": "Verified via two independent, real mutations on src/stop-reminder.ts (each applied, tested, and reverted): (1) replacing `root = execFileSync('git',['rev-parse','--show-toplevel'],...)` with `root = cwd` (deleting the F1 fix entirely) — full suite still 31/31 green, including this exact test. (2) replacing `:(exclude)${brainRel}` with a pathspec matching nothing (`:(exclude)DOES_NOT_EXIST_MUTATION`) — full suite still 31/31 green, same test included. Root cause: the test's only two commits are a pre-handoff baseline and the handoff-landing commit itself (dated exactly `since`); `--before` is inclusive of that exact second, so `anchor === HEAD` always, making the diff a trivial self-diff no matter what pathspec or cwd is used. I then wrote a genuinely non-trivial variant (a later commit landing OUTSIDE the invocation subdirectory, after the handoff) and confirmed it DOES discriminate: with root-resolution removed it wrongly returns false (a real false negative — a merged PR at the repo root would be silently missed when the hook runs from a subdirectory); with the original code it correctly returns true. So the underlying implementation is correct for this property, but the shipped test proves nothing about it — exactly the ADR-0070 §3 bar ('a proof that can't fail proves nothing') the prior round's F1 was about, recurring in the fix commit meant to close it. The commit message's claim that mutation testing 'confirmed' the property (attributing insensitivity to 'path.relative + git's own cwd-relative pathspec resolution compose correctly') is technically observed-true for this one test but mischaracterizes the cause (anchor==HEAD triviality, not pathspec-resolution equivalence) and is misleading about what got locked in.",
+      "verdict": "CONFIRMED"
+    },
+    {
+      "id": "B3-nag",
+      "severity": "major",
+      "status": "open",
+      "category": "conformance",
+      "file": "src/stop-reminder.ts",
+      "line": 96,
+      "summary": "B3 has no self-silencing mechanism short of writing an entirely new pinned handoff, breaking the 'self-silencing without session state' contract pattern RFC-011/ADR-0034 established for the sibling B1 nudge (the review charge explicitly asks to check conformance against this pattern). Once `handoffStale` is true, it stays true — and re-fires on literally every subsequent Stop-hook turn, this session and every future session — until someone records a fresh handoff, with no threshold, backoff, or 'declined once' memory.",
+      "failure_scenario": "RFC-011 §B calls the per-turn-nag risk of a naive Stop nudge out explicitly ('a naive Stop nudge would nag from turn 1 onward... survivable only with strong gating') and ADR-0034 mitigates it for B1 via a strong-signal threshold plus self-silencing the moment ANY handoff/next entry is recorded THIS session. B3 (src/stop-reminder.ts:96-98) is deliberately NOT gated on uncommittedWork and has no threshold at all — the existing passing test 'true when a non-brain commit landed after the pinned handoff' (test/stop-reminder.test.ts:212) is itself empirical proof that ANY subsequent commit unconditionally flips handoffStale to true, with no allowance for whether that commit is the same session's own already-anticipated work (e.g. the exact autonomous-merge-after-writing-a-handoff sequence this repo's own CLAUDE.md standing workflow performs routinely). A mid-session agent that reasonably declines the nudge ('not wrapping up yet, nothing new to report') will see the identical STALE_HANDOFF_REMINDER on every following Stop-hook turn for the rest of the session — a live regression of exactly the failure mode RFC-011 named and ADR-0034 was built to avoid for the sibling mechanism. STALE_HANDOFF_REMINDER's copy ('Before wrapping up, record a fresh handoff') also lacks HANDOFF_REMINDER's explicit 'if you are still mid-session, ignore this and finish normally' escape clause, so there is no in-band signal that declining is safe.",
+      "verdict": "CONFIRMED"
+    }
+  ],
+  "ruledOut": [
+    {
+      "id": "F2",
+      "note": "CONFIRMED FIXED — verified by my own mutation, not just re-reading the commit message. Removed the isInjectable()/supersededIds() filtering in newestHandoffTimestamp() (reverted to bare newest-by-timestamp), rebuilt nothing needed (vitest reads src/ directly), ran the full suite: the new regression test 'a later archived handoff entry does not mask an earlier real pin' went red (expected true, got false), all other tests stayed green. Restored the original and confirmed 31/31 green again. The per-entry defensive try/catch around isInjectable() is real (src/stop-reminder.ts:208-213) and scanning this repo's own live .vfkb/entries.jsonl (75 handoff/next-tagged entries out of 381 total) found zero entries missing provenance/validity/zone/updated/created — the defensive path is precautionary, not currently load-bearing against real data, which is the correct posture (defends against future schema drift / non-addEntry writers)."
+    },
+    {
+      "id": "F3",
+      "note": "CONFIRMED FIXED — verified by my own mutation. Removed the outer try/catch in handoffIsStale() and forced an unexpected TypeError right after computing `since`, rebuilt dist, ran the CLI e2e test through the real `dist/cli.js hook stop`: it crashed with an uncaught exception, zero stdout, non-zero exit — exactly the failure mode F3 described. Restored the outer try/catch (keeping the forced throw), rebuilt, re-ran: the CLI now exits cleanly with valid JSON output (no crash), because the outer catch returns false and `main()` proceeds normally. The backstop is real and functions as claimed. Restored the original file and confirmed the full 567/567 suite green afterward."
+    },
+    {
+      "id": "F4",
+      "note": "Not re-litigated — the task instructions state F4 (MCP tool naming inconsistency, mcp__vfkb__kb_add vs mcp__plugin_vfkb_vfkb__kb_add) was already reviewed and judged acceptable to leave as-is in the prior round, and this fix commit correctly did not touch it. Confirmed STALE_HANDOFF_REMINDER uses the same generic mcp__vfkb__kb_add naming as the pre-existing STOP_REMINDER/HANDOFF_REMINDER, so it is at least internally consistent with the existing (accepted) pattern."
+    },
+    {
+      "id": "F5",
+      "note": "Not re-litigated — task instructions state F5 (brain-outside-repo edge case) was judged currently unreachable/acceptable in the prior round and this commit correctly left it alone."
+    },
+    {
+      "id": "performance-of-git-history-walk",
+      "note": "Investigated per the task's explicit prompt (item 5): is the git rev-list/diff machinery bounded/cheap for an extremely long-since-stale handoff? Built a 3001-commit scratch repo via git fast-import with the boundary at the very oldest commit (the worst case: maximum commits between the stale handoff and HEAD). `git rev-list -1 --before=<old-date> HEAD` completed in ~9ms; `git diff --quiet <oldest> HEAD -- . :(exclude).vfkb` over the full 3000-commit range completed in ~4ms. Both are cheap because git's commit-graph walk and tree-diff are metadata/tree operations, not content or per-commit log walks — this is NOT the same class of problem the P1/F5 `--name-only` buffering fix addressed (that was about captured stdout size, not walk cost). Ruled out as a live concern at this scale; not verified at repo sizes several orders of magnitude larger."
+    },
+    {
+      "id": "detached-head",
+      "note": "Investigated per the task's explicit prompt (item 5, correctness hunt). Constructed a scratch repo with a stale handoff, then `git checkout --detach HEAD`, and called handoffIsStale() directly against it: returned `true` correctly, no crash. `git rev-parse --show-toplevel`, `git rev-list`, and `git diff` all function normally in detached HEAD (none require a symbolic branch ref), so this is not a live gap."
+    },
+    {
+      "id": "supersedes-nonexistent-id",
+      "note": "Investigated per the task's explicit prompt (item 5). src/engine.ts supersededIds() (L331-335) just builds a Set of every refs.supersedes value with no existence check against real entry ids; isInjectable()'s `superseded?.has(e.id)` is a plain Set lookup. A refs.supersedes pointing at a nonexistent id is inert (matches nothing, no exception, no injectability change) — not a crash surface."
+    },
+    {
+      "id": "KB_SESSION_ID-authored-entries",
+      "note": "Investigated per the task's explicit prompt (item 5). isHandoff()/isInjectable() only inspect tags/zone/status/provenance/validity, never author/role/session metadata, so a B2 auto-generated fallback handoff (role=executor, tags=[handoff,next,auto]) is picked up by newestHandoffTimestamp() exactly like an agent-authored one — consistent with engine.ts's own latestHandoff() used by resume/brief, which makes the same non-distinction. No special-case gap found."
+    }
+  ],
+  "mutations": [
+    {
+      "guard": "test/stop-reminder.test.ts > handoffIsStale > a later archived handoff entry does not mask an earlier real pin",
+      "mutation": "Removed the isInjectable()/supersededIds() filtering loop in newestHandoffTimestamp(), reverting to bare newest-by-(updated,created) selection with no injectability check.",
+      "observedRed": true
+    },
+    {
+      "guard": "test/stop-reminder.test.ts > cli hook stop — emits the verified Stop contract > B3: nudges for a stale pinned handoff even with a CLEAN working tree",
+      "mutation": "Removed the outer try/catch in handoffIsStale() and inserted a forced `throw new TypeError(...)` immediately after computing `since`; rebuilt dist and ran the CLI e2e test through the real `dist/cli.js hook stop` binary.",
+      "observedRed": true
+    },
+    {
+      "guard": "test/stop-reminder.test.ts > handoffIsStale > false when the only commit since touches another committed brain file (manifest.json)",
+      "mutation": "Same broken-exclude-pathspec mutation as above, applied against the FULL suite to identify which guard(s) actually exercise the whole-brain-dir-exclude property. This manifest.json test (not the subdirectory one) went red as expected (expected false, got true) — confirming the underlying exclude-whole-brain-directory property DOES have real, non-vacuous coverage elsewhere in the suite, even though the subdirectory-specific F1 test does not.",
+      "observedRed": true
+    }
+  ],
+  "mutationsNote": null,
+  "verdict": "FIX-FIRST"
+}

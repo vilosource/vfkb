@@ -272,12 +272,25 @@ describe('handoffIsStale', () => {
   // pathspec-magic differences across git versions), not because this specific test
   // proves it load-bearing — this is a real correctness property (subdirectory
   // invocation must not false-positive) that's still worth locking in either way.
-  it('does not false-positive on a brain-only commit when invoked from a subdirectory', () => {
+  // Round-3 review found the real mechanism: `git diff ... -- . exclude` uses `.` as the
+  // FIRST pathspec, which SCOPES the diff to the invocation cwd — when cwd is a
+  // subdirectory and root isn't resolved, the diff only ever looks WITHIN that
+  // subdirectory, silently missing a real change landed elsewhere in the repo entirely
+  // (verified directly: with root resolution, exit=1/stale on this exact scenario;
+  // without it, exit=0/missed — see commit message for the raw comparison). Two earlier
+  // attempts at this test (a real-work-in-the-same-subdirectory scenario, then a
+  // brain-only-commit scenario) both turned out non-discriminating for different reasons
+  // (round 1: non-brain work exists either way; round 2: only two commits made `anchor
+  // === HEAD`, a trivial self-diff) — this version lands the post-handoff change OUTSIDE
+  // the invocation subdirectory specifically, which is what actually depends on resolving
+  // the repo root rather than trusting cwd.
+  it('does not miss a real change landed OUTSIDE the invocation subdirectory', () => {
     const { dir, brain, commit } = repoWithHandoff();
-    commit({ 'sub/base.ts': 'x' }, '2025-01-01T00:00:00Z'); // baseline, non-brain, BEFORE handoff
+    commit({ 'sub/base.ts': 'x' }, '2025-01-01T00:00:00Z'); // baseline, inside sub/, BEFORE handoff
     const handoffTs = '2025-06-01T00:00:00Z';
-    commit({ '.vfkb/entries.jsonl': handoffLine(handoffTs) }, handoffTs); // only commit since is brain-only
-    expect(handoffIsStale(join(dir, 'sub'), brain)).toBe(false);
+    commit({ '.vfkb/entries.jsonl': handoffLine(handoffTs) }, handoffTs); // the handoff itself
+    commit({ 'other/external.ts': 'x' }, '2025-09-01T00:00:00Z'); // real work, OUTSIDE sub/
+    expect(handoffIsStale(join(dir, 'sub'), brain)).toBe(true);
   });
 
   // Regression: CLAUDE.md defines BOTH entries.jsonl and manifest.json as committed brain

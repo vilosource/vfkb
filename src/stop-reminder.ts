@@ -68,12 +68,24 @@ export const HANDOFF_REMINDER =
 // the currently pinned handoff's timestamp, so the pin itself is now stale regardless of
 // what this session did. Deliberately NOT gated on `uncommittedWork`: the defining case is
 // everything already committed/merged and the working tree clean.
+//
+// Nag risk (review round 3): unlike B1, this has no entry-count threshold and no
+// SessionEnd-floor equivalent for a STALE (vs missing) pin, so once it fires it keeps
+// firing every turn until a fresh handoff/next entry actually exists — RFC-011 §B's
+// per-turn-nag concern applies here too. Mitigated the same way B1 mitigates it: an
+// explicit "if mid-session, this is fine to defer" escape clause in the reminder text
+// (see below) — not a threshold, since B3's trigger is external (git history), not a
+// count of this session's own activity, so "wait for N entries" doesn't fit the same way.
 export const STALE_HANDOFF_REMINDER =
   'vfkb stale-handoff check: the currently pinned handoff/next entry predates a commit that ' +
-  'landed since it was written (e.g. a merged PR) — a fresh session would start from an ' +
-  'out-of-date "what happened" pointer. Before wrapping up, record a fresh handoff — ' +
-  '`mcp__vfkb__kb_add` (type=fact, tags=handoff,next, role=human), or /vfkb:handoff if ' +
-  'available — naming what actually changed and what is next now.';
+  'landed since it was written (e.g. a merged PR, possibly from another session or an ' +
+  'autonomous merge) — a fresh session would start from an out-of-date "what happened" ' +
+  'pointer. If you are WRAPPING UP, record a fresh handoff now — `mcp__vfkb__kb_add` ' +
+  '(type=fact, tags=handoff,next, role=human), or /vfkb:handoff if available — naming what ' +
+  'actually changed and what is next now. If you are still mid-session and plan to record ' +
+  'one before you finish, it is fine to ignore this for now — but unlike the other nudges, ' +
+  'this one has no SessionEnd fallback for a STALE (as opposed to missing) pin, so it will ' +
+  'keep reminding you each turn until a fresh handoff/next entry actually exists.';
 
 /**
  * The pure decision. Block (inject the reminder, continuing the turn) only when a
