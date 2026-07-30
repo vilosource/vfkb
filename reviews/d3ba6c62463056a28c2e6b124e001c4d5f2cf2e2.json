@@ -1,0 +1,119 @@
+{
+  "recordVersion": 1,
+  "sha": "d3ba6c62463056a28c2e6b124e001c4d5f2cf2e2",
+  "governing": [
+    "docs/rfc/RFC-011-session-end-continuity.md",
+    "docs/adr/ADR-0033-session-end-continuity.md",
+    "docs/adr/ADR-0034-b1-handoff-nudge.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "claude-sonnet-5", "rounds": 1 },
+  "generated": "2026-07-29T19:21:53Z",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "blocking",
+      "status": "open",
+      "category": "test-coverage",
+      "file": "test/stop-reminder.test.ts",
+      "line": 239,
+      "short_summary": "Subdirectory regression test does not isolate the bug it claims to lock in",
+      "summary": "The new handoffIsStale test 'resolves correctly when invoked from a subdirectory, not the repo root' (test/stop-reminder.test.ts:239-244) does not actually verify the subdirectory/repo-root-resolution fix the commit message claims it locks in. It passes identically whether or not that specific fix (`git rev-parse --show-toplevel` root resolution in src/stop-reminder.ts:225-234) is present, because the test scenario conflates the real path-resolution defect with an unrelated genuine file change (`sub/y.ts`) that gets detected as 'stale' regardless of whether the fix exists. It is not a fully vacuous test (it does go red if handoffIsStale() is deleted entirely), but it is insensitive to the ONE regression it was written to guard, contradicting the commit message's explicit claim of '3 new regression tests locking in the merge-commit, subdirectory, and manifest.json fixes' (only 2 of the 3 actually do).",
+      "failure_scenario": "Empirically verified via mutation testing in a scratch clone of this branch (/tmp/vfkb-review-scratch): reverted ONLY the root-resolution portion of handoffIsStale (replaced `root = execFileSync('git', ['rev-parse', '--show-toplevel'], ...)` with `root = cwd`, reintroducing the exact pre-fix behavior of resolving pathspecs relative to the invocation cwd instead of the repo root, while keeping everything else — including the pathspec-exclude logic — as post-fix). Rebuilt and ran the full test/stop-reminder.test.ts suite: all 30 tests, including the subdirectory test, still passed. Separately, I isolated the actual subdirectory defect with a scenario the shipped test does NOT cover — a commit that touches ONLY the brain file (.vfkb/entries.jsonl), invoked from a subdirectory: against the real pre-fix commit f0623f7, handoffIsStale('/tmp/subtest/sub', ...) returns true (a genuine false positive — the pin is NOT actually stale, only the brain file changed), while handoffIsStale('/tmp/subtest', ...) from the repo root correctly returns false; against the real post-fix commit d3ba6c6, both invocations correctly return false. So the underlying source fix in src/stop-reminder.ts is real, correct, and necessary — but the specific committed regression test does not exercise it, and a future refactor that silently reintroduces the exact subdirectory bug would pass CI undetected by this test."
+    },
+    {
+      "id": "F2",
+      "severity": "major",
+      "status": "open",
+      "category": "correctness",
+      "file": "src/stop-reminder.ts",
+      "line": 173,
+      "short_summary": "newestHandoffTimestamp ignores isInjectable, causing false negatives",
+      "summary": "newestHandoffTimestamp() (src/stop-reminder.ts:166-195) selects the max `updated`/`created` timestamp across ALL handoff/next-tagged entries in the brain, with no equivalent of engine.ts's isInjectable() filtering (excludes zone=archive, status deprecated/superseded, provenance stale/expired, expired valid_until — src/engine.ts:388-399, used by the real pin-selection function latestHandoff() at src/engine.ts:447-469). Because the code always uses the raw maximum timestamp rather than the real injectable pin's timestamp (which is always <= that maximum), this bias is one-directional: whenever a later-timestamped but non-injectable handoff-tagged entry exists in the brain, B3 silently UNDER-reports staleness (false negative) for the actual currently-pinned handoff — exactly the class of drift this mechanism exists to catch. The function's own docstring acknowledges this is a deliberate simplification ('a future RFC can tighten this if that assumption ever breaks in practice'); this finding demonstrates a concrete, working break, not a hypothetical one.",
+      "failure_scenario": "Empirically verified in a scratch repo (/tmp/falsneg): entry H1 (updated 2025-01-01, ordinary fields, would be selected by engine.ts's real latestHandoff() as the pin) is committed; a real, unrelated non-brain commit (src/x.ts) lands 2025-03-01 — this SHOULD make H1 stale; entry H2 (updated 2025-06-01, zone='archive', status='superseded' — excluded from injection by isInjectable()) is appended afterward, still tagged handoff/next. Running handoffIsStale('/tmp/falsneg', '/tmp/falsneg/.vfkb') against the real post-fix build (commit d3ba6c6) returns `false` — it should return `true`, since the real, currently-injectable pin (H1) genuinely predates real work that landed after it. The nudge never fires for this session, silently defeating B3's stated purpose."
+    },
+    {
+      "id": "F3",
+      "severity": "minor",
+      "status": "open",
+      "category": "robustness",
+      "file": "src/cli.ts",
+      "line": 688,
+      "short_summary": "An unexpected throw inside gatherStopContext() crashes the hook with zero stdout, not fail-open",
+      "summary": "src/cli.ts:688 calls `decideStop({ stop_hook_active: false }, gatherStopContext())` inside `dispatch()` (cli.ts:144-...), which is itself called from `main()`'s try block (cli.ts:127-137: `try { await dispatch(); } catch (err) { if (err instanceof UsageError) {...; process.exit(1);} throw err; }`). This catch only special-cases `UsageError` — every OTHER exception is deliberately re-thrown. `main()` is invoked at cli.ts:806 as a bare `main();` with no `.catch()` chained, and there is no process-level `unhandledRejection`/`uncaughtException` handler anywhere in cli.ts (grepped, none found) — so a re-thrown non-UsageError becomes an unhandled promise rejection and crashes the process. Eight lines above the gatherStopContext() call, in the SAME function, `SessionState.load()`/`.save()` IS explicitly wrapped in its own local try/catch ('session bookkeeping must never wedge the turn', cli.ts:679-687) — a defensive pattern not extended to gatherStopContext(). Every individual git/file call currently inside handoffIsStale/hasUncommittedWork/newBrainEntriesSinceHead has its own internal try/catch (separately verified fail-open on an unborn-HEAD repo and a non-git directory), so this is not currently triggerable by any input this PR's own code paths produce. But this PR adds 3 new execFileSync invocations to the very same call site, so the Stop hook's ENTIRE fail-open contract (decision-capture, B1, and B3 nudges alike, not just B3) now rests on every one of those internal catches staying exhaustive forever, with no outer backstop matching the pattern used 8 lines earlier in the identical function — and I confirmed directly that when that assumption breaks, the failure mode is a hard crash, not a graceful fail-open.",
+      "failure_scenario": "Empirically verified end-to-end (not just reasoned): mutated handoffIsStale() in a scratch build to `throw new Error(...)` immediately (simulating a future statement accidentally left outside its own try/catch), then ran `dist/cli.js hook stop` against a real git repo via stdin. Result: process exits with code 1, stdout is completely empty (no `{}`, no valid Stop-hook JSON), and the only output is a Node.js stack trace on stderr: `at handoffIsStale (stop-reminder.js:196) / at gatherStopContext (stop-reminder.js:242) / at dispatch (cli.js:666) / at async main (cli.js:104)`. Claude Code's Stop hook contract expects either `{}` or the `hookSpecificOutput` JSON shape on stdout; a crashed process producing neither is not the fail-open behavior RFC-011/ADR-0033/ADR-0034 establish for this file's siblings — it is an unhandled crash."
+    },
+    {
+      "id": "F4",
+      "severity": "minor",
+      "status": "open",
+      "category": "consistency",
+      "file": "src/stop-reminder.ts",
+      "line": 73,
+      "short_summary": "STALE_HANDOFF_REMINDER repeats the pre-existing wrong MCP tool name (verified reasonable to defer)",
+      "summary": "STALE_HANDOFF_REMINDER (src/stop-reminder.ts:73) uses `mcp__vfkb__kb_add`, matching STOP_REMINDER (line 41) and HANDOFF_REMINDER (line 58) verbatim. Per this repo's own CLAUDE.md ('Verified live 2026-07-07: plugin MCP tools are namespaced mcp__plugin_vfkb_vfkb__kb_*, not the bare mcp__vfkb__kb_* of the old .mcp.json wiring'), this name does not match the live wiring in this repo. Codex's finding is accurate, and I confirmed the exact string is byte-identical across all three reminders. The PR's stated rationale for not fixing it ('STOP_REMINDER and HANDOFF_REMINDER use the exact same generic naming; fixing only the new reminder would make the three inconsistent with each other') is verified TRUE and is reasonable scoping for this PR — it neither introduces nor worsens the defect. Flagging as a minor finding only because the underlying inaccuracy is real and user-facing (not because the PR's own judgment call was wrong): worth a follow-up that fixes all three names together. Secondary observation: unlike STOP_REMINDER (which also offers a CLI fallback, `vfkb add decision ...`), neither HANDOFF_REMINDER nor STALE_HANDOFF_REMINDER offers a CLI fallback if the MCP name fails to resolve — but this gap is likewise pre-existing (shared with the B1 sibling), not new to this PR.",
+      "failure_scenario": "An agent that takes STALE_HANDOFF_REMINDER literally and calls `mcp__vfkb__kb_add` verbatim in this repo's live session gets a tool-not-found result (the real name is namespaced `mcp__plugin_vfkb_vfkb__kb_add`), with no CLI fallback offered in this specific reminder's text — though a capable agent would likely recover by listing available tools or using the CLI path documented elsewhere in the session's own injected knowledge bundle."
+    },
+    {
+      "id": "F5",
+      "severity": "minor",
+      "status": "open",
+      "category": "correctness",
+      "file": "src/stop-reminder.ts",
+      "line": 235,
+      "short_summary": "handoffIsStale permanently fails open if the brain lives outside the repo (currently unreachable config)",
+      "summary": "When brainDir() resolves to a path outside the git repository being checked, `relative(root, brain)` produces a path with `../` segments, and the resulting exclude pathspec (`:(exclude)../outsidebrain-data`) makes the final `git diff` call (src/stop-reminder.ts:249) fail with 'fatal: ... is outside repository' (git exit code 128). The code's `catch (e) { return status === 1 }` (line 252) correctly treats this as fail-open per its own documented contract ('anything other than exit 1 -> fail-open'), but the practical effect is that B3 can NEVER fire for that configuration, even when a real, obviously stale-making commit has landed. This is currently out of reach for THIS repo (ADR-0019 establishes brain-inside-repo as a design invariant, and CLAUDE.md lists the one configuration where the brain would live elsewhere — an 'H3 global tier' — as explicitly Parked, not shipped), so this is a latent rather than live limitation. Worth a one-line comment (or an explicit early return) if that tier is ever un-parked, so the silent no-op isn't rediscovered from scratch.",
+      "failure_scenario": "Verified empirically: brain at /tmp/outsidebrain-data, an unrelated git repo at /tmp/outsidebrain-repo. A genuine commit lands in the repo strictly after the pinned handoff's timestamp. handoffIsStale('/tmp/outsidebrain-repo', '/tmp/outsidebrain-data') still returns false — confirmed the underlying `git diff --quiet <anchor> HEAD -- . :(exclude)../outsidebrain-data` call exits 128 ('fatal: :(exclude)../outsidebrain-data: ... is outside repository'), which the code classifies as fail-open rather than as the real, detectable staleness that exists."
+    }
+  ],
+  "ruledOut": [
+    "Dedicated RFC/ADR required before merge: ruled out. B3 is the same Stop-hook-nudge class as its sibling B1 (which did go through the full RFC-011 -> ADR-0034 -> L4 cycle), but every surface I checked (commit f0623f7 message, commit d3ba6c6 message, and brain decision 37b0570bdfa5 in .vfkb/entries.jsonl) consistently and explicitly labels it 'built, NOT yet verified -- no RFC/ADR and no agent-driven L4 scenario yet', satisfying ADR-0051's disclosure requirement; it never claims 'done/shipped' without that caveat, and the pragmatic-patch path was an explicit, on-record operator choice. Given full disclosure plus B3's fail-open, text-only-nudge (non-destructive) nature, I did not find the absence of a governing document alone sufficient to block THIS diff from merging -- though B3 must continue to be treated as unproven (no L4) in any future doc/handoff/roadmap reference, per ADR-0051.",
+    "AI attribution in commit messages: ruled out. Checked `git log -p` across both commits on this branch for co-authored-by/anthropic/noreply@anthropic/(robot emoji)/'Generated with Claude Code' -- none found.",
+    "Secrets/credentials in the diff: ruled out. Grepped the full diff for api key/secret/token/password/-----BEGIN patterns -- none found.",
+    "Windows path-separator handling: partially ruled out by static inspection only (UNVERIFIED beyond that -- no Windows environment available to actually run this). `.replace(/\\\\/g, '/')` is applied consistently at all 3 sites that compute brain-relative paths in this file (hasUncommittedWork, newBrainEntriesSinceHead, handoffIsStale) -- the new code matches the pre-existing pattern of its siblings, so it is not LESS consistent than what already shipped, but true Windows behavior of the new `:(exclude)` pathspec was not actually exercised.",
+    "Two handoff-tagged entries with identical timestamps: ruled out as a practical bug. newestHandoffTimestamp()'s `ts.localeCompare(newest) > 0` keeps the earliest-encountered entry on an exact timestamp tie, diverging from engine.ts's real latestHandoff() tiebreak (updated, then created, then append-position via `>= 0`) -- but since both entries share the identical `since` value in that case, the anchor-commit computation and thus handoffIsStale's result are unaffected either way.",
+    "Repo with zero commits (fresh init, unborn HEAD): ruled out. Verified empirically -- handoffIsStale() and gatherStopContext() both return cleanly (false / fail-open) with no thrown exception against a freshly `git init`'d directory with no commits at all.",
+    "execFileSync 1 MiB default-buffer risk (the codex P2 fix): ruled out / confirmed sound. Node.js's execFileSync has a well-documented default maxBuffer of 1 MiB; the fix correctly moved the potentially-large `git diff` call to `--quiet` with `stdio: 'ignore'` (no captured output). The two remaining calls that DO capture stdout (rev-parse --show-toplevel, rev-list -1 --before=...) each only ever return a single short string (a path or a SHA), so no buffer risk remains anywhere in the new code.",
+    "Shell/argument injection via a crafted brain entry timestamp: ruled out. All execFileSync calls pass arguments as an array (no shell involved), so a malicious `since` value from a brain entry cannot escape into a shell command; at worst it produces a malformed git argument that git itself rejects, which is caught and fails open.",
+    "Pathspec directory-exclusion correctness (`:(exclude)<dir>`): ruled out / confirmed correct. Verified empirically that this correctly excludes an entire directory recursively (including nested files like .vfkb/sub/nested.json), and still correctly detects genuine changes outside it.",
+    "ISO-8601-with-milliseconds-and-Z date parsing (the actual format vfkb entries use, e.g. 2026-07-29T18:02:15.000Z): ruled out. Verified empirically that `git rev-list --before=<that exact format>` correctly resolves to the commit at that timestamp."
+  ],
+  "mutations": [
+    {
+      "guard": "test/stop-reminder.test.ts > decideStop — stale-handoff nudge > blocks with the stale-handoff reminder when handoffStale=true",
+      "mutation": "deleted the B3 branch (`if (ctx.handoffStale) reminders.push(STALE_HANDOFF_REMINDER);`) from decideStop() in src/stop-reminder.ts",
+      "observedRed": true
+    },
+    {
+      "guard": "test/stop-reminder.test.ts > decideStop — stale-handoff nudge > is NOT gated on uncommittedWork — the defining case is a clean tree",
+      "mutation": "same B3-branch deletion from decideStop() as above",
+      "observedRed": true
+    },
+    {
+      "guard": "test/stop-reminder.test.ts > decideStop — stale-handoff nudge > composes with the decision + handoff nudges when all three trigger",
+      "mutation": "same B3-branch deletion from decideStop() as above",
+      "observedRed": true
+    },
+    {
+      "guard": "test/stop-reminder.test.ts > cli hook stop — emits the verified Stop contract > B3: nudges for a stale pinned handoff even with a CLEAN working tree",
+      "mutation": "in gatherStopContext() (src/stop-reminder.ts), replaced `handoffStale: handoffIsStale(cwd, brain)` with a hardcoded `handoffStale: false`, simulating the B3 wiring never having been connected end-to-end through the real CLI hook",
+      "observedRed": true
+    },
+    {
+      "guard": "test/stop-reminder.test.ts > handoffIsStale > true when a long-lived branch merges in after the handoff (merge-commit case)",
+      "mutation": "checked out the real pre-fix commit f0623f7 (the `git log --since --name-only` walk instead of the tree-diff-against-an-anchor-commit approach) with the post-fix test file layered on top",
+      "observedRed": true
+    },
+    {
+      "guard": "test/stop-reminder.test.ts > handoffIsStale > false when the only commit since touches another committed brain file (manifest.json)",
+      "mutation": "same pre-fix checkout (f0623f7) — entries.jsonl-only exclusion instead of whole-brain-directory exclusion",
+      "observedRed": true
+    },
+    {
+      "guard": "test/stop-reminder.test.ts > handoffIsStale > true when a non-brain commit landed after the pinned handoff; > resolves correctly when invoked from a subdirectory, not the repo root; > cli hook stop ... B3: nudges for a stale pinned handoff even with a CLEAN working tree",
+      "mutation": "stubbed handoffIsStale() in src/stop-reminder.ts to unconditionally `return false` (whole-B3-feature-deleted baseline sanity check)",
+      "observedRed": true
+    }
+  ],
+  "mutationsNote": "F1 documents a mutation (reverting only the root-resolution portion of handoffIsStale, keeping the rest post-fix) under which 'resolves correctly when invoked from a subdirectory, not the repo root' stayed GREEN — that is reported as finding F1, not listed here, per the review-gate's own rule that a guard which does not go red under its mutation is a finding, not a log entry.",
+  "verdict": "FIX-FIRST"
+}

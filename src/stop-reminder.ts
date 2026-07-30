@@ -15,6 +15,8 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { brainDir } from './storage.js';
+import { isInjectable, supersededIds } from './engine.js';
+import type { KnowledgeEntry } from './types.js';
 
 export interface StopHookInput {
   stop_hook_active?: boolean;
@@ -29,6 +31,8 @@ export interface StopContext {
   newEntries?: number;
   /** count of `handoff`/`next`-tagged entries appended to the brain since HEAD */
   newHandoffs?: number;
+  /** the currently pinned handoff/next entry predates a non-brain commit (B3) */
+  handoffStale?: boolean;
 }
 
 export type StopDecision = { block: false } | { block: true; reminder: string };
@@ -58,6 +62,31 @@ export const HANDOFF_REMINDER =
   '(a real "next:", not just a summary). If you are still mid-session, ignore this and ' +
   'finish normally — the SessionEnd floor will leave a fallback if you never do.';
 
+// B3 (pragmatic patch, built NOT yet verified — no RFC/ADR/L4 yet): unlike B1/B2, this
+// is not about whether THIS session recorded a handoff — it fires when a commit already
+// landed (e.g. a merged PR, possibly from another session or an autonomous merge) *after*
+// the currently pinned handoff's timestamp, so the pin itself is now stale regardless of
+// what this session did. Deliberately NOT gated on `uncommittedWork`: the defining case is
+// everything already committed/merged and the working tree clean.
+//
+// Nag risk (review round 3): unlike B1, this has no entry-count threshold and no
+// SessionEnd-floor equivalent for a STALE (vs missing) pin, so once it fires it keeps
+// firing every turn until a fresh handoff/next entry actually exists — RFC-011 §B's
+// per-turn-nag concern applies here too. Mitigated the same way B1 mitigates it: an
+// explicit "if mid-session, this is fine to defer" escape clause in the reminder text
+// (see below) — not a threshold, since B3's trigger is external (git history), not a
+// count of this session's own activity, so "wait for N entries" doesn't fit the same way.
+export const STALE_HANDOFF_REMINDER =
+  'vfkb stale-handoff check: the currently pinned handoff/next entry predates a commit that ' +
+  'landed since it was written (e.g. a merged PR, possibly from another session or an ' +
+  'autonomous merge) — a fresh session would start from an out-of-date "what happened" ' +
+  'pointer. If you are WRAPPING UP, record a fresh handoff now — `mcp__vfkb__kb_add` ' +
+  '(type=fact, tags=handoff,next, role=human), or /vfkb:handoff if available — naming what ' +
+  'actually changed and what is next now. If you are still mid-session and plan to record ' +
+  'one before you finish, it is fine to ignore this for now — but unlike the other nudges, ' +
+  'this one has no SessionEnd fallback for a STALE (as opposed to missing) pin, so it will ' +
+  'keep reminding you each turn until a fresh handoff/next entry actually exists.';
+
 /**
  * The pure decision. Block (inject the reminder, continuing the turn) only when a
  * decision *plausibly* went unrecorded; otherwise allow the stop.
@@ -76,6 +105,9 @@ export function decideStop(input: StopHookInput, ctx: StopContext): StopDecision
   // accumulated AND no handoff/next entry yet. Self-silences once a handoff is recorded.
   if (ctx.uncommittedWork && (ctx.newEntries ?? 0) >= HANDOFF_MIN_ENTRIES && (ctx.newHandoffs ?? 0) === 0)
     reminders.push(HANDOFF_REMINDER);
+  // Stale-handoff nudge (B3): NOT gated on uncommittedWork — the defining case is a clean
+  // working tree with everything already merged, and the pinned handoff behind it anyway.
+  if (ctx.handoffStale) reminders.push(STALE_HANDOFF_REMINDER);
   if (reminders.length === 0) return { block: false };
   return { block: true, reminder: reminders.join('\n\n') };
 }
@@ -100,6 +132,8 @@ export function hasUncommittedWork(cwd: string = process.cwd(), brain: string = 
 interface BrainLine {
   type?: string;
   tags?: string[];
+  updated?: string;
+  created?: string;
 }
 
 /**
@@ -143,6 +177,123 @@ export function uncommittedDecisionCount(brain: string = brainDir(), cwd: string
 
 const isHandoff = (e: BrainLine): boolean => (e.tags ?? []).some((t) => t === 'handoff' || t === 'next');
 
+/**
+ * ISO timestamp of the currently PINNED handoff/next entry — the same selection engine.ts's
+ * `latestHandoff()` uses for `resume`/`/vfkb:brief` (newest-by-`updated`-then-`created` among
+ * INJECTABLE entries: not archived, not superseded, not deprecated, provenance not
+ * stale/expired, not past `valid_until`). Reuses the engine's own `isInjectable`/
+ * `supersededIds` rather than re-simplifying that logic — an earlier version of this function
+ * used bare newest-by-timestamp with no injectability filtering, which review found produces
+ * a real false negative: a later archived/superseded handoff entry can mask an earlier,
+ * actually-pinned one, making a genuinely stale handoff read as fresh.
+ *
+ * Reads the WHOLE brain (committed + uncommitted) directly from the file rather than via
+ * `readAll()`/`materialize()`, so it works with an explicit `brain` path for testability
+ * instead of env-var-based `brainDir()` resolution.
+ */
+function newestHandoffTimestamp(brain: string): string | undefined {
+  const file = join(brain, 'entries.jsonl');
+  let lines: string[];
+  try {
+    lines = readFileSync(file, 'utf8').split('\n').filter(Boolean);
+  } catch {
+    return undefined; // no brain file yet
+  }
+  const all: KnowledgeEntry[] = [];
+  for (const l of lines) {
+    try {
+      all.push(JSON.parse(l) as KnowledgeEntry);
+    } catch {
+      continue;
+    }
+  }
+  const superseded = supersededIds(all);
+  const today = new Date().toISOString().slice(0, 10);
+  let newest: KnowledgeEntry | undefined;
+  for (const e of all) {
+    if (!isHandoff(e)) continue;
+    // Defensive: a malformed/partial entry (missing provenance/validity — should not exist
+    // in a real engine-written brain, but this reads the raw file directly, not through
+    // addEntry's guarantees) must not crash classification of every OTHER entry. Treat it
+    // as non-injectable — the safe default this file already uses elsewhere (skip, don't
+    // nag) when something is unexpected.
+    let injectable: boolean;
+    try {
+      injectable = isInjectable(e, today, superseded);
+    } catch {
+      continue;
+    }
+    if (!injectable) continue;
+    if (!newest) {
+      newest = e;
+      continue;
+    }
+    // Same total order as latestHandoff (engine.ts): updated, then created, `>=` keeps the
+    // later entry on a full-timestamp tie (the newest write in an append-only log).
+    const cmp = e.updated.localeCompare(newest.updated) || e.created.localeCompare(newest.created);
+    if (cmp >= 0) newest = e;
+  }
+  return newest?.updated;
+}
+
+const EMPTY_TREE_SHA = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'; // git's well-known empty-tree object
+
+/**
+ * True when the tree at HEAD differs — outside the brain directory — from the tree as of
+ * the commit nearest the pinned handoff's timestamp. The signal that the currently
+ * pinned handoff no longer reflects the branch's real state (e.g. a PR merged after the
+ * handoff was written).
+ *
+ * Deliberately a TREE diff between an anchor commit and HEAD, not a `git log --since`
+ * walk: `--name-only` prints no paths for an ordinary merge commit by default (verified
+ * empirically), so a long-lived branch whose own commits predate the handoff but whose
+ * merge lands after it would be silently missed by a log-walk. Diffing two trees
+ * sidesteps merge-commit display/simplification entirely, and `--quiet` (exit-code only,
+ * no captured output) avoids buffering a large file list for a repo with a lot of history
+ * since an old handoff.
+ *
+ * Resolves the repo root via `git rev-parse --show-toplevel` and runs there — pathspecs
+ * are resolved relative to the invocation cwd, so running from a subdirectory (a
+ * supported hook condition) without this would silently exclude the wrong path.
+ *
+ * General across projects: unlike `hasUncommittedWork`, this makes no `src/`/`docs/`
+ * assumption, since a consumer repo may use neither layout — and excludes the WHOLE
+ * brain directory (entries.jsonl, manifest.json, any future committed brain file), not
+ * one hardcoded filename.
+ */
+export function handoffIsStale(cwd: string = process.cwd(), brain: string = brainDir()): boolean {
+  // One outer backstop around the whole function, on top of the targeted inner handling
+  // below — defense in depth (review finding F3): every individual git call already fails
+  // open, but an uncaught exception ANYWHERE in this chain (this hook's own `main()` has no
+  // top-level catch) would otherwise crash `cli.ts hook stop` entirely — zero stdout, not
+  // fail-open — instead of just skipping this one nudge.
+  try {
+    const since = newestHandoffTimestamp(brain);
+    if (!since) return false; // no handoff pinned yet — B1/B2 own that gap, not this trigger
+    const root = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    const brainRel = relative(root, brain).replace(/\\/g, '/');
+    const exclude = `:(exclude)${brainRel}`;
+    const anchor = execFileSync('git', ['rev-list', '-1', `--before=${since}`, 'HEAD'], {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    const base = anchor || EMPTY_TREE_SHA; // handoff predates all history → diff against nothing
+    try {
+      execFileSync('git', ['diff', '--quiet', base, 'HEAD', '--', '.', exclude], { cwd: root, stdio: 'ignore' });
+      return false; // exit 0: no non-brain difference
+    } catch (e) {
+      return (e as { status?: number }).status === 1; // exit 1: a real diff; anything else → fail-open
+    }
+  } catch {
+    return false; // not a repo / git missing / anything unexpected → fail-open (don't nag)
+  }
+}
+
 /** Impure shell: gather the real context for `decideStop` from git + the brain. */
 export function gatherStopContext(cwd: string = process.cwd(), brain: string = brainDir()): StopContext {
   const fresh = newBrainEntriesSinceHead(brain, cwd);
@@ -151,5 +302,6 @@ export function gatherStopContext(cwd: string = process.cwd(), brain: string = b
     newDecisions: fresh.filter((e) => e.type === 'decision').length,
     newEntries: fresh.length,
     newHandoffs: fresh.filter(isHandoff).length,
+    handoffStale: handoffIsStale(cwd, brain),
   };
 }
