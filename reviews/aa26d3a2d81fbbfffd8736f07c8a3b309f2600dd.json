@@ -1,0 +1,63 @@
+{
+  "recordVersion": 1,
+  "sha": "aa26d3a2d81fbbfffd8736f07c8a3b309f2600dd",
+  "governing": [
+    "docs/rfc/RFC-011-session-end-continuity.md",
+    "docs/adr/ADR-0033-session-end-continuity.md",
+    "docs/adr/ADR-0034-b1-handoff-nudge.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "claude-sonnet-5", "rounds": 1 },
+  "generated": "2026-07-30T06:36:00Z",
+  "findings": [],
+  "ruledOut": [
+    {
+      "id": "F1-round2",
+      "note": "CONFIRMED GENUINELY FIXED this time — verified from scratch, not by trusting the commit message. Round 2's F1 (reviews/a9d8ba4254177c41be12fb2e477fe525e5c47baa.json) found the subdirectory regression test vacuous because `--before` is inclusive of the exact handoff second, making `anchor === HEAD` a trivial self-diff. The round-3 fix (test/stop-reminder.test.ts:287-294, 'does not miss a real change landed OUTSIDE the invocation subdirectory') lands a THIRD commit ('other/external.ts', 2025-09-01) outside the invocation subdirectory ('sub/'), after the handoff, so anchor != HEAD and the diff is non-trivial. First verified the claimed raw-git mechanism independently in a fresh scratch repo (not the vitest harness): built 3 commits (sub/base.ts @2025-01-01, .vfkb/entries.jsonl handoff @2025-06-01, other/external.ts @2025-09-01), computed anchor via `git rev-list -1 --before=2025-06-01T00:00:00Z HEAD`, then ran `git diff --quiet <anchor> HEAD -- . :(exclude)../.vfkb` from inside sub/ (no root resolution) => exit 0 (silently MISSED the real change — a genuine false negative), vs the same diff run from the resolved repo root with `:(exclude).vfkb` => exit 1 (correctly detected). This confirms the commit message's mechanism claim (`.` as the first pathspec argument scopes the diff to the invocation cwd) is real, not just plausible narrative. Then mutation-tested the actual TypeScript against the real vitest suite: (1) replaced `root = execFileSync('git', ['rev-parse','--show-toplevel'], ...)` with `root = cwd` in src/stop-reminder.ts (deleting the F1 fix) — result: exactly 1 of 31 tests went red, and it was this exact test ('expected false to be true'); all 30 others (including every other handoffIsStale/decideStop/CLI-e2e case) stayed green. Restored, reran, 31/31 green. (2) Cross-check for specificity: broke only the exclude pathspec (`:(exclude)DOES_NOT_EXIST_MUTATION`) instead — this time a DIFFERENT test went red ('false when the only commit since touches another committed brain file (manifest.json)'), and the subdirectory test stayed green, confirming the two tests genuinely isolate two different properties rather than one masking for the other. Restored, reran, 31/31 green, working tree clean (`git status --short` empty) after each mutation cycle."
+    },
+    {
+      "id": "B3-nag-round2",
+      "note": "Reasonably and honestly resolved, proportionate to what round 2 asked for (an explicit escape/framing clause, not a full threshold mechanism — B3's trigger is external git history, not a count of this session's own activity, so 'wait for N entries' genuinely doesn't transfer from B1). Verified the specific accuracy claim myself: STALE_HANDOFF_REMINDER (src/stop-reminder.ts:79-88, preceded by a 'Nag risk (review round 3)' comment at lines 72-78) now says 'this one has no SessionEnd fallback for a STALE (as opposed to missing) pin.' Read src/session-end.ts:198-211 directly: writeAutoHandoff() (the B2 floor) only fires when `fresh.length > 0 && !fresh.some(isHandoff)` — i.e. it is driven purely by whether THIS session's own new-since-HEAD entries include a handoff, never by handoffIsStale()/newestHandoffTimestamp() or any check of whether an EXISTING pin is stale relative to external git history. So the claim is accurate: there is no code path in session-end.ts keyed on staleness of an already-present pin — confirmed by grep (`grep -n handoff src/session-end.ts`) and direct read, not by trusting the comment. Also verified the self-silencing property the commit message doesn't explicitly claim but the text implies ('until a fresh handoff/next entry actually exists'): newestHandoffTimestamp() reads `entries.jsonl` via `readFileSync` directly from disk (src/stop-reminder.ts:198, inside newestHandoffTimestamp() defined at line 194), not through git, so an agent calling kb_add mid-session (before any commit) immediately changes `since` to 'now' on the very next Stop-hook turn, at which point no commit can postdate it and handoffIsStale() flips to false without requiring a commit — functionally the same self-silencing shape ADR-0034 built for B1 (silences the instant a real handoff/next entry is recorded, committed or not). Residual, accepted limitation (not re-opened as a finding): B3 still has no accumulated-signal threshold, so it can fire on turn 1 of a freshly-started session with zero session activity if the pin happens to be externally stale — but this is now transparently disclosed in-band via the escape clause (matching HANDOFF_REMINDER's pattern) rather than silently nagging, which is the proportionate fix the round-2 finding asked for given B3 is explicitly shipped as a disclosed 'pragmatic patch, built NOT yet verified' (brain decision 37b0570bdfa5, .vfkb/entries.jsonl) rather than a fully-designed mechanism."
+    },
+    {
+      "id": "F2-round1",
+      "note": "Not re-litigated in depth — unchanged since round 2's own from-scratch mutation verification (isInjectable()/supersededIds() filtering in newestHandoffTimestamp, src/stop-reminder.ts). Confirmed via `git diff a9d8ba4..aa26d3a -- src/stop-reminder.ts` that this function received zero changes in the round-3 commit (only STALE_HANDOFF_REMINDER's text and its surrounding comment changed). Full suite (567/567, including the 'a later archived handoff entry does not mask an earlier real pin' regression test) still green at this HEAD."
+    },
+    {
+      "id": "F3-round1",
+      "note": "Not re-litigated in depth — unchanged since round 2's own mutation verification (outer try/catch backstop around handoffIsStale(), src/stop-reminder.ts:270-294). Confirmed unchanged in the round-3 diff. Spot-checked myself anyway: injected a forced `throw new TypeError(...)` immediately after computing `since` inside the try block, rebuilt (`npm run build`), ran the real `dist/cli.js hook stop` via stdin against this actual repo — result: clean exit 0, valid Stop-hook JSON on stdout (the HANDOFF_REMINDER fired normally; no crash), confirming the outer catch still absorbs an unexpected throw without taking down the whole hook. Reverted, rebuilt, confirmed working tree clean and full suite green again."
+    },
+    {
+      "id": "F4-round1",
+      "note": "Not re-litigated — MCP tool naming (mcp__vfkb__kb_add vs mcp__plugin_vfkb_vfkb__kb_add) was judged acceptable to leave as internally-consistent-with-siblings in round 1 and correctly untouched since. STALE_HANDOFF_REMINDER still uses the same generic name as STOP_REMINDER/HANDOFF_REMINDER (verified byte-identical pattern `mcp__vfkb__kb_add`, src/stop-reminder.ts:83, within the STALE_HANDOFF_REMINDER const at lines 79-88)."
+    },
+    {
+      "id": "F5-round1",
+      "note": "Not re-litigated — brain-outside-repo edge case judged currently unreachable (ADR-0019 brain-inside-repo invariant; H3 global tier parked) in round 1, correctly left alone since."
+    },
+    {
+      "id": "source-text-guard-check",
+      "note": "Checked per ADR-0070 §1: no NEW test was added for the STALE_HANDOFF_REMINDER wording change (grepped test/stop-reminder.test.ts for STALE_HANDOFF_REMINDER / 'mid-session' / 'ignore this' — only the two pre-existing behavioral tests at lines 101 and 131 reference the exported constant, both by identity/containment against decideStop's real output, not by grepping src text). So there is no vacuous or source-text guard introduced for this change — it is an honest prose fix with no accompanying (and no needed) test."
+    },
+    {
+      "id": "ai-attribution-and-secrets",
+      "note": "Ran `git log -p` across the full merge-base..HEAD range and grepped for co-authored-by/anthropic/noreply@anthropic/🤖/'Generated with Claude Code' and for api-key/secret/token/password/-----BEGIN patterns across all 4 commits — none found. All commits authored by `vilosource <vilosource@users.noreply.github.com>` (the repo's normal GitHub noreply address, not an AI-attribution string)."
+    },
+    {
+      "id": "build-and-full-suite",
+      "note": "`npm run build` (tsc) succeeds clean at this HEAD. `npx vitest run` (full suite): 567/567 tests, 49/49 files passing, matching the round-3 commit message's own claim exactly. Working tree clean (`git status --short` empty) after all mutation cycles were reverted."
+    },
+    {
+      "id": "governing-doc-choice",
+      "note": "Per task instructions, RFC-011/ADR-0033/ADR-0034 remain the governing set (same as rounds 1-2); the absence of a dedicated ADR/RFC for B3 itself was already litigated in round 1 and is not re-litigated here. RFC-024 (staleness-detection-and-delivery-honesty) was checked as a candidate additional governing doc via graphify orientation but is about `vfkb doctor`/plugin-install staleness, a different mechanism from this Stop-hook nudge — not applicable here."
+    }
+  ],
+  "mutations": [
+    {
+      "guard": "test/stop-reminder.test.ts > handoffIsStale > does not miss a real change landed OUTSIDE the invocation subdirectory",
+      "mutation": "Replaced `const root = execFileSync('git', ['rev-parse','--show-toplevel'], {...}).trim()` with `const root = cwd;` in handoffIsStale() (src/stop-reminder.ts), reverting the F1 root-resolution fix.",
+      "observedRed": true
+    }
+  ],
+  "mutationsNote": null,
+  "verdict": "MERGE"
+}
