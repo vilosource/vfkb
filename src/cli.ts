@@ -675,17 +675,31 @@ async function dispatch() {
         return;
       }
       // ADR-0039: a real (non-re-entry) Stop = one turn ended — accumulate it on the
-      // session record so continuity signals survive across `--resume` turns.
+      // session record so continuity signals survive across `--resume` turns. The same
+      // record carries the nudge-cooldown state (operator ruling 2026-07-31): thread the
+      // turn count + last-fired turns into decideStop, and record back which nudges
+      // fired. If bookkeeping fails, turn/lastNudged stay undefined and decideStop
+      // falls back to the pre-cooldown behavior (fire) — never wedge the turn.
+      let session: SessionState | undefined;
+      let turn: number | undefined;
+      let lastNudged: Record<string, number> | undefined;
       try {
-        const session = SessionState.load(
+        session = SessionState.load(
           effectiveSessionId(typeof input.session_id === 'string' ? input.session_id : undefined),
         );
         session.bumpTurn();
-        session.save();
+        turn = session.turnCount;
+        lastNudged = session.nudgedAtTurn;
       } catch {
         /* session bookkeeping must never wedge the turn */
       }
-      const d = decideStop({ stop_hook_active: false }, gatherStopContext());
+      const d = decideStop({ stop_hook_active: false }, { ...gatherStopContext(), turn, lastNudged });
+      try {
+        if (d.block && session) for (const key of d.fired) session.markNudged(key);
+        session?.save();
+      } catch {
+        /* session bookkeeping must never wedge the turn */
+      }
       process.stdout.write(
         d.block
           ? JSON.stringify({

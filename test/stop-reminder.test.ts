@@ -10,6 +10,7 @@ import {
   HANDOFF_REMINDER,
   HANDOFF_MIN_ENTRIES,
   STALE_HANDOFF_REMINDER,
+  NUDGE_COOLDOWN_TURNS,
 } from '../src/stop-reminder.js';
 
 const CLI = resolve(__dirname, '../dist/cli.js');
@@ -18,7 +19,7 @@ const CLI = resolve(__dirname, '../dist/cli.js');
 describe('decideStop — conditional end-of-turn reminder', () => {
   it('blocks with the reminder when work happened AND no decision was recorded', () => {
     const d = decideStop({ stop_hook_active: false }, { uncommittedWork: true, newDecisions: 0 });
-    expect(d).toEqual({ block: true, reminder: STOP_REMINDER });
+    expect(d).toEqual({ block: true, reminder: STOP_REMINDER, fired: ['decision'] });
   });
 
   it('does NOT block when a decision was already recorded this session', () => {
@@ -51,7 +52,7 @@ describe('decideStop — handoff nudge', () => {
 
   it('blocks with the handoff reminder when ≥threshold entries and NO handoff recorded', () => {
     const d = decideStop({ stop_hook_active: false }, { ...base, newEntries: HANDOFF_MIN_ENTRIES, newHandoffs: 0 });
-    expect(d).toEqual({ block: true, reminder: HANDOFF_REMINDER });
+    expect(d).toEqual({ block: true, reminder: HANDOFF_REMINDER, fired: ['handoff'] });
   });
 
   it('does NOT nudge below the entry threshold (weak signal → floor handles it)', () => {
@@ -98,7 +99,7 @@ describe('decideStop — stale-handoff nudge', () => {
       { stop_hook_active: false },
       { uncommittedWork: false, newDecisions: 1, newEntries: 0, newHandoffs: 0, handoffStale: true },
     );
-    expect(d).toEqual({ block: true, reminder: STALE_HANDOFF_REMINDER });
+    expect(d).toEqual({ block: true, reminder: STALE_HANDOFF_REMINDER, fired: ['staleHandoff'] });
   });
 
   it('is NOT gated on uncommittedWork — the defining case is a clean tree', () => {
@@ -136,6 +137,61 @@ describe('decideStop — stale-handoff nudge', () => {
     expect(
       decideStop({ stop_hook_active: true }, { uncommittedWork: false, newDecisions: 1, handoffStale: true }),
     ).toEqual({ block: false });
+  });
+});
+
+// ── nudge cooldown (operator ruling 2026-07-31): rate-limit every nudge type ──
+describe('decideStop — per-nudge cooldown', () => {
+  // The decision-nudge trigger held: uncommitted work, no decision recorded.
+  const trigger = { uncommittedWork: true, newDecisions: 0 };
+
+  it('fires when the nudge has never fired this session (lastNudged empty)', () => {
+    const d = decideStop({ stop_hook_active: false }, { ...trigger, turn: 5, lastNudged: {} });
+    expect(d).toEqual({ block: true, reminder: STOP_REMINDER, fired: ['decision'] });
+  });
+
+  it('stays quiet while inside the cooldown window, even though the trigger still holds', () => {
+    const d = decideStop(
+      { stop_hook_active: false },
+      { ...trigger, turn: NUDGE_COOLDOWN_TURNS, lastNudged: { decision: 1 } }, // turn-last = N-1 < N
+    );
+    expect(d).toEqual({ block: false });
+  });
+
+  it('fires again once the cooldown window has elapsed', () => {
+    const d = decideStop(
+      { stop_hook_active: false },
+      { ...trigger, turn: 1 + NUDGE_COOLDOWN_TURNS, lastNudged: { decision: 1 } }, // turn-last = N
+    );
+    expect(d).toEqual({ block: true, reminder: STOP_REMINDER, fired: ['decision'] });
+  });
+
+  it('cooldowns are independent per nudge type: a cooling decision nudge does not mute B1/B3', () => {
+    const d = decideStop(
+      { stop_hook_active: false },
+      {
+        uncommittedWork: true,
+        newDecisions: 0, // decision trigger holds, but cooling
+        newEntries: HANDOFF_MIN_ENTRIES,
+        newHandoffs: 0, // B1 trigger holds, never fired
+        handoffStale: true, // B3 trigger holds, never fired
+        turn: 3,
+        lastNudged: { decision: 2 },
+      },
+    );
+    expect(d.block).toBe(true);
+    if (d.block) {
+      expect(d.fired).toEqual(['handoff', 'staleHandoff']);
+      expect(d.reminder).not.toContain(STOP_REMINDER);
+      expect(d.reminder).toContain(HANDOFF_REMINDER);
+      expect(d.reminder).toContain(STALE_HANDOFF_REMINDER);
+    }
+  });
+
+  it('falls back to firing when session turn info is unavailable (fail-open toward reminding)', () => {
+    // no `turn` → the window cannot be computed, even with a recorded last-fired turn
+    const d = decideStop({ stop_hook_active: false }, { ...trigger, lastNudged: { decision: 1 } });
+    expect(d).toEqual({ block: true, reminder: STOP_REMINDER, fired: ['decision'] });
   });
 });
 
@@ -427,5 +483,23 @@ describe('cli hook stop — emits the verified Stop contract', () => {
     // working tree is now clean — every other trigger (decision/B1) requires uncommittedWork
     const out = JSON.parse(runStop(dir, { stop_hook_active: false }));
     expect(out.hookSpecificOutput.additionalContext).toContain('stale-handoff check');
+  });
+
+  it('cooldown: the same session is NOT re-nudged on the very next stop while the trigger holds', () => {
+    const dir = gitRepo();
+    writeFileSync(join(dir, 'src', 'foo.ts'), 'export const x = 1;\n'); // uncommitted work, no decision
+    const payload = { stop_hook_active: false, session_id: 'cooldown-e2e' };
+    const first = JSON.parse(runStop(dir, payload));
+    expect(first.hookSpecificOutput.decision).toBe('block'); // turn 1: nudge fires…
+    expect(runStop(dir, payload)).toBe('{}'); // …turn 2: same trigger still holds, but cooling
+  });
+
+  it('cooldown state is per-session: a different session_id still gets the nudge', () => {
+    const dir = gitRepo();
+    writeFileSync(join(dir, 'src', 'foo.ts'), 'export const x = 1;\n');
+    const a = JSON.parse(runStop(dir, { stop_hook_active: false, session_id: 'session-a' }));
+    expect(a.hookSpecificOutput.decision).toBe('block');
+    const b = JSON.parse(runStop(dir, { stop_hook_active: false, session_id: 'session-b' }));
+    expect(b.hookSpecificOutput.decision).toBe('block');
   });
 });

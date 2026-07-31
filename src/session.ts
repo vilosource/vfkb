@@ -66,6 +66,10 @@ export interface SessionData {
   agentLabel?: string; // free-form label — from $VFKB_AGENT_LABEL when set
   branch?: string; // git branch at session start (best-effort)
   pid?: number; // pid of the process that created the record
+  // Stop-hook nudge cooldown (operator ruling 2026-07-31): the turnCount at which each
+  // nudge type last fired, so a nudge repeats at most once per cooldown window instead
+  // of on every Stop while its trigger holds.
+  nudgedAtTurn?: Record<string, number>;
 }
 
 export class SessionState {
@@ -110,6 +114,7 @@ export class SessionState {
           agentLabel: loaded.agentLabel,
           branch: loaded.branch,
           pid: loaded.pid,
+          nudgedAtTurn: loaded.nudgedAtTurn,
         };
         this.injected = new Set(this.data.injectedIds);
         this.captured = new Set(this.data.capturedIds);
@@ -167,6 +172,17 @@ export class SessionState {
   }
   get turnCount(): number {
     return this.data.turnCount;
+  }
+  /** Turn at which the given Stop-hook nudge last fired (undefined = never). */
+  lastNudgedAt(key: string): number | undefined {
+    return this.data.nudgedAtTurn?.[key];
+  }
+  get nudgedAtTurn(): Record<string, number> | undefined {
+    return this.data.nudgedAtTurn;
+  }
+  /** Record that a Stop-hook nudge fired at the CURRENT turn (starts its cooldown). */
+  markNudged(key: string): void {
+    (this.data.nudgedAtTurn ??= {})[key] = this.data.turnCount;
   }
   get startedAt(): string {
     return this.data.startedAt;

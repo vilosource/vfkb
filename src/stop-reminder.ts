@@ -1,6 +1,8 @@
-// Stop-hook decision-capture reminder (RFC-008 / ADR-0027). A conditional,
-// once-per-turn end-of-turn nudge: when a turn plausibly made a decision but recorded
-// none, inject a reminder so the agent captures it before handing back to the user.
+// Stop-hook decision-capture reminder (RFC-008 / ADR-0027). A conditional end-of-turn
+// nudge: when a turn plausibly made a decision but recorded none, inject a reminder so
+// the agent captures it before handing back to the user. Each nudge type is rate-limited
+// to once per NUDGE_COOLDOWN_TURNS turns per session (operator ruling 2026-07-31) — a
+// standing trigger no longer nags on every Stop.
 //
 // Contract is EMPIRICALLY VERIFIED at Claude Code CLI v2.1.195 (brain gotcha
 // d70c0299e144): a Stop hook may emit
@@ -22,6 +24,9 @@ export interface StopHookInput {
   stop_hook_active?: boolean;
 }
 
+/** The three Stop-hook nudge types, each with its own independent cooldown window. */
+export type NudgeKey = 'decision' | 'handoff' | 'staleHandoff';
+
 export interface StopContext {
   /** working tree has uncommitted src/ or docs/ changes (substantive work happened) */
   uncommittedWork: boolean;
@@ -33,9 +38,22 @@ export interface StopContext {
   newHandoffs?: number;
   /** the currently pinned handoff/next entry predates a non-brain commit (B3) */
   handoffStale?: boolean;
+  /** this session's turn count AFTER the current turn was bumped (from SessionState) */
+  turn?: number;
+  /** turn at which each nudge last fired this session (from SessionState) */
+  lastNudged?: Partial<Record<NudgeKey, number>>;
 }
 
-export type StopDecision = { block: false } | { block: true; reminder: string };
+export type StopDecision = { block: false } | { block: true; reminder: string; fired: NudgeKey[] };
+
+// Per-nudge cooldown (operator ruling 2026-07-31, replacing per-turn repetition): while a
+// trigger holds, its nudge repeats at most once every N turns instead of on every Stop.
+// The live incident: B3 armed the moment a PR merged mid-session and then fired on EVERY
+// stop for the rest of the session, forcing the agent to spend a turn declining each time.
+// Cooldown state lives on the SessionState record (keyed by harness session_id); when no
+// session state is available the cooldown cannot be computed and the nudge falls back to
+// the pre-cooldown behavior (fire) — fail-open toward reminding, never toward silence.
+export const NUDGE_COOLDOWN_TURNS = 10;
 
 export const STOP_REMINDER =
   'vfkb decision-capture check: this turn changed code/docs but no `decision` was recorded ' +
@@ -70,12 +88,11 @@ export const HANDOFF_REMINDER =
 // everything already committed/merged and the working tree clean.
 //
 // Nag risk (review round 3): unlike B1, this has no entry-count threshold and no
-// SessionEnd-floor equivalent for a STALE (vs missing) pin, so once it fires it keeps
-// firing every turn until a fresh handoff/next entry actually exists — RFC-011 §B's
-// per-turn-nag concern applies here too. Mitigated the same way B1 mitigates it: an
-// explicit "if mid-session, this is fine to defer" escape clause in the reminder text
-// (see below) — not a threshold, since B3's trigger is external (git history), not a
-// count of this session's own activity, so "wait for N entries" doesn't fit the same way.
+// SessionEnd-floor equivalent for a STALE (vs missing) pin — RFC-011 §B's per-turn-nag
+// concern applies here too. Originally mitigated only by an "if mid-session, this is fine
+// to defer" escape clause in the reminder text; that proved insufficient in live use
+// (operator report 2026-07-31: firing on every stop mid-session distracted the work), so
+// all three nudges now share the NUDGE_COOLDOWN_TURNS rate limit above.
 export const STALE_HANDOFF_REMINDER =
   'vfkb stale-handoff check: the currently pinned handoff/next entry predates a commit that ' +
   'landed since it was written (e.g. a merged PR, possibly from another session or an ' +
@@ -83,9 +100,9 @@ export const STALE_HANDOFF_REMINDER =
   'pointer. If you are WRAPPING UP, record a fresh handoff now — `mcp__vfkb__kb_add` ' +
   '(type=fact, tags=handoff,next, role=human), or /vfkb:handoff if available — naming what ' +
   'actually changed and what is next now. If you are still mid-session and plan to record ' +
-  'one before you finish, it is fine to ignore this for now — but unlike the other nudges, ' +
-  'this one has no SessionEnd fallback for a STALE (as opposed to missing) pin, so it will ' +
-  'keep reminding you each turn until a fresh handoff/next entry actually exists.';
+  'one before you finish, it is fine to ignore this for now — but note that unlike the ' +
+  'other nudges, this one has no SessionEnd fallback for a STALE (as opposed to missing) ' +
+  'pin, so a fresh handoff/next entry must be recorded before the session ends.';
 
 /**
  * The pure decision. Block (inject the reminder, continuing the turn) only when a
@@ -98,18 +115,31 @@ export const STALE_HANDOFF_REMINDER =
  */
 export function decideStop(input: StopHookInput, ctx: StopContext): StopDecision {
   if (input?.stop_hook_active) return { block: false };
+  // Cooldown (operator ruling 2026-07-31): a nudge whose trigger holds still stays quiet
+  // for NUDGE_COOLDOWN_TURNS turns after it last fired. Without session turn info the
+  // window cannot be computed → fall back to firing (the pre-cooldown behavior).
+  const cooling = (key: NudgeKey): boolean => {
+    const last = ctx.lastNudged?.[key];
+    return last !== undefined && ctx.turn !== undefined && ctx.turn - last < NUDGE_COOLDOWN_TURNS;
+  };
   const reminders: string[] = [];
+  const fired: NudgeKey[] = [];
+  const nudge = (key: NudgeKey, text: string): void => {
+    if (cooling(key)) return;
+    reminders.push(text);
+    fired.push(key);
+  };
   // Decision-capture nudge (ADR-0027): work happened AND no decision recorded this session.
-  if (ctx.uncommittedWork && ctx.newDecisions === 0) reminders.push(STOP_REMINDER);
+  if (ctx.uncommittedWork && ctx.newDecisions === 0) nudge('decision', STOP_REMINDER);
   // Handoff nudge (B1, RFC-011): work happened AND a strong-signal amount of knowledge
   // accumulated AND no handoff/next entry yet. Self-silences once a handoff is recorded.
   if (ctx.uncommittedWork && (ctx.newEntries ?? 0) >= HANDOFF_MIN_ENTRIES && (ctx.newHandoffs ?? 0) === 0)
-    reminders.push(HANDOFF_REMINDER);
+    nudge('handoff', HANDOFF_REMINDER);
   // Stale-handoff nudge (B3): NOT gated on uncommittedWork — the defining case is a clean
   // working tree with everything already merged, and the pinned handoff behind it anyway.
-  if (ctx.handoffStale) reminders.push(STALE_HANDOFF_REMINDER);
+  if (ctx.handoffStale) nudge('staleHandoff', STALE_HANDOFF_REMINDER);
   if (reminders.length === 0) return { block: false };
-  return { block: true, reminder: reminders.join('\n\n') };
+  return { block: true, reminder: reminders.join('\n\n'), fired };
 }
 
 /** Working tree has uncommitted src/ or docs/ changes (brain-only changes don't count as "work"). */
