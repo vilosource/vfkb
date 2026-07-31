@@ -394,7 +394,10 @@ function runStop(dir: string, payload: object): string {
   return execFileSync('node', [CLI, 'hook', 'stop'], {
     input: JSON.stringify(payload),
     cwd: dir,
-    env: { ...process.env, VFKB_DIR: join(dir, '.vfkb') },
+    // KB_SESSION_ID would OVERRIDE the payload session_id (effectiveSessionId, session.ts)
+    // — a developer machine exporting it would collapse the per-session cooldown tests
+    // onto one record and falsely redden them. Clear it: the payload is the fixture.
+    env: { ...process.env, VFKB_DIR: join(dir, '.vfkb'), KB_SESSION_ID: '' },
     encoding: 'utf8',
   }).trim();
 }
