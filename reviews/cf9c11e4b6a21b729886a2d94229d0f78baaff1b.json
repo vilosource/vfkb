@@ -1,0 +1,81 @@
+{
+  "recordVersion": 1,
+  "sha": "cf9c11e4b6a21b729886a2d94229d0f78baaff1b",
+  "governing": [
+    "docs/adr/ADR-0027-stop-hook-decision-capture-reminder.md",
+    "docs/rfc/RFC-011-session-end-continuity.md",
+    "docs/adr/ADR-0034-b1-handoff-nudge.md"
+  ],
+  "reviewer": { "agent": "general-purpose + codex-cli 0.146.0 + agy 1.1.9", "model": "claude-fable-5 / gpt-codex / agy-default", "rounds": 5 },
+  "generated": "2026-07-31T09:26:43Z",
+  "findings": [
+    {
+      "id": "C1",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "codex: cooldown trusted before session.save() — a record whose turn could no longer advance on disk (reads work, writes fail) recomputed 'cooling' every stop and silenced the nudge INDEFINITELY instead of failing open; fixed by persisting the bump before trusting cooldown state (save throws → turn undefined → fire)",
+      "acceptedBy": null
+    },
+    {
+      "id": "C2",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "codex: nudgedAtTurn values not runtime-validated — parseable-but-malformed values (999999, '1000', null) coerced into 'cooling' and failed CLOSED; fixed with finite-[0,turn] validation in cooling() plus load-time sanitization in session.ts",
+      "acceptedBy": null
+    },
+    {
+      "id": "F1",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "round 1: runStop e2e helper inherited KB_SESSION_ID from the developer environment, which would override both payload session_ids and falsely redden the per-session cooldown tests; fixed by clearing it in the helper env",
+      "acceptedBy": null
+    },
+    {
+      "id": "C3",
+      "severity": "minor",
+      "status": "open",
+      "summary": "codex: safeKey (src/backend.ts:69) maps distinct session ids lossily (session/a, session?a, session:a all -> session_a.json), so colliding ids share turn/cooldown state — PRE-EXISTING (ADR-0044 seam, 822b176, unchanged by this PR), harness UUIDs never collide; tracked as issue #273",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 4,
+  "ruledOut": [],
+  "mutations": [
+    {
+      "guard": "test/stop-reminder.test.ts > decideStop — per-nudge cooldown > stays quiet while inside the cooldown window",
+      "mutation": "cooling() neutered to `return false` (feature-delete equivalent)",
+      "observedRed": true
+    },
+    {
+      "guard": "test/stop-reminder.test.ts > decideStop — per-nudge cooldown > fires again once the cooldown window has elapsed",
+      "mutation": "boundary `<` -> `<=` in the cooling comparison",
+      "observedRed": true
+    },
+    {
+      "guard": "test/stop-reminder.test.ts > cli hook stop > cooldown: the same session is NOT re-nudged on the very next stop",
+      "mutation": "markNudged recording loop deleted from cli.ts; separately, turn/lastNudged threading dropped from the decideStop call",
+      "observedRed": true
+    },
+    {
+      "guard": "test/stop-reminder.test.ts > decideStop — per-nudge cooldown > falls back to firing when session turn info is unavailable",
+      "mutation": "fail-open inverted to fail-closed (turn undefined => cooling)",
+      "observedRed": true
+    },
+    {
+      "guard": "test/stop-reminder.test.ts > cli hook stop > cooldown state is per-session: a different session_id still gets the nudge",
+      "mutation": "KB_SESSION_ID clearing removed from the runStop helper, run with KB_SESSION_ID exported",
+      "observedRed": true
+    },
+    {
+      "guard": "test/stop-reminder.test.ts > cli hook stop > fail-open: a session record that can no longer be saved does not silence the nudge",
+      "mutation": "up-front session.save() removed (round-2 ordering restored) — re-run independently in round 3",
+      "observedRed": true
+    },
+    {
+      "guard": "test/stop-reminder.test.ts > decideStop — per-nudge cooldown > malformed last-fired values fail open (fire), never cool",
+      "mutation": "cooling() value validation stripped back to bare coercive comparison — also reddens the parseable-corruption e2e; re-run independently in round 3",
+      "observedRed": true
+    }
+  ],
+  "verdict": "MERGE"
+}
