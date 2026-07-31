@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/vilosource/vfkb/compare/v0.8.0...v0.8.1) (2026-07-31)
+
+
+### Bug Fixes
+
+* **stop-hook:** rate-limit nudges to a per-session cooldown (operator ruling 2026-07-31) ([#272](https://github.com/vilosource/vfkb/issues/272)) ([5b9fa61](https://github.com/vilosource/vfkb/commit/5b9fa618ac1898546723e6c95fae6d81624ea7cf))
+
 ## [0.8.0](https://github.com/vilosource/vfkb/compare/v0.7.1...v0.8.0) (2026-07-30)
 
 
