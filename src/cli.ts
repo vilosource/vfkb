@@ -680,6 +680,13 @@ async function dispatch() {
       // turn count + last-fired turns into decideStop, and record back which nudges
       // fired. If bookkeeping fails, turn/lastNudged stay undefined and decideStop
       // falls back to the pre-cooldown behavior (fire) — never wedge the turn.
+      //
+      // The bump is PERSISTED before the cooldown state is trusted (codex review, PR
+      // #272): a record whose turn can no longer advance on disk would otherwise
+      // recompute "cooling" forever — reloading last-fired=T, bumping to T+1 in memory,
+      // failing the save, and silencing the nudge INDEFINITELY instead of for N turns.
+      // With the save up front, a broken persistence layer degrades to the pre-cooldown
+      // per-turn behavior (fail-open toward reminding), never to permanent silence.
       let session: SessionState | undefined;
       let turn: number | undefined;
       let lastNudged: Record<string, number> | undefined;
@@ -688,17 +695,20 @@ async function dispatch() {
           effectiveSessionId(typeof input.session_id === 'string' ? input.session_id : undefined),
         );
         session.bumpTurn();
+        session.save();
         turn = session.turnCount;
         lastNudged = session.nudgedAtTurn;
       } catch {
-        /* session bookkeeping must never wedge the turn */
+        /* bump not persisted → turn/lastNudged stay undefined → decideStop fires */
       }
       const d = decideStop({ stop_hook_active: false }, { ...gatherStopContext(), turn, lastNudged });
       try {
-        if (d.block && session) for (const key of d.fired) session.markNudged(key);
-        session?.save();
+        if (d.block && session) {
+          for (const key of d.fired) session.markNudged(key);
+          session.save();
+        }
       } catch {
-        /* session bookkeeping must never wedge the turn */
+        /* mark lost → the nudge simply fires again next turn (fail-open toward reminding) */
       }
       process.stdout.write(
         d.block

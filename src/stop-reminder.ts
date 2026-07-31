@@ -118,9 +118,16 @@ export function decideStop(input: StopHookInput, ctx: StopContext): StopDecision
   // Cooldown (operator ruling 2026-07-31): a nudge whose trigger holds still stays quiet
   // for NUDGE_COOLDOWN_TURNS turns after it last fired. Without session turn info the
   // window cannot be computed → fall back to firing (the pre-cooldown behavior).
+  // Only a real turn number in [0, turn] can cool (codex review, PR #272): the session
+  // record is parsed JSON with no runtime validation upstream, and coercive subtraction
+  // would let a malformed-but-parseable value — null, "1000", or an absurdly large
+  // number — read as "cooling" and fail CLOSED (silence) instead of open (fire).
+  const turnValid = typeof ctx.turn === 'number' && Number.isFinite(ctx.turn);
   const cooling = (key: NudgeKey): boolean => {
+    if (!turnValid) return false;
     const last = ctx.lastNudged?.[key];
-    return last !== undefined && ctx.turn !== undefined && ctx.turn - last < NUDGE_COOLDOWN_TURNS;
+    if (typeof last !== 'number' || !Number.isFinite(last) || last < 0 || last > ctx.turn!) return false;
+    return ctx.turn! - last < NUDGE_COOLDOWN_TURNS;
   };
   const reminders: string[] = [];
   const fired: NudgeKey[] = [];

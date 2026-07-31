@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import {
@@ -191,6 +191,60 @@ describe('decideStop — per-nudge cooldown', () => {
   it('falls back to firing when session turn info is unavailable (fail-open toward reminding)', () => {
     // no `turn` → the window cannot be computed, even with a recorded last-fired turn
     const d = decideStop({ stop_hook_active: false }, { ...trigger, lastNudged: { decision: 1 } });
+    expect(d).toEqual({ block: true, reminder: STOP_REMINDER, fired: ['decision'] });
+  });
+
+  it('pins the ruling: the cooldown window is 10 turns', () => {
+    // The operator ruling names 10 (brain decision ba74ec9a44e5). Deriving test inputs
+    // from the constant means no other test notices the constant itself changing.
+    expect(NUDGE_COOLDOWN_TURNS).toBe(10);
+  });
+
+  // Codex review (PR #272): each nudge KEY must cool — a mutation that drops the
+  // cooldown check for only one key must go red, not hide behind the decision-key tests.
+  it('the handoff nudge itself cools', () => {
+    const ctx = { uncommittedWork: true, newDecisions: 1, newEntries: HANDOFF_MIN_ENTRIES, newHandoffs: 0 };
+    expect(decideStop({ stop_hook_active: false }, { ...ctx, turn: 5, lastNudged: { handoff: 4 } })).toEqual({
+      block: false,
+    });
+  });
+
+  it('the stale-handoff nudge itself cools', () => {
+    const ctx = { uncommittedWork: false, newDecisions: 1, handoffStale: true };
+    expect(decideStop({ stop_hook_active: false }, { ...ctx, turn: 5, lastNudged: { staleHandoff: 4 } })).toEqual({
+      block: false,
+    });
+  });
+
+  // Codex review (PR #272): the session record is parsed JSON with no upstream runtime
+  // validation — a malformed-but-parseable last-fired value must fail OPEN (fire), never
+  // read as "cooling". Coercive subtraction would otherwise silence the nudge for e.g.
+  // ~a million turns on {decision: 999999}.
+  it('malformed last-fired values fail open (fire), never cool', () => {
+    const bad = [
+      999999, // a "future" turn far beyond the current one
+      -5, // negative
+      Infinity,
+      NaN,
+      '1000' as unknown as number, // string — would coerce in a bare subtraction
+      null as unknown as number,
+      true as unknown as number,
+    ];
+    for (const value of bad) {
+      const d = decideStop({ stop_hook_active: false }, { ...trigger, turn: 2, lastNudged: { decision: value } });
+      expect(d, `lastNudged.decision=${String(value)}`).toEqual({
+        block: true,
+        reminder: STOP_REMINDER,
+        fired: ['decision'],
+      });
+    }
+  });
+
+  it('a malformed turn also fails open rather than cooling', () => {
+    const d = decideStop(
+      { stop_hook_active: false },
+      { ...trigger, turn: NaN as unknown as number, lastNudged: { decision: 1 } },
+    );
     expect(d).toEqual({ block: true, reminder: STOP_REMINDER, fired: ['decision'] });
   });
 });
@@ -504,5 +558,51 @@ describe('cli hook stop — emits the verified Stop contract', () => {
     expect(a.hookSpecificOutput.decision).toBe('block');
     const b = JSON.parse(runStop(dir, { stop_hook_active: false, session_id: 'session-b' }));
     expect(b.hookSpecificOutput.decision).toBe('block');
+  });
+
+  // Codex review (PR #272): a record whose turn can no longer ADVANCE on disk must not
+  // silence the nudge forever. The bump is persisted before the cooldown is trusted, so
+  // broken persistence degrades to per-turn reminding — never permanent silence.
+  it('fail-open: a session record that can no longer be saved does not silence the nudge', () => {
+    if (typeof process.getuid === 'function' && process.getuid() === 0) return; // chmod is a no-op as root
+    const dir = gitRepo();
+    writeFileSync(join(dir, 'src', 'foo.ts'), 'export const x = 1;\n');
+    const payload = { stop_hook_active: false, session_id: 'save-fail' };
+    const first = JSON.parse(runStop(dir, payload));
+    expect(first.hookSpecificOutput.decision).toBe('block'); // fired + recorded at turn 1
+    // Chmod the record FILE, not the directory: overwriting an existing owner-writable
+    // file needs no directory write permission, so a read-only dir would not make the
+    // save fail — writeFileSync to a 0o444 file does (EACCES), which is the scenario:
+    // reads keep working, every save throws.
+    const record = join(dir, '.vfkb', '.sessions', 'save-fail.json');
+    chmodSync(record, 0o444);
+    try {
+      const second = JSON.parse(runStop(dir, payload));
+      expect(second.hookSpecificOutput?.decision).toBe('block'); // '{}' here = silenced forever
+    } finally {
+      chmodSync(record, 0o644); // let the tmpdir be cleaned up
+    }
+  });
+
+  // Codex review (PR #272): malformed-but-parseable cooldown state (vs the syntactically
+  // invalid JSON the loader already discards) must fail open through the real CLI too.
+  it('fail-open: a parseable-but-corrupt cooldown record does not silence the nudge', () => {
+    const dir = gitRepo();
+    writeFileSync(join(dir, 'src', 'foo.ts'), 'export const x = 1;\n');
+    const sessions = join(dir, '.vfkb', '.sessions');
+    mkdirSync(sessions, { recursive: true });
+    writeFileSync(
+      join(sessions, 'corrupt.json'),
+      JSON.stringify({
+        startedAt: 'x',
+        lastAt: 'x',
+        turnCount: 1,
+        injectedIds: [],
+        capturedIds: [],
+        nudgedAtTurn: { decision: 999999 }, // "cooling" for ~a million turns if coerced
+      }),
+    );
+    const out = JSON.parse(runStop(dir, { stop_hook_active: false, session_id: 'corrupt' }));
+    expect(out.hookSpecificOutput.decision).toBe('block');
   });
 });

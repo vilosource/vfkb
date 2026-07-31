@@ -50,6 +50,19 @@ export interface SessionSignal {
   value: string;
 }
 
+// Keep only well-formed cooldown entries (finite, non-negative turn numbers). The record
+// is parsed JSON straight from disk (codex review, PR #272): a malformed-but-parseable
+// value (null, a string, a primitive where the map should be) must neither read as
+// "cooling" in decideStop nor crash markNudged's property assignment.
+function sanitizeNudgedAtTurn(raw: unknown): Record<string, number> | undefined {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return undefined;
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (typeof v === 'number' && Number.isFinite(v) && v >= 0) out[k] = v;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 export interface SessionData {
   sessionId?: string;
   startedAt: string;
@@ -114,7 +127,7 @@ export class SessionState {
           agentLabel: loaded.agentLabel,
           branch: loaded.branch,
           pid: loaded.pid,
-          nudgedAtTurn: loaded.nudgedAtTurn,
+          nudgedAtTurn: sanitizeNudgedAtTurn(loaded.nudgedAtTurn),
         };
         this.injected = new Set(this.data.injectedIds);
         this.captured = new Set(this.data.capturedIds);
