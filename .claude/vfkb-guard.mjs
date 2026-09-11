@@ -11,7 +11,8 @@
 // whose absence it detects).
 //
 // It compares the project's `enabledPlugins` DECLARATION against Claude Code's
-// `~/.claude/plugins/installed_plugins.json` FULFILLMENT. Declared-but-not-
+// `<config-dir>/plugins/installed_plugins.json` FULFILLMENT (config dir =
+// $CLAUDE_CONFIG_DIR when set, else ~/.claude). Declared-but-not-
 // fulfilled = a session silently running without vfkb (no resume digest, no
 // brain-write gate, no capture) — so it prints an actionable banner into the
 // session-start context.
@@ -47,6 +48,17 @@ function samePath(a, b) {
   }
 }
 
+// Claude Code relocates its ENTIRE config dir via CLAUDE_CONFIG_DIR, `plugins/`
+// included — wrapper launchers do exactly this (e.g. `cldp` → ~/.claude-cldp).
+// Deriving the registry from $HOME alone reads a config dir the session is not
+// using, so a genuinely-installed plugin reads as absent and the banner fires
+// on every session, forever. Same reasoning (and same fallback) as
+// `claudeConfigDir()` in src/doctor.ts — observed here 2026-09-11.
+function claudeConfigDir() {
+  if (process.env.CLAUDE_CONFIG_DIR) return process.env.CLAUDE_CONFIG_DIR;
+  return join(process.env.HOME || homedir(), '.claude');
+}
+
 try {
   const projectDir = resolve(process.env.CLAUDE_PROJECT_DIR || '.');
 
@@ -63,9 +75,8 @@ try {
   //    covers every project; a project-scope install must name THIS projectPath.
   let fulfilled = false;
   try {
-    const home = process.env.HOME || homedir();
     const installed = JSON.parse(
-      readFileSync(join(home, '.claude', 'plugins', 'installed_plugins.json'), 'utf8'),
+      readFileSync(join(claudeConfigDir(), 'plugins', 'installed_plugins.json'), 'utf8'),
     );
     const entries = installed && installed.plugins && installed.plugins[PLUGIN];
     if (Array.isArray(entries)) {
