@@ -83,7 +83,9 @@ VFKB_DATA_DIR=.vfkb VFKB_PROJECT=<name> node ~/VFKB/vfkb/dist/cli.js add fact "G
 ```
 
 **Activate the plugin now — do NOT defer this to the operator.** `enabledPlugins` in `settings.json`
-only *declares* the plugin; the install record (`~/.claude/plugins/installed_plugins.json`) is what
+only *declares* the plugin; the install record (`$CLAUDE_CONFIG_DIR/plugins/installed_plugins.json`,
+falling back to `~/.claude/` when that variable is unset — the wrapper launchers on this machine all
+set it, so `~/.claude/` is usually the WRONG place to look) is what
 actually loads it, and creating that record **does not require an interactive session on this
 machine** (gotcha `8e76f8f72b64` — confirmed working headlessly on 2026-07-29 against a real new
 project). Run it yourself:
@@ -102,7 +104,7 @@ rm /tmp/vfkb-new-project-settings.json.bak
 
 **Verify (observed, not asserted):**
 1. **Install record exists** —
-   `python3 -c "import json,os; d=json.load(open(os.path.expanduser('~/.claude/plugins/installed_plugins.json'))); here=os.path.realpath(os.getcwd()); print(any(os.path.realpath(r.get('projectPath','')) == here for r in d['plugins'].get('vfkb@vfkb', [])))"`
+   `python3 -c "import json,os; cfg=os.environ.get('CLAUDE_CONFIG_DIR') or os.path.expanduser('~/.claude'); d=json.load(open(os.path.join(cfg,'plugins','installed_plugins.json'))); here=os.path.realpath(os.getcwd()); print(any(os.path.realpath(r.get('projectPath','')) == here for r in d['plugins'].get('vfkb@vfkb', [])))"`
    must print `True` (realpath on both sides — a symlinked `~/VFKB/<name>` path must still match).
 2. **Guard goes silent** — `CLAUDE_PROJECT_DIR=$PWD node .claude/vfkb-guard.mjs` now prints
    **nothing** and exits 0 (before the install it would have printed the `vfkb INACTIVE` banner —
