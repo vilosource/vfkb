@@ -125,10 +125,44 @@ describe('.claude/vfkb-guard.mjs (ADR-0059 guard)', () => {
     expect(out).toBe('');
   });
 
-  it('fails open (silent, exit 0) on an unreadable registry', () => {
+  // The registry read has its own inner fail-open catch, distinct from the
+  // declared-check catch above it. Both these tests use a DECLARED project so
+  // execution actually reaches that read — an undeclared project exits earlier
+  // and would exercise the declared-check path instead, which is how the first
+  // version of this test managed to assert the wrong behaviour and still pass.
+  //
+  // "Fails open" here means "does not throw, exits 0" — NOT "stays silent".
+  // An unreadable registry cannot show the plugin as fulfilled, so bannering is
+  // the correct outcome; runGuard() would throw on any non-zero exit, so every
+  // assertion below also asserts exit 0.
+  it('fails open on a MISSING registry, and still banners (declared, unfulfillable)', () => {
     const out = runGuard({
-      CLAUDE_PROJECT_DIR: projectDir(false),
+      CLAUDE_PROJECT_DIR: projectDir(true),
       CLAUDE_CONFIG_DIR: join(root, 'does-not-exist'),
+      HOME: join(root, 'home'),
+    });
+    expect(out).toContain(BANNER);
+  });
+
+  it('fails open on a MALFORMED registry, and still banners', () => {
+    const dir = join(root, 'cldp-malformed');
+    mkdirSync(join(dir, 'plugins'), { recursive: true });
+    writeFileSync(join(dir, 'plugins', 'installed_plugins.json'), '{ not json at all');
+    const out = runGuard({
+      CLAUDE_PROJECT_DIR: projectDir(true),
+      CLAUDE_CONFIG_DIR: dir,
+      HOME: join(root, 'home'),
+    });
+    expect(out).toContain(BANNER);
+  });
+
+  it('fails open on an unreadable project settings.json (exits 0, no banner)', () => {
+    const dir = join(root, 'project-broken');
+    mkdirSync(join(dir, '.claude'), { recursive: true });
+    writeFileSync(join(dir, '.claude', 'settings.json'), '{ not json at all');
+    const out = runGuard({
+      CLAUDE_PROJECT_DIR: dir,
+      CLAUDE_CONFIG_DIR: configDir('cldp-x', {}),
       HOME: join(root, 'home'),
     });
     expect(out).toBe('');

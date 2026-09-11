@@ -47,7 +47,10 @@ plugin**. That is why only these two files are committed: the plugin delivers th
 ([ADR-0059](adr/ADR-0059-inactive-signal-guard.md)):** it exists to detect the case where the plugin
 *didn't load*. A guard shipped by the plugin couldn't run in exactly that case — "the one job that
 cannot be delegated to the thing that might be missing." It compares this repo's `enabledPlugins`
-declaration against Claude Code's `~/.claude/plugins/installed_plugins.json` fulfillment and, on a
+declaration against Claude Code's `<config-dir>/plugins/installed_plugins.json` fulfillment —
+where `<config-dir>` is `$CLAUDE_CONFIG_DIR` when set, else `~/.claude`, because wrapper launchers
+relocate the whole config dir and reading `~/.claude` unconditionally banners a healthy install —
+and, on a
 mismatch, banners `vfkb INACTIVE` at session start. It **fails open**: any read/parse error exits 0
 silently — a smoke alarm, never a lock.
 
