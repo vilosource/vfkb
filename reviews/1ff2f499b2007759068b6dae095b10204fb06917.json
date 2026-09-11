@@ -1,0 +1,105 @@
+{
+  "recordVersion": 1,
+  "sha": "1ff2f499b2007759068b6dae095b10204fb06917",
+  "governing": [
+    "docs/adr/ADR-0059-inactive-signal-guard.md",
+    "docs/adr/ADR-0070-guards-that-can-fail.md",
+    "docs/adr/ADR-0029-sandbox-proven-definition-of-done.md"
+  ],
+  "reviewer": {
+    "agent": "general-purpose",
+    "model": "opus",
+    "rounds": 2
+  },
+  "generated": "2026-09-11T14:30:00Z",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "test 6 'fails open on an unreadable registry' was vacuous: it used an UNDECLARED project, so the guard exited at the declared-check (.claude/vfkb-guard.mjs:72) and never reached the registry read at :79 that the test was named for — a behavioural duplicate of test 5. It also asserted the wrong behaviour: a declared project with an unreadable registry BANNERS (correct — an unreadable registry cannot show the plugin as fulfilled), it does not stay silent. Proof of zero coverage: mutation M5 (:90 registry catch -> rethrow) left all 6 tests green. Replaced with three discriminating tests (missing registry, malformed registry, unreadable project settings.json); M5 now turns two of them red.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F2",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "The identical $HOME-hardcoding defect this PR fixes was live in .claude/commands/vfkb-new-project.md:105 — the skill's 'Install record exists (observed, not asserted)' verification step — and restated as prose at :86. Run verbatim under a wrapper launcher it raises FileNotFoundError; on a machine where ~/.claude happens to exist it prints False and reports a successful install as failed: the same cry-wolf failure mode, in a surface scripts/review-gate.mjs DOES classify as implementation. Fixed at both sites to honour $CLAUDE_CONFIG_DIR; A/B verified live under cldp (old raises FileNotFoundError, new prints True).",
+      "acceptedBy": null
+    },
+    {
+      "id": "F3",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "PR body carried two false claims: 'new, 6 tests' (there are 8) and 'unreadable registry -> fails open, silent, exit 0' (it banners — the exact assertion F1 disproved). Not in git history (repo squash_merge_commit_message=COMMIT_MESSAGES, verified via gh api), but wrong on the page an operator reads to decide the merge. PR body rewritten; the commit message on 1932288 was accurate throughout.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F4",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "docs/CONSUMER-ONBOARDING.md:50 — the canonical consumer doc, and the file that nominates .claude/vfkb-guard.mjs as the artefact consumers fetch — still described the guard as comparing against '~/.claude/plugins/installed_plugins.json'. Updated to <config-dir>/plugins/… with the $CLAUDE_CONFIG_DIR-else-~/.claude rule and the reason.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F5",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "A behavioural change to an ADR-decided mechanism was landing with only a gotcha (cedbbfe22325) and a handoff fact (bed378c35c89) in the brain and no decision entry, against CLAUDE.md's standing capture rule. ADR-0059's decided body (lines 4, 33, 42) specifies the literal ~/.claude path and ADR-0001 makes it immutable, so the ADR was deliberately NOT edited; the deviation is recorded as decision 0305224042fe instead.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F6",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "Pre-existing, not introduced by this diff: isImplementation('.claude/vfkb-guard.mjs') returns false (scripts/review-gate.mjs:35 covers .claude/commands/ only, confirmed by executing the exported function), so a guard-only change to this shipped consumer artefact merges with no review record — this PR was caught only because it also touches test/. Deliberately not fixed here: scripts/review-gate.selftest.mjs:295-305 asserts isImplementation directly, which would drag the gate's own selftest into the PR that gate is judging. Filed as issue #280 so the deferral is tracked rather than dropped.",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 6,
+  "ruledOut": [],
+  "mutations": [
+    {
+      "guard": "test/vfkb-guard.test.ts > stays silent when the plugin is installed in the session CLAUDE_CONFIG_DIR",
+      "mutation": "M1 delete .claude/vfkb-guard.mjs:58 (CLAUDE_CONFIG_DIR short-circuit); M6 full revert of the guard to merge-base; M11 :104 process.exit(0) -> process.exit(3)",
+      "observedRed": true
+    },
+    {
+      "guard": "test/vfkb-guard.test.ts > CAN FAIL: banners when the plugin is declared but installed nowhere",
+      "mutation": "M2 :94 if (!fulfilled) -> if (false); M11",
+      "observedRed": true
+    },
+    {
+      "guard": "test/vfkb-guard.test.ts > falls back to $HOME/.claude when CLAUDE_CONFIG_DIR is unset",
+      "mutation": "M4 :59 '.claude' -> '.claude-WRONG'; M11",
+      "observedRed": true
+    },
+    {
+      "guard": "test/vfkb-guard.test.ts > honours a project-scope install only for THIS project",
+      "mutation": "M1; M2; M6; M11",
+      "observedRed": true
+    },
+    {
+      "guard": "test/vfkb-guard.test.ts > stays silent for a project that never declared the plugin",
+      "mutation": "M3 delete :72 if (!declared) process.exit(0)",
+      "observedRed": true
+    },
+    {
+      "guard": "test/vfkb-guard.test.ts > fails open on a MISSING registry, and still banners (declared, unfulfillable)",
+      "mutation": "M5 :90 registry-read catch -> rethrow (the path proven UNCOVERED in round 1); M2; M11",
+      "observedRed": true
+    },
+    {
+      "guard": "test/vfkb-guard.test.ts > fails open on a MALFORMED registry, and still banners",
+      "mutation": "M5; M2; M11",
+      "observedRed": true
+    },
+    {
+      "guard": "test/vfkb-guard.test.ts > fails open on an unreadable project settings.json (exits 0, no banner)",
+      "mutation": "M9 :71 declared = false -> declared = true; M3; M10 (:71 and :105 catches gutted together — the contract-level discriminator)",
+      "observedRed": true
+    }
+  ],
+  "mutationsNote": "Two mutations deliberately recorded as green-by-construction rather than omitted. M7 (:71 declared-check catch -> rethrow alone) and M8 (:105 outer catch -> rethrow alone) leave all 8 tests green. M7: everything inside that try can only throw from readFileSync or JSON.parse, after which `declared` keeps its initialised false and :72 exits 0 silently — identical to the outer catch's exit-0-silent, so no reachable input distinguishes them; M10 (both gutted together) DOES go red, so the contract is guarded and the branch is redundant, not untested. M8: the outer catch is unreachable from any test-suppliable input — enumerated and probed (NUL-in-env rejected at spawn by libuv before the guard runs; closed fd 1 and EPIPE stdout both non-throwing; the imports at :29-31 sit outside the try entirely). It is unconditional structural defence against a future edit moving code out of an inner block. M11 (:104 exit(0) -> exit(3)) turns 6 of 8 red, so the 'exits 0' half of the fail-open contract is asserted rather than merely narrated in a comment. | Record sha note: the adversarial review read tree 1932288f99d8cfc9ad9e1e9ae2d37b21ca41c65c; this record is filed against 1ff2f499b2007759068b6dae095b10204fb06917, whose tree differs from it ONLY by one appended line in .vfkb/entries.jsonl (brain fact b382745857e8, the review outcome) — an EXEMPT_PATHS file, no implementation delta.",
+  "verdict": "MERGE"
+}
