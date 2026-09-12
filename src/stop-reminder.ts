@@ -16,6 +16,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { relativeReal } from './realpath.js';
 import { brainDir } from './storage.js';
 import { isInjectable, supersededIds } from './engine.js';
 import type { KnowledgeEntry } from './types.js';
@@ -312,7 +313,10 @@ export function handoffIsStale(cwd: string = process.cwd(), brain: string = brai
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
     }).trim();
-    const brainRel = relative(root, brain).replace(/\\/g, '/');
+    // relativeReal, not relative: `root` comes back from git as a realpath and
+    // `brain` does not. When they disagreed the exclude pathspec pointed outside
+    // the repo, every commit looked brain-only, and the stale nudge never fired.
+    const brainRel = relativeReal(root, brain);
     const exclude = `:(exclude)${brainRel}`;
     const anchor = execFileSync('git', ['rev-list', '-1', `--before=${since}`, 'HEAD'], {
       cwd: root,

@@ -14,7 +14,8 @@
 // and hold the ADR-0040 lock around recovery themselves.
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative, sep } from 'node:path';
+import { dirname, join } from 'node:path';
+import { relativeReal } from './realpath.js';
 
 const walPath = (brain: string): string => join(brain, '.journal', 'wal.jsonl');
 const suppressedPath = (brain: string): string => join(brain, '.journal', 'suppressed');
@@ -119,7 +120,11 @@ function pairsAtHead(brain: string): Set<string> | 'not-git' | 'unknown' {
   }
   try {
     const top = git('rev-parse', '--show-toplevel');
-    const rel = relative(top, join(brain, 'entries.jsonl')).split(sep).join('/');
+    // relativeReal, not relative: `top` is git's realpath answer while `brain`
+    // is whatever the caller spelled. A symlink anywhere in either made this
+    // climb out of the repo, so `cat-file` threw, so prune returned 'unknown'
+    // and the wal grew without bound. See src/realpath.ts.
+    const rel = relativeReal(top, join(brain, 'entries.jsonl'));
     const head = execFileSync('git', ['-C', repoDir, 'cat-file', '-p', `HEAD:${rel}`], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
