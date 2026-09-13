@@ -17,7 +17,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { isAbsolute, join, relative } from 'node:path';
 import { relativeReal } from './realpath.js';
-import { brainDir } from './storage.js';
+import { brainDir, COMMITTED_BRAIN_PATHS } from './storage.js';
 import { isInjectable, supersededIds } from './engine.js';
 import type { KnowledgeEntry } from './types.js';
 
@@ -317,22 +317,18 @@ export function handoffIsStale(cwd: string = process.cwd(), brain: string = brai
     // `brain` does not. When they disagreed the exclude pathspec pointed outside
     // the repo, every commit looked brain-only, and the stale nudge never fired.
     const brainRel = relativeReal(root, brain);
-    // A brain that lives OUTSIDE the worktree — `<repo>/.vfkb` symlinked to a
-    // standalone brain, the shape git.ts insideSurroundingRepo calls "documented,
-    // not exotic" — has nothing IN this tree to exclude. Worse, an escaping
-    // pathspec makes `git diff` exit 128, and the handler below counts only exit 1
-    // as "a real diff", so the whole check would fail open and the nudge would die
-    // silently: the exact defect class this call site was just fixed for. Resolving
-    // `brain` to its realpath is what makes this reachable, so it is handled here.
-    // Three shapes, and only the middle one is the common case.
+    // Three shapes. Only the last is the common case, and each of the other two was
+    // a live defect: a wrong pathspec here does not error, it silently answers "no
+    // non-brain change" and the ADR-0034 nudge dies.
     let paths: string[];
     if (brainRel === '') {
       // ROOT brain (VFKB_DATA_DIR=.): the brain dir IS the worktree. Excluding it
       // means `:(exclude)` with an EMPTY pattern, which excludes everything — git
       // then exits 0 and the nudge is permanently dead for every root-brain project
       // (verified: `git diff --quiet A B -- . ':(exclude)'` → exit 0). Exclude the
-      // brain's committed FILES instead; both travel with the repo (ADR-0019/0030).
-      paths = ['.', ':(exclude)entries.jsonl', ':(exclude)manifest.json'];
+      // brain's committed PATHS instead — the shared list, because naming a subset
+      // here made a root brain nudge for its own `bin/` and `mcp.json` commits.
+      paths = ['.', ...COMMITTED_BRAIN_PATHS.map((f) => `:(exclude)${f}`)];
     } else if (brainRel === '..' || brainRel.startsWith('../') || isAbsolute(brainRel)) {
       // OUTSIDE the worktree — `<repo>/.vfkb` symlinked to a standalone brain, the
       // shape git.ts insideSurroundingRepo calls "documented, not exotic". Nothing in

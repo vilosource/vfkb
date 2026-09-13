@@ -17,9 +17,10 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, existsSync, realpathSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { realPath, relativeReal, samePathReal } from '../src/realpath.js';
+import { COMMITTED_BRAIN_PATHS } from '../src/storage.js';
 
 let root: string;
 let linkedRepo: string;
@@ -277,17 +278,17 @@ describe('a ROOT brain (VFKB_DATA_DIR=.) still nudges', () => {
   // EVERYTHING, so `git diff --quiet` exits 0 and the ADR-0034 B3 nudge was
   // permanently dead for every root-brain project. PRE-EXISTING (the pre-fix
   // `relative()` returns '' too), found by the round-2 review, fixed here.
+  const handoffTs = '2030-01-01T00:00:00Z';
+  const handoffLine = () =>
+    JSON.stringify({
+      id: 'h1', type: 'fact', text: 'h', tags: ['handoff', 'next'],
+      zone: 'established', author: { role: 'human' },
+      provenance: { status: 'verified' }, validity: { valid_from: handoffTs },
+      created: handoffTs, updated: handoffTs,
+    }) + '\n';
+
   const setup = () => {
-    const handoffTs = '2030-01-01T00:00:00Z';
-    writeFileSync(
-      join(linkedRepo, 'entries.jsonl'),
-      JSON.stringify({
-        id: 'h1', type: 'fact', text: 'h', tags: ['handoff', 'next'],
-        zone: 'established', author: { role: 'human' },
-        provenance: { status: 'verified' }, validity: { valid_from: handoffTs },
-        created: handoffTs, updated: handoffTs,
-      }) + '\n',
-    );
+    writeFileSync(join(linkedRepo, 'entries.jsonl'), handoffLine());
     const dated = (files: string[], when: string, msg: string) => {
       execFileSync('git', ['-C', linkedRepo, 'add', ...files], { stdio: 'ignore' });
       execFileSync('git', ['-C', linkedRepo, 'commit', '-qm', msg], {
@@ -308,13 +309,42 @@ describe('a ROOT brain (VFKB_DATA_DIR=.) still nudges', () => {
     expect(handoffIsStale(linkedRepo, linkedRepo)).toBe(true);
   });
 
-  it('stays silent when only the root brain files changed', async () => {
-    const { handoffIsStale } = await import('../src/stop-reminder.js');
-    const dated = setup();
-    writeFileSync(join(linkedRepo, 'manifest.json'), '{"v":2}\n');
-    dated(['manifest.json'], '2030-06-01T00:00:00Z', 'brain only');
-    expect(handoffIsStale(linkedRepo, linkedRepo)).toBe(false);
+  // Parametrised over EVERY committed brain path, not just one. The round-3 review
+  // found the single-file version left ':(exclude)entries.jsonl' unguarded — its
+  // removal kept the whole suite green while making a root brain nudge after every
+  // ADR-0033 SessionEnd commit, which commits exactly that file. Covering only the
+  // rare path and leaving the hot one open is how a guard looks like coverage.
+  // The list is LITERAL here, deliberately NOT `COMMITTED_BRAIN_PATHS`. Looping over
+  // the constant makes the guard self-referential: removing a path deletes its own
+  // test case, so the suite shrinks from 16 to 15 and stays GREEN instead of going
+  // red (observed). An independent literal turns a dropped path into a real failure,
+  // and the equality assertion below catches the opposite drift — a path added to the
+  // constant with no case to cover it.
+  const EXPECTED_COMMITTED = ['entries.jsonl', 'manifest.json', 'mcp.json', 'bin'];
+
+  it('the committed-brain-path list has not drifted', () => {
+    expect([...COMMITTED_BRAIN_PATHS]).toEqual(EXPECTED_COMMITTED);
   });
+
+  for (const p of EXPECTED_COMMITTED) {
+    const file = p === 'bin' ? 'bin/bootstrap.mjs' : p;
+    it(`stays silent when only ${file} changed`, async () => {
+      const { handoffIsStale } = await import('../src/stop-reminder.js');
+      const dated = setup();
+      mkdirSync(dirname(join(linkedRepo, file)), { recursive: true });
+      // entries.jsonl must be APPENDED to, never clobbered: overwriting it destroys
+      // the pinned handoff, newestHandoffTimestamp returns undefined, and
+      // handoffIsStale short-circuits to false BEFORE it ever builds the pathspec —
+      // so the case would pass for the wrong reason and prove nothing. (Observed:
+      // the clobbering version stayed green with ':(exclude)entries.jsonl' removed.)
+      writeFileSync(
+        join(linkedRepo, file),
+        file === 'entries.jsonl' ? handoffLine() + handoffLine().replace('"h1"', '"h2"') : '{"v":2}\n',
+      );
+      dated([file], '2030-06-01T00:00:00Z', `brain only: ${file}`);
+      expect(handoffIsStale(linkedRepo, linkedRepo)).toBe(false);
+    });
+  }
 });
 
 describe('doctor brain-gitlink through a symlinked root brain', () => {
