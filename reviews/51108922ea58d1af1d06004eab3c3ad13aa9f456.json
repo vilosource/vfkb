@@ -1,0 +1,112 @@
+{
+  "recordVersion": 1,
+  "sha": "51108922ea58d1af1d06004eab3c3ad13aa9f456",
+  "governing": [
+    "docs/adr/ADR-0052-review-gate.md",
+    "docs/adr/ADR-0073-gate-what-consumers-receive.md",
+    "docs/adr/ADR-0070-guards-that-can-fail.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "opus", "rounds": 4 },
+  "generated": "2026-09-13T13:30:00Z",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "R1: the PR gated .claude/vfkb-guard.mjs (the artefact consumers FETCH) but missed docs/templates/consumer-settings.json (the one they RECEIVE — ADR-0071 made the template the only settings file a consumer gets, and it sat under the blanket docs/ exemption). Demonstrated rather than argued: adding \"attacker@evil\": true to its enabledPlugins left the template Brake 6/6 GREEN and the review gate GREEN, so a one-line PR could enable arbitrary third-party software in every newly onboarded repo, unreviewed. Fixed by adding docs/templates/ to IMPL_PATHS, paired in the selftest with docs/x.md so the carve-out cannot pass for the wrong reason.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F2",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "R2: the first fix for F1 was also insufficient. Upgrading the Brake from 'contains the expected key' to 'has exactly these keys' still permitted repointing the marketplace to {source:'git', url:'https://evil.example/x.git', repo:<the real repo, kept as a decoy>} — key NAMES pinned, VALUES free, 7/7 green. Reproduced before fixing. Now deep-equals enabledPlugins, extraKnownMarketplaces and the SessionStart hook object; the hook COMMAND had the identical defect (pinned command, free surrounding object). Four injections that were green are now red; three others were already red.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F3",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "R2: reviews/README.md stated a path list this change falsified — the doc a contributor reads to learn whether a review is required — and ADR-0052 §1 enumerates the same list, so the code now exceeded its own governing ADR. ADR-0001 forbids editing a decided body, so ADR-0073 was written to amend it (status-pointer only, following the ADR-0072/ADR-0059 precedent). README corrected and now explains the two entries that are not guessable from the directory tree.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F4",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "R3: ADR-0073's own evidence was false. Its claim that the nine commits touching .claude/settings.json each 'rode a larger REVIEWED PR' was wrong, and the R2 correction over-shot to 'NONE carries a review record', which is wrong in the other direction. Executed enumeration: 2 carry a record (f2ca7564, 8feebde0), 7 carry none — and both records' binding shas are NOT ancestors of their squash commits, because a squash carries the record FILE but not the sha it is bound to. The author's own earlier '0 of 9' was wrong for a third reason: it tested for reviews/<commit-sha>.json rather than asking whether the commit's diff contains a record. Conclusion untouched: all nine are substantive, so the false-positive rate is zero, and aadaca6 (the guard's own birth commit, four days after the gate shipped, classified non-implementation by the gate as it existed then) remains the sharpest case.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F5",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "R3: ADR-0073 §4 said 'Five injections that were green before' over a list of SEVEN, of which FOUR were actually green — three different numbers in one sentence. Replayed each injection against the previous test file to settle it: swapped source object, dropped source.source, added installHook/ref, and flipped hook type were green; rogue plugin, rogue marketplace, and appended second hook were already red. §4 now says four and lists four.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F6",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "R3: ADR-0073's boundary clause ('executed configuration versus read guidance') did not decide the case it was written for — .claude/commands/review.md is read guidance by that test, yet §2 of the same ADR gates it. It sounded correct only because CLAUDE.md happened to land on the right side. The ADR now asserts NO principle there: CLAUDE.md's exemption is recorded as an ADR-0052 §1 decision carried forward unchanged, with 'invocation' noted as a candidate for a future ADR to test. The reviewer confirmed the replacement makes three checkable claims, all of which verify — it is not merely vaguer.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F7",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "R3, pre-existing, found by attacking: nothing connected the template's shipped hook command to the guard file it names — two independent literals in two files. Renaming .claude/vfkb-guard.mjs and updating its own test, exactly as an honest rename PR would, left the full suite at 771/771 GREEN while the shipped template pointed at a deleted path. A newly onboarded consumer would get a SessionStart hook aimed at a file they never received and, because the ADR-0059 guard fails open by design, the INACTIVE signal would die SILENTLY for precisely the population it protects (existing consumers hold their own copy, so nothing else notices). Closed with a DERIVED assertion that resolves the shipped command's path and requires it to exist.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F8",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "R2: reviews/README.md's added sentence said 'The last two are not obvious' while pointing at entries 5 and 6 of 8. Reworded to name the two explicitly.",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 8,
+  "ruledOut": [
+    "PROCESS FINDING, recorded because it is the durable lesson: ADR-0073 was wrong in two CONSECUTIVE rounds, each time in the paragraph the previous round's fix had just rewritten (F4 then F5). The reviewer named this as ADR-0070 §4's churn signature at major severity — §4's literal trigger is a BLOCKING finding introduced by the previous round's fix, so it did not fire and no escalation was called. Its prescription was process rather than a further draft: every numeric or historical claim in a decided record must be PASTED FROM AN EXECUTED COMMAND, never written from memory, with the command left in the commit message so the next reader re-runs rather than re-types. Applied in f66acc0; the churn stopped in the next round.",
+    "G1 attacked and not broken: 16 injections against the deep-equalled template including a Cyrillic-homoglyph plugin key, __proto__ as a real JSON key, a \\u-escaped scripts/ path that defeats the raw-text regex, and a matcher added to the hook group — all red. Two curiosities ruled out rather than filed: an object-form __proto__ mutation silently fails to apply (JSON.stringify drops it) and was disclosed as a near-miss, since a mutation that does not apply is indistinguishable from a passing guard; and a duplicate top-level key with the evil copy first stays green but could not be shown harmful — both parsers in the onboarding path are last-wins, verified by execution (Node JSON.parse and the Python json.load that CONSUMER-ONBOARDING.md runs).",
+    "H4's fix proven DERIVED rather than a restated literal, because 'reds on a rename' is also what a second hardcoded path would do: pointing the template at a nonexistent file reds the assertion, while pointing it at a different-but-EXISTING file leaves it green. It follows the template's value.",
+    "Platform divergence — the #281 class — closed by layering rather than luck: the new existsSync assertion is the diff's only platform-dependent code, and a case-mismatched path passes it on case-insensitive macOS. It cannot reach production because the deep-equal pins the command string exactly and catches that platform-independently. Worth knowing if the deep-equal is ever touched.",
+    "G4 withdrawn by the reviewer: the selftest's duplicate docs/x.md predicate is the pair's other half, deliberate, and the commit message states the honest count (67 distinct predicates plus one duplicate) as brain b3649040322e requires.",
+    "docs/CONSUMER-ONBOARDING.md and package.json are reached by ADR-0073 §1's principle but deliberately left ungated, named in the ADR in the shape of its .github/CODEOWNERS paragraph. Naming them is the point: an unnamed gap is how .claude/vfkb-guard.mjs sat ungated for two months."
+  ],
+  "mutations": [
+    {
+      "guard": "review-gate.selftest.mjs > isImplementation: .claude/vfkb-guard.mjs, .claude/settings.json",
+      "mutation": "M1 revert /^\\.claude\\//i to /^\\.claude\\/commands\\//i (2/68 wrong, the .claude/commands control correctly green); M2 delete the .claude rule entirely (4/68, proving the control is connected). Identical on macOS and Linux.",
+      "observedRed": true
+    },
+    {
+      "guard": "review-gate.selftest.mjs > isImplementation: docs/templates/consumer-settings.json",
+      "mutation": "M4 delete /^docs\\/templates\\//i from IMPL_PATHS, anchor-asserted. 1/68 wrong on exactly that case. Identical on macOS and Linux.",
+      "observedRed": true
+    },
+    {
+      "guard": "review-gate.selftest.mjs > still exempt: docs/x.md is not implementation (the pair's other half)",
+      "mutation": "M5 widen /^docs\\/templates\\//i to /^docs\\//i. 3/68 wrong — this case plus two pre-existing docs cases — proving the carve-out is bounded in both directions. Identical on macOS and Linux.",
+      "observedRed": true
+    },
+    {
+      "guard": "consumer-settings-template.test.ts > enables NOTHING beyond vfkb (deep-equalled)",
+      "mutation": "Seven independent reds: T4 repoint the marketplace to {source:'git', url:'https://evil.example/x.git', repo:<decoy>} — the hole that was GREEN under the key-set form; T4b drop source.source; T4c add installHook + source.ref; T1 rogue plugin; T2 rogue marketplace; U3 Cyrillic-homoglyph plugin key; U4 __proto__ as a real JSON key.",
+      "observedRed": true
+    },
+    {
+      "guard": "consumer-settings-template.test.ts > the SessionStart hook object is EXACTLY the guard wiring, field for field",
+      "mutation": "Five independent reds: T5 alter the hook command; T6 append a second hook; T7 flip hooks.SessionStart[0].hooks[0].type to 'evil' (green at the previous head); U5 add a matcher to the hook group; U8 a \\u-escaped scripts/ path that defeats the raw-text regex but not the deep-equal.",
+      "observedRed": true
+    },
+    {
+      "guard": "consumer-settings-template.test.ts > the guard path the template ships actually exists in this repo",
+      "mutation": "M-RENAME: rename .claude/vfkb-guard.mjs to .claude/vfkb-inactive-guard.mjs and update test/vfkb-guard.test.ts's GUARD constant, as an honest rename PR would. 771/771 GREEN before this assertion existed; now 1 failed | 771 passed. Derivation proven separately: a nonexistent target reds it, a different-but-existing target leaves it green.",
+      "observedRed": true
+    }
+  ],
+  "mutationsNote": "33 mutations across four rounds, each anchor-asserted present before substitution (with a cmp check rejecting any mutation that did not change the file — an inapplicable mutation is indistinguishable from a passing guard) and green restored after. The review-gate selftest was mutated on macOS AND on real Linux (docker node:22) with identical results row for row: that arm is not ceremony, because the selftest uses mkdtempSync(tmpdir()) plus real git at six sites, which is the exact /var -> /private/var class that left PR #281 green on Linux CI while the defect was live on macOS. The template Brake was mutated on macOS only, disclosed deliberately: that file has no platform surface (readFileSync + JSON.parse + deep-equal, no tmpdir, no realpath, no path comparison), and the file itself was run green on both platforms. Record filed against the brain-fact commit; the reviewed tree is f66acc0, which differs only by one appended .vfkb/entries.jsonl line (fact fcff6aed1964, this review's outcome) — an EXEMPT_PATHS file, no implementation delta.",
+  "verdict": "MERGE"
+}
