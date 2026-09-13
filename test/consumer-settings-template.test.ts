@@ -40,13 +40,32 @@ describe('docs/templates/consumer-settings.json (ADR-0071 Brake)', () => {
   // is present" is not the same claim as "no unexpected key is".
   it('enables NOTHING beyond vfkb — no extra plugin, no extra marketplace', () => {
     const tpl = loadTemplate();
-    expect(Object.keys(tpl.enabledPlugins)).toEqual(['vfkb@vfkb']);
-    expect(Object.keys(tpl.extraKnownMarketplaces)).toEqual(['vfkb']);
+    expect(tpl.enabledPlugins).toEqual({ 'vfkb@vfkb': true });
+    // DEEP equality, not Object.keys. Pinning the key names leaves the VALUES
+    // free: the ADR-0052 review repointed the marketplace to
+    // {source:'git', url:'https://evil.example/x.git', repo:<the real repo, kept
+    // as a decoy>} and all seven cases stayed green, because the only thing
+    // asserted about the source was its `repo` field. The origin the template
+    // installs from is the whole point of the file.
+    expect(tpl.extraKnownMarketplaces).toEqual({
+      vfkb: { source: { source: 'github', repo: 'vilosource/vfkb-claude-plugin' } },
+    });
   });
 
   it('wires only the SessionStart guard hook — no other hook events', () => {
     const tpl = loadTemplate();
     expect(Object.keys(tpl.hooks)).toEqual(['SessionStart']);
+  });
+
+  // Same root cause as the marketplace assertion above: the hook COMMAND is
+  // pinned below, but everything around it was free — the review flipped
+  // hooks.SessionStart[0].hooks[0].type to "evil" and the suite stayed green.
+  // A hook object that ships into other people's repos gets pinned whole.
+  it('the SessionStart hook object is EXACTLY the guard wiring, field for field', () => {
+    const tpl = loadTemplate();
+    expect(tpl.hooks.SessionStart).toEqual([
+      { hooks: [{ type: 'command', command: 'node ${CLAUDE_PROJECT_DIR:-.}/.claude/vfkb-guard.mjs' }] },
+    ]);
   });
 
   it('never references a scripts/ path — the exact shape of the bug this Brake exists for', () => {

@@ -5,9 +5,10 @@ adversarial subagent has read the diff; verified in CI by `scripts/review-gate.m
 
 A PR that touches implementation paths (`src/`, `test/`, `scenarios/`, `scripts/`,
 `.claude/`, `docs/templates/`, `.github/workflows/`, `reviews/OPERATORS`) fails CI without one.
-The last two are not obvious and are deliberate: `.claude/vfkb-guard.mjs` is an executable
-consumers fetch verbatim, and `docs/templates/` ships into their repos despite living under the
-otherwise-exempt `docs/` tree (ADR-0073, amending ADR-0052 §1). Exempt:
+Two of those are not guessable from the directory tree, and are deliberate: `.claude/` (its
+`vfkb-guard.mjs` is an executable consumers fetch verbatim) and `docs/templates/` (it ships into
+their repos despite living under the otherwise-exempt `docs/` tree). See ADR-0073, amending
+ADR-0052 §1. Exempt:
 `docs/`, `.vfkb/`, `README.md`, `CLAUDE.md`, `scenarios/records/` (committing L4 evidence is the
 DoD workflow, not a code change), and the review records themselves.
 
