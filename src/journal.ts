@@ -109,9 +109,15 @@ export interface RecoveryReport {
 function pairsAtHead(brain: string): Set<string> | 'not-git' | 'unknown' {
   // realPath first, for the same reason git.ts insideSurroundingRepo does it:
   // dirname() of a SYMLINKED brain names the LINK's parent, not the brain's real
-  // home, so a brain kept outside its project asked the wrong repo and prune went
-  // permanently 'unknown'. Realpathing only `rel` and not `repoDir` would leave
-  // the two describing different repos — half-applying the fix.
+  // home, so the repo we ask and the path we ask about described DIFFERENT repos —
+  // realpathing only `rel` and not `repoDir` half-applies the fix.
+  //
+  // Be precise about what this buys, because it is not "prune now works against
+  // HEAD": for a brain living OUTSIDE any worktree, the real parent is not a work
+  // tree either, so pairsAtHead returns 'not-git' and prune falls to the
+  // file-presence rule. That is the POINT — a non-symlinked standalone brain
+  // already classified 'not-git', so this makes the symlinked one consistent with
+  // it rather than stranding it on 'unknown' (= never prune, wal grows forever).
   const repoDir = dirname(realPath(brain));
   const git = (...a: string[]): string =>
     execFileSync('git', ['-C', repoDir, ...a], {

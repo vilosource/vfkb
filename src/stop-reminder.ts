@@ -324,8 +324,25 @@ export function handoffIsStale(cwd: string = process.cwd(), brain: string = brai
     // as "a real diff", so the whole check would fail open and the nudge would die
     // silently: the exact defect class this call site was just fixed for. Resolving
     // `brain` to its realpath is what makes this reachable, so it is handled here.
-    const brainEscapes = brainRel === '..' || brainRel.startsWith('../') || isAbsolute(brainRel);
-    const paths = brainEscapes ? ['.'] : ['.', `:(exclude)${brainRel}`];
+    // Three shapes, and only the middle one is the common case.
+    let paths: string[];
+    if (brainRel === '') {
+      // ROOT brain (VFKB_DATA_DIR=.): the brain dir IS the worktree. Excluding it
+      // means `:(exclude)` with an EMPTY pattern, which excludes everything — git
+      // then exits 0 and the nudge is permanently dead for every root-brain project
+      // (verified: `git diff --quiet A B -- . ':(exclude)'` → exit 0). Exclude the
+      // brain's committed FILES instead; both travel with the repo (ADR-0019/0030).
+      paths = ['.', ':(exclude)entries.jsonl', ':(exclude)manifest.json'];
+    } else if (brainRel === '..' || brainRel.startsWith('../') || isAbsolute(brainRel)) {
+      // OUTSIDE the worktree — `<repo>/.vfkb` symlinked to a standalone brain, the
+      // shape git.ts insideSurroundingRepo calls "documented, not exotic". Nothing in
+      // this tree to exclude, and an escaping pathspec makes git exit 128 while the
+      // handler below counts only exit 1 as "a real diff": the check would fail open
+      // and the nudge would die silently.
+      paths = ['.'];
+    } else {
+      paths = ['.', `:(exclude)${brainRel}`];
+    }
     const anchor = execFileSync('git', ['rev-list', '-1', `--before=${since}`, 'HEAD'], {
       cwd: root,
       encoding: 'utf8',

@@ -15,7 +15,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, existsSync, realpathSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -108,6 +108,38 @@ describe('journal prune through a symlinked brain (ADR-0064)', () => {
   });
 });
 
+describe('journal classification for a brain OUTSIDE any worktree', () => {
+  // Guards src/journal.ts's `dirname(realPath(brain))`. Round 2 changed that line
+  // with NO covering mutation — flagged by the round-2 review as an ADR-0070 §2
+  // violation in its own right.
+  //
+  // Precisely what it buys: dirname(SPELLING) of `<repo>/.vfkb -> <outside>` names
+  // the repo, so the brain got classified as a GIT brain and pairsAtHead asked HEAD
+  // for a path that is not in it -> 'unknown' -> prune NEVER runs, wal grows forever.
+  // dirname(REALPATH) names the standalone brain's parent, which is not a worktree,
+  // so it classifies 'not-git' and prune falls to the file-presence rule — the same
+  // tier a NON-symlinked standalone brain already gets. Consistency, not HEAD-prune.
+  it('prunes via the non-git tier instead of stranding the wal on "unknown"', async () => {
+    const { addEntry } = await import('../src/engine.js');
+    const { recoverFromJournal } = await import('../src/journal.js');
+    const outside = join(root, 'standalone-brain');
+    mkdirSync(outside, { recursive: true });
+    rmSync(join(linkedRepo, '.vfkb'), { recursive: true, force: true });
+    symlinkSync(outside, join(linkedRepo, '.vfkb'), 'dir');
+
+    const brain = join(linkedRepo, '.vfkb');
+    process.env.VFKB_DIR = brain;
+    delete process.env.VFKB_NO_JOURNAL;
+    const a = addEntry('fact', 'present in entries', { role: 'human' });
+
+    recoverFromJournal(brain);
+    const walPath = join(brain, '.journal', 'wal.jsonl');
+    const wal = existsSync(walPath) ? readFileSync(walPath, 'utf8') : '';
+    // Pre-fix: 'unknown' -> prune nothing -> the line is still here.
+    expect(wal).not.toContain(a.id);
+  });
+});
+
 describe('stale-handoff nudge through a symlinked brain (ADR-0034)', () => {
   it('sees a non-brain commit landed after the pinned handoff', async () => {
     const { handoffIsStale } = await import('../src/stop-reminder.js');
@@ -190,6 +222,98 @@ describe('a brain that lives OUTSIDE the repo (the documented standalone shape)'
     dated(['src/bar.ts'], '2030-06-01T00:00:00Z', 'merged PR');
 
     expect(handoffIsStale(linkedRepo, join(linkedRepo, '.vfkb'))).toBe(true);
+  });
+});
+
+describe('the NON-escaping arm under a symlinked checkout (round-2 coverage gap)', () => {
+  // Round 2's escape guard rescued the escaping arm — and in doing so made the
+  // round-1 guard for stop-reminder.ts:319 VACUOUS: reverting relativeReal there
+  // yields `../../link/repo/.vfkb`, which the guard classifies as escaping, takes
+  // the ['.'] path, and the "non-brain commit" test still passed. Found by the
+  // ADR-0052 review at round 2 and escalated under ADR-0070 §4.
+  //
+  // This drives the arm that actually needs `relativeReal`: an IN-TREE brain under
+  // a symlinked checkout, where the exclude pathspec must be right or a BRAIN-ONLY
+  // commit is miscounted as real work. Self-silencing (ADR-0034) is the contract.
+  it('does NOT nudge when the only commit after the handoff is brain-only', async () => {
+    const { handoffIsStale } = await import('../src/stop-reminder.js');
+    const brain = join(linkedRepo, '.vfkb');
+    const handoffTs = '2030-01-01T00:00:00Z';
+    const entry = (id: string, ts: string) =>
+      JSON.stringify({
+        id,
+        type: 'fact',
+        text: 'h',
+        tags: ['handoff', 'next'],
+        zone: 'established',
+        author: { role: 'human' },
+        provenance: { status: 'verified' },
+        validity: { valid_from: ts },
+        created: ts,
+        updated: ts,
+      }) + '\n';
+    const dated = (files: string[], when: string, msg: string) => {
+      execFileSync('git', ['-C', linkedRepo, 'add', ...files], { stdio: 'ignore' });
+      execFileSync('git', ['-C', linkedRepo, 'commit', '-qm', msg], {
+        stdio: 'ignore',
+        env: { ...process.env, GIT_AUTHOR_DATE: when, GIT_COMMITTER_DATE: when },
+      });
+    };
+    mkdirSync(join(linkedRepo, 'src'), { recursive: true });
+    writeFileSync(join(linkedRepo, 'src', 'seed.ts'), 'export const s = 0;\n');
+    writeFileSync(join(brain, 'entries.jsonl'), entry('h1', handoffTs));
+    dated(['src/seed.ts', '.vfkb/entries.jsonl'], handoffTs, 'seed + handoff');
+
+    // the ONLY thing after the handoff is another brain line — must stay silent
+    writeFileSync(join(brain, 'entries.jsonl'), entry('h1', handoffTs) + entry('h2', handoffTs));
+    dated(['.vfkb/entries.jsonl'], '2030-06-01T00:00:00Z', 'brain only');
+
+    expect(handoffIsStale(linkedRepo, brain)).toBe(false);
+  });
+});
+
+describe('a ROOT brain (VFKB_DATA_DIR=.) still nudges', () => {
+  // brainRel === '' produced `:(exclude)` — an EMPTY pattern, which excludes
+  // EVERYTHING, so `git diff --quiet` exits 0 and the ADR-0034 B3 nudge was
+  // permanently dead for every root-brain project. PRE-EXISTING (the pre-fix
+  // `relative()` returns '' too), found by the round-2 review, fixed here.
+  const setup = () => {
+    const handoffTs = '2030-01-01T00:00:00Z';
+    writeFileSync(
+      join(linkedRepo, 'entries.jsonl'),
+      JSON.stringify({
+        id: 'h1', type: 'fact', text: 'h', tags: ['handoff', 'next'],
+        zone: 'established', author: { role: 'human' },
+        provenance: { status: 'verified' }, validity: { valid_from: handoffTs },
+        created: handoffTs, updated: handoffTs,
+      }) + '\n',
+    );
+    const dated = (files: string[], when: string, msg: string) => {
+      execFileSync('git', ['-C', linkedRepo, 'add', ...files], { stdio: 'ignore' });
+      execFileSync('git', ['-C', linkedRepo, 'commit', '-qm', msg], {
+        stdio: 'ignore',
+        env: { ...process.env, GIT_AUTHOR_DATE: when, GIT_COMMITTER_DATE: when },
+      });
+    };
+    dated(['entries.jsonl'], handoffTs, 'handoff at the root');
+    return dated;
+  };
+
+  it('nudges for a real non-brain commit', async () => {
+    const { handoffIsStale } = await import('../src/stop-reminder.js');
+    const dated = setup();
+    mkdirSync(join(linkedRepo, 'src'), { recursive: true });
+    writeFileSync(join(linkedRepo, 'src', 'bar.ts'), 'export const y = 1;\n');
+    dated(['src/bar.ts'], '2030-06-01T00:00:00Z', 'merged PR');
+    expect(handoffIsStale(linkedRepo, linkedRepo)).toBe(true);
+  });
+
+  it('stays silent when only the root brain files changed', async () => {
+    const { handoffIsStale } = await import('../src/stop-reminder.js');
+    const dated = setup();
+    writeFileSync(join(linkedRepo, 'manifest.json'), '{"v":2}\n');
+    dated(['manifest.json'], '2030-06-01T00:00:00Z', 'brain only');
+    expect(handoffIsStale(linkedRepo, linkedRepo)).toBe(false);
   });
 });
 
