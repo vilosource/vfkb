@@ -5,8 +5,8 @@
 
 import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { existsSync, readFileSync, writeFileSync, mkdirSync, realpathSync, unlinkSync } from 'node:fs';
-import { join, dirname, relative, resolve, isAbsolute } from 'node:path';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'node:fs';
+import { join, dirname, relative, isAbsolute } from 'node:path';
 import { SCHEMA_VERSION, ENGINE_VERSION, ENGINE_COMMIT } from './version.js';
 import { journalStatus } from './journal.js';
 import { readManifest } from './manifest.js';
@@ -878,8 +878,7 @@ export function runDoctor(opts: DoctorOpts): DoctorReport {
     // When the brain dir IS the repo root (VFKB_DATA_DIR=. or a symlink resolving there),
     // `<brainDir>/.git` is the PROJECT's own git directory, not an embedded brain repo —
     // and entries.jsonl at the root is tracked normally. Firing here told the user to
-    // delete the whole project's history. `resolve()` both sides so a trailing slash or
-    // `.`-segment cannot slip past the equality.
+    // delete the whole project's history.
     const top = repoToplevel(root);
     // samePathReal, not resolve(): `resolve()` normalises spelling but does NOT
     // follow symlinks, while `top` is git's realpath. A symlinked checkout (or a

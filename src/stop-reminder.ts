@@ -15,7 +15,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { isAbsolute, join, relative } from 'node:path';
 import { relativeReal } from './realpath.js';
 import { brainDir } from './storage.js';
 import { isInjectable, supersededIds } from './engine.js';
@@ -317,7 +317,15 @@ export function handoffIsStale(cwd: string = process.cwd(), brain: string = brai
     // `brain` does not. When they disagreed the exclude pathspec pointed outside
     // the repo, every commit looked brain-only, and the stale nudge never fired.
     const brainRel = relativeReal(root, brain);
-    const exclude = `:(exclude)${brainRel}`;
+    // A brain that lives OUTSIDE the worktree — `<repo>/.vfkb` symlinked to a
+    // standalone brain, the shape git.ts insideSurroundingRepo calls "documented,
+    // not exotic" — has nothing IN this tree to exclude. Worse, an escaping
+    // pathspec makes `git diff` exit 128, and the handler below counts only exit 1
+    // as "a real diff", so the whole check would fail open and the nudge would die
+    // silently: the exact defect class this call site was just fixed for. Resolving
+    // `brain` to its realpath is what makes this reachable, so it is handled here.
+    const brainEscapes = brainRel === '..' || brainRel.startsWith('../') || isAbsolute(brainRel);
+    const paths = brainEscapes ? ['.'] : ['.', `:(exclude)${brainRel}`];
     const anchor = execFileSync('git', ['rev-list', '-1', `--before=${since}`, 'HEAD'], {
       cwd: root,
       encoding: 'utf8',
@@ -325,7 +333,7 @@ export function handoffIsStale(cwd: string = process.cwd(), brain: string = brai
     }).trim();
     const base = anchor || EMPTY_TREE_SHA; // handoff predates all history → diff against nothing
     try {
-      execFileSync('git', ['diff', '--quiet', base, 'HEAD', '--', '.', exclude], { cwd: root, stdio: 'ignore' });
+      execFileSync('git', ['diff', '--quiet', base, 'HEAD', '--', ...paths], { cwd: root, stdio: 'ignore' });
       return false; // exit 0: no non-brain difference
     } catch (e) {
       return (e as { status?: number }).status === 1; // exit 1: a real diff; anything else → fail-open

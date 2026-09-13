@@ -15,7 +15,7 @@
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { relativeReal } from './realpath.js';
+import { realPath, relativeReal } from './realpath.js';
 
 const walPath = (brain: string): string => join(brain, '.journal', 'wal.jsonl');
 const suppressedPath = (brain: string): string => join(brain, '.journal', 'suppressed');
@@ -107,7 +107,12 @@ export interface RecoveryReport {
 // (unborn branch, detached/corrupt state, entries not tracked), prune nothing
 // this pass — never prune on uncertainty.
 function pairsAtHead(brain: string): Set<string> | 'not-git' | 'unknown' {
-  const repoDir = dirname(brain);
+  // realPath first, for the same reason git.ts insideSurroundingRepo does it:
+  // dirname() of a SYMLINKED brain names the LINK's parent, not the brain's real
+  // home, so a brain kept outside its project asked the wrong repo and prune went
+  // permanently 'unknown'. Realpathing only `rel` and not `repoDir` would leave
+  // the two describing different repos — half-applying the fix.
+  const repoDir = dirname(realPath(brain));
   const git = (...a: string[]): string =>
     execFileSync('git', ['-C', repoDir, ...a], {
       encoding: 'utf8',

@@ -146,6 +146,53 @@ describe('stale-handoff nudge through a symlinked brain (ADR-0034)', () => {
   });
 });
 
+describe('a brain that lives OUTSIDE the repo (the documented standalone shape)', () => {
+  // src/git.ts insideSurroundingRepo calls this shape "documented … not exotic".
+  // Realpathing the brain is what makes it reachable here: the exclude pathspec
+  // then points outside the worktree, `git diff` exits 128 rather than 1, and the
+  // handler — which counts only exit 1 as "a real diff" — fails open. The nudge
+  // dies silently, which is precisely the defect class this module removes.
+  // Caught by the ADR-0052 review of PR #281 as a regression this fix introduced.
+  it('still nudges when the brain is symlinked outside the worktree', async () => {
+    const { handoffIsStale } = await import('../src/stop-reminder.js');
+    const outside = join(root, 'brain-outside');
+    mkdirSync(outside, { recursive: true });
+    rmSync(join(linkedRepo, '.vfkb'), { recursive: true, force: true }); // fixture made a real dir
+    symlinkSync(outside, join(linkedRepo, '.vfkb'), 'dir');
+
+    const handoffTs = '2030-01-01T00:00:00Z';
+    writeFileSync(
+      join(outside, 'entries.jsonl'),
+      JSON.stringify({
+        id: 'h1',
+        type: 'fact',
+        text: 'h',
+        tags: ['handoff', 'next'],
+        zone: 'established',
+        author: { role: 'human' },
+        provenance: { status: 'verified' },
+        validity: { valid_from: handoffTs },
+        created: handoffTs,
+        updated: handoffTs,
+      }) + '\n',
+    );
+    const dated = (files: string[], when: string, msg: string) => {
+      execFileSync('git', ['-C', linkedRepo, 'add', ...files], { stdio: 'ignore' });
+      execFileSync('git', ['-C', linkedRepo, 'commit', '-qm', msg], {
+        stdio: 'ignore',
+        env: { ...process.env, GIT_AUTHOR_DATE: when, GIT_COMMITTER_DATE: when },
+      });
+    };
+    mkdirSync(join(linkedRepo, 'src'), { recursive: true });
+    writeFileSync(join(linkedRepo, 'src', 'seed.ts'), 'export const s = 0;\n');
+    dated(['src/seed.ts'], handoffTs, 'seed');
+    writeFileSync(join(linkedRepo, 'src', 'bar.ts'), 'export const y = 1;\n');
+    dated(['src/bar.ts'], '2030-06-01T00:00:00Z', 'merged PR');
+
+    expect(handoffIsStale(linkedRepo, join(linkedRepo, '.vfkb'))).toBe(true);
+  });
+});
+
 describe('doctor brain-gitlink through a symlinked root brain', () => {
   it('stays SILENT when the brain dir IS the repo root — never says `rm <root>/.git`', async () => {
     const { runDoctor } = await import('../src/doctor.js');
