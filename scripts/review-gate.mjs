@@ -37,7 +37,16 @@ export const IMPL_PATHS = [
   /^test\//i,
   /^scenarios\//i,
   /^scripts\//i,
-  /^\.claude\/commands\//i,
+  // The WHOLE .claude/ dir, not just commands/. It was `commands/` only, which left
+  // `.claude/vfkb-guard.mjs` — an executable Node program, the ADR-0059 INACTIVE
+  // guard, and the artefact CONSUMER-ONBOARDING.md tells consumers to fetch verbatim
+  // from this repo's main — merging with NO review record. PR #279 changed exactly
+  // that file and was gated only incidentally, because it also touched test/ (its own
+  // gate run printed "1 implementation file(s) changed: test/vfkb-guard.test.ts").
+  // `.claude/settings.json` is in the same position: it is what wires the guard in as
+  // a SessionStart hook. Every tracked file here is implementation; the one local file
+  // (`settings.local.json`) is gitignored and so can never appear in a diff. Issue #280.
+  /^\.claude\//i,
   /^\.github\/workflows\//i,
   // The waiver allowlist decides who may merge over a blocking finding. Editing
   // it is an implementation change, and is itself reviewed — otherwise an agent
