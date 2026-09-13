@@ -15,8 +15,9 @@
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
-import { brainDir } from './storage.js';
+import { isAbsolute, join, relative } from 'node:path';
+import { relativeReal } from './realpath.js';
+import { brainDir, COMMITTED_BRAIN_PATHS } from './storage.js';
 import { isInjectable, supersededIds } from './engine.js';
 import type { KnowledgeEntry } from './types.js';
 
@@ -312,8 +313,32 @@ export function handoffIsStale(cwd: string = process.cwd(), brain: string = brai
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
     }).trim();
-    const brainRel = relative(root, brain).replace(/\\/g, '/');
-    const exclude = `:(exclude)${brainRel}`;
+    // relativeReal, not relative: `root` comes back from git as a realpath and
+    // `brain` does not. When they disagreed the exclude pathspec pointed outside
+    // the repo, every commit looked brain-only, and the stale nudge never fired.
+    const brainRel = relativeReal(root, brain);
+    // Three shapes. Only the last is the common case, and each of the other two was
+    // a live defect: a wrong pathspec here does not error, it silently answers "no
+    // non-brain change" and the ADR-0034 nudge dies.
+    let paths: string[];
+    if (brainRel === '') {
+      // ROOT brain (VFKB_DATA_DIR=.): the brain dir IS the worktree. Excluding it
+      // means `:(exclude)` with an EMPTY pattern, which excludes everything — git
+      // then exits 0 and the nudge is permanently dead for every root-brain project
+      // (verified: `git diff --quiet A B -- . ':(exclude)'` → exit 0). Exclude the
+      // brain's committed PATHS instead — the shared list, because naming a subset
+      // here made a root brain nudge for its own `bin/` and `mcp.json` commits.
+      paths = ['.', ...COMMITTED_BRAIN_PATHS.map((f) => `:(exclude)${f}`)];
+    } else if (brainRel === '..' || brainRel.startsWith('../') || isAbsolute(brainRel)) {
+      // OUTSIDE the worktree — `<repo>/.vfkb` symlinked to a standalone brain, the
+      // shape git.ts insideSurroundingRepo calls "documented, not exotic". Nothing in
+      // this tree to exclude, and an escaping pathspec makes git exit 128 while the
+      // handler below counts only exit 1 as "a real diff": the check would fail open
+      // and the nudge would die silently.
+      paths = ['.'];
+    } else {
+      paths = ['.', `:(exclude)${brainRel}`];
+    }
     const anchor = execFileSync('git', ['rev-list', '-1', `--before=${since}`, 'HEAD'], {
       cwd: root,
       encoding: 'utf8',
@@ -321,7 +346,7 @@ export function handoffIsStale(cwd: string = process.cwd(), brain: string = brai
     }).trim();
     const base = anchor || EMPTY_TREE_SHA; // handoff predates all history → diff against nothing
     try {
-      execFileSync('git', ['diff', '--quiet', base, 'HEAD', '--', '.', exclude], { cwd: root, stdio: 'ignore' });
+      execFileSync('git', ['diff', '--quiet', base, 'HEAD', '--', ...paths], { cwd: root, stdio: 'ignore' });
       return false; // exit 0: no non-brain difference
     } catch (e) {
       return (e as { status?: number }).status === 1; // exit 1: a real diff; anything else → fail-open

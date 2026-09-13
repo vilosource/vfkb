@@ -14,7 +14,8 @@
 // and hold the ADR-0040 lock around recovery themselves.
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative, sep } from 'node:path';
+import { dirname, join } from 'node:path';
+import { realPath, relativeReal } from './realpath.js';
 
 const walPath = (brain: string): string => join(brain, '.journal', 'wal.jsonl');
 const suppressedPath = (brain: string): string => join(brain, '.journal', 'suppressed');
@@ -106,7 +107,18 @@ export interface RecoveryReport {
 // (unborn branch, detached/corrupt state, entries not tracked), prune nothing
 // this pass — never prune on uncertainty.
 function pairsAtHead(brain: string): Set<string> | 'not-git' | 'unknown' {
-  const repoDir = dirname(brain);
+  // realPath first, for the same reason git.ts insideSurroundingRepo does it:
+  // dirname() of a SYMLINKED brain names the LINK's parent, not the brain's real
+  // home, so the repo we ask and the path we ask about described DIFFERENT repos —
+  // realpathing only `rel` and not `repoDir` half-applies the fix.
+  //
+  // Be precise about what this buys, because it is not "prune now works against
+  // HEAD": for a brain living OUTSIDE any worktree, the real parent is not a work
+  // tree either, so pairsAtHead returns 'not-git' and prune falls to the
+  // file-presence rule. That is the POINT — a non-symlinked standalone brain
+  // already classified 'not-git', so this makes the symlinked one consistent with
+  // it rather than stranding it on 'unknown' (= never prune, wal grows forever).
+  const repoDir = dirname(realPath(brain));
   const git = (...a: string[]): string =>
     execFileSync('git', ['-C', repoDir, ...a], {
       encoding: 'utf8',
@@ -119,7 +131,11 @@ function pairsAtHead(brain: string): Set<string> | 'not-git' | 'unknown' {
   }
   try {
     const top = git('rev-parse', '--show-toplevel');
-    const rel = relative(top, join(brain, 'entries.jsonl')).split(sep).join('/');
+    // relativeReal, not relative: `top` is git's realpath answer while `brain`
+    // is whatever the caller spelled. A symlink anywhere in either made this
+    // climb out of the repo, so `cat-file` threw, so prune returned 'unknown'
+    // and the wal grew without bound. See src/realpath.ts.
+    const rel = relativeReal(top, join(brain, 'entries.jsonl'));
     const head = execFileSync('git', ['-C', repoDir, 'cat-file', '-p', `HEAD:${rel}`], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],

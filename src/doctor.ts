@@ -5,12 +5,13 @@
 
 import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { existsSync, readFileSync, writeFileSync, mkdirSync, realpathSync, unlinkSync } from 'node:fs';
-import { join, dirname, relative, resolve, isAbsolute } from 'node:path';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'node:fs';
+import { join, dirname, relative, isAbsolute } from 'node:path';
 import { SCHEMA_VERSION, ENGINE_VERSION, ENGINE_COMMIT } from './version.js';
 import { journalStatus } from './journal.js';
 import { readManifest } from './manifest.js';
 import type { GitRunner } from './session-end.js';
+import { realPath, samePathReal } from './realpath.js';
 
 // `skip` = could not determine, and that is not a defect (offline, no clone,
 // directory-source marketplace). RFC-024 §1: this check must NEVER `fail`, and
@@ -457,14 +458,7 @@ function repoToplevel(root: string): string | undefined {
 // /tmp that resolves to /private/tmp) compares honestly rather than by spelling.
 function isUnder(parent: string | undefined, child: string): boolean {
   if (!parent) return false;
-  const real = (p: string) => {
-    try {
-      return realpathSync(p);
-    } catch {
-      return resolve(p);
-    }
-  };
-  const rel = relative(real(parent), real(child));
+  const rel = relative(realPath(parent), realPath(child));
   return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
 }
 
@@ -884,10 +878,13 @@ export function runDoctor(opts: DoctorOpts): DoctorReport {
     // When the brain dir IS the repo root (VFKB_DATA_DIR=. or a symlink resolving there),
     // `<brainDir>/.git` is the PROJECT's own git directory, not an embedded brain repo —
     // and entries.jsonl at the root is tracked normally. Firing here told the user to
-    // delete the whole project's history. `resolve()` both sides so a trailing slash or
-    // `.`-segment cannot slip past the equality.
+    // delete the whole project's history.
     const top = repoToplevel(root);
-    const brainIsRoot = top !== undefined && resolve(brainDir) === resolve(top);
+    // samePathReal, not resolve(): `resolve()` normalises spelling but does NOT
+    // follow symlinks, while `top` is git's realpath. A symlinked checkout (or a
+    // macOS /tmp) therefore compared unequal and fired this FAIL — whose remedy
+    // is `rm <path>/.git` — at a healthy project root. See src/realpath.ts.
+    const brainIsRoot = top !== undefined && samePathReal(brainDir, top);
     if (inRepo && !brainIsRoot && existsSync(embedded)) {
       const rel = relative(root, join(brainDir, 'entries.jsonl'));
       const brainRel = relative(root, brainDir);

@@ -1,0 +1,179 @@
+{
+  "recordVersion": 1,
+  "sha": "8c81b4063aaa7d19abfe9875c7b46eddc1ac03e9",
+  "governing": [
+    "docs/adr/ADR-0064-durable-capture-journal.md",
+    "docs/adr/ADR-0070-guards-that-can-fail.md",
+    "docs/adr/ADR-0029-sandbox-proven-definition-of-done.md"
+  ],
+  "reviewer": {
+    "agent": "general-purpose",
+    "model": "opus",
+    "rounds": 5
+  },
+  "generated": "2026-09-13T08:45:00Z",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "R1, introduced by this PR: resolving the brain to its realpath made an OUTSIDE-the-worktree brain (<repo>/.vfkb symlinked to a standalone brain — the shape git.ts insideSurroundingRepo calls documented-not-exotic) produce an escaping :(exclude) pathspec. git exits 128 for that, not 1, and the handler at stop-reminder.ts counted only exit 1 as 'a real diff', so the check failed open and the ADR-0034 nudge died silently. Reproduced independently before fixing: escaping exclude -> exit 128, in-repo exclude -> exit 1.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F2",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "R2, INTRODUCED BY R1'S OWN FIX — the ADR-0070 §4 distress signal, escalated to the operator, who authorised further rounds. The escape guard added for F1 silently made F1's own guard VACUOUS: mutation M2 (revert relativeReal at :319) was RED in round 1 and GREEN afterwards, because the escape guard classified relative()'s output as escaping and rescued the defect it was not written for. An evidence defect, not a code defect — the shipped behaviour was correct, and on Linux nothing else caught it either. Closed by driving the arm that actually needs relativeReal: an IN-TREE brain under a symlinked checkout where a brain-only commit must not be miscounted as work.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F3",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "R4, introduced by R3's fix: the root-brain exclude list used a bare 'bin' token, which is a DIRECTORY pathspec and excludes the whole subtree. A root brain in a project keeping its own CLI in bin/ — the standard npm layout — had real work made INVISIBLE to the nudge: a silent miss, the worse direction. Verified through git before fixing (':(exclude)bin' + a commit touching only bin/cli.js -> exit 0; ':(exclude)bin/bootstrap.mjs' -> exit 1). src/init.ts:210-220 writes exactly one file there, so the directory form bought nothing and cost the subtree.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F4",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "R2: src/journal.ts realpath'd `rel` but not `repoDir` (dirname of the SPELLING), so for an outside-symlinked brain the two named different repos — the half-applied form of the very fix this branch exists to make. Shipped in R2 with NO covering mutation (an ADR-0070 §2 violation in its own right), guarded in R3. The accompanying comment was also inaccurate and was corrected: it does not make prune work against HEAD, it classifies 'not-git', the tier a non-symlinked standalone brain already gets, instead of stranding it on 'unknown' where prune never runs.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F5",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "R3, PRE-EXISTING (not introduced by this PR — the pre-fix relative() returns '' too): for a root brain (VFKB_DATA_DIR=.) brainRel === '' produced ':(exclude)' with an EMPTY pattern, which excludes EVERYTHING, so git exits 0 and the ADR-0034 B3 nudge was permanently dead for every root-brain project. Verified: `git diff --quiet A B -- . ':(exclude)'` -> exit 0 vs `-- .` -> exit 1. The reviewer's one-term remedy was deliberately NOT taken: it revives the nudge but then over-fires on every brain-only commit. A root brain now excludes its committed PATHS instead.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F6",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "R3: the root-brain exclude list named only entries.jsonl and manifest.json, so a root brain committing its own bin/bootstrap.mjs (src/init.ts:18, and CONSUMER-ONBOARDING tells the consumer to commit it) or mcp.json (src/init.ts:35, the hand-dropped pi override) was told its handoff had gone stale. It also contradicted the docstring three lines above, which promises the check excludes 'any future committed brain file, not one hardcoded filename'. That knowledge was already hardcoded in three places and the fourth got it wrong, so it now lives once as storage.ts COMMITTED_BRAIN_PATHS.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F7",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "R3: dropping ':(exclude)entries.jsonl' left the whole suite green while making a root brain over-fire after every ADR-0033 SessionEnd commit — which commits exactly that file. The guard covered manifest.json (the rare path) and left the hot one open. Now each of the four tokens is dropped individually AT THE CALL SITE with the constant intact, so the test cannot vanish with the token it guards.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F8",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "R1: src/journal.ts / src/doctor.ts carried dead imports (realpathSync, resolve) plus a comment describing a resolve()-compare the diff had removed. Dropped; tsc clean.",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 8,
+  "ruledOut": [
+    "R3 raised, then WITHDREW at R4: the test 'sees a non-brain commit landed after the pinned handoff' was said to have no red mutation and to be only a positive control. The reviewer withdrew it after running the whole-function mutation it had missed — M-OPEN (status === 1 -> return false, wholesale fail-open) reds it, making it a genuine contrast arm in ADR-0029's sense, one of only four tests that catch a wholesale fail-open. Recorded here rather than as a finding because it was withdrawn by its author; no code changed after the MERGE verdict, and an optional one-line label was offered and declined.",
+    "Over-firing in the root-brain shape: eight pathspec shapes driven through the real handoffIsStale — no bin/ present at all, brain bin/bootstrap.mjs, the project's own bin/cli.js, both present, a NESTED foo/bin/bootstrap.mjs, and a FILE literally named bin at the root — all correct after the R4 narrowing. The 'no bin/ at all' shape was discriminated with a positive AND a negative row in the same fixture, because a git exit-128 fail-open would have forced both to false (the ADR-0051 §3 quiet-success trap).",
+    "COMMITTED_BRAIN_PATHS completeness re-derived independently rather than checked against itself: the complement of the derived/gitignored set vfkb init writes (src/init.ts:278-285) is exactly the four tokens, and bootstrap.mjs is the only name any module writes or probes under a brain bin/ (src/init.ts:18, :210-219; src/doctor.ts:821-824).",
+    "Known and bounded, NOT a finding: in a root brain the brain shares the worktree's namespace, so a project owning a root-level manifest.json (a web app manifest, say) has it excluded. Inherent to VFKB_DATA_DIR=. and limited to single files; the unbounded case — a whole subtree — was the bare 'bin' token, and it is gone."
+  ],
+  "mutations": [
+    {
+      "guard": "journal prune through a symlinked brain (ADR-0064) > drops pairs committed at HEAD instead of growing the wal forever",
+      "mutation": "src/journal.ts:132 relativeReal -> relative(...).split(sep).join('/')",
+      "observedRed": true
+    },
+    {
+      "guard": "journal classification for a brain OUTSIDE any worktree > prunes via the non-git tier instead of stranding the wal on 'unknown'",
+      "mutation": "src/journal.ts:116 dirname(realPath(brain)) -> dirname(brain)",
+      "observedRed": true
+    },
+    {
+      "guard": "the NON-escaping arm under a symlinked checkout > does NOT nudge when the only commit after the handoff is brain-only",
+      "mutation": "src/stop-reminder.ts:319 relativeReal -> relative(root, brain).replace(/\\\\/g,'/')",
+      "observedRed": true
+    },
+    {
+      "guard": "the NON-escaping arm under a symlinked checkout > does NOT nudge when the only commit after the handoff is brain-only",
+      "mutation": "src/stop-reminder.ts:332 escape branch forced always-taken — proves the guard drives the non-escaping arm, not the escape path",
+      "observedRed": true
+    },
+    {
+      "guard": "a ROOT brain (VFKB_DATA_DIR=.) still nudges > nudges for a real non-brain commit",
+      "mutation": "src/stop-reminder.ts:325 root-brain branch disabled (if (false)), restoring the empty :(exclude)",
+      "observedRed": true
+    },
+    {
+      "guard": "a ROOT brain > does NOT hide the project OWN bin/ directory",
+      "mutation": "src/storage.ts:48 'bin/bootstrap.mjs' -> bare 'bin' (restores the R4 blocking defect; also reds the drift assertion)",
+      "observedRed": true
+    },
+    {
+      "guard": "a ROOT brain > stays silent when only entries.jsonl changed",
+      "mutation": "src/stop-reminder.ts:331 drop 'entries.jsonl' AT THE CALL SITE (constant intact, so the case cannot vanish with it)",
+      "observedRed": true
+    },
+    {
+      "guard": "a ROOT brain > stays silent when only manifest.json changed",
+      "mutation": "src/stop-reminder.ts:331 drop 'manifest.json' at the call site",
+      "observedRed": true
+    },
+    {
+      "guard": "a ROOT brain > stays silent when only mcp.json changed",
+      "mutation": "src/stop-reminder.ts:331 drop 'mcp.json' at the call site",
+      "observedRed": true
+    },
+    {
+      "guard": "a ROOT brain > stays silent when only bin/bootstrap.mjs changed",
+      "mutation": "src/stop-reminder.ts:331 drop 'bin/bootstrap.mjs' at the call site",
+      "observedRed": true
+    },
+    {
+      "guard": "a ROOT brain > the committed-brain-path list has not drifted",
+      "mutation": "src/storage.ts:48 drop a path from COMMITTED_BRAIN_PATHS (also reds the behavioural case)",
+      "observedRed": true
+    },
+    {
+      "guard": "a ROOT brain > the committed-brain-path list has not drifted",
+      "mutation": "src/storage.ts:48 ADD a bogus path to COMMITTED_BRAIN_PATHS — the opposite drift direction",
+      "observedRed": true
+    },
+    {
+      "guard": "a brain that lives OUTSIDE the repo > still nudges when the brain is symlinked outside the worktree",
+      "mutation": "src/stop-reminder.ts:332 escape branch never taken (} else if (false) {)",
+      "observedRed": true
+    },
+    {
+      "guard": "stale-handoff nudge through a symlinked brain (ADR-0034) > sees a non-brain commit landed after the pinned handoff",
+      "mutation": "src/stop-reminder.ts:339 status === 1 -> return false (wholesale fail-open) — the contrast arm; WITHDRAWS the R3 minor that claimed this test had no red mutation",
+      "observedRed": true
+    },
+    {
+      "guard": "doctor brain-gitlink through a symlinked root brain > stays SILENT when the brain dir IS the repo root",
+      "mutation": "src/doctor.ts:887 samePathReal(brainDir, top) -> resolve(brainDir) === resolve(top)",
+      "observedRed": true
+    },
+    {
+      "guard": "src/realpath.ts > samePathReal sees through the symlink where resolve() cannot",
+      "mutation": "src/realpath.ts:81 realPath(a) === realPath(b) -> resolve(a) === resolve(b)",
+      "observedRed": true
+    },
+    {
+      "guard": "src/realpath.ts > realPath falls back to the resolved spelling for a path that does not exist yet",
+      "mutation": "src/realpath.ts:52-66 ancestor walk replaced by bare realpathSync(resolve(p))",
+      "observedRed": true
+    },
+    {
+      "guard": "src/realpath.ts > relativeReal resolves both sides; plain relative would escape the repo",
+      "mutation": "src/realpath.ts:52-66 realPath ancestor walk gutted to try{realpathSync(p)}catch{resolve(p)}",
+      "observedRed": true
+    },
+    {
+      "guard": "src/realpath.ts > relativeReal emits POSIX separators for git pathspecs",
+      "mutation": "src/realpath.ts:52-66 realPath ancestor walk gutted",
+      "observedRed": true
+    }
+  ],
+  "mutationsNote": "20 behavioural mutations across five rounds, each anchor-asserted present (exactly 1 occurrence) before substitution and green restored after. Run on macOS (darwin 25.5.0) AND independently on real Linux (docker node:22-bookworm, git 2.39.5, /tmp NOT a symlink) with IDENTICAL results row for row for the last four consecutive rounds — the property whose absence hid the round-2 gap, and the reason the new Brake constructs its symlink explicitly instead of inheriting macOS's /var -> /private/var. 17 of 18 tests carry >=1 red mutation; the 18th is the fixture's own vacuity detector ('git answers with the realpath ... they differ'), which guards the setup by design and correctly has no implementation mutation. TWO MUTATIONS STAYED GREEN and are recorded rather than counted as coverage: (a) restoring the self-referential test loop (EXPECTED_COMMITTED = [...COMMITTED_BRAIN_PATHS]) plus dropping a path makes the suite SHRINK and stay green — retained as standing evidence that the shipped literal + drift-assertion pairing is load-bearing, not decorative; (b) dropping .split(sep).join('/') in relativeReal is green BY CONSTRUCTION on POSIX (sep === '/'), unobservable on this machine and on Linux CI. Record filed against the brain-fact commit; the reviewed tree is f871922, which differs only by one appended .vfkb/entries.jsonl line (fact b3649040322e, the review outcome) — an EXEMPT_PATHS file, no implementation delta.",
+  "verdict": "MERGE"
+}
