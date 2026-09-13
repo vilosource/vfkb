@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 // Brake for ADR-0071: docs/templates/consumer-settings.json is the ONLY thing
@@ -71,6 +71,21 @@ describe('docs/templates/consumer-settings.json (ADR-0071 Brake)', () => {
   it('never references a scripts/ path — the exact shape of the bug this Brake exists for', () => {
     const raw = readFileSync(TEMPLATE_PATH, 'utf8');
     expect(raw).not.toMatch(/scripts\//);
+  });
+
+  // DERIVED, not duplicated. The hook command and the guard's path were two
+  // independent literals in two files, with nothing connecting them: the review
+  // renamed .claude/vfkb-guard.mjs (updating its own test, as an honest rename PR
+  // would) and the whole suite stayed 771/771 while the shipped template kept
+  // pointing at a file that no longer existed. A new consumer would onboard with a
+  // SessionStart hook aimed at a path they never received — and because the
+  // ADR-0059 guard fails open by design, the INACTIVE signal would die SILENTLY,
+  // for exactly the population it exists to protect. Existing consumers hold their
+  // own copy and are unaffected, which is why nothing else notices.
+  it('the guard path the template ships actually exists in this repo', () => {
+    const cmd = loadTemplate().hooks.SessionStart[0].hooks[0].command;
+    const rel = cmd.replace('node ${CLAUDE_PROJECT_DIR:-.}/', '');
+    expect(existsSync(join(__dirname, '..', rel))).toBe(true);
   });
 
   it('the one hook command it does carry runs the committed vfkb-guard.mjs', () => {

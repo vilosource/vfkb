@@ -74,9 +74,10 @@ software in every newly onboarded repo, unreviewed, with a green suite.
    `{source:'git', url:'https://evil.example/x.git', repo:<the real repo, kept as a decoy>}`,
    which left every assertion satisfied. Key names were pinned; the values were free.
    `test/consumer-settings-template.test.ts` now deep-equals `enabledPlugins`,
-   `extraKnownMarketplaces` and the `SessionStart` hook object. Five injections that were green
-   before — rogue plugin, rogue marketplace, swapped source object, dropped `source.source`, added
-   `installHook`/`ref`, flipped hook `type`, appended second hook — now red.
+   `extraKnownMarketplaces` and the `SessionStart` hook object. Replayed against the previous
+   key-set form, **four injections that were green are now red** — swapped source object, dropped
+   `source.source`, added `installHook`/`ref`, flipped hook `type`. Three others — rogue plugin,
+   rogue marketplace, appended second hook — were already red and remain so.
 
 ## Consequences
 
@@ -84,9 +85,12 @@ software in every newly onboarded repo, unreviewed, with a green suite.
 stated rule matches its behaviour again. All nine commits touching `.claude/settings.json` are
 substantive wiring changes, so the historical false-positive rate of this broadening is zero.
 
-An earlier draft of this ADR said those commits "rode a larger **reviewed** PR". That was false and
-is corrected here rather than left standing: **none of the nine carries a review record**, and the
-sharpest case is the guard's own birth. `aadaca6` (#160, 2026-07-14) — the commit that ADDED
+An earlier draft of this ADR said those commits "rode a larger **reviewed** PR", and the first
+correction over-shot to "none carries a review record". Both were wrong; this is the executed
+count. **Seven of the nine carry no review record at all. The two that do — `f2ca7564` and
+`8feebde0` — are filed against pre-merge branch shas that squash-merging did not preserve, so
+neither binding sha is an ancestor of the commit that carries its record.** The sharpest case is
+the guard's own birth. `aadaca6` (#160, 2026-07-14) — the commit that ADDED
 `.claude/vfkb-guard.mjs` — landed **four days after the gate itself** (`db8c06d`, 2026-07-10) and
 touched only `.claude/settings.json`, `.claude/vfkb-guard.mjs` and `.vfkb/entries.jsonl`. Replaying
 the gate as it existed at birth against exactly that file list classifies **none** of them as
@@ -117,10 +121,14 @@ change would outrun the evidence, and neither has an observed defect the way the
 template do. Naming them is the point — an unnamed gap is how `.claude/vfkb-guard.mjs` sat ungated
 for two months.
 
-**A boundary clause for §1's second clause.** "Changes what an agent executes" does not by itself
-separate `CLAUDE.md` (exempt) from `.claude/commands/*.md` (gated) — both are markdown an agent
-reads. The line is **executed configuration** (hooks, settings, programs, and the templates of
-those) versus **read guidance**. `CLAUDE.md` stays exempt under that reading.
+**`CLAUDE.md` stays exempt, and this ADR does not claim to derive that.** §1's second clause
+("changes what an agent executes") does not by itself separate `CLAUDE.md` from
+`.claude/commands/*.md` — both are markdown an agent reads, and a draft of this ADR tried to split
+them on "executed configuration versus read guidance", which fails: `.claude/commands/review.md` is
+read guidance by that test and yet §2 gates it. So no principle is asserted here.
+**`CLAUDE.md`'s exemption is an ADR-0052 §1 decision carried forward unchanged, not revisited.**
+If a future ADR wants a derived line, *invocation* is the candidate worth testing — a named,
+invocable procedure versus ambient context — but it is not decided here.
 
 **Deliberately NOT decided here.** `.github/CODEOWNERS` — which decides who may approve — remains
 ungated, while `reviews/OPERATORS`, its in-repo equivalent, is gated with the rationale *"otherwise
