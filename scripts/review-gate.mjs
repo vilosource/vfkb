@@ -37,7 +37,24 @@ export const IMPL_PATHS = [
   /^test\//i,
   /^scenarios\//i,
   /^scripts\//i,
-  /^\.claude\/commands\//i,
+  // The WHOLE .claude/ dir, not just commands/. It was `commands/` only, which left
+  // `.claude/vfkb-guard.mjs` — an executable Node program, the ADR-0059 INACTIVE
+  // guard, and the artefact CONSUMER-ONBOARDING.md tells consumers to fetch verbatim
+  // from this repo's main — merging with NO review record. PR #279 changed exactly
+  // that file and was gated only incidentally, because it also touched test/ (its own
+  // gate run printed "1 implementation file(s) changed: test/vfkb-guard.test.ts").
+  // `.claude/settings.json` is in the same position: it is what wires the guard in as
+  // a SessionStart hook. Every tracked file here is implementation; the one local file
+  // (`settings.local.json`) is gitignored and so can never appear in a diff. Issue #280.
+  /^\.claude\//i,
+  // docs/templates/ is NOT documentation. `docs/CONSUMER-ONBOARDING.md:63` fetches
+  // `consumer-settings.json` from main and writes it verbatim into every onboarded
+  // consumer's `.claude/settings.json` — and ADR-0071 decided consumers must NOT copy
+  // vfkb's own `.claude/settings.json`, so THIS is the settings file they actually
+  // receive. Sitting under the exempt `docs/` tree, a one-line PR adding a plugin to
+  // its `enabledPlugins` shipped to every new consumer with no review record (observed
+  // in the ADR-0052 review of this PR). Gated with the guard it ships beside.
+  /^docs\/templates\//i,
   /^\.github\/workflows\//i,
   // The waiver allowlist decides who may merge over a blocking finding. Editing
   // it is an implementation change, and is itself reviewed — otherwise an agent

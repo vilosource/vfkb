@@ -295,6 +295,15 @@ const units = [
   ['isImplementation: src/x.ts', isImplementation('src/x.ts') === true],
   ['isImplementation: scripts/x.mjs', isImplementation('scripts/x.mjs') === true],
   ['isImplementation: reviews/OPERATORS', isImplementation('reviews/OPERATORS') === true],
+  // Issue #280 — the whole .claude/ dir, not just commands/. The guard is an
+  // executable that consumers fetch verbatim; settings.json is what wires it in.
+  ['isImplementation: .claude/vfkb-guard.mjs', isImplementation('.claude/vfkb-guard.mjs') === true],
+  ['isImplementation: .claude/settings.json', isImplementation('.claude/settings.json') === true],
+  ['isImplementation: .claude/commands/x.md still matches', isImplementation('.claude/commands/x.md') === true],
+  // docs/templates/ ships verbatim to consumers, so it is implementation even though
+  // the rest of docs/ is exempt. Asserted as a PAIR so it cannot pass for the wrong reason.
+  ['isImplementation: docs/templates/consumer-settings.json', isImplementation('docs/templates/consumer-settings.json') === true],
+  ['still exempt: docs/x.md is not implementation', isImplementation('docs/x.md') === false],
   // The ONE exemption that does any work: it shadows an IMPL match. Asserted as
   // a pair, so it cannot pass for an unrelated reason.
   ['EXEMPT shadows IMPL: scenarios/x.ts is implementation', isImplementation('scenarios/x.ts') === true],
