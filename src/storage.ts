@@ -32,7 +32,11 @@ export function isTombstone(r: StoredRecord): r is Tombstone {
 /**
  * Brain paths that travel WITH the repo (ADR-0019 entries, ADR-0030 manifest), as
  * opposed to the derived/operational set which is gitignored. Relative to the brain
- * dir; `bin` is a directory (the `vfkb init` bootstrap wiring, src/init.ts:18) and
+ * dir. `bin/bootstrap.mjs` is named in FULL, never as the bare directory `bin`: a
+ * directory pathspec excludes the whole subtree, so a ROOT brain (VFKB_DATA_DIR=.)
+ * in a project that keeps its own CLI in `bin/` — the standard npm layout — had its
+ * real work made INVISIBLE to the stale-handoff nudge. `src/init.ts:210-220` writes
+ * exactly one file there, so the directory token bought nothing and cost the subtree.
  * `mcp.json` is the hand-dropped consumer override src/init.ts:35 describes.
  *
  * Exported because this knowledge was independently hardcoded in three places and
@@ -41,7 +45,7 @@ export function isTombstone(r: StoredRecord): r is Tombstone {
  * handoff had gone stale (ADR-0052 review of PR #281, round 3). A list that must stay
  * in sync across modules belongs in one place.
  */
-export const COMMITTED_BRAIN_PATHS = ['entries.jsonl', 'manifest.json', 'mcp.json', 'bin'] as const;
+export const COMMITTED_BRAIN_PATHS = ['entries.jsonl', 'manifest.json', 'mcp.json', 'bin/bootstrap.mjs'] as const;
 
 export function brainDir(): string {
   // VFKB_DATA_DIR is canonical; VFKB_DIR is a kept-working deprecated alias (ADR-0032).

@@ -320,14 +320,28 @@ describe('a ROOT brain (VFKB_DATA_DIR=.) still nudges', () => {
   // red (observed). An independent literal turns a dropped path into a real failure,
   // and the equality assertion below catches the opposite drift — a path added to the
   // constant with no case to cover it.
-  const EXPECTED_COMMITTED = ['entries.jsonl', 'manifest.json', 'mcp.json', 'bin'];
+  const EXPECTED_COMMITTED = ['entries.jsonl', 'manifest.json', 'mcp.json', 'bin/bootstrap.mjs'];
+
+  // The guard for the round-4 blocking finding. A bare `bin` token is a DIRECTORY
+  // pathspec: it excluded the whole subtree, so a root brain in a project that keeps
+  // its own CLI in bin/ — the standard npm layout — had real work silently hidden
+  // from the nudge. Excluding the brain's file by its FULL path is what makes a
+  // project's own bin/ visible again. Without this case the narrowing is unguarded,
+  // and an unguarded fix to this expression is exactly how the last three rounds went.
+  it('does NOT hide the project OWN bin/ directory', async () => {
+    const { handoffIsStale } = await import('../src/stop-reminder.js');
+    const dated = setup();
+    mkdirSync(join(linkedRepo, 'bin'), { recursive: true });
+    writeFileSync(join(linkedRepo, 'bin', 'cli.js'), 'console.log(1);\n');
+    dated(['bin/cli.js'], '2030-06-01T00:00:00Z', 'real work in the project bin/');
+    expect(handoffIsStale(linkedRepo, linkedRepo)).toBe(true);
+  });
 
   it('the committed-brain-path list has not drifted', () => {
     expect([...COMMITTED_BRAIN_PATHS]).toEqual(EXPECTED_COMMITTED);
   });
 
-  for (const p of EXPECTED_COMMITTED) {
-    const file = p === 'bin' ? 'bin/bootstrap.mjs' : p;
+  for (const file of EXPECTED_COMMITTED) {
     it(`stays silent when only ${file} changed`, async () => {
       const { handoffIsStale } = await import('../src/stop-reminder.js');
       const dated = setup();
