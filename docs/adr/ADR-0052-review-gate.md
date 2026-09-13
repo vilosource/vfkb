@@ -2,13 +2,16 @@
 type: Decision
 title: "ADR-0052: The adversarial review of every implementation change is mechanically enforced"
 description: "The standing rule 'after every major implementation launch a review agent' was skipped on four PRs in one day, because the command that carried it was scoped to a branch topology that had dissolved. The rule is restated independent of topology, and enforced by a CI Brake: a PR touching implementation paths fails without a review record bound to its head sha, whose verdict the gate recomputes from its own findings."
-status: "Accepted"
+status: "Accepted — Amended by ADR-0073 (implementation paths follow DELIVERY: all of .claude/, plus docs/templates/)"
 timestamp: 2026-07-10
 ---
 
 # ADR-0052: The adversarial review of every implementation change is mechanically enforced
 
-- **Status:** Accepted (operator ruling, 2026-07-10)
+- **Status:** Accepted (operator ruling, 2026-07-10) — **Amended by
+  [ADR-0073](ADR-0073-gate-what-consumers-receive.md)** (§1's path list follows delivery:
+  `.claude/commands/` widens to `.claude/`, and `docs/templates/` is carved out of the
+  `docs/` exemption; the mechanism is otherwise unchanged)
 - **Date:** 2026-07-10
 - **Supersedes:** the `v2-review` project command (`.claude/commands/v2-review.md`), replaced by
   `.claude/commands/review.md`

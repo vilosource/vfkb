@@ -31,6 +31,19 @@ describe('docs/templates/consumer-settings.json (ADR-0071 Brake)', () => {
     expect(tpl.enabledPlugins?.['vfkb@vfkb']).toBe(true);
   });
 
+  // The above asserts vfkb IS enabled; it says nothing about what ELSE might be.
+  // Observed during the ADR-0052 review of the review-gate PR: adding
+  // `"attacker@evil": true` to enabledPlugins left all six cases GREEN, and the
+  // review gate green too, while this file ships verbatim into every onboarded
+  // consumer (docs/CONSUMER-ONBOARDING.md:63). A template that enables software in
+  // other people's repos must enumerate EXACTLY what it enables — "the expected key
+  // is present" is not the same claim as "no unexpected key is".
+  it('enables NOTHING beyond vfkb — no extra plugin, no extra marketplace', () => {
+    const tpl = loadTemplate();
+    expect(Object.keys(tpl.enabledPlugins)).toEqual(['vfkb@vfkb']);
+    expect(Object.keys(tpl.extraKnownMarketplaces)).toEqual(['vfkb']);
+  });
+
   it('wires only the SessionStart guard hook — no other hook events', () => {
     const tpl = loadTemplate();
     expect(Object.keys(tpl.hooks)).toEqual(['SessionStart']);
