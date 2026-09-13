@@ -1,0 +1,53 @@
+{
+  "recordVersion": 1,
+  "sha": "3b1d5116c38ee685b8ab305317b2a9f097a77d94",
+  "governing": [
+    "docs/adr/ADR-0052-review-gate.md"
+  ],
+  "reviewer": {
+    "agent": "general-purpose",
+    "model": "opus",
+    "rounds": 1
+  },
+  "generated": "2026-09-13T14:15:00Z",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "minor",
+      "status": "open",
+      "summary": "PRE-EXISTING, not introduced by this PR: .github/workflows/engine-delivery.yml uses FLOATING tags (actions/checkout@v7, actions/setup-node@v7) while publish.yml, review-gate.yml and test.yml are SHA-pinned with version comments. Floating since the file was created (cb27745, ADR-0062) — the SHA-pinning norm from ADR-0055/RFC-027 was scoped to test.yml and never extended there. This matters more than style: that job carries secrets.PLUGIN_DISPATCH_TOKEN, a fine-grained PAT with Contents/PR/Actions RW on vilosource/vfkb-claude-plugin, so a re-pointed upstream moving tag could tamper with the workspace before the token step runs. Risk is unchanged IN KIND by this PR (@v4 was equally floating), only re-pointed at a newer major. Verified today: refs/tags/v7 resolves to 3d3c42e5aac5 (checkout) and 820762786026 (setup-node) — byte-identical to the SHAs pinned in the other three files, so there is no divergence now, only an unpinned future. Left OPEN deliberately: fixing it here would put non-Dependabot commits on a branch Dependabot force-pushes. Tracked as a follow-up issue.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F2",
+      "severity": "minor",
+      "status": "open",
+      "summary": "PRE-EXISTING gap the review surfaced by mutation: nothing in the repo verifies that a pinned action SHA agrees with its version comment. Mutation — replace a pinned SHA with a different valid-looking 40-hex string while leaving '# v7.0.1' unchanged — SURVIVED; no script under scripts/ inspects workflow `uses:` refs. Failure scenario: a future PR or a compromised bot sets actions/checkout@<attacker-sha> # v7.0.1, the comment is decorative, and nothing in CI compares it to upstream. This review caught the real SHAs only because a human ran the gh api lookups by hand — exactly the manual step ADR-0052 exists to make repeatable. Left OPEN, tracked as a follow-up issue.",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 2,
+  "ruledOut": [
+    "SHA/tag agreement — all FOUR refs re-resolved against upstream independently, old and new, so the comments were honest before the bump as well as after: checkout v7.0.1 -> 3d3c42e5aac5ba805825da76410c181273ba90b1 and setup-node v7.0.0 -> 820762786026740c76f36085b0efc47a31fe5020, both MATCH; the outgoing v7.0.0 and v6.4.0 pins also matched. Both tags are lightweight, so no annotated dereference applies. Neither release is draft, prerelease or yanked.",
+    "Runner-runtime change: runs.using is node24 in setup-node v6.4.0 AND v7.0.0, and in checkout v7.0.0 AND v7.0.1. The major bump carries no runtime requirement change.",
+    "Removed or renamed inputs: diffing setup-node's action.yml v6.4.0 -> v7.0.0 is strictly additive (two new cache OUTPUTS), so node-version, cache and registry-url all remain valid.",
+    "OIDC publish regression — the one behavioural change in the major is 'Remove dummy NODE_AUTH_TOKEN export' (upstream #1558/#1440): v6 unconditionally exported a placeholder NODE_AUTH_TOKEN, v7 exports it only when actually set. This CUTS IN THIS REPO'S FAVOUR. publish.yml uses pure OIDC trusted publishing (id-token: write, NPM_TOKEN deleted 2026-07-12), and grep confirms NO workflow sets NODE_AUTH_TOKEN or NPM_TOKEN outside explanatory comments — verified independently by the author. Upstream's stated motivation was that the dummy value could corrupt .npmrc during an OIDC publish; v7 removes that hazard.",
+    "Behavioural breakage — OBSERVED, not asserted: three of the four changed workflows already ran green on the NEW actions in this PR's own CI. test (20/22/24) all pass, exercising setup-node@v7.0.0 with cache: npm across the whole matrix; review-gate's job step list shows checkout@3d3c42e5aac5 and setup-node@820762786026 both succeeding, along with all five Brake self-tests, and fails ONLY at the record step with '4 implementation file(s) changed … carries no review record' — the premise of this review, not an action failure. fetch-depth: 0 and a non-default ref both behaved correctly under checkout v7.0.1.",
+    "checkout v7.0.1's notable patch ('skip running unsafe pr check if input is default') does not apply: review-gate passes a NON-default ref, and the assertion it guards fires only on pull_request_target / workflow_run, while review-gate triggers on pull_request / push.",
+    "Privilege escalation: no workflow grants contents: write to a bumped step. publish.yml's publish job holds id-token: write (highest blast radius) and both its refs are SHA-pinned and verified. release-please.yml, which does hold write permissions, is untouched by this PR.",
+    "Scope: the diff is four workflow files and nothing else — `git diff --name-only <merge-base> pr276 | grep -v '^\\.github/workflows/'` is empty. One commit, no src/, no .vfkb/, no package.json.",
+    "UNVERIFIED and deliberately so: publish.yml's own execution under setup-node v7. It is workflow_dispatch-only and does not run on merge. Blast radius is contained by design — the publish step is idempotent (skips if the version is already on the registry), followed by a 30-attempt visibility assert and a fresh-runner canary, so a regression would surface as a loud red on a deliberate release dispatch, never as a silent bad publish.",
+    "CORRECTED during author verification — the review asserted that merging this PR fires engine-delivery on main, because engine-delivery.yml's own path sits inside its paths: filter. That is FALSE. The filter lists src/**, package.json, package-lock.json, scripts/build-bundles.mjs, scripts/bundle-drift.mjs and tsconfig.json — no .github path. Merging four workflow files does NOT trigger it. Recorded here rather than silently dropped, because it was a relayed claim that did not survive checking.",
+    "SEPARATE PRE-EXISTING FAILURE, found while checking the above and NOT caused by this PR: engine-delivery is currently RED on every run — observed on the #278 merge (49ef270), the #281 merge (b6d18d4) and back on 5b9fa61 in July. It is failing SAFELY and by design: 're-vendor/engine is STALE vs vfkb main but carries non-automation work (4 foreign commit(s), 4 record file(s)) — refusing to force-push over committed evidence'. The plugin repo's re-vendor/engine branch is 5 ahead / 11 behind its main, carrying an abandoned v0.13.0 re-vendor cycle while main now ships v0.18.1. So the ADR-0062 drift signal has been inert for some time. Out of scope for this PR; needs its own issue and a human call on that branch, since it holds committed evidence."
+  ],
+  "mutations": [
+    {
+      "guard": "review-gate classifies .github/workflows/** as an implementation path",
+      "mutation": "Confirm this PR is blocked BY THE GATE rather than by an unrelated red: inspect the failing job's step list.",
+      "observedRed": true,
+      "note": "HELD — steps 2-8 (including all five Brake self-tests) succeeded under the NEW action SHAs; the job fails only at the record step, printing '4 implementation file(s) changed' then 'GATE FAIL: [review] … carries no review record'."
+    }
+  ],
+  "mutationsNote": "This PR's shape limits meaningful mutation testing and that limit is stated rather than papered over: no repo code changes, only four action refs. ONE mutation is logged above, and it HELD. A second was executed and SURVIVED — replacing a pinned action SHA with a different valid-looking 40-hex string while leaving its '# v7.0.1' comment unchanged changes nothing anywhere in CI, because no script under scripts/ inspects workflow `uses:` refs. Per this schema a survived mutation is a FINDING, not a coverage entry, so it is filed as F2 and deliberately NOT listed here. No behavioural mutation of vfkb source was available or would have been informative, and none was invented. publish.yml could not be mutation-tested at all: it is workflow_dispatch-only and does not execute until a deliberate release dispatch.",
+  "verdict": "MERGE"
+}
