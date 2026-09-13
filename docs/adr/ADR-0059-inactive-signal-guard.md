@@ -2,13 +2,16 @@
 type: Decision
 title: "ADR-0059: Restore the 'vfkb INACTIVE' signal under plugin wiring — a deterministic, engine-free repo-side guard (accepts RFC-032)"
 description: "The ADR-0045 plugin migration removed the bootstrap's actionable INACTIVE banner; the plugin cannot warn when it is not running, so a session in a plugin-wired repo silently loses continuity, gating, and capture. Decision: ship a committed, engine-free SessionStart guard that compares the project's enabledPlugins declaration against ~/.claude/plugins/installed_plugins.json fulfillment and banners on a miss (fail-open), plus a prose tripwire and an upstream ask. Proven by a named agent-driven L4 with a can-fail arm."
-status: "Accepted"
+status: "Accepted — Amended by ADR-0072 (the guard resolves the SESSION's config dir via $CLAUDE_CONFIG_DIR, not the literal ~/.claude)"
 timestamp: 2026-07-13
 ---
 
 # ADR-0059: Restore the "vfkb INACTIVE" signal under plugin wiring
 
-- **Status:** Accepted (2026-07-13, maintainer ratification)
+- **Status:** Accepted (2026-07-13, maintainer ratification) — **Amended by
+  [ADR-0072](ADR-0072-guard-resolves-the-session-config-dir.md)** (Decision §1's
+  `~/.claude/plugins/installed_plugins.json` is resolved as
+  `$CLAUDE_CONFIG_DIR`-else-`~/.claude`; the mechanism is otherwise unchanged)
 - **Date:** 2026-07-13
 - **RFC:** [RFC-032](../rfc/RFC-032-inactive-signal-under-plugin-wiring.md) (accepted 2026-07-13;
   the full candidate-direction analysis, the known limitation, and rejected alternatives live
