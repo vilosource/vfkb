@@ -5,6 +5,10 @@
 > **Re-ratified:** 2026-07-06 (added **Track 9 — memory quality & interop**, reconciled with the
 > [ADR-0036](adr/ADR-0036-v2-two-branch-strategy.md) v2 fork which stays the active frontier;
 > **amended the S1 gate to BM25-first, embeddings-second**. Supersedes the unmerged PR #26 ratification).
+> **Re-ratified:** 2026-09-14 (added **P12 — the software factory**, accepting
+> [ADR-0075](adr/ADR-0075-the-software-factory.md) ← [RFC-039](rfc/RFC-039-the-software-factory.md).
+> P12 is the continuation of P11's motto, not a new direction: *build the thing that builds the
+> thing*. Also carries P11-b's residual forward rather than leaving it stranded.)
 > Sits under [STATUS-AND-ROADMAP](STATUS-AND-ROADMAP.md) §4 H4 (the broad north-star) and above
 > the decisions ([docs/adr/](adr/)) + proposals ([docs/rfc/](rfc/)) it sequences. ADRs ratify the
 > *decisions* (what to build); **this roadmap ratifies the *order* and is the standing authority to
@@ -409,6 +413,7 @@ operator request. When it fires: schedule the existing deterministic `distill` +
 `→ **P10 trust-and-cadence phase** *(ratified 2026-07-18, see Current action below)*: **P10-a doctor trust cluster** (#186/#188/#206/#212 — unit-proof, no L4) → **P10-b release cadence** (#211 held: no `dist/` change) → **P10-c ADR-0065 write-health** (§0 probe first; tracking issue #176 is closed — resolve before starting) → **P10-d plugin release automation** (plugin #25/#26 — prose→Brake).`
 `→ **PI-CODING-AGENT initiative** *(2026-07-22..23)*: RFC-037 → **ADR-0066** (pi ships as a package, delivery-before-capability) → delivered as a three-way split (**#238** git.ts in-repo-brain fix → **#239** doctor gitlink detection → **#240** pi wiring) after #236 would not converge in seven adversarial review rounds → **vfkb v0.7.0 shipped to npm 2026-07-23**. The **vfkb-pi-package** exists (public) but its delivery is UNPROVEN (ADR-0051): single-trial fresh-arm observation, install-path L4 still owed.`
 `→ **P11 "build the thing that builds the thing" — release & review automation** *(re-ratified 2026-07-24, see Current action below; subsumes P10-d)*: **P11-a release wrapper** (DONE 2026-07-24 — shipped v0.13.0; pi-package sibling DONE 2026-07-25, PR #5) → **P11-b RFC-036 CI automation** (RATIFIED 2026-07-25 → ADR-0067 hybrid; build unblocked — the plugin scenarios' auth seam + producedBy + produce→vouch workflow remain).`
+`→ **P12 — the software factory: gates over agents** *(ratified 2026-09-14, see Current action below; carries P11-b's residual)*: GitHub Issues become the system of record with state in `fsm:` labels ([RFC-039](rfc/RFC-039-the-software-factory.md) → **[ADR-0075](adr/ADR-0075-the-software-factory.md)**). Sequence is ratified, not incidental — **D2 admission gate** + **D8 tamper-detection & reproduction gates** FIRST (both deliver value with **no coding agent in existence**; D8's pair must be OBSERVED RED before they are trusted) → **D1** label FSM → **D3/D4/D11** dispatcher + reaper → **D5** coder in an offline worktree → **D6** advisory cross-model reviewer. Build state: [#297](https://github.com/vilosource/vfkb/issues/297).`
 **Track 4b is COMPLETE** — D-i `verified`-filter (pi/claude 2/3, 2026-06-27); D-iii relabel-on-promotion
 (`promotion-relabel` pi/claude 2/3, ADR-0024, 2026-06-27); D-iv pi live tool-result capture
 (`live-capture-result` pi 3/3, 2026-06-27; claude failure-capture EXTERNAL-BLOCKED); **D-ii context-doc +
@@ -448,7 +453,81 @@ In all three cases the response is the same: **update this roadmap and re-ratify
 — never leave the next step to an ad-hoc question. (Scope: in-repo `vfkb` only; vafi/vtaskforge
 work stays out-of-scope/HITL per H2.)
 
-### ▶ Current action — **"Build the thing that builds the thing": release & review automation (P11)** *(re-ratified 2026-07-24)*
+### ▶ Current action — **P12: the software factory — gates over agents** *(ratified 2026-09-14)*
+
+*Why a re-ratification:* [ADR-0075](adr/ADR-0075-the-software-factory.md) (← [RFC-039](rfc/RFC-039-the-software-factory.md))
+ratified a work programme this roadmap did not know about, so the execution authority and the ADR
+record disagreed. Per §4's protocol that is a **new fork**, and the response is to update and
+re-ratify here rather than answer "what's next?" ad hoc. P11 is substantially shipped (P11-a
+delivered the one-command release; P11-b's RFC-036 became ADR-0067) and its **residual is carried
+forward below rather than stranded**.
+
+**P12 is not a new direction — it is P11's motto continued.** The operator's 2026-07-24 framing was
+***"build the thing that builds the thing"***, and the software factory is that thing: development,
+review and release driven by GitHub Issues as the system of record, with state in `fsm:` labels.
+
+**The strongest evidence for it is this repo's own, not the research.** RFC-039 relays ~120 sources
+and labels every measurement `[VERIFIED HERE]` or `[RELAYED]` — but P11 already named the same
+conclusion from a *local, observed* failure: Codex and `agy` were brought in as independent reviewers
+***"precisely because same-model review is what missed #236's shape for seven rounds."*** ADR-0075's
+D6 (the cross-model reviewer) formalises a rule this project learned by being burned, and that
+observation outranks any relayed benchmark under this repo's own evidence standard.
+
+**The governing constraint (ADR-0075 clause 1).** *The orchestrator's leverage is in what it refuses
+to dispatch and what it deterministically verifies, not in how many agents it coordinates.* The
+supervising-orchestrator topology the original request proposed is explicitly **not** what gets
+built — a **dispatcher** is, one that re-observes GitHub and the worktree before advancing state and
+never trusts an agent's self-report.
+
+**Sequencing — ratified, not incidental (ADR-0075 clause 3):**
+
+- **P12-a — D2 admission gate + D8's two deterministic gates.** *Build first.* An issue that does not
+  name acceptance criteria, its surfaces and its governing ADR/RFC is returned with specific
+  questions and is **not dispatched**. D8 adds tamper detection (deleted tests, new `.skip`,
+  `|| true`) and a reproduction gate (a new test must FAIL at the merge base). **Both deliver value
+  with no coding agent in existence** — that is why they are first, not a scheduling convenience.
+  *Gate:* D8's pair must be **observed RED** against a deliberately tampered tree before it is
+  trusted (ADR-0070 §1, reusing ADR-0074 D5's rule verbatim); D2 needs an L4 whose **load-bearing arm
+  is the refusal** (RFC-039 §5 P2).
+- **P12-b — D1 label FSM**, one `fsm:` label per issue at a time. `docs/task-priority.md` is demoted
+  to a generated projection. Deterministic router tests; no L4.
+- **P12-c — D3/D4/D11 dispatcher + reaper.** Local, level-triggered polling; liveness keyed off
+  **state + age, never ownership**. *Gate:* P3 (completion detected when the agent opens a PR early)
+  and P4 (killed worker reclaimed with its ownership record left deliberately stale).
+- **P12-d — D5 coder**, in an offline worktree with pre-seeded dependencies (ADR-0075 clause 8) and a
+  history-stripped clone. *Gate:* P5, which **must be a content assertion over the output, never an
+  exit status** — ADR-0051 §3's quiet-success trap applies unusually sharply, since an agent that
+  finds the gold diff on another ref exits 0 and looks successful.
+- **P12-e — D6 advisory cross-model reviewer** (`codexw`), clean context, charged to refute "done".
+  No blocking authority to prove.
+
+**Carried forward from P11 (still unbuilt):** P11-b's residual — the plugin scenarios' auth seam,
+`producedBy` provenance, and the produce→vouch workflow (ADR-0067 hybrid). It is **not** superseded
+by P12 and should land alongside P12-a, since both are release/review automation under the same motto.
+
+**Two rulings owed BEFORE dispatch begins, not after.** These are §4 gates, not polling points:
+
+1. **RFC-039 §6 Q4 — the merge-rate instrument.** ADR-0075 clause 7 makes our own merge and revert
+   rate the *only* valid evidence for scope, and **a baseline cannot be retrofitted**. Ruled after
+   dispatch starts, the standard is unmeetable while still formally binding.
+2. **ADR-0074 D2 — `recorded_invalid_at`, wire-or-delete** ([#293](https://github.com/vilosource/vfkb/issues/293)).
+   ADR-0074 states in its own body that deferring it a third time without ruling is not an acceptable
+   resting state. RFC-038 recommends delete.
+
+**Still unruled and deliberately open:** RFC-039 §6 Q2 (what surfaces a stalled orchestrator —
+`vfkb doctor` is the natural home per RFC-024 §1, with [#285](https://github.com/vilosource/vfkb/issues/285)
+as the case study for what an unsurfaced signal costs) and Q3 (whether the reviewer's advisory output
+feeds the brain, the review record, or both).
+
+**Scope guard (ADR-0075 clause 7):** dispatch opens at **cleanup / testing / refactoring only**. Bug
+fixes and performance work stay human-dispatched until this repo has its own merge-rate data. **No
+published benchmark may size expectations** — OpenAI retracted SWE-bench Verified, so resolve rates
+carry no usable signal here.
+
+**Build state:** [#297](https://github.com/vilosource/vfkb/issues/297). Nothing in P12 is built; per
+ADR-0050 the only honest status for every clause is *unbuilt*.
+
+### ▶ (prior) Current action — **"Build the thing that builds the thing": release & review automation (P11)** *(re-ratified 2026-07-24)*
 
 *Why a re-ratification:* since P10 (2026-07-18) the frontier moved again — the **PI-CODING-AGENT
 initiative** landed (RFC-037 → [ADR-0066](adr/ADR-0066-pi-package-delivery.md), pi ships as a
