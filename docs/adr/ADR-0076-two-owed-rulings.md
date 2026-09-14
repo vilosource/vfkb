@@ -96,6 +96,19 @@ where this exact pattern hides next.
 **The replacement comment states the rule rather than the history:** re-add the field *with* its
 producer, never ahead of one.
 
+**RFC-038's own prescription is departed from, deliberately, and the RFC's rationale was inverted.**
+RFC-038:222 defines the delete branch as removing the `types.ts` declaration but **keeping** the
+`z.string().optional()` in `src/validate.ts` *"so any entry that ever carried one is not
+corrupted."* This ADR removes both, because the review of the implementing change established by
+execution that **the declaration was the corrupting element**: given a malformed value, the
+`z.string()` fails, the `.catch({})` fires on the **whole** `validity` object, and the declared
+siblings are destroyed with it — `valid_until` lost and `valid_from` silently reset to the entry's
+`created` stamp. Undeclared, the same bad value is simply carried through by `looseObject`.
+
+That is recorded here rather than left to the diff because a future reader comparing the code
+against RFC-038 would otherwise "restore" the declaration believing the RFC required it, and
+reintroduce the destructive path. A regression test guards the same thing mechanically.
+
 ## 3. Amendment to ADR-0075 clause 9 — the retrofit claim was too strong
 
 ADR-0075 clause 9 states that the merge-rate baseline **"cannot be retrofitted"**, and uses that to
