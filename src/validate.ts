@@ -58,7 +58,6 @@ const entrySchema = z
       .looseObject({
         valid_from: z.string().optional(),
         valid_until: z.string().optional(),
-        recorded_invalid_at: z.string().optional(),
       })
       .catch({}),
     status: z.enum(['proposed', 'accepted', 'deprecated', 'superseded']).optional().catch(undefined),

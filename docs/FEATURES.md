@@ -105,8 +105,8 @@ a relevance floor and an honest no-match contract, **session continuity**
   `architect | pm | executor | judge | human | init | import`), `refs`
   (task / commit / branch / files / related / supersedes), `provenance`
   (status + a structured, re-verifiable `origin`: commit / message / tool_call
-  / manual — ADR-0011), bi-temporal `validity` (`valid_from`, `valid_until`;
-  `recorded_invalid_at` is stored-but-not-yet-consumed), and for decisions:
+  / manual — ADR-0011), bi-temporal `validity` (`valid_from`, `valid_until`),
+  and for decisions:
   `status`, `constitutional`, `adr_no`.
 - **The context spine** (`context.md`) is an authored Markdown file in the brain
   — deliberately *not* a JSONL entry, so the curator's never-rewrite Brake
@@ -286,7 +286,7 @@ whose output quality compounds instead of resetting to generic every time.**
 | Global org tier + unified cross-scope search | Designed (D2a/D2f/D2g, D5b) | Parked as H3 — per-project tier first. |
 | Claude Code per-turn push (Tier C) | ADR-0015 | External-blocked upstream (no per-turn injection hook). |
 | Claude Code live *failure* capture | — | External-blocked: PostToolUse doesn't fire on failed tool calls. |
-| `recorded_invalid_at` consumption | Schema-now, consume-later | Bi-temporal invalidation recording is stored but not yet read. |
+| `recorded_invalid_at` | **Deleted** (ADR-0076) | Was never written OR read, so "stored but not yet consumed" was false in both directions. Re-add with a producer, not ahead of one. |
 | Fleet wiring (H2) / platform probes (RFC-009) | Parked / Proposed | Evidence-gated. |
 
 ---
