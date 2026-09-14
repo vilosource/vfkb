@@ -14,8 +14,9 @@ timestamp: 2026-09-14
 - **Date:** 2026-09-14
 - **Deciders:** operator + Claude
 - **Trigger:** the Apache Maka comparison
-  (`docs/research/apache-maka-vs-vfkb-2026-09.md` §3b and §6 — **currently on branch
-  `docs/maka-comparison`, commits `c107399` / `7d49b37`, not yet on `main`**). Its ranked learning
+  (`docs/research/apache-maka-vs-vfkb-2026-09.md` §3b and §6 — on `main` as of `4c13a8a`,
+  merged via #290; it was still on a branch while this RFC was drafted, and was merged before
+  this RFC was committed so that nothing here cites an unmerged file). Its ranked learning
   list argues Maka's memory tier is ahead of vfkb on evidence pointers, consumed temporal
   modelling and write-time keys "not by having designed better, but by wiring what it designed."
   This RFC tests that claim against the tree rather than inheriting it.
