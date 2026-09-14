@@ -1,0 +1,94 @@
+{
+  "recordVersion": 1,
+  "sha": "3a7306d34bbe5fba61fa793146d9870dd6efd80a",
+  "governing": [
+    "docs/adr/ADR-0074-consume-the-schema-already-shipped.md",
+    "docs/adr/ADR-0076-two-owed-rulings.md"
+  ],
+  "reviewer": {
+    "agent": "general-purpose",
+    "model": "opus",
+    "rounds": 2
+  },
+  "generated": "2026-09-14T22:40:00Z",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "RFC-038:326-328 names a deterministic proof for THIS branch \u2014 'a legacy entry carrying recorded_invalid_at still materializes and still injects ... it can fail: a strict-schema regression would drop the key' \u2014 and the diff omitted it. The PR body claimed 772/772 substituted. The reviewer DISPROVED that by execution and the author reproduced it: mutating the nested validity block from z.looseObject to z.object silently STRIPS the key on read, all three read-modify-write paths (updateEntry, setProvenanceStatus, transitionDecision) then persist the stripped entry \u2014 permanent loss on an append-only store \u2014 and the suite stays 772/772 GREEN. Root cause was precise: the sole existing forward-compat guard (test/schema-honesty.test.ts) asserts only a TOP-LEVEL unknown field, covered by the top-level looseObject at src/validate.ts:34; the NESTED validity sub-schema at src/validate.ts:58, which this PR edits and which is the only mechanism protecting legacy data once the field is undeclared, had NO guard at all. FIXED with two guards, each observed RED under its own mutation with the anchor verified applied, and each independently re-run by the round-2 reviewer.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F2",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "Both new citations (docs/FEATURES.md:289, src/types.ts) pointed at ADR-0076, which existed only on unmerged PR #301 \u2014 no such file on main or on disk. Verified that scripts/adr-lint.mjs performs NO cross-reference resolution (lintAll only iterates docs/adr/ADR-*.md and lints each file's internal rules), so a dangling citation is not catchable by CI \u2014 in the repo whose #261 exists specifically to stop uncheckable citations. FIXED by merging #301 first (ADR-0076 landed on main as f4296dd) and rebasing this branch onto it, so the governing document now exists on the branch the gate evaluates. Round-2 reviewer confirmed the section anchor resolves and that #301 added only the ADR file, so there is no conflict.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F3",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "ADR-0074's Proof section states D5 must be observed flagging provenance.origin, recorded_invalid_at AND refs.* before any is wired or allowlisted, and that the ordering is 'a property of the decision, not of its build state'. Deleting the field is a THIRD path ADR-0074 did not enumerate (it contemplated wiring or allowlisting), so this is not a letter violation \u2014 but once merged, D5 can never be observed flagging recorded_invalid_at, dropping its can-fail arm from three named instances to two. Neither ADR-0075 nor ADR-0076 mentions it. FIXED by recording it in #293 (comment 5669461760) with two explicit resolutions: run D5 against merge-base 3a68fa9 where all three still exist, or accept two arms and say so in the D5 record. Round-2 reviewer assessed the handling as adequate.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F4",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "RFC-038:222 defines the delete branch as removing the types.ts declaration but KEEPING the z.string().optional() in src/validate.ts 'so any entry that ever carried one is not corrupted'. This PR removes both, and the RFC's rationale is INVERTED \u2014 verified by execution: with a malformed value (recorded_invalid_at: 12345) the z.string() fails, .catch({}) fires on the WHOLE validity object, valid_until is LOST and valid_from is SILENTLY RESET to the created stamp. Undeclared, all keys survive untouched. THE DECLARATION WAS THE CORRUPTING ELEMENT. Left unrecorded, a future reader comparing the code against RFC-038 would 'restore' that line believing the RFC required it, reintroducing the destructive path. FIXED in two places: recorded in ADR-0076 \u00a72 as prose, and guarded mechanically by the second new test.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F5",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "ROUND 2 \u2014 the round-1 fix itself shipped a VACUOUS assertion, the same defect class one level down. The malformed-value guard set its fixture's created EQUAL to valid_from ('2020-03-03'), so when .catch({}) wiped validity the backfill at src/validate.ts:84-86 resurrected valid_from from created to an IDENTICAL value \u2014 the assertion could not fail for the regression it appeared to cover, and the test was carried entirely by its valid_until assertion. FIXED by giving created a distinct date (2015-01-01); re-verified by re-running mutation B, which now fails with \"expected '2015-01-01' to be '2020-03-03'\", making the silent reset observable through that line.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F6",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "ROUND 2 \u2014 the PR body still asserted what round 1 had disproved: 'This diff adds no test, deliberately ... 772/772 pass unchanged, and that is itself the evidence.' The diff adds two tests, the count is 774, and that sentence is the exact substitute claim falsified by execution. ADR-0051 clause 2 makes the CLAIM, not the code, the governed artifact, and the operator reads the PR on GitHub. Self-undermining besides: a PR whose purpose is deleting a comment that 'asserts a property the code does not have' was shipping a body doing precisely that. FIXED \u2014 body rewritten to describe both guards and their observed RED mutations, and to state plainly that the earlier version's claim was wrong.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F7",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "ROUND 2 \u2014 the isInjectable assertion in the first new test is NON-DISCRIMINATING and was not labelled as such. Reviewer probed it: with mutation A live and the two preceding assertions removed, the file passes 11/11, because isInjectable returns true whether the key survives or is stripped (and even if valid_until were destroyed, undefined skips the check and returns true). RFC-038's obligation has two halves \u2014 'still materializes' AND 'still injects' \u2014 and only the first is genuinely guarded. FIXED by labelling it in-place as DOCUMENTATION rather than a can-fail arm; it is deliberately NOT counted in the mutations log below. Reviewer separately ruled the hardcoded today='2026-09-14' is NOT a time bomb and is correct practice: today is injected rather than read from the clock, and valid_until 2099-01-01 keeps the comparison stable.",
+      "acceptedBy": null
+    }
+  ],
+  "ruledOut": [
+    "DATA LOSS IN THE WILD \u2014 the central risk, proven safe by EXECUTION not reading. normalizeEntry with a legacy entry carrying the key: survives byte-identically on both trees. Read-modify-write through updateEntry, setProvenanceStatus and transitionDecision on a real brain: key PRESERVED in the re-appended JSONL on all three, on both trees. No silent-drop path exists.",
+    "HISTORICAL DATA \u2014 reviewer swept 60 revisions of .vfkb/entries.jsonl: 0 of 23,005 historical lines ever carried the key. The only validity key ever used across the whole history is valid_from. The author's 'zero entries' claim was, in the reviewer's words, understated.",
+    "EXTERNAL CONTRACT \u2014 package.json declares no types; exports maps only to dist/engine.js; Validity is not re-exported; zero hits in src/mcp-server.ts, src/pi-extension.ts, src/export.ts or the bundles. Removing the field changes no external surface.",
+    "ZOD BEHAVIOUR \u2014 verified empirically rather than assumed from the name: zod 4.5.2 looseObject preserves unknown keys; the key round-trips byte-identical on both trees.",
+    "SCOPE DROP \u2014 docs/H4-DEVELOPMENT-ROADMAP.md still carries the [GATED] bi-temporal-consumption entry, which is correct: RFC-038:223 explicitly says the gate entry stays in the ledger. No accepted-but-unbuilt RFC or ADR commits to PRODUCING this field; ADR-0011 only ever deferred it.",
+    "docs/IMPLEMENTATION-PLAN.md:74,139 still say 'stored-not-consumed' and were correctly left alone \u2014 the file is headed 'STATUS: HISTORICAL \u2014 v1 DELIVERED', a record of what was decided in 2026-06 rather than a live claim.",
+    "ADR-0011 not edited \u2014 correct under ADR-0001 immutability.",
+    "FEATURES.md refs/origin overclaims untouched \u2014 correct scoping; ADR-0074 assigns those to D3/D1, not to this change.",
+    "NO AI ATTRIBUTION \u2014 git log body scan clean across all three commits; author Jason Viloria <jason.viloria@oneio.cloud>. No secrets (0 matches, GitGuardian green).",
+    "ROUND 2 SCOPE \u2014 diff from the round-1 sha touches test/schema-honesty.test.ts ONLY. src/validate.ts at the reviewed head is byte-identical to the round-1 state, confirming the author's mutation testing left no residue. Re-verified after the rebase onto f4296dd: 774/774 green and mutation A still red."
+  ],
+  "mutations": [
+    {
+      "guard": "test/schema-honesty.test.ts > a legacy entry whose validity carries an UNDECLARED key still materializes and still injects",
+      "mutation": "src/validate.ts: change the NESTED validity block from z.looseObject to z.object. Anchor verified applied by reading the file back before each run.",
+      "observedRed": true,
+      "note": "Fails with \"AssertionError: expected undefined to be '2021-04-04'\" \u2014 the key is silently stripped on read. Re-run independently by the round-2 reviewer, who confirmed it kills EXACTLY this test (+1 failure vs baseline) and leaves the sibling guard green, so the two are independent guards rather than one counted twice. Re-verified once more after the rebase. The load-bearing assertion is key survival; the isInjectable assertion is documentation and is NOT claimed as an arm (see F7)."
+    },
+    {
+      "guard": "test/schema-honesty.test.ts > a malformed undeclared validity value does not destroy its declared siblings",
+      "mutation": "src/validate.ts: restore recorded_invalid_at: z.string().optional() inside the validity block \u2014 i.e. exactly what RFC-038:222 advised keeping. Anchor verified applied by reading the file back.",
+      "observedRed": true,
+      "note": "Fails with \"expected '2015-01-01' to be '2020-03-03'\" after the F5 fixture fix (before it, the same mutation failed only on valid_until, because created equalled valid_from and the backfill resurrected an identical value). Round-2 reviewer instrumented readAll() under this mutation and observed validity returning as {\"valid_from\":\"2020-03-03\"}, confirming .catch({}) genuinely fires on the whole object and destroys valid_until \u2014 so the test is red for its CLAIMED mechanism, not an unrelated one."
+    }
+  ],
+  "mutationsNote": null,
+  "verdict": "MERGE",
+  "findingsCount": 7
+}
