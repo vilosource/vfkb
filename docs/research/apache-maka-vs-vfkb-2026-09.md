@@ -18,6 +18,14 @@
 > `packages/core/src/thread-search.ts:55`. Both held. The remaining file:line
 > citations are the agent's reads, not re-verified line by line.
 >
+> **One relayed claim did NOT survive checking**, and the correction is kept
+> visible in §4 rather than quietly applied: the agent reported that vfkb "has no
+> pointer to evidence." It has one — `ProvenanceOrigin`, ADR-0011 — written but
+> never exposed or read. That changes a headline Maka advantage from "has the
+> concept vs lacks it" to "wired vs specified-and-dormant", and it changes the
+> top learning from *add a field* to *consume the field you already specified*.
+> Both schemas in §3b were read by the maintainer directly for that reason.
+>
 > **Maka was not built or run.** Nothing here is a behavioural observation.
 
 ---
@@ -178,13 +186,96 @@ the same rule with a CI brake.
 
 ---
 
+## 3b. Feature matrix — memory substrate only, harness stripped
+
+Maka-the-harness is not comparable to vfkb; this section removes it and compares
+the two knowledge substrates like for like. Both schemas were read directly
+(`packages/core/src/long-term-memory.ts` and `src/types.ts`). `▲` marks a
+meaningful lead.
+
+### Knowledge model
+
+| | Maka memory tier | vfkb |
+|---|---|---|
+| Taxonomy | `preference · identity · context · knowledge · failure · note` | `fact · decision · gotcha · pattern · link` ▲ |
+| Orientation | **personalization** — who the user is, what they prefer | **engineering judgment** — what the project decided |
+| Rationale (`why`) | **zero occurrences** in the schema | first-class field (`src/types.ts:83`) ▲ |
+| Statement type | `fact · plan · prediction` ▲ | none |
+| Decision concept | none | `proposed → accepted → deprecated → superseded` ▲ |
+| Constitutional tier | none | `constitutional` flag, pinned every session ▲ |
+| Contradiction edges | none | `contradicts[]` (ADR-0042 §3) ▲ |
+
+The taxonomies barely overlap. Maka's `failure` has no vfkb analogue; vfkb's
+`decision` has no Maka analogue — and "what was decided and why" is vfkb's entire
+premise.
+
+### Trust and provenance
+
+| | Maka | vfkb |
+|---|---|---|
+| Origin | 2-valued: `agent_extracted · user_requested` | 7 author roles → 3-valued derived trust ▲ |
+| Trust derivation | self-declared at write | **derived from role**, never self-declared ▲ |
+| Provenance state | none | `verified · unverified · stale · expired` ▲ |
+| Evidence pointer | `memory_item_sources` FK → exact event ▲ | `ProvenanceOrigin` — exists, **unexposed, unread** |
+| Key provenance | `deterministic · llm · user`, per key ▲ | none |
+
+### Lifecycle and mutation
+
+| | Maka | vfkb |
+|---|---|---|
+| Mutation model | `create · update · archive · restore`, CAS on `expectedVersion` | append-only; decisions **immutable, supersede-only** ▲ |
+| Lifecycle states | `active · archived` | `incoming · established · archive` + 4 decision statuses ▲ |
+| History of belief | version bump — **loses what you used to think** | supersede chain preserves it ▲ |
+| Temporal model | `undated · point · interval · open_ended`, validated at commit ▲ | fields stored, **never read** |
+
+### Retrieval and injection
+
+| | Maka | vfkb |
+|---|---|---|
+| Query | key-overlap, exact/prefix, ranked by distinct terms then recency | stemmed term-overlap, ⅓ relevance floor ▲ |
+| **Wired?** | **no production caller** | shipping ▲ |
+| Keys | pre-extracted at write, typed ▲ | computed at read |
+| Injection | flat `MEMORY.md`, agent read **off by default** | ranked bundle, budgeted, filtered pre-injection ▲ |
+| Stale filtering | archived only | archived + superseded + deprecated + stale + expired ▲ |
+| Honest no-match | none | `empty_topic · no_match · all_filtered` ▲ |
+| Embeddings / FTS | **banned at review gate** | not built, RFC-003 gated — *convergent* |
+
+### Storage
+
+| | Maka | vfkb |
+|---|---|---|
+| Location | SQLite in Electron `userData` | JSONL **in the repo** ▲ |
+| Travels with clone / branches / PR-reviewable | no | yes ▲ |
+| Append-only enforced | **in the data layer** — `INSERT`-only, `RunSealedError` ▲ | hook + convention, outside the data |
+| Concurrency | CAS + idempotency receipts ▲ | lockfile + last-write-wins |
+| Crash durability | SQLite | journal-first WAL + recovery (ADR-0064) — comparable |
+
+**Reading the matrix.** vfkb leads on everything that makes knowledge *judgment*
+— types, rationale, decision lifecycle, trust derivation, honest failure — and on
+being repo-native. Maka leads on everything that makes storage *rigorous* —
+structural append-only, CAS, evidence FKs, consumed temporal modelling — and on
+having wired its retrieval. The split is not accidental: vfkb was designed by
+people arguing about decisions, Maka by people building a durable event store.
+
+---
+
 ## 4. Where Maka is genuinely better
 
 1. **Evidence citations as a hard foreign key.** Every proposed item carries 1–8
    `{sourceRef, quote}` citations, and `memory_item_sources(item_id, session_id,
    run_id, turn_id, event_id)` is an FK from each curated claim back to the exact
    event that produced it. A database-level invariant, not an advisory field.
-   vfkb records *who* and *when* but has no pointer to evidence.
+
+   **Correction to an earlier draft of this note**, which said vfkb "has no
+   pointer to evidence." **It has one.** `ProvenanceOrigin`
+   (`src/types.ts`, ADR-0011) supports `{kind:'commit', repo, sha, path, line}`,
+   `message`, `tool_call` and `manual`. It is *written* — `src/distiller.ts:100`
+   and capture at `src/engine.ts:835` — but exposed by **neither** `kb_add` (zero
+   mentions in `src/mcp-server.ts`) **nor** the CLI (`add` accepts `--role`,
+   `--tag`, `--why`, `--contradicts`, `--status`, `--prov-status`,
+   `--valid-until`, `--zone`, `--constitutional` and nothing else), and it is read
+   nowhere. *Maintainer-verified.* So Maka's lead here is narrower than stated:
+   not "has the concept vs lacks it", but **"wired vs specified-and-dormant."**
 2. **Append-only enforced in the data layer**, not by a hook outside it — which
    ADR-0070 ("guards that can fail") already flags as the weaker shape.
 3. **Bi-temporal modelling that is actually consumed**, with commit-time
@@ -214,9 +305,12 @@ the same rule with a CI brake.
 
 ## 6. Learnings, ranked
 
-**1. Evidence citations on entries — adopt the strictness, not just the idea.**
-An optional `evidence?: {sourceRef, quote}[]`; `doctor` flags load-bearing entries
-with no receipt. *Cost of the weak form:* low, one additive field.
+**1. EXPOSE AND CONSUME `provenance.origin` — the field ADR-0011 already
+specified.** Not "add an evidence field": vfkb has one, dormant. The work is
+surfacing it on `kb_add` and `vfkb add`, rendering it in the context bundle, and
+having `doctor` flag load-bearing entries that carry no receipt.
+*Cost:* lower than the earlier framing implied — no schema change, only surface
+and render work.
 **The strict form is not available to us, and the reason matters:** Maka can make
 it an FK because it has a durable event table to point at. vfkb has no
 transcript, so a `sourceRef` is an opaque string with no integrity guarantee.
@@ -242,6 +336,14 @@ mutation structurally rather than relying on the `PreToolUse` hook plus engine
 convention. vfkb's own ADR-0070 argues guards must fail loudly; this makes the
 invariant not need a guard. *Cost:* low-to-medium, partly already true. Ranked
 fourth because it hardens an invariant not yet observed to break.
+
+**The theme these three share, which is the real finding.** vfkb has *specified
+but unconsumed* capability in three places: `provenance.origin` (written, never
+read, never exposed), `recorded_invalid_at` (stored, never read), and key
+extraction (done at read rather than write). Maka is ahead on all three not by
+having designed better, but by **wiring what it designed**. That is a cheaper gap
+to close than a design gap, and it is the same "schema-now, consume-later" pattern
+`docs/FEATURES.md` §6 already names — now observed three times.
 
 **Not adopting:** SQLite-in-app-data, mutable versioned entries, per-item CAS —
 each trades away something vfkb deliberately bought.
