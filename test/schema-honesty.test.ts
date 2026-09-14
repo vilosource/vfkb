@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { addEntry, readAll, supersede, buildContextMap } from '../src/engine.js';
+import { addEntry, readAll, supersede, buildContextMap, isInjectable } from '../src/engine.js';
 import { lastMalformed } from '../src/storage.js';
 import { queryExplained } from '../src/read.js';
 
@@ -99,6 +99,67 @@ describe('read-boundary envelope validation (ADR-0042 §2)', () => {
     );
     const e = readAll().find((r) => r.id === 'fut001')! as Record<string, unknown>;
     expect(e.some_v3_field).toEqual({ nested: true });
+  });
+
+  // RFC-038 §delete-branch proof obligation, for ADR-0076 §2's deletion of
+  // `recorded_invalid_at`. The guard above covers only a TOP-LEVEL unknown field
+  // (the looseObject at validate.ts:34). The NESTED `validity` sub-schema is a
+  // separate looseObject, and it is the sole mechanism keeping legacy data intact
+  // now that the field is no longer declared — so it needs its own guard.
+  //
+  // CAN FAIL (ADR-0070 §2): change `z.looseObject` -> `z.object` in the `validity`
+  // block of src/validate.ts and this goes RED. Observed: the key is silently
+  // stripped on read and every read-modify-write path then persists the stripped
+  // entry — permanent loss on an append-only store — while the rest of the suite
+  // stays green. That blindness is exactly what this test exists to remove.
+  it('a legacy entry whose validity carries an UNDECLARED key still materializes and still injects', () => {
+    mkdirSync(brain, { recursive: true });
+    writeFileSync(
+      file(),
+      JSON.stringify({
+        id: 'leg001', type: 'fact', text: 'written before the field was deleted', tags: [],
+        zone: 'established', author: { role: 'human' },
+        provenance: { status: 'verified' },
+        validity: { valid_from: '2020-03-03', valid_until: '2099-01-01', recorded_invalid_at: '2021-04-04' },
+        created: '2020-03-03', updated: '2020-03-03',
+      }) + '\n',
+    );
+    const e = readAll().find((r) => r.id === 'leg001')!;
+    // 1. the undeclared key survives the read boundary
+    expect((e.validity as Record<string, unknown>).recorded_invalid_at).toBe('2021-04-04');
+    // 2. its declared siblings are untouched
+    expect(e.validity.valid_from).toBe('2020-03-03');
+    expect(e.validity.valid_until).toBe('2099-01-01');
+    // 3. and it still passes the ADR-0005 injection gate. NOTE: this discharges the
+    //    "still injects" half of RFC-038's obligation as DOCUMENTATION, not as a second
+    //    can-fail arm — isInjectable returns true whether the key survives or is stripped,
+    //    so it cannot go red under mutation A. The load-bearing assertion is (1).
+    expect(isInjectable(e, '2026-09-14')).toBe(true);
+  });
+
+  // Why DELETING the z.string() declaration was safer than RFC-038:222's advice to
+  // keep it: the declaration was the CORRUPTING element. With a malformed value the
+  // z.string() fails and `.catch({})` fires on the WHOLE validity object — `valid_until`
+  // is LOST, and `valid_from` is SILENTLY RESET to the entry's `created` stamp by the
+  // backfill at validate.ts:84-86 (so it reappears wrong, not absent — which is why the
+  // fixture below gives `created` a date distinct from `valid_from`, or the reset would
+  // be invisible). Undeclared, the same bad value is simply carried through by
+  // looseObject. Guards against someone "restoring" validate.ts:61 from the RFC text.
+  it('a malformed undeclared validity value does not destroy its declared siblings', () => {
+    mkdirSync(brain, { recursive: true });
+    writeFileSync(
+      file(),
+      JSON.stringify({
+        id: 'mal001', type: 'fact', text: 'bad value in an undeclared validity key', tags: [],
+        zone: 'established', author: { role: 'human' },
+        provenance: { status: 'verified' },
+        validity: { valid_from: '2020-03-03', valid_until: '2099-01-01', recorded_invalid_at: 12345 },
+        created: '2015-01-01', updated: '2015-01-01',
+      }) + '\n',
+    );
+    const e = readAll().find((r) => r.id === 'mal001')!;
+    expect(e.validity.valid_from).toBe('2020-03-03');
+    expect(e.validity.valid_until).toBe('2099-01-01');
   });
 });
 

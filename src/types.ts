@@ -59,11 +59,13 @@ export interface Refs {
   contradicts?: string[]; // structural contradiction references (ADR-0042 §3, v2)
 }
 
-// Bi-temporal validity window (ADR-0011). recorded_invalid_at stored-but-not-consumed in v1.
+// Bi-temporal validity window (ADR-0011). `recorded_invalid_at` was declared here from
+// ADR-0011 until ADR-0074/ADR-0076 and is DELETED, not deferred: it had no write site and
+// no read site in fifteen months, and no entry ever carried it. Re-add it with its producer,
+// never ahead of one (RFC-038 — a field nothing writes is a claim no test can falsify).
 export interface Validity {
   valid_from: string;
   valid_until?: string;
-  recorded_invalid_at?: string;
 }
 
 export interface KnowledgeEntry {
