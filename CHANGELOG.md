@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.8.1](https://github.com/vilosource/vfkb/compare/v0.8.0...v0.8.1) (2026-09-14)
+
+
+### Bug Fixes
+
+* **guard:** resolve the plugin registry via $CLAUDE_CONFIG_DIR (ADR-0059) ([#279](https://github.com/vilosource/vfkb/issues/279)) ([8effb93](https://github.com/vilosource/vfkb/commit/8effb9362952e374a6a8fcb9045e6055e30a543a))
+* **paths:** compare against git's realpath answers, not path spellings ([#281](https://github.com/vilosource/vfkb/issues/281)) ([b6d18d4](https://github.com/vilosource/vfkb/commit/b6d18d4d6b307f059ec02fe88edd74bfb2eae0ad))
+* **review-gate:** gate what consumers receive — all of .claude/ and docs/templates/ ([#283](https://github.com/vilosource/vfkb/issues/283)) ([2e30429](https://github.com/vilosource/vfkb/commit/2e30429a4ef893dcb11f05b8c51bbfbab026190c))
+* **stop-hook:** rate-limit nudges to a per-session cooldown (operator ruling 2026-07-31) ([#272](https://github.com/vilosource/vfkb/issues/272)) ([5b9fa61](https://github.com/vilosource/vfkb/commit/5b9fa618ac1898546723e6c95fae6d81624ea7cf))
+
+
+### Documentation
+
+* **adr:** ADR-0072 — the INACTIVE guard resolves the session's config dir (amends ADR-0059) ([#282](https://github.com/vilosource/vfkb/issues/282)) ([465c32f](https://github.com/vilosource/vfkb/commit/465c32fc664961518de03e039b796389b1ad9c9b))
+* task-priority.md — open-issue triage, scoped under the roadmap ([#289](https://github.com/vilosource/vfkb/issues/289)) ([9bafa49](https://github.com/vilosource/vfkb/commit/9bafa496e6be802cfd31903647e7e09f73956c6a))
+
 ## [0.8.0](https://github.com/vilosource/vfkb/compare/v0.7.1...v0.8.0) (2026-07-30)
 
 
