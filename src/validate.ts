@@ -37,10 +37,20 @@ const entrySchema = z
     text: z.string().catch(''),
     tags: z.array(z.string()).catch([]),
     zone: z.enum(['incoming', 'established', 'archive']).catch('incoming'),
-    author: z.looseObject({ role: ROLE.catch('executor'), id: z.string().optional() }).catch({ role: 'executor' }),
+    author: z
+      .looseObject({ role: ROLE.catch('executor'), id: z.string().optional().catch(undefined) })
+      .catch({ role: 'executor' }),
+    // EVERY declared field inside a composite carries its OWN .catch(). The
+    // object-level .catch() below is a LAST RESORT for a non-object value, not the
+    // first line of defence: zod discards the WHOLE object when a declared field
+    // fails, so without per-field catches one bad field destroys its valid siblings
+    // (#303 — a bad provenance.date reset a `stale` entry to `unverified`, and a bad
+    // refs.supersedes erased an ADR-0004 supersession edge). Guarded by
+    // test/catch-blast-radius.test.ts, which walks .shape so a field added later is
+    // covered the day it is declared.
     refs: z
       .looseObject({
-        supersedes: z.string().optional(),
+        supersedes: z.string().optional().catch(undefined),
         contradicts: z.array(z.string()).optional().catch(undefined),
       })
       .optional()
@@ -48,16 +58,16 @@ const entrySchema = z
     provenance: z
       .looseObject({
         status: PROV_STATUS.catch('unverified'),
-        date: z.string().optional(),
-        source: z.string().optional(),
-        detail: z.string().optional(),
+        date: z.string().optional().catch(undefined),
+        source: z.string().optional().catch(undefined),
+        detail: z.string().optional().catch(undefined),
         origin: z.unknown().optional(),
       })
       .catch({ status: 'unverified' }),
     validity: z
       .looseObject({
-        valid_from: z.string().optional(),
-        valid_until: z.string().optional(),
+        valid_from: z.string().optional().catch(undefined),
+        valid_until: z.string().optional().catch(undefined),
       })
       .catch({}),
     status: z.enum(['proposed', 'accepted', 'deprecated', 'superseded']).optional().catch(undefined),
