@@ -30,17 +30,30 @@ const PROV_STATUS = z.enum(['verified', 'unverified', 'stale', 'expired']);
 // 2. UNKNOWN TYPE COERCES TO 'fact' (the one place passthrough does NOT hold): a
 //    future v3 entry type read by this code renders as a fact, and via (1) an edit
 //    would persist that coercion. Revisit before any v3 schema introduces new types.
-const entrySchema = z
+// Exported for the blast-radius Brake (test/catch-blast-radius.test.ts), which walks
+// `.shape` to enumerate composites and their declared fields. Exporting the schema is
+// what lets that guard cover fields added LATER instead of only the ones known today.
+export const entrySchema = z
   .looseObject({
     id: z.string().min(1),
     type: z.enum(['fact', 'decision', 'gotcha', 'pattern', 'link']).catch('fact'),
     text: z.string().catch(''),
     tags: z.array(z.string()).catch([]),
     zone: z.enum(['incoming', 'established', 'archive']).catch('incoming'),
-    author: z.looseObject({ role: ROLE.catch('executor'), id: z.string().optional() }).catch({ role: 'executor' }),
+    author: z
+      .looseObject({ role: ROLE.catch('executor'), id: z.string().optional().catch(undefined) })
+      .catch({ role: 'executor' }),
+    // EVERY declared field inside a composite carries its OWN .catch(). The
+    // object-level .catch() below is a LAST RESORT for a non-object value, not the
+    // first line of defence: zod discards the WHOLE object when a declared field
+    // fails, so without per-field catches one bad field destroys its valid siblings
+    // (#303 — a bad provenance.date reset a `stale` entry to `unverified`, and a bad
+    // refs.supersedes erased an ADR-0004 supersession edge). Guarded by
+    // test/catch-blast-radius.test.ts, which walks .shape so a field added later is
+    // covered the day it is declared.
     refs: z
       .looseObject({
-        supersedes: z.string().optional(),
+        supersedes: z.string().optional().catch(undefined),
         contradicts: z.array(z.string()).optional().catch(undefined),
       })
       .optional()
@@ -48,16 +61,16 @@ const entrySchema = z
     provenance: z
       .looseObject({
         status: PROV_STATUS.catch('unverified'),
-        date: z.string().optional(),
-        source: z.string().optional(),
-        detail: z.string().optional(),
+        date: z.string().optional().catch(undefined),
+        source: z.string().optional().catch(undefined),
+        detail: z.string().optional().catch(undefined),
         origin: z.unknown().optional(),
       })
       .catch({ status: 'unverified' }),
     validity: z
       .looseObject({
-        valid_from: z.string().optional(),
-        valid_until: z.string().optional(),
+        valid_from: z.string().optional().catch(undefined),
+        valid_until: z.string().optional().catch(undefined),
       })
       .catch({}),
     status: z.enum(['proposed', 'accepted', 'deprecated', 'superseded']).optional().catch(undefined),
