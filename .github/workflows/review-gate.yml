@@ -61,11 +61,20 @@ jobs:
       - name: The tamper detector is connected — both directions go red
         run: node scripts/tamper-check.selftest.mjs
 
+      # NB the fetch is NOT `|| true` and the merge-base is NOT inlined into an
+      # argument. The first version did both, so a failed fetch collapsed the
+      # base to HEAD^ and the gate scanned ONE COMMIT and printed PASSED — a
+      # gate neutered by the very `|| true` it exists to refuse (review M1).
+      # tamper-check also refuses to report a verdict when base == head (M2).
       - name: The change did not weaken the suite (tamper detection)
+        if: github.event_name == 'pull_request'
         run: |
-          BASE="origin/${{ github.base_ref || 'main' }}"
-          git fetch origin "${{ github.base_ref || 'main' }}" --quiet || true
-          node scripts/tamper-check.mjs --base "$(git merge-base "$BASE" HEAD)" --head HEAD
+          set -euo pipefail
+          BASE_REF="${{ github.base_ref }}"
+          git fetch origin "$BASE_REF" --quiet
+          BASE="$(git merge-base "origin/$BASE_REF" HEAD)"
+          echo "comparing against merge-base $BASE"
+          node scripts/tamper-check.mjs --base "$BASE" --head HEAD
 
       - name: An implementation change carries a review record (ADR-0052)
         run: |
