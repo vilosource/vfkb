@@ -51,6 +51,22 @@ jobs:
       - name: The git-compound guard is connected — both directions go red
         run: node scripts/hook-git-compound-guard.selftest.mjs
 
+      # P12-a (ADR-0075 clause 3 / RFC-039 D8). An agent asked to make tests pass
+      # has an obvious shortcut — GitHub's own words: "remove the tests, skip the
+      # lint step, add `|| true` to test commands". This Brake refuses the four
+      # shapes that buy a green run without buying correctness. Its selftest pins
+      # the FALSE-POSITIVE half as hard as the true-positive half, because a
+      # tamper detector that blocks honest work teaches people to route around
+      # the gate, and the routing-around is invisible.
+      - name: The tamper detector is connected — both directions go red
+        run: node scripts/tamper-check.selftest.mjs
+
+      - name: The change did not weaken the suite (tamper detection)
+        run: |
+          BASE="origin/${{ github.base_ref || 'main' }}"
+          git fetch origin "${{ github.base_ref || 'main' }}" --quiet || true
+          node scripts/tamper-check.mjs --base "$(git merge-base "$BASE" HEAD)" --head HEAD
+
       - name: An implementation change carries a review record (ADR-0052)
         run: |
           BASE="origin/${{ github.base_ref || 'main' }}"
