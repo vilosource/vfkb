@@ -30,10 +30,7 @@ const PROV_STATUS = z.enum(['verified', 'unverified', 'stale', 'expired']);
 // 2. UNKNOWN TYPE COERCES TO 'fact' (the one place passthrough does NOT hold): a
 //    future v3 entry type read by this code renders as a fact, and via (1) an edit
 //    would persist that coercion. Revisit before any v3 schema introduces new types.
-// Exported for the blast-radius Brake (test/catch-blast-radius.test.ts), which walks
-// `.shape` to enumerate composites and their declared fields. Exporting the schema is
-// what lets that guard cover fields added LATER instead of only the ones known today.
-export const entrySchema = z
+const entrySchema = z
   .looseObject({
     id: z.string().min(1),
     type: z.enum(['fact', 'decision', 'gotcha', 'pattern', 'link']).catch('fact'),
