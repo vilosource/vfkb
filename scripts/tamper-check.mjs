@@ -47,42 +47,17 @@
 //
 //   node scripts/tamper-check.mjs [--base <ref>] [--head <ref>] [--repo <dir>]
 // ============================================================================
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync, existsSync, symlinkSync, realpathSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 export const isTestFile = (f) => /\.(test|spec)\.[cm]?[jt]sx?$/i.test(f) || /^(test|tests|scenarios)\//i.test(f) || /(^|\/)__tests__\//i.test(f);
 
 // A skipped test in every spelling review found evading the first version:
 // .skip/.todo/.failing, chained (.concurrent.skip), bracket access, x-prefix,
 // and the conditional forms whose condition is a constant.
-const SKIP = [
-  /\b(?:it|test|describe|bench)\s*(?:\.\s*\w+\s*)*\.\s*(?:skip|todo|failing)\s*[(`]/,
-  /\b(?:it|test|describe|bench)\s*(?:\.\s*\w+\s*)*\[\s*['"`](?:skip|todo|failing)['"`]\s*\]\s*\(/,
-  /\bx(?:it|test|describe)\s*\(/,
-  /\b(?:it|test|describe)\s*(?:\.\s*\w+\s*)*\.\s*skipIf\s*\(\s*true\s*\)/,
-  /\b(?:it|test|describe)\s*(?:\.\s*\w+\s*)*\.\s*runIf\s*\(\s*false\s*\)/,
-];
-const ONLY = [
-  /\b(?:it|test|describe)\s*(?:\.\s*\w+\s*)*\.\s*only\s*[(`]/,
-  /\b(?:it|test|describe)\s*(?:\.\s*\w+\s*)*\[\s*['"`]only['"`]\s*\]\s*\(/,
-];
-const TEST_DECL = /\b(?:it|test)\s*(?:\.\s*\w+\s*(?:\([^)]*\)\s*)?)*[(`]/;
 /** An empty test body asserts nothing while keeping the count intact. */
-const EMPTY_BODY = /\b(?:it|test)\s*\(\s*['"`].*?['"`]\s*,\s*(?:async\s*)?\(\s*\)\s*=>\s*\{\s*\}\s*\)/;
-const TAUTOLOGY = [
-  // BOTH sides constant and equal. Checking only the LEFT side flagged
-  // `expect(1).toBe(1 + 0)` and would flag `expect(1).toBe(arr.length)` — a
-  // legitimate assertion, and the most common honest action there is. Caught by
-  // this Brake's own adversarial run, not by review.
-  /expect\s*\(\s*(true|false|\d+|'[^']*'|"[^"]*")\s*\)\s*\.\s*(?:toBe|toEqual|toStrictEqual)\s*\(\s*\1\s*\)/,
-  // A constant asserted for truthiness is a tautology whatever the matcher.
-  /expect\s*\(\s*(?:true|[1-9]\d*|'[^']+'|"[^"]+")\s*\)\s*\.\s*toBeTruthy\s*\(\s*\)/,
-  /expect\s*\(\s*(?:false|0|''|"")\s*\)\s*\.\s*toBeFalsy\s*\(\s*\)/,
-  /expect\s*\(\s*([A-Za-z_$][\w$.]*)\s*\)\s*\.\s*(?:toBe|toEqual|toStrictEqual)\s*\(\s*\1\s*\)/,
-  /expect\s*\(\s*(\w+\([^)]*\))\s*\)\s*\.\s*(?:toBe|toEqual|toStrictEqual)\s*\(\s*\1\s*\)/,
-  /expect\s*\(\s*\[\s*\]\s*\)\s*\.\s*toEqual\s*\(\s*\[\s*\]\s*\)/,
-  /\bassert(?:\.ok)?\s*\(\s*(?:true|1)\s*\)/,
-  /\bexpect\s*\.\s*assertions\s*\(\s*0\s*\)/,
-];
 // Verbs that actually RUN the suite or the linters. Narrowed so an optional
 // `node scripts/whatever.mjs || true` is not swept up (review finding M4).
 const TEST_VERB = /\b(?:(?:npm|yarn|pnpm|bun)\s+(?:run\s+)?(?:test|verify|check|lint)\b|npm\s+t\b|npx\s+\S*(?:vitest|jest|mocha)|vitest|jest|mocha|bun\s+test|make\s+test|tsc\b|eslint)|\.\/(?:scripts\/)?\S*test\S*\.(?:sh|mjs|js)/i;
@@ -106,66 +81,64 @@ const show = (repo, ref, path) => { try { return git(repo, 'show', `${ref}:${pat
 const listFiles = (repo, ref) => git(repo, 'ls-tree', '-r', '--name-only', ref).split('\n').filter(Boolean);
 
 /**
- * Strip comments AND string literals from a whole FILE, preserving line
- * structure. File-stateful by necessity: a line-local version was defeated twice
- * over — `/* … *\/ it.skip(…)` slipped past when a leading `/*` marked the whole
- * line a comment, and then a MULTI-LINE block comment wrapping seven real tests
- * left them all still counted, because no single line looked like a comment.
+ * THE TEST INVENTORY COMES FROM VITEST, NOT FROM PARSING.
  *
- * String-aware for the opposite reason: without it, a unit test for THIS Brake
- * becomes unmergeable, since any file quoting `"it.skip('x')"` as test data
- * registers a skip it does not have. A previous version deleted the string
- * handling and its selftest then pinned that false positive as correct.
+ * Three review rounds killed three successive hand-written scanners. The last
+ * one's remaining defeats all reduced to one root cause — counting and
+ * pattern-matching over hand-stripped LINES of JavaScript — and no amount of
+ * further regex patching fixes a scanner that cannot tell a regex literal from
+ * a string. It failed in both directions at once: `it['skip']` became
+ * unreachable dead code, one `/['"]/` blinded the rest of the line, and the
+ * name tracker collapsed 577 real test names into 66 distinct ones.
+ *
+ * So the scanner is gone. `vitest list --json` reports every test it actually
+ * COLLECTS, with its full `describe > it` name. That is authoritative by
+ * construction, and it dissolves whole classes of defeat rather than patching
+ * them — verified against vitest 4.1.11:
+ *   * a SKIPPED test is not collected, in every spelling (.skip, .concurrent
+ *     .skip, .todo, .skipIf(true), xit, bracket access) — so a skip is simply a
+ *     test that left the list, and there is nothing left to pattern-match;
+ *   * a `vitest.config` `exclude`, an `include` narrowing, and a `-t` filter all
+ *     remove tests from the list;
+ *   * a deleted, renamed or relocated file removes its tests.
+ *
+ * What the list cannot tell us is WHY a test left. A name that still appears in
+ * the file's source was disabled (hard); a name gone from the tree was deleted
+ * (waivable). That is one substring test on raw source — no parsing, no state.
  */
-export function stripNonCode(text) {
-  const out = [];
-  let inBlock = false;
-  for (const raw of String(text).split('\n')) {
-    let line = '';
-    let i = 0;
-    while (i < raw.length) {
-      if (inBlock) {
-        const end = raw.indexOf('*/', i);
-        if (end === -1) { i = raw.length; } else { inBlock = false; i = end + 2; }
-        continue;
-      }
-      const ch = raw[i];
-      if (ch === '/' && raw[i + 1] === '*') { inBlock = true; i += 2; continue; }
-      if (ch === '/' && raw[i + 1] === '/') break;                       // rest is a comment
-      if (ch === '"' || ch === "'" || ch === '`') {                      // skip the literal
-        let j = i + 1;
-        while (j < raw.length && raw[j] !== ch) j += raw[j] === '\\' ? 2 : 1;
-        line += ch + ch;                                                  // keep an empty literal
-        i = j + 1;
-        continue;
-      }
-      line += ch;
-      i += 1;
+export function collectTests(repo, ref) {
+  const wt = mkdtempSync(join(tmpdir(), 'vfkb-tamper-'));
+  try {
+    git(repo, 'worktree', 'add', '--detach', '--quiet', wt, ref);
+    const nm = join(repo, 'node_modules');
+    if (existsSync(nm) && !existsSync(join(wt, 'node_modules'))) symlinkSync(nm, join(wt, 'node_modules'), 'dir');
+    const r = spawnSync('npx', ['vitest', 'list', '--json'], { cwd: wt, encoding: 'utf8', timeout: 10 * 60_000, env: { ...process.env, CI: '1' } });
+    const out = `${r.stdout ?? ''}`;
+    const start = out.indexOf('[');
+    if (start === -1) return { ok: false, tests: new Map(), detail: `${out}${r.stderr ?? ''}`.split('\n').slice(-12).join('\n') };
+    let list;
+    try { list = JSON.parse(out.slice(start)); } catch { return { ok: false, tests: new Map(), detail: 'vitest list produced unparseable JSON' }; }
+    // git ALWAYS answers with realpaths and so does vitest, while mkdtempSync
+    // hands back whatever the caller spelled — on macOS /var is a symlink to
+    // /private/var, so a naive prefix strip produced "/privatesrc/foo.test.ts".
+    // The paths then never matched a git path, every vanished test was
+    // misclassified as DELETED (waivable) rather than DISABLED (hard), and a
+    // Tamper-Waiver silently excused an added skip. Same root cause as brain
+    // gotcha on realpath-vs-spelling; strip BOTH spellings.
+    const wtReal = (() => { try { return realpathSync(wt); } catch { return wt; } })();
+    const strip = (p) => String(p ?? '').replace(`${wtReal}/`, '').replace(`${wt}/`, '');
+    const tests = new Map();
+    for (const t of list) {
+      const rel = strip(t.file);
+      if (rel.startsWith('/')) return { ok: false, tests: new Map(), detail: `could not relativise a collected path: ${t.file} (worktree ${wt} / ${wtReal}). Refusing to compare paths that may not line up with git's.` };
+      if (/^dist\//.test(rel)) continue;              // build output duplicates src tests
+      tests.set(`${rel}::${t.name}`, { file: rel, name: t.name });
     }
-    out.push(line);
+    return { ok: true, tests, detail: '' };
+  } finally {
+    try { git(repo, 'worktree', 'remove', '--force', wt); } catch { /* best effort */ }
+    rmSync(wt, { recursive: true, force: true });
   }
-  return out;
-}
-
-/** Live vs skipped test declarations in one file's text. */
-export function countTests(text) {
-  let live = 0, skipped = 0;
-  const names = [];
-  for (const line of stripNonCode(text)) {
-    if (!line.trim()) continue;
-    if (SKIP.some((re) => re.test(line))) { skipped++; continue; }
-    if (TEST_DECL.test(line)) {
-      live++;
-      // Names are what tell a MOVE from a count-neutral SWAP: moving a test
-      // keeps its name somewhere, deleting one and adding junk does not. The
-      // literal is stripped by stripNonCode, so read it from the raw line.
-      const n = /\b(?:it|test)\s*(?:\.\s*\w+\s*(?:\([^)]*\)\s*)?)*\(\s*(['"`])([\s\S]*?)\1/.exec(
-        String(text).split('\n')[stripNonCode(text).indexOf(line)] ?? '',
-      );
-      if (n) names.push(n[2]);
-    }
-  }
-  return { live, skipped, names };
 }
 
 /**
@@ -226,113 +199,90 @@ export function commandSurface(repo, ref) {
 }
 
 export function inventory(repo, ref) {
-  const files = listFiles(repo, ref).filter(isTestFile);
-  let live = 0, skipped = 0;
-  const byFile = {};
-  const allNames = new Set();
-  for (const f of files) {
-    const c = countTests(show(repo, ref, f) ?? '');
-    byFile[f] = c; live += c.live; skipped += c.skipped;
-    for (const n of c.names ?? []) allNames.add(n);
-  }
-  return { files: files.length, live, skipped, byFile, names: allNames, cmd: commandSurface(repo, ref) };
+  const collected = collectTests(repo, ref);
+  return { collected, cmd: commandSurface(repo, ref) };
 }
 
 /**
- * Compare two inventories plus the added lines, and report weakenings.
+ * Compare two inventories and report weakenings.
+ *
  * UNWAIVABLE findings are computed first and independently of the waivable
- * ones, so an unrecognised weakening can never launder itself through the
- * waiver (review finding B3).
+ * ones. Twice now, an unrecognised weakening fell through to the removal count
+ * — the one waivable finding — so `Tamper-Waiver:` silently excused an added
+ * skip, the opposite of what the waiver printed about itself. Separating the
+ * computation is what makes the printed scope true rather than merely stated.
  */
-export function compare(before, after, addedLines = []) {
+export function compare(before, after, srcAt) {
   const hard = [], soft = [];
+  const B = before.collected.tests, A = after.collected.tests;
 
-  // --- unwaivable: nobody has a good reason to do these ---
-  const newSkips = after.skipped - before.skipped;
-  if (newSkips > 0) hard.push({ kind: 'skip-added', detail: `${newSkips} more skipped/todo test(s) than at the base — a skipped test is not a passing test` });
+  const goneKeys = [...B.keys()].filter((k) => !A.has(k));
+  const afterNames = new Set([...A.values()].map((t) => t.name));
 
-  for (const { file, line: raw } of addedLines) {
-    // Added lines arrive out of file context, so block-comment state is unknown.
-    // Strip what CAN be stripped line-locally; the file-stateful scanner owns
-    // the counts, and these line checks only ever ADD hard findings.
-    const [line = ''] = stripNonCode(raw);
-    if (!line.trim()) continue;
-    if (isTestFile(file) && ONLY.some((re) => re.test(line))) hard.push({ kind: 'only', detail: `${file}: an .only was added — it silently skips every other test in the file\n    ${line.trim().slice(0, 110)}` });
-    if (isTestFile(file) && TAUTOLOGY.some((re) => re.test(line))) hard.push({ kind: 'tautology', detail: `${file}: an assertion was added that holds regardless of what the code does\n    ${line.trim().slice(0, 110)}` });
-    if (isTestFile(file) && EMPTY_BODY.test(line)) hard.push({ kind: 'empty-test', detail: `${file}: a test with an EMPTY body was added — it keeps the count and asserts nothing\n    ${line.trim().slice(0, 110)}` });
+  // Per-file COLLECTED counts. A file that still collects as many tests as
+  // before has not lost any: one name out and one name in is a RENAME, and the
+  // substring check below cannot tell that apart on its own — it reads
+  // "alpha" → "alpha renamed" as the old test still being present, i.e.
+  // disabled. The count is what separates them, on authoritative data.
+  const perFile = (m) => { const c = {}; for (const t of m.values()) c[t.file] = (c[t.file] ?? 0) + 1; return c; };
+  const bFiles = perFile(B), aFiles = perFile(A);
+
+  const disabled = [], deleted = [], moved = [];
+  for (const k of goneKeys) {
+    const t = B.get(k);
+    if (afterNames.has(t.name)) { moved.push(t); continue; }        // same test, new file
+    if ((aFiles[t.file] ?? 0) >= (bFiles[t.file] ?? 0)) { moved.push(t); continue; }  // renamed in place
+    // The file collects FEWER tests than before, and this one's name is still
+    // written down => it is still there but no longer runs.
+    const src = srcAt(t.file);
+    const leaf = t.name.split(' > ').pop() ?? t.name;
+    if (src !== null && src.includes(leaf)) disabled.push(t);
+    else deleted.push(t);
   }
 
-  // A test step that gained an `if:` or `continue-on-error:` is neutered, and
-  // so is one whose command grew a `|| true`. Compared as VALUES, not lines.
+  if (disabled.length) {
+    hard.push({
+      kind: 'tests-disabled',
+      detail: `${disabled.length} test(s) are still written but no longer RUN — skipped, excluded or filtered out:\n    ` +
+        disabled.slice(0, 5).map((t) => `${t.file} › ${t.name}`).join('\n    ') + (disabled.length > 5 ? `\n    …and ${disabled.length - 5} more` : ''),
+    });
+  }
+  if (deleted.length) {
+    soft.push({
+      kind: 'tests-removed',
+      detail: `${deleted.length} test(s) no longer exist anywhere:\n    ` +
+        deleted.slice(0, 5).map((t) => `${t.file} › ${t.name}`).join('\n    ') + (deleted.length > 5 ? `\n    …and ${deleted.length - 5} more` : ''),
+    });
+  }
+
+  // A test step that gained an `if:` or `continue-on-error:` is neutered, and so
+  // is one whose command grew a `||`. Compared as VALUES, not lines.
   const key = (s) => `${s.file}::${s.body}`;
   const beforeSteps = new Map(before.cmd.steps.map((s) => [key(s), s]));
+  const beforeGuardedAnywhere = before.cmd.steps.some((s) => s.guarded);
   for (const s of after.cmd.steps) {
     const was = beforeSteps.get(key(s));
-    if (s.guarded && (!was || !was.guarded)) hard.push({ kind: 'step-guarded', detail: `${s.file}: a step that runs tests gained an \`if:\` or \`continue-on-error:\`\n    ${s.body.slice(0, 110)}` });
+    // If the body changed, `was` is undefined and a PRE-EXISTING guard would read
+    // as newly gained — a false positive review found. Only flag when no step in
+    // the base carried a guard at all.
+    if (s.guarded && !was && !beforeGuardedAnywhere) hard.push({ kind: 'step-guarded', detail: `${s.file}: a step that runs tests is guarded by \`if:\` or \`continue-on-error:\`\n    ${s.body.slice(0, 110)}` });
+    else if (s.guarded && was && !was.guarded) hard.push({ kind: 'step-guarded', detail: `${s.file}: a step that runs tests gained an \`if:\` or \`continue-on-error:\`\n    ${s.body.slice(0, 110)}` });
     if (isNeutered(s.raw ?? s.body) && !(was && isNeutered(was.raw ?? was.body))) hard.push({ kind: 'step-neutered', detail: `${s.file}: a test command was neutered so it cannot fail\n    ${s.body.slice(0, 110)}` });
   }
 
-  // Replacing the test script with something that no longer RUNS TESTS is not a
-  // "change" to be waived — it is the same act as `|| true`, spelled
-  // differently. The waiver's printed scope says it never excuses a neutered
-  // command; this is what makes that true rather than merely stated.
   const wasCmd = before.cmd.npmTest, nowCmd = after.cmd.npmTest;
   if (wasCmd && TEST_VERB.test(wasCmd)) {
     if (nowCmd === null) hard.push({ kind: 'script-removed', detail: 'package.json: the `test` script was DELETED' });
     else if (!TEST_VERB.test(nowCmd)) hard.push({ kind: 'script-neutered', detail: `package.json: the \`test\` script no longer runs any test command\n    was: ${wasCmd}\n    now: ${nowCmd}` });
     else if (isNeutered(nowCmd) && !isNeutered(wasCmd)) hard.push({ kind: 'script-neutered', detail: `package.json: the \`test\` script was neutered\n    ${nowCmd}` });
   }
-  // Losing the LAST step that runs tests leaves nothing running. Waiving that
-  // would waive the whole suite.
   if (before.cmd.steps.length > 0 && after.cmd.steps.length === 0) {
     hard.push({ kind: 'all-test-steps-removed', detail: 'every workflow step that runs tests was removed' });
   }
-  // A runner config can exclude whole files without moving any count.
-  for (const x of after.cmd.excludes) {
-    if (!before.cmd.excludes.includes(x)) hard.push({ kind: 'tests-excluded', detail: `a test-runner exclusion was added — files can vanish from the run with every count unchanged\n    ${x}` });
-  }
-
-  // --- waivable: legitimate reasons exist, but say what they are ---
-  const lostTests = before.live - after.live;
-  if (lostTests > 0) soft.push({ kind: 'tests-removed', detail: `${lostTests} fewer LIVE test(s) than at the base (${before.live} → ${after.live}), across ${before.files} → ${after.files} test file(s)` });
-
-  // PER-FILE, and by NAME. `byFile` was computed and thrown away, so deleting a
-  // real test file while adding the same number of junk passing tests kept the
-  // total level and passed clean. Counting per file alone would then flag an
-  // honest MOVE, so what is reported is tests whose names left the repo
-  // entirely — a move keeps its names, a swap does not.
-  const afterNames = after.names ?? new Set();
-  for (const [file, was] of Object.entries(before.byFile)) {
-    const now = after.byFile[file];
-    // A file whose live COUNT held is not losing tests — renaming a test title
-    // makes its old name vanish too, and blocking that is blocking honest work.
-    // The count says whether tests left; the NAMES then say whether they left
-    // the repo (a real removal) or merely moved (still present elsewhere).
-    if (now && now.live >= was.live) continue;
-    const gone = (was.names ?? []).filter((n) => !afterNames.has(n));
-    if (gone.length) {
-      soft.push({ kind: 'file-tests-removed', detail: `${file}: ${gone.length} test(s) no longer exist anywhere${now ? '' : ' (file gone)'} — e.g. "${gone.slice(0, 3).join('", "')}"` });
-    }
-  }
-
   const lostSteps = before.cmd.steps.length - after.cmd.steps.length;
   if (lostSteps > 0 && after.cmd.steps.length > 0) soft.push({ kind: 'test-step-removed', detail: `${lostSteps} fewer workflow step(s) that run tests` });
-  // A test script that CHANGED but still runs tests and is not neutered is
-  // ordinary work — adding `--coverage` is the obvious case. The dangerous
-  // shapes (removed, neutered, no longer a test command) are all HARD above, so
-  // reporting this as a finding only blocked honest changes.
-  return { hard, soft };
-}
 
-export function addedLinesOf(diff) {
-  const out = []; let cur = null;
-  for (const line of String(diff).split('\n')) {
-    const m = /^\+\+\+ (?:b\/(.+)|\/dev\/null)$/.exec(line);
-    if (m) { cur = m[1] ?? null; continue; }
-    if (!cur || !line.startsWith('+') || line.startsWith('+++')) continue;
-    out.push({ file: cur, line: line.slice(1) });
-  }
-  return out;
+  return { hard, soft, stats: { before: B.size, after: A.size, disabled: disabled.length, deleted: deleted.length, moved: moved.length } };
 }
 
 export function main(argv = process.argv.slice(2)) {
@@ -340,34 +290,49 @@ export function main(argv = process.argv.slice(2)) {
   const repo = arg('--repo', process.cwd());
   const head = arg('--head', 'HEAD');
   let base = arg('--base', null);
-  if (!base) { try { base = git(repo, 'merge-base', 'origin/main', head).trim(); } catch { base = git(repo, 'rev-parse', `${head}^`).trim(); } }
+  if (!base) { try { base = git(repo, 'merge-base', 'origin/main', head).trim(); } catch { base = null; } }
+  if (!base) { console.error('tamper-check FAILED — no base given and no merge-base with origin/main. Refusing to report a verdict on an unknown range.'); return 1; }
 
-  // FAIL CLOSED on a base we cannot resolve. The first version's CI wiring let a
-  // failed fetch collapse the base to HEAD^, silently scanning one commit and
-  // printing PASSED — a gate neutered by the very `|| true` it exists to refuse
-  // (review finding M1).
   let baseSha, headSha;
-  try { baseSha = git(repo, 'rev-parse', '--verify', `${base}^{commit}`).trim(); headSha = git(repo, 'rev-parse', '--verify', `${head}^{commit}`).trim(); }
-  catch { console.error(`tamper-check FAILED — cannot resolve base "${base}" or head "${head}". Refusing to report a verdict on an unknown range.`); return 1; }
-  if (baseSha === headSha) { console.error(`tamper-check FAILED — base and head are the same commit (${baseSha.slice(0, 7)}). There is nothing to compare, so a PASS here would be meaningless (review finding M2).`); return 1; }
+  try {
+    baseSha = git(repo, 'rev-parse', '--verify', `${base}^{commit}`).trim();
+    headSha = git(repo, 'rev-parse', '--verify', `${head}^{commit}`).trim();
+  } catch {
+    console.error(`tamper-check FAILED — cannot resolve base "${base}" or head "${head}". Refusing to report a verdict on an unknown range.`);
+    return 1;
+  }
+  if (baseSha === headSha) { console.error(`tamper-check FAILED — base and head are the same commit (${baseSha.slice(0, 7)}); a PASS here would be meaningless.`); return 1; }
 
   const before = inventory(repo, baseSha);
   const after = inventory(repo, headSha);
-  const added = addedLinesOf(git(repo, 'diff', '--unified=0', `${baseSha}..${headSha}`));
+
+  // FAIL CLOSED. A collection that did not run proves nothing, and treating it
+  // as proof is exactly how the sibling reproduction gate was broken: it read an
+  // exit code, so a CRASHED runner read as evidence (ADR-0051 §3).
+  for (const [label, inv] of [['base', before], ['head', after]]) {
+    if (!inv.collected.ok) {
+      console.error(`tamper-check FAILED — vitest could not collect tests at the ${label}. That is not a pass; it is a broken comparison.`);
+      console.error(inv.collected.detail);
+      return 1;
+    }
+  }
+  if (before.collected.tests.size === 0) { console.error('tamper-check FAILED — the BASE collected zero tests, so nothing can be compared against it.'); return 1; }
+
+  const srcAt = (f) => { try { return git(repo, 'show', `${headSha}:${f}`); } catch { return null; } };
+  const { hard, soft, stats } = compare(before, after, srcAt);
+
   const msg = (() => { try { return git(repo, 'log', '--format=%B', `${baseSha}..${headSha}`); } catch { return ''; } })();
   const waiver = /^Tamper-Waiver:\s*(.+)$/im.exec(msg)?.[1]?.trim() ?? null;
 
-  const { hard, soft } = compare(before, after, added);
-
   console.log(`tamper-check: ${baseSha.slice(0, 7)}..${headSha.slice(0, 7)}`);
-  console.log(`  live tests ${before.live} → ${after.live} · skipped ${before.skipped} → ${after.skipped} · test files ${before.files} → ${after.files} · test steps ${before.cmd.steps.length} → ${after.cmd.steps.length}`);
-  if (waiver) console.log(`  Tamper-Waiver: "${waiver}" — waives REMOVALS only. Skips, neutered or deleted test commands, exclusions and tautologies are never waived.`);
+  console.log(`  tests COLLECTED BY VITEST ${stats.before} → ${stats.after} · disabled ${stats.disabled} · deleted ${stats.deleted} · moved ${stats.moved} · test steps ${before.cmd.steps.length} → ${after.cmd.steps.length}`);
+  if (waiver) console.log(`  Tamper-Waiver: "${waiver}" — waives DELETIONS only. Tests that still exist but no longer run, and neutered or removed test commands, are never waived.`);
 
   const blocking = [...hard, ...(waiver ? [] : soft)];
   if (!blocking.length) { console.log('tamper-check PASSED — the suite was not weakened'); return 0; }
   for (const f of blocking) console.error(`  TAMPER [${f.kind}] ${f.detail}`);
   console.error(`\ntamper-check FAILED (${blocking.length} finding(s)).`);
-  if (!waiver && soft.length) console.error('Removing tests or changing the test command can be legitimate. If it is, say why:\n  Tamper-Waiver: <reason>');
+  if (!waiver && soft.length) console.error('Deleting a genuinely obsolete test is legitimate. If that is what this is, say why:\n  Tamper-Waiver: <reason>');
   if (hard.length && waiver) console.error('NOTE: a Tamper-Waiver does not excuse the findings above.');
   return 1;
 }

@@ -18,10 +18,10 @@
 //   node scripts/tamper-check.selftest.mjs
 // ============================================================================
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { countTests, stripNonCode, workflowSteps, isNeutered, isTestFile, main } from './tamper-check.mjs';
+import { workflowSteps, isNeutered, main } from './tamper-check.mjs';
 
 let failed = 0;
 const check = (label, got, want) => {
@@ -35,11 +35,14 @@ const repo = mkdtempSync(join(tmpdir(), 'tamper-self-'));
 const git = (...a) => execFileSync('git', ['-C', repo, ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
 const put = (p, body) => { mkdirSync(join(repo, p, '..'), { recursive: true }); writeFileSync(join(repo, p), body); };
 
+// `vitest list` needs the deps; borrow this checkout's.
+try { symlinkSync(join(process.cwd(), 'node_modules'), join(repo, 'node_modules'), 'dir'); } catch { /* already there */ }
+writeFileSync(join(repo, '.gitignore'), 'node_modules\n');
 git('init', '-q');
 git('config', 'user.email', 'a@b'); git('config', 'user.name', 't');
 put('test/a.test.ts', "import { it, expect } from 'vitest';\nit('adds', () => { expect(1+1).toBe(2); });\nit('subs', () => { expect(2-1).toBe(1); });\n");
 put('test/b.test.ts', "import { it, expect } from 'vitest';\nit('mul', () => { expect(2*2).toBe(4); });\n");
-put('package.json', '{\n  "scripts": { "test": "vitest run" }\n}\n');
+put('package.json', '{\n  "name": "t", "type": "module",\n  "scripts": { "test": "vitest run" }\n}\n');
 put('.github/workflows/test.yml', 'jobs:\n  t:\n    steps:\n      - run: npm test\n');
 git('add', '-A'); git('commit', '-q', '-m', 'base');
 const BASE = git('rev-parse', 'HEAD').trim();
@@ -73,12 +76,12 @@ check('continue-on-error AFTER run: — the shape this repo uses', gate(wf('jobs
 check('if: false AFTER run:', gate(wf('jobs:\n  t:\n    steps:\n      - run: npm test\n        if: false\n')), 'BLOCK');
 check('`pnpm run test || echo skipped` — any || swallows it', gate(wf('jobs:\n  t:\n    steps:\n      - run: pnpm run test || echo skipped\n')), 'BLOCK');
 check('`set +e` above the test command (step-scoped)', gate(wf('jobs:\n  t:\n    steps:\n      - run: |\n          set +e\n          npm test\n')), 'BLOCK');
-check('a MULTI-LINE block comment hiding real tests', gate(() => put('test/a.test.ts', "import { it } from 'vitest';\n/*\nit('adds', () => {});\nit('subs', () => {});\n*/\n")), 'BLOCK');
-check('a skip after a closing */ on the same line', gate(() => put('test/a.test.ts', "import { it } from 'vitest';\n/* x\n*/ it.skip('adds', () => {});\nit('subs', () => {});\n")), 'BLOCK');
+check('tests commented out wholesale', gate(() => put('test/a.test.ts', "import { it } from 'vitest';\n/*\nit('adds', () => {});\nit('subs', () => {});\n*/\n")), 'BLOCK');
+check('a skip hidden behind a regex containing a quote (killed 3 scanners)', gate(() => put('test/a.test.ts', ["import { it, expect } from 'vitest';", "const Q = /['" + '"' + "]/;", "it.skip('adds', () => {});", "it('subs', () => { expect(1).toBe(1+0); });"].join('\n'))), 'BLOCK');
 check('a vitest.config exclusion (every count unchanged)', gate(() => put('vitest.config.ts', "export default { test: { exclude: ['test/b.test.ts'] } };\n")), 'BLOCK');
 check('count-neutral swap: delete a real file, add junk tests', gate(() => { git('rm', '-q', 'test/b.test.ts'); put('test/a.test.ts', git('show', 'HEAD:test/a.test.ts') + "it('junk', () => { expect(1).toBe(1+0); });\n"); }), 'BLOCK');
-check('an empty test body', gate(() => put('test/a.test.ts', git('show', 'HEAD:test/a.test.ts') + "it('x', () => {});\n")), 'BLOCK');
-check('expect(true).toBe(true)', gate(() => put('test/a.test.ts', git('show', 'HEAD:test/a.test.ts') + "it('x', () => { expect(true).toBe(true); });\n")), 'BLOCK');
+check('it.todo', gate(edit('test/a.test.ts', (t) => t.replace(/it\('adds'.*/, "it.todo('adds');"))), 'BLOCK');
+check('a split-line .skip', gate(edit('test/a.test.ts', (t) => t.replace("it('adds'", "it\n  .skip('adds"))), 'BLOCK');
 
 console.log('\n--- THE WAIVER WAIVES WHAT IT SAYS IT WAIVES ---');
 const W = 'tidy\n\nTamper-Waiver: stated reason';
@@ -95,8 +98,8 @@ check('the test script gaining --coverage', gate(() => put('package.json', '{\n 
 check('`npm ci || npm install` above npm test in one step', gate(wf('jobs:\n  t:\n    steps:\n      - run: |\n          npm ci || npm install\n          npm test\n')), 'PASS');
 check('an OPTIONAL non-test step carrying || true', gate(wf('jobs:\n  t:\n    steps:\n      - run: npm test\n      - run: node drift.mjs || true\n')), 'PASS');
 check('a report-only step gaining continue-on-error', gate(wf('jobs:\n  t:\n    steps:\n      - run: npm test\n      - continue-on-error: true\n        run: node drift.mjs\n')), 'PASS');
-check('expect(x).toBeDefined() — a real assertion', gate(() => put('test/a.test.ts', git('show', 'HEAD:test/a.test.ts') + "it('d', () => { expect(r).toBeDefined(); });\n")), 'PASS');
-check('expect(1).toBe(arr.length)', gate(() => put('test/a.test.ts', git('show', 'HEAD:test/a.test.ts') + "it('d', () => { expect(1).toBe(arr.length); });\n")), 'PASS');
+check('adding a whole new test file', gate(() => put('test/c.test.ts', "import { it, expect } from 'vitest';\nit('eps', () => { expect(5).toBe(2+3); });\n")), 'PASS');
+check('renaming a test TITLE to something unrelated', gate(edit('test/a.test.ts', (t) => t.replace("it('adds'", "it('completely different'"))), 'PASS');
 check('a docs-only change', gate(() => put('README.md', 'hi\n')), 'PASS');
 check('THIS Brake quoted as test data in a file', gate(() => put('test/a.test.ts', git('show', 'HEAD:test/a.test.ts') + 'const s = "it.skip(\'x\')";\n')), 'PASS');
 
@@ -104,15 +107,13 @@ console.log('\n--- fails CLOSED, never open ---');
 check('an unresolvable base refuses to give a verdict', (() => { const q = console.error; console.error = () => {}; const c = main(['--repo', repo, '--base', 'no-such-ref', '--head', 'HEAD']); console.error = q; return c; })() !== 0, true);
 check('base === head refuses (the vacuous-check trap)', (() => { const q = console.error; console.error = () => {}; const c = main(['--repo', repo, '--base', BASE, '--head', BASE]); console.error = q; return c; })() !== 0, true);
 
-console.log('\n--- unit level ---');
-check('stripNonCode: multi-line block comment', countTests("/*\nit('a',()=>{});\n*/").live === 0, true);
-check('stripNonCode: a skip quoted as data is not a skip', countTests('const s = "it.skip(x)";').skipped === 0, true);
-check("stripNonCode: /* can't */ does not hide a real skip", countTests("/* can't */ it.skip('a',()=>{});").skipped === 1, true);
+console.log('\n--- unit level (what is left after the scanner was deleted) ---');
 check('workflowSteps: a guard BELOW run: is seen', workflowSteps('jobs:\n t:\n  steps:\n   - run: npm test\n     continue-on-error: true\n', 'w')[0]?.guarded === true, true);
 check("workflowSteps: an adjacent step's guard does NOT bleed", workflowSteps('jobs:\n t:\n  steps:\n   - continue-on-error: true\n     run: node x.mjs\n   - run: npm test\n', 'w')[0]?.guarded === false, true);
 check('isNeutered: any || on a test command', isNeutered('npm test || echo skipped'), true);
-check('isNeutered: not a non-test command', isNeutered('node drift.mjs || true'), false);
-check('isTestFile: __tests__', isTestFile('src/__tests__/x.ts'), true);
+check('isNeutered: set +e is step-scoped', isNeutered('set +e\nnpm test'), true);
+check('isNeutered: an optional non-test command is not', isNeutered('node drift.mjs || true'), false);
+check('isNeutered: npm ci || npm install above npm test is not', isNeutered('npm ci || npm install\nnpm test'), false);
 
 rmSync(repo, { recursive: true, force: true });
 if (failed) { console.error(`\n${failed} check(s) failed.`); process.exit(1); }
