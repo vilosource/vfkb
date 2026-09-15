@@ -59,6 +59,42 @@ check('net test removal WITH a Tamper-Waiver trailer', flags(diff('test/a.test.t
 check('adding tests (the normal case)', flags(diff('test/a.test.ts', ["  it('new', () => {});", "  it('another', () => {});"])), false);
 check('a skip added OUTSIDE a test path (source file)', flags(diff('src/engine.ts', ['  const x = arr.skip(1);'])), false);
 
+console.log('\n--- a pattern inside a STRING LITERAL is data, not code ---');
+// Found by the Brake's own control arm: on its first real run it flagged THIS
+// FILE, because a selftest for a linter necessarily contains the shapes that
+// linter detects. That is the "blocks honest work" defect in its purest form,
+// and it generalises to any test for any linter.
+check(
+  'a bad shape quoted as TEST DATA in a .mjs file (this file\'s own shape)',
+  flags(diff('scripts/x.selftest.mjs', ["  check('skip', flags(diff('test/a.test.ts', [\"it.skip('x', () => {\"])), true);"])),
+  false,
+);
+check(
+  'a `|| true` quoted as test data in JS',
+  flags(diff('scripts/x.selftest.mjs', ["    diff('.github/workflows/test.yml', ['        run: npm test || true']),"])),
+  false,
+);
+check(
+  'a tautology quoted as test data in JS',
+  flags(diff('scripts/x.selftest.mjs', ["  flags(diff('test/a.test.ts', ['    expect(true).toBe(true);']))"])),
+  false,
+);
+check(
+  'but a REAL it.skip in a .ts file is still caught — stripping the name does not hide the call',
+  flags(diff('test/a.test.ts', ["  it.skip('a name that gets stripped', () => {"])),
+  true,
+);
+check(
+  'and YAML is NOT stripped: an unquoted `|| true` in a workflow is real',
+  flags(diff('.github/workflows/test.yml', ['        run: npm test || true'])),
+  true,
+);
+check(
+  'a quoted it( in test data does not inflate or deflate the live-test count',
+  flags(diff('scripts/x.selftest.mjs', [], ["  const d = \"it('a', () => {})\";"])),
+  false,
+);
+
 console.log('\n--- the waiver is scoped, not a blanket pardon ---');
 check(
   'a Tamper-Waiver does NOT excuse an added .skip',

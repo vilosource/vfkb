@@ -45,6 +45,20 @@ const TAUTOLOGY = [
 ];
 const TEST_DECL = /\b(?:it|test)\s*(?:\.\s*\w+\s*)?\(/g;
 
+/**
+ * In JS-family files, a pattern inside a STRING LITERAL is data, not code — so
+ * strip literals before matching. This is not a convenience: any test for a
+ * linter necessarily contains the shapes that linter detects, and without this
+ * the Brake flags its own selftest (observed on the first control run). It is
+ * scoped to JS/TS because in YAML `run: npm test || true` is unquoted and real.
+ */
+const isJsFamily = (f) => /\.[cm]?[jt]sx?$/i.test(f);
+const stripStrings = (line) =>
+  line
+    .replace(/'(?:[^'\\]|\\.)*'/g, "''")
+    .replace(/"(?:[^"\\]|\\.)*"/g, '""')
+    .replace(/`(?:[^`\\]|\\.)*`/g, '``');
+
 /** Split a unified diff into per-file added/removed line lists. */
 export function parseDiff(diff) {
   const files = new Map();
@@ -64,8 +78,11 @@ export function parseDiff(diff) {
  * one removes nothing — counting it would flag the honest cleanup of a
  * long-dead `it.skip` as tampering. (Caught by this Brake's own selftest.)
  */
-const countLive = (lines) =>
-  lines.reduce((n, l) => (SKIP.test(l) ? n : n + (l.match(TEST_DECL)?.length ?? 0)), 0);
+const countLive = (lines, file) =>
+  lines.reduce((n, l0) => {
+    const l = isJsFamily(file) ? stripStrings(l0) : l0;
+    return SKIP.test(l) ? n : n + (l.match(TEST_DECL)?.length ?? 0);
+  }, 0);
 
 /**
  * @returns findings: {kind, file, detail, waivable}
@@ -73,16 +90,18 @@ const countLive = (lines) =>
 export function scanDiff(diff, { waiver = null } = {}) {
   const out = [];
   for (const { file, added, removed } of parseDiff(diff)) {
+    const code = (l) => (isJsFamily(file) ? stripStrings(l) : l);
     for (const line of added) {
-      const t = line.trim();
-      if (!t || t.startsWith('//') || t.startsWith('*') || t.startsWith('#')) continue;
-      if (isTestPath(file) && SKIP.test(t)) out.push({ kind: 'skip', file, detail: t.slice(0, 120), waivable: false });
-      if (isTestPath(file) && ONLY.test(t)) out.push({ kind: 'only', file, detail: t.slice(0, 120), waivable: false });
-      if (isCommandPath(file) && OR_TRUE.test(t)) out.push({ kind: 'or-true', file, detail: t.slice(0, 120), waivable: false });
-      if (isTestPath(file) && TAUTOLOGY.some((re) => re.test(t))) out.push({ kind: 'tautology', file, detail: t.slice(0, 120), waivable: false });
+      const raw = line.trim();
+      if (!raw || raw.startsWith('//') || raw.startsWith('*') || raw.startsWith('#')) continue;
+      const t = code(raw);
+      if (isTestPath(file) && SKIP.test(t)) out.push({ kind: 'skip', file, detail: raw.slice(0, 120), waivable: false });
+      if (isTestPath(file) && ONLY.test(t)) out.push({ kind: 'only', file, detail: raw.slice(0, 120), waivable: false });
+      if (isCommandPath(file) && OR_TRUE.test(t)) out.push({ kind: 'or-true', file, detail: raw.slice(0, 120), waivable: false });
+      if (isTestPath(file) && TAUTOLOGY.some((re) => re.test(t))) out.push({ kind: 'tautology', file, detail: raw.slice(0, 120), waivable: false });
     }
     if (isTestPath(file)) {
-      const net = countLive(added) - countLive(removed);
+      const net = countLive(added, file) - countLive(removed, file);
       if (net < 0 && !waiver) {
         out.push({ kind: 'tests-removed', file, detail: `${-net} more test declaration(s) removed than added`, waivable: true });
       }
