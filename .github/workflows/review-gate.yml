@@ -68,9 +68,13 @@ jobs:
       # tamper-check also refuses to report a verdict when base == head (M2).
       - name: The change did not weaken the suite (tamper detection)
         if: github.event_name == 'pull_request'
+        env:
+          # via env, not interpolated into the script body — a ref is
+          # attacker-influenceable on a fork PR and `check-ref-format` accepts
+          # shapes that would break out of a quoted shell string.
+          BASE_REF: ${{ github.base_ref }}
         run: |
           set -euo pipefail
-          BASE_REF="${{ github.base_ref }}"
           git fetch origin "$BASE_REF" --quiet
           BASE="$(git merge-base "origin/$BASE_REF" HEAD)"
           echo "comparing against merge-base $BASE"

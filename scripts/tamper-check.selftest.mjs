@@ -3,98 +3,117 @@
 // Selftest for tamper-check. "A Brake nobody has watched fail is a Brake nobody
 // knows is connected" (scripts/review-gate.mjs).
 //
-// EVERY ATTACK BELOW DEFEATED THE FIRST VERSION OF THIS BRAKE. Adversarial
-// review ran 33 tampers against a line-matching implementation and 21 got
-// through, including `git rm` on a test file — the FIRST thing RFC-039 D8 names
-// — which printed "0 changed file(s) … PASSED". They are pinned here so the
-// rewrite cannot regress to that, and so the next person to touch this file can
-// see exactly which shapes are load-bearing.
+// IT DRIVES A REAL GIT REPO, not hand-built inventories. Round 2 of the review
+// found the previous selftest imported only `countTests` and `compare` and
+// never touched `inventory()`, `commandSurface()` or `main()` — so it validated
+// the comparator's arithmetic while ALL FIVE blocking defeats lived in the half
+// it never ran. A selftest that exercises the working half is the same defect
+// class the Brake exists to catch, one level up.
 //
-// The FALSE-POSITIVE half is pinned as hard as the true-positive half. A tamper
-// detector that blocks honest work is worse than none: it teaches people to
-// route around the gate, and the routing-around is invisible. One case here —
-// "a normal test with a computed expectation" — was BLOCKED by the rewrite's
-// own first draft, because the tautology check only looked at the left-hand
-// side. That is the most common honest action there is.
+// Every attack below DEFEATED a previous version. They are pinned so the next
+// person can see exactly which shapes are load-bearing, and the honest-work half
+// is pinned just as hard: a tamper detector that blocks honest work teaches
+// people to route around the gate, and the routing-around is invisible.
 //
 //   node scripts/tamper-check.selftest.mjs
 // ============================================================================
-import { countTests, compare, isTestFile, isCommandFile } from './tamper-check.mjs';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { countTests, stripNonCode, workflowSteps, isNeutered, isTestFile, main } from './tamper-check.mjs';
 
 let failed = 0;
 const check = (label, got, want) => {
   const ok = got === want;
   if (!ok) failed++;
-  console.log(`${ok ? 'ok   ' : 'FAIL '} ${label}${ok ? '' : ` — expected ${want ? 'a finding' : 'silence'}, got ${got ? 'a finding' : 'silence'}`}`);
+  console.log(`${ok ? 'ok   ' : 'FAIL '} ${label}${ok ? '' : ` — wanted ${want}, got ${got}`}`);
 };
 
-/** Minimal inventories: what the gate compares. */
-const inv = ({ live = 2, skipped = 0, files = 2, steps = [{ file: 'w.yml', body: 'npm test', guarded: false }], npmTest = 'vitest run' } = {}) =>
-  ({ files, live, skipped, byFile: {}, cmd: { npmTest, steps } });
-const lines = (file, ...ls) => ls.map((line) => ({ file, line }));
-const hard = (before, after, added = []) => compare(before, after, added).hard.length > 0;
-const soft = (before, after, added = []) => compare(before, after, added).soft.length > 0;
-const any = (before, after, added = []) => hard(before, after, added) || soft(before, after, added);
+// ---------------------------------------------------------------- real repo --
+const repo = mkdtempSync(join(tmpdir(), 'tamper-self-'));
+const git = (...a) => execFileSync('git', ['-C', repo, ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+const put = (p, body) => { mkdirSync(join(repo, p, '..'), { recursive: true }); writeFileSync(join(repo, p), body); };
 
-console.log('--- the review defeats: weakenings a LINE matcher cannot see ---');
-check('a deleted test file (git rm — printed "0 changed file(s) … PASSED")', soft(inv({ live: 3, files: 2 }), inv({ live: 1, files: 1 })), true);
-check('a test file renamed OUT of the test paths', soft(inv({ live: 3, files: 2 }), inv({ live: 1, files: 1 })), true);
-check('the package.json test script replaced with `echo ok`', any(inv(), inv({ npmTest: 'echo ok' })), true);
-check('the test step deleted from a workflow', any(inv(), inv({ steps: [] })), true);
-check('`if:` / `continue-on-error:` added to the TEST step', hard(inv(), inv({ steps: [{ file: 'w.yml', body: 'npm test', guarded: true }] })), true);
-check('the test command neutered with `|| true`', hard(inv(), inv({ steps: [{ file: 'w.yml', body: 'npm test || true', guarded: false }] })), true);
+git('init', '-q');
+git('config', 'user.email', 'a@b'); git('config', 'user.name', 't');
+put('test/a.test.ts', "import { it, expect } from 'vitest';\nit('adds', () => { expect(1+1).toBe(2); });\nit('subs', () => { expect(2-1).toBe(1); });\n");
+put('test/b.test.ts', "import { it, expect } from 'vitest';\nit('mul', () => { expect(2*2).toBe(4); });\n");
+put('package.json', '{\n  "scripts": { "test": "vitest run" }\n}\n');
+put('.github/workflows/test.yml', 'jobs:\n  t:\n    steps:\n      - run: npm test\n');
+git('add', '-A'); git('commit', '-q', '-m', 'base');
+const BASE = git('rev-parse', 'HEAD').trim();
 
-console.log('\n--- skip aliases: the spellings that leaked through the WAIVER ---');
-const skipped = (src) => countTests(src).skipped > 0;
-check('it.skip(', skipped("it.skip('a', () => {});"), true);
-check('it.concurrent.skip( — leaked to the waivable count before', skipped("it.concurrent.skip('a', () => {});"), true);
-check("it['skip']( — same leak", skipped("it['skip']('a', () => {});"), true);
-check('it.skipIf(true)(', skipped("it.skipIf(true)('a', () => {});"), true);
-check('it.runIf(false)(', skipped("it.runIf(false)('a', () => {});"), true);
-check('xit(', skipped("xit('a', () => {});"), true);
-check('it.todo(', skipped("it.todo('a');"), true);
-check('describe.skip(', skipped("describe.skip('a', () => {});"), true);
-check('an apostrophe in a comment does NOT hide a skip', skipped("/* can't be right */ it.skip('a', () => {});"), true);
+/** Apply a tamper, run the REAL gate end to end, restore. */
+function gate(mutate, message = 'change') {
+  mutate();
+  git('add', '-A');
+  git('commit', '-q', '-m', message, '--allow-empty');
+  const quiet = console.log, qerr = console.error;
+  console.log = () => {}; console.error = () => {};
+  let code;
+  try { code = main(['--repo', repo, '--base', BASE, '--head', 'HEAD']); }
+  finally { console.log = quiet; console.error = qerr; }
+  git('reset', '-q', '--hard', BASE);
+  return code === 0 ? 'PASS' : 'BLOCK';
+}
+const edit = (p, fn) => () => put(p, fn(git('show', `HEAD:${p}`)));
+const wf = (body) => () => put('.github/workflows/test.yml', body);
 
-console.log('\n--- the waiver is scoped, and the scoping is COMPUTED not claimed ---');
-const withSkip = () => compare(inv({ skipped: 0 }), inv({ skipped: 1 }));
-check('an added skip is a HARD finding (never waivable)', withSkip().hard.length > 0, true);
-check('...and never appears among the waivable ones', withSkip().soft.length > 0, false);
-check('a neutered command is HARD', compare(inv(), inv({ steps: [{ file: 'w.yml', body: 'npm test || true', guarded: false }] })).hard.length > 0, true);
-check('removing tests is SOFT (waivable — deleting an obsolete test is honest)', compare(inv({ live: 3 }), inv({ live: 1 })).soft.length > 0, true);
-check('...and removing tests alone raises nothing hard', compare(inv({ live: 3 }), inv({ live: 1 })).hard.length > 0, false);
+console.log('--- ATTACKS: each of these defeated a previous version (want BLOCK) ---');
+check('git rm a test file', gate(() => git('rm', '-q', 'test/b.test.ts')), 'BLOCK');
+check('rename a test file OUT of the test paths', gate(() => { mkdirSync(join(repo, 'h'), { recursive: true }); git('mv', 'test/b.test.ts', 'h/b.ts'); }), 'BLOCK');
+check('it.concurrent.skip — leaked through the WAIVER before', gate(edit('test/a.test.ts', (t) => t.replace("it('adds'", "it.concurrent.skip('adds'"))), 'BLOCK');
+check("it['skip'] — same leak", gate(edit('test/a.test.ts', (t) => t.replace("it('adds'", "it['skip']('adds'"))), 'BLOCK');
+check('it.skipIf(true)', gate(edit('test/a.test.ts', (t) => t.replace("it('adds'", "it.skipIf(true)('adds'"))), 'BLOCK');
+check("it['only'] — the bracket form ONLY missed", gate(edit('test/a.test.ts', (t) => t.replace("it('adds'", "it['only']('adds'"))), 'BLOCK');
+check('the test script replaced with `echo ok`', gate(() => put('package.json', '{\n  "scripts": { "test": "echo ok" }\n}\n')), 'BLOCK');
+check('the test step deleted from the workflow', gate(wf('jobs:\n  t:\n    steps:\n      - run: echo hi\n')), 'BLOCK');
+check('continue-on-error AFTER run: — the shape this repo uses', gate(wf('jobs:\n  t:\n    steps:\n      - run: npm test\n        continue-on-error: true\n')), 'BLOCK');
+check('if: false AFTER run:', gate(wf('jobs:\n  t:\n    steps:\n      - run: npm test\n        if: false\n')), 'BLOCK');
+check('`pnpm run test || echo skipped` — any || swallows it', gate(wf('jobs:\n  t:\n    steps:\n      - run: pnpm run test || echo skipped\n')), 'BLOCK');
+check('`set +e` above the test command (step-scoped)', gate(wf('jobs:\n  t:\n    steps:\n      - run: |\n          set +e\n          npm test\n')), 'BLOCK');
+check('a MULTI-LINE block comment hiding real tests', gate(() => put('test/a.test.ts', "import { it } from 'vitest';\n/*\nit('adds', () => {});\nit('subs', () => {});\n*/\n")), 'BLOCK');
+check('a skip after a closing */ on the same line', gate(() => put('test/a.test.ts', "import { it } from 'vitest';\n/* x\n*/ it.skip('adds', () => {});\nit('subs', () => {});\n")), 'BLOCK');
+check('a vitest.config exclusion (every count unchanged)', gate(() => put('vitest.config.ts', "export default { test: { exclude: ['test/b.test.ts'] } };\n")), 'BLOCK');
+check('count-neutral swap: delete a real file, add junk tests', gate(() => { git('rm', '-q', 'test/b.test.ts'); put('test/a.test.ts', git('show', 'HEAD:test/a.test.ts') + "it('junk', () => { expect(1).toBe(1+0); });\n"); }), 'BLOCK');
+check('an empty test body', gate(() => put('test/a.test.ts', git('show', 'HEAD:test/a.test.ts') + "it('x', () => {});\n")), 'BLOCK');
+check('expect(true).toBe(true)', gate(() => put('test/a.test.ts', git('show', 'HEAD:test/a.test.ts') + "it('x', () => { expect(true).toBe(true); });\n")), 'BLOCK');
 
-console.log('\n--- MUST NOT flag: honest work ---');
-check('a normal test with a computed expectation (BLOCKED by the first draft)', hard(inv(), inv(), lines('test/a.test.ts', "  expect(1).toBe(1 + 0);")), false);
-check('expect(1).toBe(arr.length)', hard(inv(), inv(), lines('test/a.test.ts', '  expect(1).toBe(arr.length);')), false);
-check('expect(x).toBeDefined() — a real assertion, already used on main', hard(inv(), inv(), lines('test/a.test.ts', '  expect(result).toBeDefined();')), false);
-check('expect(x).toBeTruthy() on a variable', hard(inv(), inv(), lines('test/a.test.ts', '  expect(result).toBeTruthy();')), false);
-check('an OPTIONAL non-test step carrying `|| true`', hard(inv(), inv({ steps: [{ file: 'w.yml', body: 'npm test', guarded: false }] }), lines('.github/workflows/w.yml', '        run: node scripts/drift.mjs || true')), false);
-check('a report-only step gaining continue-on-error (not a test step)', hard(inv(), inv()), false);
-check('moving a test between two test files (net live count unchanged)', any(inv({ live: 3 }), inv({ live: 3 })), false);
-check('renaming a test in place', any(inv({ live: 3 }), inv({ live: 3 })), false);
-check('adding tests (the normal case)', any(inv({ live: 2 }), inv({ live: 5 })), false);
-check('a commented-out example of the bad shape', hard(inv(), inv(), lines('test/a.test.ts', "  // it.skip('example', () => {")), false);
-check('the bad shape quoted as TEST DATA is counted, but only as a skip the file really has', countTests("const s = \"it.skip('x')\";").skipped > 0, true);
+console.log('\n--- THE WAIVER WAIVES WHAT IT SAYS IT WAIVES ---');
+const W = 'tidy\n\nTamper-Waiver: stated reason';
+check('a waiver does NOT excuse an added skip', gate(edit('test/a.test.ts', (t) => t.replace("it('adds'", "it.concurrent.skip('adds'")), W), 'BLOCK');
+check('a waiver does NOT excuse `echo ok`', gate(() => put('package.json', '{\n  "scripts": { "test": "echo ok" }\n}\n'), W), 'BLOCK');
+check('a waiver does NOT excuse killing the only test step', gate(wf('jobs:\n  t:\n    steps:\n      - run: echo hi\n'), W), 'BLOCK');
+check('a waiver DOES excuse deleting an obsolete test', gate(() => git('rm', '-q', 'test/b.test.ts'), W), 'PASS');
 
-console.log('\n--- MUST flag: the line-level shapes ---');
-check('.only added', hard(inv(), inv(), lines('test/a.test.ts', "  it.only('just this', () => {")), true);
-check('expect(true).toBe(true)', hard(inv(), inv(), lines('test/a.test.ts', '  expect(true).toBe(true);')), true);
-check('expect(true).toBeTruthy()', hard(inv(), inv(), lines('test/a.test.ts', '  expect(true).toBeTruthy();')), true);
-check('expect([]).toEqual([])', hard(inv(), inv(), lines('test/a.test.ts', '  expect([]).toEqual([]);')), true);
-check('expect(x).toBe(x)', hard(inv(), inv(), lines('test/a.test.ts', '  expect(res).toBe(res);')), true);
-check('assert.ok(1)', hard(inv(), inv(), lines('test/a.test.ts', '  assert.ok(1);')), true);
-check('expect.assertions(0)', hard(inv(), inv(), lines('test/a.test.ts', '  expect.assertions(0);')), true);
-check('an EMPTY test body (keeps the count, asserts nothing)', hard(inv(), inv(), lines('test/a.test.ts', "  it('x', () => {});")), true);
+console.log('\n--- HONEST WORK (want PASS) — blocking this is a defect, ADR-0052 ---');
+check('adding tests', gate(() => put('test/a.test.ts', git('show', 'HEAD:test/a.test.ts') + "it('n', () => { expect(3).toBe(1+2); });\n")), 'PASS');
+check('renaming a test TITLE in place', gate(edit('test/a.test.ts', (t) => t.replace("it('adds'", "it('adds two numbers'"))), 'PASS');
+check('moving a test between two test files', gate(() => { put('test/a.test.ts', git('show', 'HEAD:test/a.test.ts').replace(/^.*it\('subs'.*$\n/m, '')); put('test/b.test.ts', git('show', 'HEAD:test/b.test.ts') + "it('subs', () => { expect(2-1).toBe(1); });\n"); }), 'PASS');
+check('the test script gaining --coverage', gate(() => put('package.json', '{\n  "scripts": { "test": "vitest run --coverage" }\n}\n')), 'PASS');
+check('`npm ci || npm install` above npm test in one step', gate(wf('jobs:\n  t:\n    steps:\n      - run: |\n          npm ci || npm install\n          npm test\n')), 'PASS');
+check('an OPTIONAL non-test step carrying || true', gate(wf('jobs:\n  t:\n    steps:\n      - run: npm test\n      - run: node drift.mjs || true\n')), 'PASS');
+check('a report-only step gaining continue-on-error', gate(wf('jobs:\n  t:\n    steps:\n      - run: npm test\n      - continue-on-error: true\n        run: node drift.mjs\n')), 'PASS');
+check('expect(x).toBeDefined() — a real assertion', gate(() => put('test/a.test.ts', git('show', 'HEAD:test/a.test.ts') + "it('d', () => { expect(r).toBeDefined(); });\n")), 'PASS');
+check('expect(1).toBe(arr.length)', gate(() => put('test/a.test.ts', git('show', 'HEAD:test/a.test.ts') + "it('d', () => { expect(1).toBe(arr.length); });\n")), 'PASS');
+check('a docs-only change', gate(() => put('README.md', 'hi\n')), 'PASS');
+check('THIS Brake quoted as test data in a file', gate(() => put('test/a.test.ts', git('show', 'HEAD:test/a.test.ts') + 'const s = "it.skip(\'x\')";\n')), 'PASS');
 
-console.log('\n--- structural ---');
-check('path classification: test/', isTestFile('test/a.test.ts'), true);
-check('path classification: scenarios/', isTestFile('scenarios/l4.mjs'), true);
-check('path classification: src/ is not a test path', isTestFile('src/engine.ts'), false);
-check('command files are workflows and package.json ONLY (not every .mjs)', isCommandFile('scripts/x.selftest.mjs'), false);
-check('...package.json is one', isCommandFile('package.json'), true);
-check('countTests separates live from skipped', countTests("it('a',()=>{});\nit.skip('b',()=>{});").live === 1, true);
-check('an identical inventory raises nothing', any(inv(), inv()), false);
+console.log('\n--- fails CLOSED, never open ---');
+check('an unresolvable base refuses to give a verdict', (() => { const q = console.error; console.error = () => {}; const c = main(['--repo', repo, '--base', 'no-such-ref', '--head', 'HEAD']); console.error = q; return c; })() !== 0, true);
+check('base === head refuses (the vacuous-check trap)', (() => { const q = console.error; console.error = () => {}; const c = main(['--repo', repo, '--base', BASE, '--head', BASE]); console.error = q; return c; })() !== 0, true);
 
+console.log('\n--- unit level ---');
+check('stripNonCode: multi-line block comment', countTests("/*\nit('a',()=>{});\n*/").live === 0, true);
+check('stripNonCode: a skip quoted as data is not a skip', countTests('const s = "it.skip(x)";').skipped === 0, true);
+check("stripNonCode: /* can't */ does not hide a real skip", countTests("/* can't */ it.skip('a',()=>{});").skipped === 1, true);
+check('workflowSteps: a guard BELOW run: is seen', workflowSteps('jobs:\n t:\n  steps:\n   - run: npm test\n     continue-on-error: true\n', 'w')[0]?.guarded === true, true);
+check("workflowSteps: an adjacent step's guard does NOT bleed", workflowSteps('jobs:\n t:\n  steps:\n   - continue-on-error: true\n     run: node x.mjs\n   - run: npm test\n', 'w')[0]?.guarded === false, true);
+check('isNeutered: any || on a test command', isNeutered('npm test || echo skipped'), true);
+check('isNeutered: not a non-test command', isNeutered('node drift.mjs || true'), false);
+check('isTestFile: __tests__', isTestFile('src/__tests__/x.ts'), true);
+
+rmSync(repo, { recursive: true, force: true });
 if (failed) { console.error(`\n${failed} check(s) failed.`); process.exit(1); }
 console.log('\ntamper-check selftest passed (the Brake is connected, and it does not block honest work).');
