@@ -1,0 +1,150 @@
+{
+  "recordVersion": 1,
+  "sha": "b0a79ef6ea088313a2bc27dfdadb337a0a706105",
+  "governing": [
+    "docs/adr/ADR-0070-guards-that-can-fail.md",
+    "docs/adr/ADR-0052-review-gate.md"
+  ],
+  "reviewer": {
+    "agent": "general-purpose",
+    "model": "opus",
+    "rounds": 3
+  },
+  "generated": "2026-09-15T00:20:00Z",
+  "findings": [
+    {
+      "id": "R1-B1",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "ROUND 1 \u2014 the schema-walking Brake's central claim ('a composite added later is covered the day it is declared') was FALSE. Coverage was gated on the hand-written FIXTURE, not the schema: a composite absent from the fixture makes baseline and corrupted runs collapse to the same .catch() default, so before===after trivially. The reviewer added a fifth composite carrying the exact #303 bug \u2014 both generated cases PASSED \u2014 and extending the guard-the-guard name list gave 14/14 GREEN WITH THE BUG SHIPPED. Superseded by the operator's SPLIT ruling: the schema-walking guard is withdrawn from this PR entirely (see R3-VERDICT), so this finding no longer applies to the shipped code.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-M1",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "ROUND 1 \u2014 provenance.origin was a dead case: the poison value was a Symbol, which z.unknown() ACCEPTS, so it could never fail; origin was also absent from the fixture, so it was never checked as a victim either. 11 reported cases, 10 real. Withdrawn with the walker.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-M2",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "ROUND 1 \u2014 A FALSE CAUSAL CLAIM, and the most important finding in the review. The author claimed a bad refs.supersedes erases the ADR-0004 supersession edge consumed at engine.ts:333, resurrecting a superseded decision. MEASURED FALSE: refs.contradicts already carried its own .catch(undefined) pre-fix (src/validate.ts:44, an unchanged context line), so the cited input never detonated refs at all; and the only input that loses supersedes is a malformed supersedes ITSELF, where no valid edge ever existed and whose behaviour is unchanged by the fix. THE ADR-0004 LIFECYCLE BYPASS IS NOT REACHABLE. The suite had agreed all along and was misread: the sole refs failure was contradicts destroyed by a bad supersedes \u2014 the opposite direction. Corrected in the test header, on #303 (comment 5675774505) and in the PR body; the first commit body is immutable. The real refs win is smaller and is what the shipped test asserts: contradicts survives (cli.ts:567).",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-m1",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "ROUND 1 \u2014 nested composites were invisible to the walker. Withdrawn with the walker.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-B2a",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "ROUND 2 \u2014 CATCH DEFAULT EQUALS FIXTURE VALUE. If a composite's .catch() default matches the fixture, every sibling comparison compares the default with ITSELF; the object detonates and the test cannot see it. Observed 15/15 green with the bug. Not hypothetical for the live schema \u2014 had wellFormed().author.role been 'executor' (the author catch default at src/validate.ts:40) that composite would already have been vacuous. Withdrawn with the walker.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-B2b",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "ROUND 2 \u2014 INVALID FIXTURE VALUE PRE-DETONATES THE BASELINE, and this is the answer to a question round 1 asked and the author answered WRONGLY. Asked whether 'if (before[sibling] === undefined) continue' was still a silent skip, the author claimed STRUCTURAL 1 made it unreachable. It did not: STRUCTURAL 1 inspects the RAW fixture and never the PARSED baseline, so a field given '3' instead of 3 makes the baseline collapse to the catch default, every sibling hits the continue, and expect(baseline.ok).toBe(true) still passes because the catch rescues it \u2014 15/15 green with NO field carrying a catch at all. Withdrawn with the walker.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-B3",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "ROUND 2 \u2014 ARRAY- AND UNION-REACHABLE COMPOSITES were invisible to the walker AND to both structural assertions: no cases generated, no complaint, no signal of any kind. Strictly worse than the pre-fix state of R1-B1, which at least tripped the guard-the-guard. Withdrawn with the walker.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-M3",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "ROUND 2 \u2014 the UNCORRUPTIBLE exemption claimed a field 'accepts EVERY value' while testing exactly one (the Symbol), and its own error message offered 'poison it differently' when no per-field override existed \u2014 so the exemption was the only workable response, granting a standing zero-coverage pass under a false reason. Withdrawn with the walker.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R3-FP",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "ROUND 3 \u2014 FALSE POSITIVE INTRODUCED BY ROUND 2'S OWN FIX, which is the ADR-0070 \u00a74 distress signal and the reason this was escalated to the operator rather than iterated a fourth time. A new composite written with plain z.object \u2014 zod's default idiom \u2014 with correct per-field catches and NO bug went RED claiming \"object-level .catch() ALREADY fired ... one of its values is invalid\". Nothing had fired: z.object STRIPS the undeclared sentinel that round 2's fix relied on, and the sentinel cannot distinguish 'stripped by a strict schema' from 'object detonated'. NO HONEST FIX EXISTS \u2014 a stripping object cannot preserve an undeclared key \u2014 leaving a developer only the choice of changing production code to satisfy a test or gutting the assertion. z.strictObject and z.object().catchall() fail identically, and all three have _def.type === 'object', so the completeness check says nothing. A gate that blocks correct work is a defect (ADR-0052). RESOLVED by the operator's SPLIT ruling: the sentinel and the whole schema-walking guard are withdrawn.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R3-ROOT",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "ROUND 3 \u2014 SIXTH ESCAPE, with a LARGER blast radius than the bug the guard is named after: root-level fields were entirely outside it (the walker skips the root at its own `if (path.length)`). Adding a root field without .catch() left the suite 788/788 GREEN with all three structural assertions silent, while a malformed value produced ok=false and DROPPED THE WHOLE ENTRY from the live set \u2014 not merely its siblings. This is the surface where fields actually get added: status, why, constitutional, adr_no and session_id are all root fields added over time and all carry .catch() precisely because it matters. RESOLVED for the shipped code by the split; the replacement structural guard covers root fields for free, which is a principal reason for choosing it.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R3-CTX",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "ROUND 3 \u2014 SIXTH ESCAPE (b): an object-level .catch(ctx => ctx.value) with no per-field catches \u2014 the literal definition of the #303 bug \u2014 kept the suite at 14/14 green. Siblings ARE preserved, so both the sentinel and the sibling comparison pass, while arbitrary garbage crosses the read boundary typed as string (observed: date = 12345 with typeof number against a z.string() declaration) and the documented persistence-on-update path at src/validate.ts:25-29 re-appends it into the brain on the next edit. Withdrawn with the walker.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R3-SILENT",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "ROUND 3 \u2014 the walker's completeness check failed in the QUIET direction, which is the worst property a completeness check can have: a broken WRAPPERS accessor reported 'unrecognised node kind' loudly, but a broken CONTAINERS accessor made holdsComposite return false and STRUCTURAL 3 go GREEN. package.json pins no zod version of its own, so a dependency bump was the likely trigger. Withdrawn with the walker.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R3-MSG",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "ROUND 3 \u2014 message-quality findings on the withdrawn guard: 'catchall' in LEAVES was dead (an object with .catchall() has _def.type === 'object'), the M3 battery message rendered the Symbol poison as null via JSON.stringify so two different values printed identically, and a composite missing from the fixture emitted the baseline assertion's misleading 'one of its values is invalid' alongside STRUCTURAL 1's correct message. Withdrawn with the walker.",
+      "acceptedBy": null
+    }
+  ],
+  "ruledOut": [
+    "THE SHIPPED src/validate.ts CHANGE WAS CORRECT IN ALL THREE ROUNDS and was never the subject of a finding. Round 3 re-confirmed behaviour preservation by round-tripping every entry in .vfkb/entries.jsonl through normalizeEntry on both trees: md5 IDENTICAL (1455f0e9\u2026), 411 normalized / 0 rejected. All four #303 cases verified fixed end to end \u2014 stale survives, contradicts survives, role:human survives, valid_from survives.",
+    "DEFECT REALITY \u2014 the consequences were verified at their call sites, not inferred. A bad provenance.date flips isInjectable from false to TRUE (engine.ts:396), so a deliberately-staled entry becomes injectable; verified\u2192unverified drops an entry from the verified export (export.ts:80,91); author role human\u2192executor corrupts deriveTrust (cli.ts:356) and the rerank bonus (engine.ts:413).",
+    "ZOD INTERNALS \u2014 round 3 verified all ten CONTAINERS accessors and all seven WRAPPERS innerType lookups resolve correctly against zod 4.5.2, and that LEAVES was complete across 39 reachable _def.type values. The walker was withdrawn for design reasons, NOT because its zod handling was wrong.",
+    "EXPORT SURFACE \u2014 exporting entrySchema was confirmed not to widen the public API (package.json exports never reaches dist/validate.js). It is reverted here regardless, since nothing in the shipped diff needs it.",
+    "THE valid_from BACKFILL is unaffected by the per-field catch: a poisoned valid_from still backfills from created, and empty created still floors to epoch. One intended semantic change, correct per ADR-0011: a poisoned valid_from alongside an EXPIRED valid_until now correctly gates the entry out, where previously valid_until was erased along with it.",
+    "HYGIENE \u2014 no AI attribution across all four commits; author Jason Viloria <jason.viloria@oneio.cloud>; no secrets; GitGuardian green."
+  ],
+  "mutations": [
+    {
+      "guard": "test/catch-blast-radius.test.ts > provenance: a bad `date` must not reset `status`, which gates injection",
+      "mutation": "src/validate.ts: remove `.catch(undefined)` from provenance.date. Anchor verified applied by reading the file back.",
+      "observedRed": true,
+      "note": "Reddens EXACTLY this test (1 failed / 5 passed). The assertion that bites is the isInjectable call \u2014 the consequence is asserted at the call site (engine.ts:396) rather than inferred from the status value."
+    },
+    {
+      "guard": "test/catch-blast-radius.test.ts > provenance: a bad `source` must not drop a `verified` entry out of the verified export",
+      "mutation": "src/validate.ts: remove `.catch(undefined)` from provenance.source.",
+      "observedRed": true,
+      "note": "1 failed / 5 passed."
+    },
+    {
+      "guard": "test/catch-blast-radius.test.ts > refs: a bad `supersedes` must not destroy `contradicts`",
+      "mutation": "src/validate.ts: remove `.catch(undefined)` from refs.supersedes.",
+      "observedRed": true,
+      "note": "1 failed / 5 passed. This asserts the REAL refs win; the ADR-0004 bypass originally claimed for this field was measured unreachable (R1-M2)."
+    },
+    {
+      "guard": "test/catch-blast-radius.test.ts > author: a bad `id` must not downgrade `role`, which derives trust",
+      "mutation": "src/validate.ts: remove `.catch(undefined)` from author.id.",
+      "observedRed": true,
+      "note": "1 failed / 5 passed."
+    },
+    {
+      "guard": "test/catch-blast-radius.test.ts > validity: a bad `valid_until` must not silently RESET `valid_from`",
+      "mutation": "src/validate.ts: remove `.catch(undefined)` from validity.valid_until.",
+      "observedRed": true,
+      "note": "1 failed / 5 passed. The fixture keeps `created` DELIBERATELY different from valid_from: when the object detonates, the backfill at validate.ts:87-89 resurrects valid_from FROM created, so it reappears WRONG rather than absent. With the two equal the assertion cannot fail \u2014 that exact vacuity shipped once in this PR's history and was caught in review."
+    }
+  ],
+  "mutationsNote": null,
+  "verdict": "MERGE",
+  "findingsCount": 13
+}
