@@ -80,6 +80,19 @@ const git = (repo, ...a) => execFileSync('git', ['-C', repo, ...a], { encoding: 
 const show = (repo, ref, path) => { try { return git(repo, 'show', `${ref}:${path}`); } catch { return null; } };
 const listFiles = (repo, ref) => git(repo, 'ls-tree', '-r', '--name-only', ref).split('\n').filter(Boolean);
 
+/** Git's own rename pairs for the compared tree states (NUL-safe for paths). */
+export function renamedFiles(repo, base, head) {
+  const fields = git(repo, 'diff', '--name-status', '-z', '--find-renames', base, head, '--').split('\0');
+  const out = [];
+  for (let i = 0; i < fields.length && fields[i];) {
+    const status = fields[i++];
+    if (/^R\d+$/.test(status)) out.push({ from: fields[i++], to: fields[i++] });
+    else if (/^C\d+$/.test(status)) i += 2;
+    else i += 1;
+  }
+  return out;
+}
+
 /**
  * THE TEST INVENTORY COMES FROM VITEST, NOT FROM PARSING.
  *
@@ -108,7 +121,7 @@ const listFiles = (repo, ref) => git(repo, 'ls-tree', '-r', '--name-only', ref).
  * is semantic data from Vitest itself: comments and decoy strings do not become
  * tasks, while generated `it.each` and template-literal names do.
  */
-export function collectTests(repo, ref) {
+export function collectTests(repo, ref, extraCandidates = []) {
   const empty = () => ({ ok: false, tests: new Map(), declared: new Map(), detail: '' });
   const nm = join(repo, 'node_modules');
   const vitestBin = join(nm, '.bin', 'vitest');
@@ -188,7 +201,11 @@ process.exit(r.status ?? 1);
     // newly narrowed include/exclude config, while still using the project's
     // transforms, aliases and environment.
     const declaredFile = join(wt, '.tamper-vitest-declared.json');
-    const candidates = listFiles(repo, ref).filter((f) => /\.(?:test|spec)\.[cm]?[jt]sx?$/i.test(f) && !/^dist\//.test(f));
+    const filesAtRef = new Set(listFiles(repo, ref));
+    const candidates = [...new Set([
+      ...[...filesAtRef].filter((f) => /\.(?:test|spec)\.[cm]?[jt]sx?$/i.test(f)),
+      ...extraCandidates.filter((f) => filesAtRef.has(f)),
+    ])].filter((f) => !/^dist\//.test(f));
     const collector = String.raw`
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -286,8 +303,8 @@ export function commandSurface(repo, ref) {
   return out;
 }
 
-export function inventory(repo, ref) {
-  const collected = collectTests(repo, ref);
+export function inventory(repo, ref, extraCandidates = []) {
+  const collected = collectTests(repo, ref, extraCandidates);
   return { collected, cmd: commandSurface(repo, ref) };
 }
 
@@ -300,30 +317,43 @@ export function inventory(repo, ref) {
  * skip, the opposite of what the waiver printed about itself. Separating the
  * computation is what makes the printed scope true rather than merely stated.
  */
-export function compare(before, after) {
+export function compare(before, after, renames = []) {
   const hard = [], soft = [];
   const B = before.collected.tests, A = after.collected.tests;
 
   const goneKeys = [...B.keys()].filter((k) => !A.has(k));
   const afterNames = new Set([...A.values()].map((t) => t.name));
 
-  const identity = (t) => `${t.file}::${t.name}`;
-  const counts = (m) => {
+  const identity = (t, file = t.file) => `${file}::${t.name}`;
+  const counts = (m, normalizeFile = (f) => f) => {
     const out = new Map();
-    for (const t of m.values()) out.set(identity(t), (out.get(identity(t)) ?? 0) + 1);
+    for (const t of m.values()) {
+      const id = identity(t, normalizeFile(t.file));
+      out.set(id, (out.get(id) ?? 0) + 1);
+    }
     return out;
   };
-  const disabledCounts = (inv) => {
-    const declared = counts(inv.collected.declared), runnable = counts(inv.collected.tests), out = new Map();
+  const disabledCounts = (inv, normalizeFile) => {
+    const declared = counts(inv.collected.declared, normalizeFile), runnable = counts(inv.collected.tests, normalizeFile), out = new Map();
     for (const [id, n] of declared) if (n > (runnable.get(id) ?? 0)) out.set(id, n - (runnable.get(id) ?? 0));
     return out;
   };
-  const beforeDisabled = disabledCounts(before), afterDisabled = disabledCounts(after);
+  // A rename changes the path component of task identity. Normalize HEAD's
+  // destination back to its BASE source so an existing skip merely moved does
+  // not look newly disabled. Git supplies the path relationship; Vitest still
+  // supplies the authoritative declared-vs-runnable state at the destination.
+  const sourceForDestination = new Map(renames.map((r) => [r.to, r.from]));
+  const normalizeAfterFile = (file) => sourceForDestination.get(file) ?? file;
+  const beforeDisabled = disabledCounts(before), afterDisabled = disabledCounts(after, normalizeAfterFile);
   const newlyDisabled = [];
+  const emittedDisabled = new Map();
   for (const t of after.collected.declared.values()) {
-    const id = identity(t);
+    const id = identity(t, normalizeAfterFile(t.file));
     const added = (afterDisabled.get(id) ?? 0) - (beforeDisabled.get(id) ?? 0);
-    if (added > newlyDisabled.filter((x) => identity(x) === id).length) newlyDisabled.push(t);
+    if (added > (emittedDisabled.get(id) ?? 0)) {
+      newlyDisabled.push(t);
+      emittedDisabled.set(id, (emittedDisabled.get(id) ?? 0) + 1);
+    }
   }
 
   // Per-file COLLECTED counts distinguish an enabled rename (one name out and
@@ -409,8 +439,12 @@ export function main(argv = process.argv.slice(2)) {
   }
   if (baseSha === headSha) { console.error(`tamper-check FAILED — base and head are the same commit (${baseSha.slice(0, 7)}); a PASS here would be meaningless.`); return 1; }
 
-  const before = inventory(repo, baseSha);
-  const after = inventory(repo, headSha);
+  const renames = renamedFiles(repo, baseSha, headSha);
+  // Vitest's normal glob intentionally cannot see a file renamed out of that
+  // glob. Ask its task collector to inspect Git's rename endpoints directly;
+  // whether those declared tasks are runnable still comes from Vitest.
+  const before = inventory(repo, baseSha, renames.map((r) => r.from));
+  const after = inventory(repo, headSha, renames.map((r) => r.to));
 
   // FAIL CLOSED. A collection that did not run proves nothing, and treating it
   // as proof is exactly how the sibling reproduction gate was broken: it read an
@@ -424,7 +458,7 @@ export function main(argv = process.argv.slice(2)) {
   }
   if (before.collected.tests.size === 0) { console.error('tamper-check FAILED — the BASE collected zero tests, so nothing can be compared against it.'); return 1; }
 
-  const { hard, soft, stats } = compare(before, after);
+  const { hard, soft, stats } = compare(before, after, renames);
 
   const msg = (() => { try { return git(repo, 'log', '--format=%B', `${baseSha}..${headSha}`); } catch { return ''; } })();
   const waiver = /^Tamper-Waiver:\s*(.+)$/im.exec(msg)?.[1]?.trim() ?? null;

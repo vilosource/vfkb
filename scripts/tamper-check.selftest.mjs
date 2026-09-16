@@ -66,7 +66,7 @@ const W = 'tidy\n\nTamper-Waiver: stated reason';
 
 console.log('--- ATTACKS: each of these defeated a previous version (want BLOCK) ---');
 check('git rm a test file', gate(() => git('rm', '-q', 'test/b.test.ts')), 'BLOCK');
-check('rename a test file OUT of the test paths', gate(() => { mkdirSync(join(repo, 'h'), { recursive: true }); git('mv', 'test/b.test.ts', 'h/b.ts'); }), 'BLOCK');
+check('a waiver does NOT excuse renaming a test file OUT of the test paths', gate(() => { mkdirSync(join(repo, 'h'), { recursive: true }); git('mv', 'test/b.test.ts', 'h/b.ts'); }, W), 'BLOCK');
 check('it.concurrent.skip — leaked through the WAIVER before', gate(edit('test/a.test.ts', (t) => t.replace("it('adds'", "it.concurrent.skip('adds'"))), 'BLOCK');
 check("it['skip'] — same leak", gate(edit('test/a.test.ts', (t) => t.replace("it('adds'", "it['skip']('adds'"))), 'BLOCK');
 check('it.skipIf(true)', gate(edit('test/a.test.ts', (t) => t.replace("it('adds'", "it.skipIf(true)('adds'"))), 'BLOCK');
@@ -110,6 +110,7 @@ check('a waiver DOES excuse deleting an obsolete test', gate(() => git('rm', '-q
 console.log('\n--- HONEST WORK (want PASS) — blocking this is a defect, ADR-0052 ---');
 check('adding tests', gate(() => put('test/a.test.ts', git('show', 'HEAD:test/a.test.ts') + "it('n', () => { expect(3).toBe(1+2); });\n")), 'PASS');
 check('renaming a test TITLE in place', gate(edit('test/a.test.ts', (t) => t.replace("it('adds'", "it('adds two numbers'"))), 'PASS');
+check('moving a test file to a different collected path', gate(() => { mkdirSync(join(repo, 'test/unit'), { recursive: true }); git('mv', 'test/b.test.ts', 'test/unit/b.test.ts'); }), 'PASS');
 check('moving a test between two test files', gate(() => { put('test/a.test.ts', git('show', 'HEAD:test/a.test.ts').replace(/^.*it\('subs'.*$\n/m, '')); put('test/b.test.ts', git('show', 'HEAD:test/b.test.ts') + "it('subs', () => { expect(2-1).toBe(1); });\n"); }), 'PASS');
 check('the test script gaining --coverage', gate(() => put('package.json', '{\n  "scripts": { "test": "vitest run --coverage" }\n}\n')), 'PASS');
 check('`npm ci || npm install` above npm test in one step', gate(wf('jobs:\n  t:\n    steps:\n      - run: |\n          npm ci || npm install\n          npm test\n')), 'PASS');
