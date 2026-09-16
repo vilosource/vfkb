@@ -21,7 +21,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { collectTests, workflowSteps, isNeutered, main } from './tamper-check.mjs';
+import { main, collectTests } from './tamper-check.mjs';
 
 let failed = 0;
 const check = (label, got, want) => {
@@ -62,21 +62,13 @@ function gate(mutate, message = 'change') {
 }
 const edit = (p, fn) => () => put(p, fn(git('show', `HEAD:${p}`)));
 const wf = (body) => () => put('.github/workflows/test.yml', body);
-const W = 'tidy\n\nTamper-Waiver: stated reason';
 
 console.log('--- ATTACKS: each of these defeated a previous version (want BLOCK) ---');
 check('git rm a test file', gate(() => git('rm', '-q', 'test/b.test.ts')), 'BLOCK');
-check('a waiver does NOT excuse renaming a test file OUT of the test paths', gate(() => { mkdirSync(join(repo, 'h'), { recursive: true }); git('mv', 'test/b.test.ts', 'h/b.ts'); }, W), 'BLOCK');
 check('it.concurrent.skip — leaked through the WAIVER before', gate(edit('test/a.test.ts', (t) => t.replace("it('adds'", "it.concurrent.skip('adds'"))), 'BLOCK');
 check("it['skip'] — same leak", gate(edit('test/a.test.ts', (t) => t.replace("it('adds'", "it['skip']('adds'"))), 'BLOCK');
 check('it.skipIf(true)', gate(edit('test/a.test.ts', (t) => t.replace("it('adds'", "it.skipIf(true)('adds'"))), 'BLOCK');
 check("it['only'] — the bracket form ONLY missed", gate(edit('test/a.test.ts', (t) => t.replace("it('adds'", "it['only']('adds'"))), 'BLOCK');
-check('the test script replaced with `echo ok`', gate(() => put('package.json', '{\n  "scripts": { "test": "echo ok" }\n}\n')), 'BLOCK');
-check('the test step deleted from the workflow', gate(wf('jobs:\n  t:\n    steps:\n      - run: echo hi\n')), 'BLOCK');
-check('continue-on-error AFTER run: — the shape this repo uses', gate(wf('jobs:\n  t:\n    steps:\n      - run: npm test\n        continue-on-error: true\n')), 'BLOCK');
-check('if: false AFTER run:', gate(wf('jobs:\n  t:\n    steps:\n      - run: npm test\n        if: false\n')), 'BLOCK');
-check('`pnpm run test || echo skipped` — any || swallows it', gate(wf('jobs:\n  t:\n    steps:\n      - run: pnpm run test || echo skipped\n')), 'BLOCK');
-check('`set +e` above the test command (step-scoped)', gate(wf('jobs:\n  t:\n    steps:\n      - run: |\n          set +e\n          npm test\n')), 'BLOCK');
 check('tests commented out wholesale', gate(() => put('test/a.test.ts', "import { it } from 'vitest';\n/*\nit('adds', () => {});\nit('subs', () => {});\n*/\n")), 'BLOCK');
 check('a skip hidden behind a regex containing a quote (killed 3 scanners)', gate(() => put('test/a.test.ts', ["import { it, expect } from 'vitest';", "const Q = /['" + '"' + "]/;", "it.skip('adds', () => {});", "it('subs', () => { expect(1).toBe(1+0); });"].join('\n'))), 'BLOCK');
 check('a vitest.config exclusion (every count unchanged)', gate(() => put('vitest.config.ts', "export default { test: { exclude: ['test/b.test.ts'] } };\n")), 'BLOCK');
@@ -88,9 +80,9 @@ check('a same-name decoy in another file cannot hide the skipped original', gate
   put('test/a.test.ts', git('show', 'HEAD:test/a.test.ts').replace("it('adds'", "it.skip('adds'"));
   put('test/c.test.ts', "import { it, expect } from 'vitest';\nit('adds', () => expect(1).toBe(1));\n");
 }), 'BLOCK');
-check('renaming and skipping in one change stays unwaivable', gate(edit('test/a.test.ts', (t) => t.replace("it('adds'", "it.skip('renamed adds'")), W), 'BLOCK');
-check('skipping generated it.each names stays unwaivable', gate(edit('test/a.test.ts', (t) => t.replace('it.each([1, 2])', 'it.skip.each([1, 2])')), W), 'BLOCK');
-check('skipping a generated template-literal name stays unwaivable', gate(edit('test/a.test.ts', (t) => t.replace('it(`template ${suffix}`', 'it.skip(`template ${suffix}`')), W), 'BLOCK');
+check('renaming and skipping in one change stays unwaivable', gate(edit('test/a.test.ts', (t) => t.replace("it('adds'", "it.skip('renamed adds'"))), 'BLOCK');
+check('skipping generated it.each names stays unwaivable', gate(edit('test/a.test.ts', (t) => t.replace('it.each([1, 2])', 'it.skip.each([1, 2])'))), 'BLOCK');
+check('skipping a generated template-literal name stays unwaivable', gate(edit('test/a.test.ts', (t) => t.replace('it(`template ${suffix}`', 'it.skip(`template ${suffix}`'))), 'BLOCK');
 
 for (const [label, command] of [
   ['-t test-name narrowing', 'vitest run -t "no such test name anywhere"'],
@@ -98,32 +90,42 @@ for (const [label, command] of [
   ['--exclude narrowing', 'vitest run --exclude "test/**"'],
   ['--project narrowing', 'vitest run --project nope'],
 ]) {
-  check(label, gate(() => put('package.json', `{\n  "name": "t", "type": "module",\n  "scripts": { "test": ${JSON.stringify(command)} }\n}\n`), W), 'BLOCK');
+  check(label, gate(() => put('package.json', `{\n  "name": "t", "type": "module",\n  "scripts": { "test": ${JSON.stringify(command)} }\n}\n`)), 'BLOCK');
 }
 
 console.log('\n--- THE WAIVER WAIVES WHAT IT SAYS IT WAIVES ---');
-check('a waiver does NOT excuse an added skip', gate(edit('test/a.test.ts', (t) => t.replace("it('adds'", "it.concurrent.skip('adds'")), W), 'BLOCK');
-check('a waiver does NOT excuse `echo ok`', gate(() => put('package.json', '{\n  "scripts": { "test": "echo ok" }\n}\n'), W), 'BLOCK');
-check('a waiver does NOT excuse killing the only test step', gate(wf('jobs:\n  t:\n    steps:\n      - run: echo hi\n'), W), 'BLOCK');
-check('a waiver DOES excuse deleting an obsolete test', gate(() => git('rm', '-q', 'test/b.test.ts'), W), 'PASS');
 
 console.log('\n--- HONEST WORK (want PASS) — blocking this is a defect, ADR-0052 ---');
 check('adding tests', gate(() => put('test/a.test.ts', git('show', 'HEAD:test/a.test.ts') + "it('n', () => { expect(3).toBe(1+2); });\n")), 'PASS');
 check('renaming a test TITLE in place', gate(edit('test/a.test.ts', (t) => t.replace("it('adds'", "it('adds two numbers'"))), 'PASS');
 check('moving a test file to a different collected path', gate(() => { mkdirSync(join(repo, 'test/unit'), { recursive: true }); git('mv', 'test/b.test.ts', 'test/unit/b.test.ts'); }), 'PASS');
 check('moving a test between two test files', gate(() => { put('test/a.test.ts', git('show', 'HEAD:test/a.test.ts').replace(/^.*it\('subs'.*$\n/m, '')); put('test/b.test.ts', git('show', 'HEAD:test/b.test.ts') + "it('subs', () => { expect(2-1).toBe(1); });\n"); }), 'PASS');
-check('the test script gaining --coverage', gate(() => put('package.json', '{\n  "scripts": { "test": "vitest run --coverage" }\n}\n')), 'PASS');
-check('`npm ci || npm install` above npm test in one step', gate(wf('jobs:\n  t:\n    steps:\n      - run: |\n          npm ci || npm install\n          npm test\n')), 'PASS');
-check('an OPTIONAL non-test step carrying || true', gate(wf('jobs:\n  t:\n    steps:\n      - run: npm test\n      - run: node drift.mjs || true\n')), 'PASS');
-check('a report-only step gaining continue-on-error', gate(wf('jobs:\n  t:\n    steps:\n      - run: npm test\n      - continue-on-error: true\n        run: node drift.mjs\n')), 'PASS');
 check('adding a whole new test file', gate(() => put('test/c.test.ts', "import { it, expect } from 'vitest';\nit('eps', () => { expect(5).toBe(2+3); });\n")), 'PASS');
 check('renaming a test TITLE to something unrelated', gate(edit('test/a.test.ts', (t) => t.replace("it('adds'", "it('completely different'"))), 'PASS');
 check('a docs-only change', gate(() => put('README.md', 'hi\n')), 'PASS');
 check('THIS Brake quoted as test data in a file', gate(() => put('test/a.test.ts', git('show', 'HEAD:test/a.test.ts') + 'const s = "it.skip(\'x\')";\n')), 'PASS');
-check('deleting a test while explaining its old name in a comment is waivable', gate(() => put('test/a.test.ts', git('show', 'HEAD:test/a.test.ts').replace(/^.*it\('adds'.*$\n/m, '// removed: adds — superseded by the property test\n')), W), 'PASS');
+// With the trailer waiver gone, an honest deletion blocks too — and that is the
+// accepted cost: the escape is an ADR-0052 review record naming an operator from
+// reviews/OPERATORS, which an agent may not add itself to. A free-text trailer
+// leaked in four consecutive rounds precisely because the checked party could
+// write it.
+check('deleting a test while explaining its old name in a comment still blocks — the escape is an operator-named review record', gate(() => put('test/a.test.ts', git('show', 'HEAD:test/a.test.ts').replace(/^.*it\('adds'.*$\n/m, '// removed: adds — superseded by the property test\n'))), 'BLOCK');
 check('renaming generated it.each cases without disabling them', gate(edit('test/a.test.ts', (t) => t.replace("'case %s'", "'value %s works'"))), 'PASS');
 check('changing a generated template-literal name without disabling it', gate(edit('test/a.test.ts', (t) => t.replaceAll("'literal'", "'renamed'"))), 'PASS');
-check('an honest non-narrowing Vitest flag still passes', gate(() => put('package.json', '{\n  "name": "t", "type": "module",\n  "scripts": { "test": "vitest run --reporter=dot" }\n}\n')), 'PASS');
+
+console.log('\n--- RUNTIME skips: what collection structurally cannot see ---');
+// Round 5's B1: a two-line setupFiles change silenced the ENTIRE suite while a
+// collection-only gate printed "the suite was not weakened". vitest LISTS a test
+// that calls ctx.skip() at runtime, so only an actual run sees this family.
+check('a setupFile beforeEach ctx.skip() that kills the whole suite', gate(() => { put('vitest-setup.ts', "import { beforeEach } from 'vitest';\nbeforeEach((ctx) => { ctx.skip(); });\n"); put('vitest.config.ts', "export default { test: { setupFiles: ['./vitest-setup.ts'] } };\n"); }), 'BLOCK');
+check('a single runtime ctx.skip()', gate(edit('test/a.test.ts', (t) => t.replace("it('adds', () => {", "it('adds', (ctx) => { ctx.skip();"))), 'BLOCK');
+
+console.log('\n--- there is NO trailer waiver: nothing launders ---');
+// The Tamper-Waiver trailer leaked in FOUR consecutive review rounds by four
+// different routes, because free text is writable by whoever is being checked.
+// The escape is now an ADR-0052 review record naming an operator.
+check('deleting a test file, with the old trailer present, still blocks', gate(() => git('rm', '-q', 'test/b.test.ts'), 'tidy\n\nTamper-Waiver: obsolete'), 'BLOCK');
+check('deleting ALL tests, with the old trailer, still blocks', gate(() => git('rm', '-q', '-r', 'test'), 'tidy\n\nTamper-Waiver: obsolete'), 'BLOCK');
 
 console.log('\n--- fails CLOSED, never open ---');
 check('an unresolvable base refuses to give a verdict', (() => { const q = console.error; console.error = () => {}; const c = main(['--repo', repo, '--base', 'no-such-ref', '--head', 'HEAD']); console.error = q; return c; })() !== 0, true);
@@ -143,12 +145,6 @@ rmSync(noDeps, { recursive: true, force: true });
 check('review-gate installs dependencies before the tamper selftest', /npm ci[\s\S]*tamper-check\.selftest/.test(readFileSync(join(process.cwd(), '.github/workflows/review-gate.yml'), 'utf8')), true);
 
 console.log('\n--- unit level (what is left after the scanner was deleted) ---');
-check('workflowSteps: a guard BELOW run: is seen', workflowSteps('jobs:\n t:\n  steps:\n   - run: npm test\n     continue-on-error: true\n', 'w')[0]?.guarded === true, true);
-check("workflowSteps: an adjacent step's guard does NOT bleed", workflowSteps('jobs:\n t:\n  steps:\n   - continue-on-error: true\n     run: node x.mjs\n   - run: npm test\n', 'w')[0]?.guarded === false, true);
-check('isNeutered: any || on a test command', isNeutered('npm test || echo skipped'), true);
-check('isNeutered: set +e is step-scoped', isNeutered('set +e\nnpm test'), true);
-check('isNeutered: an optional non-test command is not', isNeutered('node drift.mjs || true'), false);
-check('isNeutered: npm ci || npm install above npm test is not', isNeutered('npm ci || npm install\nnpm test'), false);
 
 rmSync(repo, { recursive: true, force: true });
 if (failed) { console.error(`\n${failed} check(s) failed.`); process.exit(1); }

@@ -2,48 +2,50 @@
 // ============================================================================
 // TAMPER DETECTION (P12-a, ADR-0075 clause 3 / RFC-039 D8).
 //
-// An agent asked to make tests pass has an obvious shortcut. GitHub's framing:
-// "Agents have an obvious path to get tests passing: remove the tests, skip the
-// lint step, add `|| true` to test commands."
+// Did this change make the test suite smaller or quieter? That is the ONLY
+// question this answers, and the scope is narrow by operator ruling after five
+// adversarial review rounds found 21, 10, 7, 3 and 8 defeat areas against
+// successively larger versions.
 //
-// ── WHY THIS COMPARES STATE, NOT DIFF LINES ─────────────────────────────────
-// The first version of this Brake matched regexes against ADDED diff lines.
-// Adversarial review ran 33 tampers against it and 21 got through, four of them
-// structurally invisible to ANY line matcher:
-//   * `git rm test/foo.test.ts`  -> git emits `+++ /dev/null`, so the file never
-//     entered the scanner at all and it printed "0 changed file(s) … PASSED".
-//     That is the FIRST thing RFC-039 D8 names, failing while reporting success.
-//   * `git mv test/foo.test.ts helpers/foo.ts` -> a 100%-similarity rename has
-//     no content lines to match.
-//   * `"test": "echo ok"` in package.json, or `if: false` on the test step ->
-//     the command is neutered without any banned token appearing.
-//   * deleting the test step outright -> nothing is added, so nothing is seen.
-// The evidence for all four lives in file STATUS, repo-wide COUNTS and the
-// RESOLVED COMMAND — none of which a diff-line scanner reads. So this version
-// builds an inventory at the BASE and at the HEAD and compares them. Deletion,
-// rename and relocation all fall out of that comparison for free.
+// ── WHAT IT DOES ────────────────────────────────────────────────────────────
+// Two observations at the merge BASE and at the HEAD, both from vitest itself
+// rather than from parsing:
+//   1. COLLECTED — `vitest list` plus a collect-only task-graph pass. Catches
+//      every static skip spelling (.skip, .concurrent.skip, ['skip'],
+//      .skipIf(true), .todo, xit, split across lines), config `exclude`s,
+//      `-t` narrowing, deletions, and files renamed out of the test glob.
+//   2. ACTUALLY RAN — a real `vitest run`. Collection CANNOT see a runtime
+//      skip: vitest lists a test that calls ctx.skip(). Review round 5 showed
+//      the worst case — a two-line setupFiles change silences the entire suite,
+//      exits 0, and a collection-only gate called it unweakened.
 //
-// ── WHY IT CANNOT QUIETLY BLOCK HONEST WORK ─────────────────────────────────
-// A gate that blocks honest work is a defect (ADR-0052), and a tamper detector
-// with that flaw is worse than none: it teaches people to route around the gate,
-// and the routing-around is invisible. So weakenings that have legitimate
-// reasons (deleting an obsolete test, changing the test command) are WAIVABLE via
-// a `Tamper-Waiver:` commit trailer, and weakenings that never do (adding a
-// skip, neutering a command, writing a tautology) are NOT.
+// ── WHAT WAS DELETED, AND WHY THAT IS THE POINT ─────────────────────────────
+// A whole workflow/`package.json` command-integrity half used to live here. It
+// was hand-written regex over YAML and shell text, it survived three rewrites of
+// the OTHER half untouched, and round 5 defeated it six ways (`vitest run | cat`,
+// `npm test &`, job-level `if: false`, changing `on:` to workflow_dispatch…).
+// A parse layer that cannot model a shell cannot be patched into modelling one,
+// and shipping it would be advertising coverage that is not there. It is gone
+// rather than green.
 //
-// The waiver's scope is enforced by COMPUTING THE UNWAIVABLE FINDINGS FIRST AND
-// INDEPENDENTLY. In the first version an unrecognised skip spelling fell through
-// to the waivable removal count, so `Tamper-Waiver:` silently excused an added
-// `it.concurrent.skip(` — the opposite of what its own documentation claimed.
+// THE `Tamper-Waiver:` TRAILER IS ALSO GONE. It leaked in FOUR consecutive
+// rounds by four different routes, for one structural reason: free text in a
+// commit message is writable by exactly the party being checked. There is now no
+// self-service escape. A weakening that is legitimate is recorded where
+// accountability already exists — an ADR-0052 review-record finding with
+// `status: "accepted"` and an `acceptedBy` naming someone in reviews/OPERATORS,
+// a file an agent may never add itself to.
 //
-// ── WHAT THIS DELIBERATELY DOES NOT CATCH ───────────────────────────────────
-// Stated rather than implied, because a gate that overstates its reach is read
-// as coverage it does not have. Weakening a test WITHOUT changing any count or
-// name is invisible here: an early `return` in a body, an assertion swapped for
-// a laxer one, a `try{}catch{}` wrapper, or deleting one real test and adding
-// one junk test inside the SAME file. Those are review's job (ADR-0052), not a
-// counter's. This Brake answers one narrow question — did the change make the
-// suite smaller, quieter, or unable to fail — and nothing beyond it.
+// ── WHAT IT DELIBERATELY DOES NOT CATCH ─────────────────────────────────────
+// Stated, because a gate that overstates its reach is read as coverage it does
+// not have — which is what the deleted half was doing.
+//   * Neutered CI wiring (`|| true`, `if: false`, a rewritten test script).
+//     Not attempted any more. Review's job.
+//   * A test weakened without changing what runs — a laxer assertion, a
+//     try/catch. A counter cannot see it.
+//   * An adversary who detects the gate. Collection and the run happen in a
+//     temp worktree with distinctive env; a test that WANTS to behave
+//     differently under observation can. No in-repo measurement closes this.
 //
 //   node scripts/tamper-check.mjs [--base <ref>] [--head <ref>] [--repo <dir>]
 // ============================================================================
@@ -60,22 +62,6 @@ export const isTestFile = (f) => /\.(test|spec)\.[cm]?[jt]sx?$/i.test(f) || /^(t
 /** An empty test body asserts nothing while keeping the count intact. */
 // Verbs that actually RUN the suite or the linters. Narrowed so an optional
 // `node scripts/whatever.mjs || true` is not swept up (review finding M4).
-const TEST_VERB = /\b(?:(?:npm|yarn|pnpm|bun)\s+(?:run\s+)?(?:test|verify|check|lint)\b|npm\s+t\b|npx\s+\S*(?:vitest|jest|mocha)|vitest|jest|mocha|bun\s+test|make\s+test|tsc\b|eslint)|\.\/(?:scripts\/)?\S*test\S*\.(?:sh|mjs|js)/i;
-// ANY `||` swallows the failure — `|| true`, `|| :`, `|| exit 0`, `|| echo
-// skipped` are the same act. Applied PER COMMAND rather than to the whole step,
-// so a legitimate `npm ci || npm install` line sitting above `npm test` in the
-// same block scalar is not swept up.
-const NEUTERED_CMD = /(?:\|\||;\s*(?:true|:)\s*$|--passWithNoTests|\bset\s+\+e\b)/i;
-export const isNeutered = (body) => {
-  const text = String(body);
-  // `set +e` is STEP-scoped, not command-scoped: GitHub runs `run:` under
-  // `bash -e`, so one `set +e` anywhere above disarms every command below it.
-  if (/\bset\s+\+e\b/.test(text) && TEST_VERB.test(text)) return true;
-  return text
-    .split(/\n|&&|(?<!\|)\|(?!\|)/)
-    .some((seg) => TEST_VERB.test(seg) && NEUTERED_CMD.test(seg));
-};
-
 const git = (repo, ...a) => execFileSync('git', ['-C', repo, ...a], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
 const show = (repo, ref, path) => { try { return git(repo, 'show', `${ref}:${path}`); } catch { return null; } };
 const listFiles = (repo, ref) => git(repo, 'ls-tree', '-r', '--name-only', ref).split('\n').filter(Boolean);
@@ -257,55 +243,49 @@ try {
  * guard from an ADJACENT step and raise a false positive. A step is a block;
  * read the whole block.
  */
-export function workflowSteps(text, file) {
-  const lines = String(text).split('\n');
-  const steps = [];
-  for (let i = 0; i < lines.length; i++) {
-    const m = /^(\s*)-\s/.exec(lines[i]);
-    if (!m) continue;
-    const ind = m[1].length;
-    const block = [lines[i]];
-    for (let j = i + 1; j < lines.length; j++) {
-      if (!lines[j].trim()) { block.push(lines[j]); continue; }
-      const cur = lines[j].search(/\S/);
-      if (cur <= ind) break;              // next step, or dedent out of the list
-      block.push(lines[j]);
-    }
-    const text2 = block.join('\n');
-    const runs = [...text2.matchAll(/(?:^|\n)\s*(?:-\s*)?(?:run|uses)\s*:\s*([\s\S]*?)(?=\n\s*\w[\w-]*\s*:|$)/g)]
-      .map((x) => x[1].trim());
-    const body = runs.join(' ; ').replace(/\s+/g, ' ').trim();
-    if (!TEST_VERB.test(body)) continue;
-    steps.push({
-      file,
-      body: body.slice(0, 400),
-      raw: runs.join('\n').slice(0, 800),
-      // Guards read from ANYWHERE in the step block, not from a backward walk.
-      guarded: /(?:^|\n)\s*(?:-\s*)?(?:if|continue-on-error)\s*:/.test(text2),
+/**
+ * How many tests ACTUALLY RAN, from a real `vitest run`.
+ *
+ * Collection cannot see a runtime skip, and that is not a bug to patch — it is
+ * the limit of what collection means. `vitest list` omits STATICALLY skipped
+ * tasks (which is what the collection inventory rests on) but happily lists a
+ * test that calls `ctx.skip()` at runtime. Review round 5 showed the worst case:
+ * a two-line `setupFiles` with `beforeEach((ctx) => ctx.skip())` silences the
+ * ENTIRE suite, `vitest run` exits 0 with every test reported skipped, and a
+ * collection-only gate printed "the suite was not weakened".
+ *
+ * So the suite is actually RUN at both refs and the counts compared. It is the
+ * only observation that sees this family, and it costs a full test run per ref —
+ * accepted, because the alternative is a gate blind to the cheapest total
+ * shutdown available.
+ */
+export function runCounts(repo, ref) {
+  const wt = mkdtempSync(join(tmpdir(), 'vfkb-inv-'));
+  try {
+    git(repo, 'worktree', 'add', '--detach', '--quiet', wt, ref);
+    const nm = join(repo, 'node_modules');
+    if (!existsSync(nm)) return { ok: false, detail: 'no node_modules to borrow — run `npm ci` before this gate' };
+    if (!existsSync(join(wt, 'node_modules'))) symlinkSync(nm, join(wt, 'node_modules'), 'dir');
+    const report = join(wt, '.run-report.json');
+    const r = spawnSync('npx', ['vitest', 'run', '--reporter=json', '--outputFile', report], {
+      cwd: wt, encoding: 'utf8', timeout: 20 * 60_000, env: { ...process.env, CI: '1' },
     });
-  }
-  return steps;
-}
-
-/** The resolved test command surface at a ref: package.json + workflow steps. */
-export function commandSurface(repo, ref) {
-  const out = { npmTest: null, steps: [], excludes: [] };
-  const pkg = show(repo, ref, 'package.json');
-  if (pkg) { try { out.npmTest = JSON.parse(pkg).scripts?.test ?? null; } catch { out.npmTest = 'UNPARSEABLE'; } }
-  for (const f of listFiles(repo, ref)) {
-    if (/^\.github\/workflows\/.*\.ya?ml$/i.test(f)) out.steps.push(...workflowSteps(show(repo, ref, f) ?? '', f));
-    // A test-runner config can exclude whole files without changing any count.
-    if (/^(vitest|vite|jest)\.config\.[cm]?[jt]s$/i.test(f)) {
-      const t = show(repo, ref, f) ?? '';
-      for (const x of t.matchAll(/exclude\s*:\s*\[([^\]]*)\]/g)) out.excludes.push(`${f}: ${x[1].replace(/\s+/g, ' ').trim()}`);
+    if (!existsSync(report)) {
+      const tail = `${r.stdout ?? ''}${r.stderr ?? ''}`.split('\n').slice(-12).join('\n');
+      return { ok: false, detail: `vitest run produced no report (exit ${r.status})\n${tail}` };
     }
+    try {
+      const j = JSON.parse(readFileSync(report, 'utf8'));
+      return { ok: true, total: j.numTotalTests ?? 0, passed: j.numPassedTests ?? 0, failed: j.numFailedTests ?? 0, skipped: (j.numPendingTests ?? 0) + (j.numTodoTests ?? 0) };
+    } catch { return { ok: false, detail: 'vitest run produced unparseable JSON' }; }
+  } finally {
+    try { git(repo, 'worktree', 'remove', '--force', wt); } catch { /* best effort */ }
+    rmSync(wt, { recursive: true, force: true });
   }
-  return out;
 }
 
 export function inventory(repo, ref, extraCandidates = []) {
-  const collected = collectTests(repo, ref, extraCandidates);
-  return { collected, cmd: commandSurface(repo, ref) };
+  return { collected: collectTests(repo, ref, extraCandidates), run: runCounts(repo, ref) };
 }
 
 /**
@@ -318,7 +298,7 @@ export function inventory(repo, ref, extraCandidates = []) {
  * computation is what makes the printed scope true rather than merely stated.
  */
 export function compare(before, after, renames = []) {
-  const hard = [], soft = [];
+  const findings = [];
   const B = before.collected.tests, A = after.collected.tests;
 
   const goneKeys = [...B.keys()].filter((k) => !A.has(k));
@@ -377,48 +357,29 @@ export function compare(before, after, renames = []) {
   }
 
   if (disabled.length) {
-    hard.push({
+    findings.push({
       kind: 'tests-disabled',
       detail: `${disabled.length} test(s) are still written but no longer RUN — skipped, excluded or filtered out:\n    ` +
         disabled.slice(0, 5).map((t) => `${t.file} › ${t.name}`).join('\n    ') + (disabled.length > 5 ? `\n    …and ${disabled.length - 5} more` : ''),
     });
   }
   if (deleted.length) {
-    soft.push({
+    findings.push({
       kind: 'tests-removed',
       detail: `${deleted.length} test(s) no longer exist anywhere:\n    ` +
         deleted.slice(0, 5).map((t) => `${t.file} › ${t.name}`).join('\n    ') + (deleted.length > 5 ? `\n    …and ${deleted.length - 5} more` : ''),
     });
   }
 
-  // A test step that gained an `if:` or `continue-on-error:` is neutered, and so
-  // is one whose command grew a `||`. Compared as VALUES, not lines.
-  const key = (s) => `${s.file}::${s.body}`;
-  const beforeSteps = new Map(before.cmd.steps.map((s) => [key(s), s]));
-  const beforeGuardedAnywhere = before.cmd.steps.some((s) => s.guarded);
-  for (const s of after.cmd.steps) {
-    const was = beforeSteps.get(key(s));
-    // If the body changed, `was` is undefined and a PRE-EXISTING guard would read
-    // as newly gained — a false positive review found. Only flag when no step in
-    // the base carried a guard at all.
-    if (s.guarded && !was && !beforeGuardedAnywhere) hard.push({ kind: 'step-guarded', detail: `${s.file}: a step that runs tests is guarded by \`if:\` or \`continue-on-error:\`\n    ${s.body.slice(0, 110)}` });
-    else if (s.guarded && was && !was.guarded) hard.push({ kind: 'step-guarded', detail: `${s.file}: a step that runs tests gained an \`if:\` or \`continue-on-error:\`\n    ${s.body.slice(0, 110)}` });
-    if (isNeutered(s.raw ?? s.body) && !(was && isNeutered(was.raw ?? was.body))) hard.push({ kind: 'step-neutered', detail: `${s.file}: a test command was neutered so it cannot fail\n    ${s.body.slice(0, 110)}` });
+  // A test that no longer RUNS is weakening, whatever made it stop — a runtime
+  // ctx.skip(), a setupFile, a config change. Collection cannot see any of it.
+  const bRun = before.run, aRun = after.run;
+  if (bRun?.ok && aRun?.ok) {
+    if (aRun.passed < bRun.passed) findings.push({ kind: 'fewer-tests-ran', detail: `${bRun.passed - aRun.passed} fewer test(s) actually RAN (${bRun.passed} → ${aRun.passed} passed). Collection cannot see a runtime skip; this can.` });
+    if (aRun.skipped > bRun.skipped) findings.push({ kind: 'more-tests-skipped', detail: `${aRun.skipped - bRun.skipped} more test(s) were SKIPPED AT RUNTIME (${bRun.skipped} → ${aRun.skipped}) — e.g. a ctx.skip(), a setupFile, or a config change` });
   }
 
-  const wasCmd = before.cmd.npmTest, nowCmd = after.cmd.npmTest;
-  if (wasCmd && TEST_VERB.test(wasCmd)) {
-    if (nowCmd === null) hard.push({ kind: 'script-removed', detail: 'package.json: the `test` script was DELETED' });
-    else if (!TEST_VERB.test(nowCmd)) hard.push({ kind: 'script-neutered', detail: `package.json: the \`test\` script no longer runs any test command\n    was: ${wasCmd}\n    now: ${nowCmd}` });
-    else if (isNeutered(nowCmd) && !isNeutered(wasCmd)) hard.push({ kind: 'script-neutered', detail: `package.json: the \`test\` script was neutered\n    ${nowCmd}` });
-  }
-  if (before.cmd.steps.length > 0 && after.cmd.steps.length === 0) {
-    hard.push({ kind: 'all-test-steps-removed', detail: 'every workflow step that runs tests was removed' });
-  }
-  const lostSteps = before.cmd.steps.length - after.cmd.steps.length;
-  if (lostSteps > 0 && after.cmd.steps.length > 0) soft.push({ kind: 'test-step-removed', detail: `${lostSteps} fewer workflow step(s) that run tests` });
-
-  return { hard, soft, stats: { before: B.size, after: A.size, disabled: disabled.length, deleted: deleted.length, moved: moved.length } };
+  return { findings, stats: { before: B.size, after: A.size, disabled: disabled.length, deleted: deleted.length, moved: moved.length } };
 }
 
 export function main(argv = process.argv.slice(2)) {
@@ -434,21 +395,13 @@ export function main(argv = process.argv.slice(2)) {
     baseSha = git(repo, 'rev-parse', '--verify', `${base}^{commit}`).trim();
     headSha = git(repo, 'rev-parse', '--verify', `${head}^{commit}`).trim();
   } catch {
-    console.error(`tamper-check FAILED — cannot resolve base "${base}" or head "${head}". Refusing to report a verdict on an unknown range.`);
+    console.error(`tamper-check FAILED — cannot resolve base "${base}" or head "${head}".`);
     return 1;
   }
   if (baseSha === headSha) { console.error(`tamper-check FAILED — base and head are the same commit (${baseSha.slice(0, 7)}); a PASS here would be meaningless.`); return 1; }
 
-  const renames = renamedFiles(repo, baseSha, headSha);
-  // Vitest's normal glob intentionally cannot see a file renamed out of that
-  // glob. Ask its task collector to inspect Git's rename endpoints directly;
-  // whether those declared tasks are runnable still comes from Vitest.
-  const before = inventory(repo, baseSha, renames.map((r) => r.from));
-  const after = inventory(repo, headSha, renames.map((r) => r.to));
-
-  // FAIL CLOSED. A collection that did not run proves nothing, and treating it
-  // as proof is exactly how the sibling reproduction gate was broken: it read an
-  // exit code, so a CRASHED runner read as evidence (ADR-0051 §3).
+  const before = inventory(repo, baseSha);
+  const after = inventory(repo, headSha);
   for (const [label, inv] of [['base', before], ['head', after]]) {
     if (!inv.collected.ok) {
       console.error(`tamper-check FAILED — vitest could not collect tests at the ${label}. That is not a pass; it is a broken comparison.`);
@@ -457,22 +410,30 @@ export function main(argv = process.argv.slice(2)) {
     }
   }
   if (before.collected.tests.size === 0) { console.error('tamper-check FAILED — the BASE collected zero tests, so nothing can be compared against it.'); return 1; }
+  for (const [label, inv] of [['base', before], ['head', after]]) {
+    if (!inv.run?.ok) {
+      console.error(`tamper-check FAILED — the suite could not be RUN at the ${label}. A run that did not happen is not evidence that nothing was weakened.`);
+      console.error(inv.run?.detail ?? '');
+      return 1;
+    }
+  }
 
-  const { hard, soft, stats } = compare(before, after, renames);
-
-  const msg = (() => { try { return git(repo, 'log', '--format=%B', `${baseSha}..${headSha}`); } catch { return ''; } })();
-  const waiver = /^Tamper-Waiver:\s*(.+)$/im.exec(msg)?.[1]?.trim() ?? null;
+  const { findings, stats } = compare(before, after);
 
   console.log(`tamper-check: ${baseSha.slice(0, 7)}..${headSha.slice(0, 7)}`);
-  console.log(`  tests COLLECTED BY VITEST ${stats.before} → ${stats.after} · disabled ${stats.disabled} · deleted ${stats.deleted} · moved ${stats.moved} · test steps ${before.cmd.steps.length} → ${after.cmd.steps.length}`);
-  if (waiver) console.log(`  Tamper-Waiver: "${waiver}" — waives DELETIONS only. Tests that still exist but no longer run, and neutered or removed test commands, are never waived.`);
+  console.log(`  collected ${stats.before} → ${stats.after} · no longer collected ${stats.disabled + stats.deleted} · moved ${stats.moved}`);
+  console.log(`  ACTUALLY RAN ${before.run.passed} → ${after.run.passed} passed · ${before.run.skipped} → ${after.run.skipped} skipped`);
 
-  const blocking = [...hard, ...(waiver ? [] : soft)];
-  if (!blocking.length) { console.log('tamper-check PASSED — the suite was not weakened'); return 0; }
-  for (const f of blocking) console.error(`  TAMPER [${f.kind}] ${f.detail}`);
-  console.error(`\ntamper-check FAILED (${blocking.length} finding(s)).`);
-  if (!waiver && soft.length) console.error('Deleting a genuinely obsolete test is legitimate. If that is what this is, say why:\n  Tamper-Waiver: <reason>');
-  if (hard.length && waiver) console.error('NOTE: a Tamper-Waiver does not excuse the findings above.');
+  if (!findings.length) { console.log('tamper-check PASSED — the suite was not weakened'); return 0; }
+  for (const f of findings) console.error(`  TAMPER [${f.kind}] ${f.detail}`);
+  console.error(`\ntamper-check FAILED (${findings.length} finding(s)).`);
+  console.error('');
+  console.error('THERE IS NO COMMIT-TRAILER WAIVER. A free-text trailer is writable by anyone,');
+  console.error('including the agent whose work is being checked, and it leaked in four');
+  console.error('consecutive review rounds by four different routes. If this weakening is');
+  console.error('legitimate, record it where accountability already exists: an ADR-0052 review');
+  console.error('record finding with `status: "accepted"` and an `acceptedBy` naming someone in');
+  console.error('reviews/OPERATORS. An agent may not add itself to that file.');
   return 1;
 }
 
