@@ -48,7 +48,7 @@
 //   node scripts/tamper-check.mjs [--base <ref>] [--head <ref>] [--repo <dir>]
 // ============================================================================
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, existsSync, symlinkSync, realpathSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -99,25 +99,64 @@ const listFiles = (repo, ref) => git(repo, 'ls-tree', '-r', '--name-only', ref).
  *     .skip, .todo, .skipIf(true), xit, bracket access) — so a skip is simply a
  *     test that left the list, and there is nothing left to pattern-match;
  *   * a `vitest.config` `exclude`, an `include` narrowing, and a `-t` filter all
- *     remove tests from the list;
+ *     remove tests from the list when they are part of the resolved test command;
  *   * a deleted, renamed or relocated file removes its tests.
  *
- * What the list cannot tell us is WHY a test left. A name that still appears in
- * the file's source was disabled (hard); a name gone from the tree was deleted
- * (waivable). That is one substring test on raw source — no parsing, no state.
+ * `vitest list` deliberately omits skipped tasks, so a second COLLECT-ONLY
+ * Vitest pass records every declared task and its mode without running bodies.
+ * The difference between declared and runnable is the reason a test left. This
+ * is semantic data from Vitest itself: comments and decoy strings do not become
+ * tasks, while generated `it.each` and template-literal names do.
  */
 export function collectTests(repo, ref) {
+  const empty = () => ({ ok: false, tests: new Map(), declared: new Map(), detail: '' });
+  const nm = join(repo, 'node_modules');
+  const vitestBin = join(nm, '.bin', 'vitest');
+  if (!existsSync(nm) || !existsSync(vitestBin)) {
+    return { ...empty(), detail: `no installed Vitest found at ${vitestBin}. Run \`npm ci\` before tamper-check; collection cannot be inferred by npx.` };
+  }
+
   const wt = mkdtempSync(join(tmpdir(), 'vfkb-tamper-'));
   try {
     git(repo, 'worktree', 'add', '--detach', '--quiet', wt, ref);
-    const nm = join(repo, 'node_modules');
-    if (existsSync(nm) && !existsSync(join(wt, 'node_modules'))) symlinkSync(nm, join(wt, 'node_modules'), 'dir');
-    const r = spawnSync('npx', ['vitest', 'list', '--json'], { cwd: wt, encoding: 'utf8', timeout: 10 * 60_000, env: { ...process.env, CI: '1' } });
-    const out = `${r.stdout ?? ''}`;
-    const start = out.indexOf('[');
-    if (start === -1) return { ok: false, tests: new Map(), detail: `${out}${r.stderr ?? ''}`.split('\n').slice(-12).join('\n') };
+
+    // npm prepends the worktree's node_modules/.bin to lifecycle PATH. Build a
+    // local link farm so tests resolve every installed dependency, while our
+    // vitest shim can turn the project's real `npm test` invocation into LIST.
+    // This preserves positional file filters, -t, --exclude and --project.
+    const wtNm = join(wt, 'node_modules');
+    mkdirSync(join(wtNm, '.bin'), { recursive: true });
+    for (const name of readdirSync(nm)) {
+      if (name === '.bin') continue;
+      symlinkSync(join(nm, name), join(wtNm, name), 'dir');
+    }
+    for (const name of readdirSync(join(nm, '.bin'))) {
+      if (name === 'vitest') continue;
+      symlinkSync(join(nm, '.bin', name), join(wtNm, '.bin', name));
+    }
+
+    const listFile = join(wt, '.tamper-vitest-list.json');
+    const wrapperFile = join(wtNm, '.bin', 'vitest-wrapper.cjs');
+    const wrapper = join(wtNm, '.bin', 'vitest');
+    writeFileSync(wrapperFile, String.raw`const { spawnSync } = require('node:child_process');
+let args = process.argv.slice(2);
+if (args[0] === 'run') args.shift();
+// Coverage changes reporting, not selection, and list must not require an
+// optional coverage provider merely because the real suite uses one.
+args = args.filter((a) => a !== '--coverage' && !a.startsWith('--coverage.'));
+const r = spawnSync(process.env.TAMPER_REAL_VITEST, ['list', '--includeTaskLocation', '--json=' + process.env.TAMPER_LIST_FILE, ...args], { stdio: 'inherit' });
+process.exit(r.status ?? 1);
+`);
+    writeFileSync(wrapper, `#!/bin/sh\nexec "${process.execPath}" "${wrapperFile}" "$@"\n`);
+    chmodSync(wrapper, 0o755);
+
+    const env = { ...process.env, CI: '1', TAMPER_REAL_VITEST: vitestBin, TAMPER_LIST_FILE: listFile };
+    const r = spawnSync('npm', ['test', '--ignore-scripts'], { cwd: wt, encoding: 'utf8', timeout: 10 * 60_000, maxBuffer: 64 * 1024 * 1024, env });
+    if (r.status !== 0 || !existsSync(listFile)) {
+      return { ...empty(), detail: `${r.stdout ?? ''}${r.stderr ?? ''}`.split('\n').slice(-16).join('\n') };
+    }
     let list;
-    try { list = JSON.parse(out.slice(start)); } catch { return { ok: false, tests: new Map(), detail: 'vitest list produced unparseable JSON' }; }
+    try { list = JSON.parse(readFileSync(listFile, 'utf8')); } catch { return { ...empty(), detail: 'the resolved test command produced unparseable vitest-list JSON' }; }
     // git ALWAYS answers with realpaths and so does vitest, while mkdtempSync
     // hands back whatever the caller spelled — on macOS /var is a symlink to
     // /private/var, so a naive prefix strip produced "/privatesrc/foo.test.ts".
@@ -127,14 +166,63 @@ export function collectTests(repo, ref) {
     // gotcha on realpath-vs-spelling; strip BOTH spellings.
     const wtReal = (() => { try { return realpathSync(wt); } catch { return wt; } })();
     const strip = (p) => String(p ?? '').replace(`${wtReal}/`, '').replace(`${wt}/`, '');
-    const tests = new Map();
-    for (const t of list) {
-      const rel = strip(t.file);
-      if (rel.startsWith('/')) return { ok: false, tests: new Map(), detail: `could not relativise a collected path: ${t.file} (worktree ${wt} / ${wtReal}). Refusing to compare paths that may not line up with git's.` };
-      if (/^dist\//.test(rel)) continue;              // build output duplicates src tests
-      tests.set(`${rel}::${t.name}`, { file: rel, name: t.name });
+    const toMap = (items) => {
+      const out = new Map(), seen = new Map();
+      for (const t of items) {
+        const rel = strip(t.file);
+        if (rel.startsWith('/')) throw new Error(`could not relativise a collected path: ${t.file} (worktree ${wt} / ${wtReal})`);
+        if (/^dist\//.test(rel)) continue;              // build output duplicates src tests
+        const identity = `${rel}::${t.name}`;
+        const ordinal = (seen.get(identity) ?? 0) + 1;
+        seen.set(identity, ordinal);
+        out.set(`${identity}::${ordinal}`, { ...t, file: rel, name: t.name });
+      }
+      return out;
+    };
+    let tests;
+    try { tests = toMap(list); } catch (e) { return { ...empty(), detail: `${e.message}. Refusing to compare paths that may not line up with git's.` }; }
+
+    // Ask Vitest for its collected task graph. Unlike the list formatter, this
+    // retains skip/todo tasks and the concrete names generated by `it.each`.
+    // Direct specifications for conventional test files deliberately bypass a
+    // newly narrowed include/exclude config, while still using the project's
+    // transforms, aliases and environment.
+    const declaredFile = join(wt, '.tamper-vitest-declared.json');
+    const candidates = listFiles(repo, ref).filter((f) => /\.(?:test|spec)\.[cm]?[jt]sx?$/i.test(f) && !/^dist\//.test(f));
+    const collector = String.raw`
+import { writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { createVitest } from 'vitest/node';
+const v = await createVitest('test', { run: true, includeTaskLocation: true, allowOnly: true });
+try {
+  const specs = await v.globTestSpecifications();
+  const present = new Set(specs.map((s) => s.moduleId));
+  const project = v.projects[0];
+  for (const rel of JSON.parse(process.env.TAMPER_TEST_FILES)) {
+    const file = resolve(rel);
+    if (!present.has(file)) { specs.push(project.createSpecification(file)); present.add(file); }
+  }
+  const result = await v.collectTests(specs);
+  const out = [];
+  for (const mod of result.testModules) for (const test of mod.children.allTests()) {
+    out.push({ file: mod.moduleId, name: test.fullName, mode: test.options.mode, location: test.location });
+  }
+  writeFileSync(process.env.TAMPER_DECLARED_FILE, JSON.stringify(out));
+} finally { await v.close(); }
+`;
+    const dr = spawnSync(process.execPath, ['--input-type=module', '--eval', collector], {
+      cwd: wt, encoding: 'utf8', timeout: 10 * 60_000, maxBuffer: 64 * 1024 * 1024,
+      env: { ...env, TAMPER_TEST_FILES: JSON.stringify(candidates), TAMPER_DECLARED_FILE: declaredFile },
+    });
+    if (dr.status !== 0 || !existsSync(declaredFile)) {
+      return { ...empty(), detail: `Vitest could not collect declared tests:\n${dr.stdout ?? ''}${dr.stderr ?? ''}`.split('\n').slice(-16).join('\n') };
     }
-    return { ok: true, tests, detail: '' };
+    let declaredList;
+    try { declaredList = JSON.parse(readFileSync(declaredFile, 'utf8')); } catch { return { ...empty(), detail: 'Vitest produced unparseable declared-task JSON' }; }
+    let declared;
+    try { declared = toMap(declaredList); } catch (e) { return { ...empty(), detail: `${e.message}. Refusing to compare paths that may not line up with git's.` }; }
+
+    return { ok: true, tests, declared, detail: '' };
   } finally {
     try { git(repo, 'worktree', 'remove', '--force', wt); } catch { /* best effort */ }
     rmSync(wt, { recursive: true, force: true });
@@ -212,32 +300,50 @@ export function inventory(repo, ref) {
  * skip, the opposite of what the waiver printed about itself. Separating the
  * computation is what makes the printed scope true rather than merely stated.
  */
-export function compare(before, after, srcAt) {
+export function compare(before, after) {
   const hard = [], soft = [];
   const B = before.collected.tests, A = after.collected.tests;
 
   const goneKeys = [...B.keys()].filter((k) => !A.has(k));
   const afterNames = new Set([...A.values()].map((t) => t.name));
 
-  // Per-file COLLECTED counts. A file that still collects as many tests as
-  // before has not lost any: one name out and one name in is a RENAME, and the
-  // substring check below cannot tell that apart on its own — it reads
-  // "alpha" → "alpha renamed" as the old test still being present, i.e.
-  // disabled. The count is what separates them, on authoritative data.
+  const identity = (t) => `${t.file}::${t.name}`;
+  const counts = (m) => {
+    const out = new Map();
+    for (const t of m.values()) out.set(identity(t), (out.get(identity(t)) ?? 0) + 1);
+    return out;
+  };
+  const disabledCounts = (inv) => {
+    const declared = counts(inv.collected.declared), runnable = counts(inv.collected.tests), out = new Map();
+    for (const [id, n] of declared) if (n > (runnable.get(id) ?? 0)) out.set(id, n - (runnable.get(id) ?? 0));
+    return out;
+  };
+  const beforeDisabled = disabledCounts(before), afterDisabled = disabledCounts(after);
+  const newlyDisabled = [];
+  for (const t of after.collected.declared.values()) {
+    const id = identity(t);
+    const added = (afterDisabled.get(id) ?? 0) - (beforeDisabled.get(id) ?? 0);
+    if (added > newlyDisabled.filter((x) => identity(x) === id).length) newlyDisabled.push(t);
+  }
+
+  // Per-file COLLECTED counts distinguish an enabled rename (one name out and
+  // one name in) from a deletion. Disabled tasks were already identified from
+  // Vitest's declared-vs-runnable sets above, before this count-neutral rule.
   const perFile = (m) => { const c = {}; for (const t of m.values()) c[t.file] = (c[t.file] ?? 0) + 1; return c; };
   const bFiles = perFile(B), aFiles = perFile(A);
 
-  const disabled = [], deleted = [], moved = [];
+  const disabled = [...newlyDisabled], deleted = [], moved = [];
+  const disabledAtHead = new Map(afterDisabled);
   for (const k of goneKeys) {
     const t = B.get(k);
+    const id = identity(t);
+    if ((disabledAtHead.get(id) ?? 0) > 0) {
+      disabledAtHead.set(id, disabledAtHead.get(id) - 1);
+      continue;
+    }
     if (afterNames.has(t.name)) { moved.push(t); continue; }        // same test, new file
     if ((aFiles[t.file] ?? 0) >= (bFiles[t.file] ?? 0)) { moved.push(t); continue; }  // renamed in place
-    // The file collects FEWER tests than before, and this one's name is still
-    // written down => it is still there but no longer runs.
-    const src = srcAt(t.file);
-    const leaf = t.name.split(' > ').pop() ?? t.name;
-    if (src !== null && src.includes(leaf)) disabled.push(t);
-    else deleted.push(t);
+    deleted.push(t);
   }
 
   if (disabled.length) {
@@ -318,8 +424,7 @@ export function main(argv = process.argv.slice(2)) {
   }
   if (before.collected.tests.size === 0) { console.error('tamper-check FAILED — the BASE collected zero tests, so nothing can be compared against it.'); return 1; }
 
-  const srcAt = (f) => { try { return git(repo, 'show', `${headSha}:${f}`); } catch { return null; } };
-  const { hard, soft, stats } = compare(before, after, srcAt);
+  const { hard, soft, stats } = compare(before, after);
 
   const msg = (() => { try { return git(repo, 'log', '--format=%B', `${baseSha}..${headSha}`); } catch { return ''; } })();
   const waiver = /^Tamper-Waiver:\s*(.+)$/im.exec(msg)?.[1]?.trim() ?? null;

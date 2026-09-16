@@ -23,6 +23,11 @@ jobs:
         with:
           node-version: 20
 
+      # tamper-check inventories both refs through the repository's own Vitest.
+      # A bare runner lets npx fetch a CLI but leaves test imports unresolved,
+      # which made the connectedness selftest green while the real gate crashed.
+      - run: npm ci
+
       # A Brake nobody has watched fail is a Brake nobody knows is connected.
       - name: The gate is connected — negative checks go red
         run: node scripts/review-gate.selftest.mjs
