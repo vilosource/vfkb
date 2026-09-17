@@ -23,6 +23,11 @@ jobs:
         with:
           node-version: 20
 
+      # tamper-check inventories both refs through the repository's own Vitest.
+      # A bare runner lets npx fetch a CLI but leaves test imports unresolved,
+      # which made the connectedness selftest green while the real gate crashed.
+      - run: npm ci
+
       # A Brake nobody has watched fail is a Brake nobody knows is connected.
       - name: The gate is connected — negative checks go red
         run: node scripts/review-gate.selftest.mjs
@@ -50,6 +55,35 @@ jobs:
       # and the stdin-watchdog TERMINATES + still-DENIES pair (issue #214).
       - name: The git-compound guard is connected — both directions go red
         run: node scripts/hook-git-compound-guard.selftest.mjs
+
+      # P12-a (ADR-0075 clause 3 / RFC-039 D8). An agent asked to make tests pass
+      # has an obvious shortcut — GitHub's own words: "remove the tests, skip the
+      # lint step, add `|| true` to test commands". This Brake refuses the four
+      # shapes that buy a green run without buying correctness. Its selftest pins
+      # the FALSE-POSITIVE half as hard as the true-positive half, because a
+      # tamper detector that blocks honest work teaches people to route around
+      # the gate, and the routing-around is invisible.
+      - name: The tamper detector is connected — both directions go red
+        run: node scripts/tamper-check.selftest.mjs
+
+      # NB the fetch is NOT `|| true` and the merge-base is NOT inlined into an
+      # argument. The first version did both, so a failed fetch collapsed the
+      # base to HEAD^ and the gate scanned ONE COMMIT and printed PASSED — a
+      # gate neutered by the very `|| true` it exists to refuse (review M1).
+      # tamper-check also refuses to report a verdict when base == head (M2).
+      - name: The change did not weaken the suite (tamper detection)
+        if: github.event_name == 'pull_request'
+        env:
+          # via env, not interpolated into the script body — a ref is
+          # attacker-influenceable on a fork PR and `check-ref-format` accepts
+          # shapes that would break out of a quoted shell string.
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          git fetch origin "$BASE_REF" --quiet
+          BASE="$(git merge-base "origin/$BASE_REF" HEAD)"
+          echo "comparing against merge-base $BASE"
+          node scripts/tamper-check.mjs --base "$BASE" --head HEAD
 
       - name: An implementation change carries a review record (ADR-0052)
         run: |

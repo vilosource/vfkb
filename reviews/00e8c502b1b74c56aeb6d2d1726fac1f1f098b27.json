@@ -1,0 +1,43 @@
+{
+  "recordVersion": 1,
+  "sha": "00e8c502b1b74c56aeb6d2d1726fac1f1f098b27",
+  "governing": [
+    "docs/adr/ADR-0075-the-software-factory.md",
+    "docs/rfc/RFC-039-the-software-factory.md",
+    "docs/adr/ADR-0070-guards-that-can-fail.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "claude-opus-5", "rounds": 7 },
+  "generated": "2026-09-17T11:40:57Z",
+  "findings": [
+    { "id": "M-R1", "severity": "major", "status": "open", "acceptedBy": null,
+      "summary": "residual, pre-existing (round-6 predicate netted zero identically): an un-skipped base it.skip (+1 passed, −1 skipped) pays for one runtime ctx.skip() of a real test — every column net zero (executed on the fixture). Precondition ≥1 runtime-skipped test at the merge base; vfkb main has 0 (observed 0 → 0 skipped) and minting one BLOCKS without an operator bypass, so not exploitable here today. Header does-not-catch list (:44-53) does not disclose it. Not ruled in for round 7; follow-up." },
+    { "id": "m-R1", "severity": "minor", "status": "open", "acceptedBy": null,
+      "summary": "selftest :158 pins !/review record/i (space) while the block text at :456 spells 'review-record' (hyphen) — passes by spelling; a re-advertised waiver spelled with a hyphen would slip. Not vacuous (mutation observed red). Follow-up with M-R1." },
+    { "id": "m-R2", "severity": "minor", "status": "open", "acceptedBy": null,
+      "summary": "npm test -- <args> appends after the whole script string: a test script of the shape 'vitest run && x' or one already carrying --reporter=json --outputFile fails CLOSED with 'produced no report' but the message does not say why. Not vfkb's script (package.json:33 is 'vitest run')." },
+    { "id": "m-R3", "severity": "minor", "status": "open", "acceptedBy": null,
+      "summary": "more-tests-failed detail (:395) ends 'a skip turned into a failure is how a skip credit is laundered' — misleading when it fires for the common pretest-neutered / flaky-head cases (observed for \"pretest\": \"true\")." }
+  ],
+  "findingsCount": 4,
+  "ruledOut": [
+    "all four round-7 pins observed red under their named mutations; unmutated selftest 44/44 exit 0",
+    "real gate vs this repo at merge-base 6a525cd: PASSED 780 → 780 passed · 0 → 0 failed · 0 → 0 skipped, 44 s wall; round-6 D3 (try/catch beforeAll + ctx.skip() + junk) now BLOCKS with more-tests-skipped 0 → 1",
+    "pretest neutered (\"true\" / \"exit 0\") → more-tests-failed BLOCK; base build failure → fails closed 'could not be RUN at the base'",
+    "bare 'vitest' under CI=1 runs once; --reporter=verbose coexists with json; --passWithNoTests is count-neutral",
+    "git mv out of glob / + static skip / + ctx.skip() in the moved file → all BLOCK; git mv of a file with an honest base skip → PASS",
+    "legit pretest lint step on the real repo → PASSED 780/0/0; legit base-failure fix (failed down) → PASS; fix+break (failed net 0) is not a disabling",
+    "three-column predicate: total and numTodoTests add nothing (vitest 4.1.11 json reporter: total = passed + failed + pending); passed cannot drop without failed or skipped moving",
+    "scope exactly B1/B2/M1 (+M5 as a stated side-effect of B2), two files, no new mechanism; ADR-0075 cl.4 narrowing on record (brain 63b271fde838)",
+    "carried from round 6, not ruled in, none made worse: M2, M4, M6, m1–m5; M3 resolved by the on-record narrowing",
+    "no AI attribution in branch commits; no secrets in the round-7 diff",
+    "UNVERIFIED: that an operator can bypass the required check depends on branch-protection admin-bypass settings — not inspected"
+  ],
+  "mutations": [
+    { "guard": "built-suite pin (0 → 0 failed content assertion)", "mutation": "runCounts: npm test → npm test --ignore-scripts (tamper-check.mjs:281)", "observedRed": true, "note": "1 FAIL: 'a docs-only change runs the built suite' — exit 1 (observed by author and reviewer independently)" },
+    { "guard": "rename wiring (M1)", "mutation": "main: const renames = renamedFiles(...) → const renames = [] (:425)", "observedRed": true, "note": "1 FAIL: 'moving a test file that already had an honest skip at the base — wanted PASS, got BLOCK'" },
+    { "guard": "no phantom waiver in block message (B1)", "mutation": "block text re-advertises an ADR-0052 review-record waiver (:454)", "observedRed": true, "note": "1 FAIL: 'the block message does not advertise a waiver this script cannot honour'" },
+    { "guard": "more-tests-failed (B2 failed column)", "mutation": "compare: if (aRun.failed > bRun.failed) → if (false) (:395)", "observedRed": true, "note": "2 FAIL: flipped assertion reported as failure; base-skip→failure D3 miniature — wanted BLOCK, got PASS" },
+    { "guard": "real gate vs this repo (merge-base 6a525cd)", "mutation": "round-6 D3: try/catch mcp.test.ts beforeAll connect + ctx.skip() one real test + junk it", "observedRed": true, "note": "exit 1: more-tests-skipped 0 → 1, 780 → 780 passed, 618 → 619 collected" }
+  ],
+  "verdict": "MERGE"
+}

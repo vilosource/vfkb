@@ -47,6 +47,18 @@ export const IMPL_PATHS = [
   // a SessionStart hook. Every tracked file here is implementation; the one local file
   // (`settings.local.json`) is gitignored and so can never appear in a diff. Issue #280.
   /^\.claude\//i,
+  // A test-runner config or the `test` script can remove whole files from the
+  // run without touching a line of test code, so both are implementation and
+  // both need a review record. Found by the round-2 review of #307: they were
+  // undetected by the tamper gate AND unreviewed, with no backstop of any kind.
+  /^(vitest|vite|jest)\.config\.[cm]?[jt]s$/i,
+  // NB package.json is deliberately NOT here. Adding it looked like belt and
+  // braces — the test script can neuter the suite — but it breaks EVERY
+  // release-please PR, which touches package.json by definition, contradicting
+  // the standing ruling that release PRs need no review (brain 872c1ff0ff90,
+  // ADR-0068). The tamper gate already treats a neutered or removed test script
+  // as a HARD finding, so the review requirement bought nothing and cost the
+  // release chain. Caught by the round-3 review of #307.
   // docs/templates/ is NOT documentation. `docs/CONSUMER-ONBOARDING.md:63` fetches
   // `consumer-settings.json` from main and writes it verbatim into every onboarded
   // consumer's `.claude/settings.json` — and ADR-0071 decided consumers must NOT copy
