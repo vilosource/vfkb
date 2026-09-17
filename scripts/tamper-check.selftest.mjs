@@ -42,7 +42,18 @@ git('init', '-q');
 git('config', 'user.email', 'a@b'); git('config', 'user.name', 't');
 put('test/a.test.ts', "import { it, expect } from 'vitest';\nconst suffix = 'literal';\nit('adds', () => { expect(1+1).toBe(2); });\nit('subs', () => { expect(2-1).toBe(1); });\nit.each([1, 2])('case %s', (n) => { expect(n).toBe(n); });\nit(`template ${suffix}`, () => { expect(suffix).toBe('literal'); });\n");
 put('test/b.test.ts', "import { it, expect } from 'vitest';\nit('mul', () => { expect(2*2).toBe(4); });\n");
-put('package.json', '{\n  "name": "t", "type": "module",\n  "scripts": { "test": "vitest run" }\n}\n');
+// Round 6 B2: the previous gate ran bare `vitest run` in a worktree with no
+// build output, so this repo's dist-resolving tests failed at BOTH refs and the
+// equal counts cancelled. The fixture now has a `pretest` build and a test that
+// only passes once it has run — the honest arm below asserts `0 → 0 failed`.
+put('build.mjs', "import { mkdirSync, writeFileSync } from 'node:fs';\nmkdirSync('dist', { recursive: true });\nwriteFileSync('dist/x.js', 'export const x = 1;\\n');\n");
+put('test/built.test.ts', "import { it, expect } from 'vitest';\nit('needs the build output', async () => { const m = await import('../dist/x.js'); expect(m.x).toBe(1); });\n");
+// A pre-existing, honest static skip at the BASE. Two arms rest on it: a
+// `git mv` of this file must not report the old skip as newly disabled (round 6
+// M1), and turning it into a failure must not buy a runtime-skip credit (D3).
+put('test/legacy.test.ts', "import { it, expect } from 'vitest';\nit.skip('old skip', () => { expect(1).toBe(2); });\nit('still live', () => { expect(1).toBe(1); });\n");
+put('package.json', '{\n  "name": "t", "type": "module",\n  "scripts": { "pretest": "node build.mjs", "test": "vitest run" }\n}\n');
+writeFileSync(join(repo, '.gitignore'), 'node_modules\ndist\n');
 put('.github/workflows/test.yml', 'jobs:\n  t:\n    steps:\n      - run: npm test\n');
 git('add', '-A'); git('commit', '-q', '-m', 'base');
 const BASE = git('rev-parse', 'HEAD').trim();
@@ -53,13 +64,16 @@ function gate(mutate, message = 'change') {
   git('add', '-A');
   git('commit', '-q', '-m', message, '--allow-empty');
   const quiet = console.log, qerr = console.error;
-  console.log = () => {}; console.error = () => {};
+  const lines = [];
+  console.log = (...a) => lines.push(a.join(' ')); console.error = (...a) => lines.push(a.join(' '));
   let code;
   try { code = main(['--repo', repo, '--base', BASE, '--head', 'HEAD']); }
   finally { console.log = quiet; console.error = qerr; }
   git('reset', '-q', '--hard', BASE);
+  lastOutput = lines.join('\n');
   return code === 0 ? 'PASS' : 'BLOCK';
 }
+let lastOutput = '';
 const edit = (p, fn) => () => put(p, fn(git('show', `HEAD:${p}`)));
 const wf = (body) => () => put('.github/workflows/test.yml', body);
 
@@ -105,13 +119,30 @@ check('renaming a test TITLE to something unrelated', gate(edit('test/a.test.ts'
 check('a docs-only change', gate(() => put('README.md', 'hi\n')), 'PASS');
 check('THIS Brake quoted as test data in a file', gate(() => put('test/a.test.ts', git('show', 'HEAD:test/a.test.ts') + 'const s = "it.skip(\'x\')";\n')), 'PASS');
 // With the trailer waiver gone, an honest deletion blocks too — and that is the
-// accepted cost: the escape is an ADR-0052 review record naming an operator from
-// reviews/OPERATORS, which an agent may not add itself to. A free-text trailer
-// leaked in four consecutive rounds precisely because the checked party could
-// write it.
-check('deleting a test while explaining its old name in a comment still blocks — the escape is an operator-named review record', gate(() => put('test/a.test.ts', git('show', 'HEAD:test/a.test.ts').replace(/^.*it\('adds'.*$\n/m, '// removed: adds — superseded by the property test\n'))), 'BLOCK');
+// accepted cost. There is NO waiver this script reads (round 6 B1 found one
+// advertised that nothing enforced): the escape is an operator bypassing the
+// required check under their own GitHub name, which an agent cannot do.
+check('deleting a test while explaining its old name in a comment still blocks — the only escape is an operator bypass', gate(() => put('test/a.test.ts', git('show', 'HEAD:test/a.test.ts').replace(/^.*it\('adds'.*$\n/m, '// removed: adds — superseded by the property test\n'))), 'BLOCK');
 check('renaming generated it.each cases without disabling them', gate(edit('test/a.test.ts', (t) => t.replace("'case %s'", "'value %s works'"))), 'PASS');
 check('changing a generated template-literal name without disabling it', gate(edit('test/a.test.ts', (t) => t.replaceAll("'literal'", "'renamed'"))), 'PASS');
+
+// Round 6 M1: round 5 dropped the rename wiring, and a `git mv` of a file that
+// already carried a skip at the base reported that skip as newly disabled.
+check('moving a test file that already had an honest skip at the base', gate(() => { mkdirSync(join(repo, 'test/unit'), { recursive: true }); git('mv', 'test/legacy.test.ts', 'test/unit/legacy.test.ts'); }), 'PASS');
+
+console.log('\n--- the run OBSERVES a built suite (round 6 B2) ---');
+// If the gate skipped the project's `pretest`, `built.test.ts` would fail at
+// both refs, the counts would cancel, and this would still PASS — so the pin
+// is a content assertion over the gate's own stats line, not the exit code.
+check('a docs-only change runs the built suite: nothing failed at either ref', gate(() => put('README.md', 'built\n')) === 'PASS' && /0 → 0 failed/.test(lastOutput), true);
+check('flipping an assertion is reported as a FAILURE, not as fewer tests ran', gate(edit('test/b.test.ts', (t) => t.replace('toBe(4)', 'toBe(5)'))) === 'BLOCK' && /more-tests-failed/.test(lastOutput) && !/fewer-tests-ran/.test(lastOutput), true);
+// The round-6 defeat, in miniature: turn a base skip into a failure (skipped −1,
+// failed +1), spend the credit on a runtime skip of a real test (skipped +1,
+// passed −1), add junk to hold `passed`. Only the `failed` column moves.
+check('a base skip turned into a failure cannot buy a runtime-skip credit', gate(() => {
+  put('test/legacy.test.ts', git('show', 'HEAD:test/legacy.test.ts').replace("it.skip('old skip', () => { expect(1).toBe(2); });", "it('old skip', () => { expect(1).toBe(2); });"));
+  put('test/a.test.ts', git('show', 'HEAD:test/a.test.ts').replace("it('adds', () => {", "it('adds', (ctx) => { ctx.skip();") + "it('junk', () => { expect(1).toBe(1); });\n");
+}), 'BLOCK');
 
 console.log('\n--- RUNTIME skips: what collection structurally cannot see ---');
 // Round 5's B1: a two-line setupFiles change silenced the ENTIRE suite while a
@@ -123,7 +154,8 @@ check('a single runtime ctx.skip()', gate(edit('test/a.test.ts', (t) => t.replac
 console.log('\n--- there is NO trailer waiver: nothing launders ---');
 // The Tamper-Waiver trailer leaked in FOUR consecutive review rounds by four
 // different routes, because free text is writable by whoever is being checked.
-// The escape is now an ADR-0052 review record naming an operator.
+// The escape is an operator bypassing the check under their own name.
+check('the block message does not advertise a waiver this script cannot honour', !/review record/i.test(lastOutput) && /operator/.test(lastOutput), true);
 check('deleting a test file, with the old trailer present, still blocks', gate(() => git('rm', '-q', 'test/b.test.ts'), 'tidy\n\nTamper-Waiver: obsolete'), 'BLOCK');
 check('deleting ALL tests, with the old trailer, still blocks', gate(() => git('rm', '-q', '-r', 'test'), 'tidy\n\nTamper-Waiver: obsolete'), 'BLOCK');
 

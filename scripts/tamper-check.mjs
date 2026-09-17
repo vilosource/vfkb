@@ -30,11 +30,15 @@
 //
 // THE `Tamper-Waiver:` TRAILER IS ALSO GONE. It leaked in FOUR consecutive
 // rounds by four different routes, for one structural reason: free text in a
-// commit message is writable by exactly the party being checked. There is now no
-// self-service escape. A weakening that is legitimate is recorded where
-// accountability already exists — an ADR-0052 review-record finding with
-// `status: "accepted"` and an `acceptedBy` naming someone in reviews/OPERATORS,
-// a file an agent may never add itself to.
+// commit message is writable by exactly the party being checked. There is no
+// self-service escape, and no in-band one either: this script reads nothing
+// but the two trees, and the workflow step that runs it fails the job before
+// anything downstream runs. A legitimate weakening (a duplicated test deleted,
+// a dead suite retired) is merged by an OPERATOR bypassing the required check
+// under their own GitHub name — the one place accountability already exists
+// and the checked party cannot write to. Round 6 found an earlier version of
+// this header advertising an ADR-0052 review-record waiver that nothing
+// enforced; the block message below no longer sends anyone down that path.
 //
 // ── WHAT IT DELIBERATELY DOES NOT CATCH ─────────────────────────────────────
 // Stated, because a gate that overstates its reach is read as coverage it does
@@ -267,12 +271,19 @@ export function runCounts(repo, ref) {
     if (!existsSync(nm)) return { ok: false, detail: 'no node_modules to borrow — run `npm ci` before this gate' };
     if (!existsSync(join(wt, 'node_modules'))) symlinkSync(nm, join(wt, 'node_modules'), 'dir');
     const report = join(wt, '.run-report.json');
-    const r = spawnSync('npx', ['vitest', 'run', '--reporter=json', '--outputFile', report], {
-      cwd: wt, encoding: 'utf8', timeout: 20 * 60_000, env: { ...process.env, CI: '1' },
+    // The project's OWN `npm test`, lifecycle scripts included. Round 6 found the
+    // previous bare `npx vitest run` measuring a broken sandbox: a fresh worktree
+    // has no `dist/`, so every test that resolves build output failed or skipped
+    // at BOTH refs (49 + 37 here), the equal counts cancelled, and `failed` was
+    // never compared — which let a runtime skip be laundered through the ignored
+    // column. `pretest` is where this repo builds; honouring it is what makes
+    // the observation a run of the suite the PR will actually ship.
+    const r = spawnSync('npm', ['test', '--', '--reporter=json', '--outputFile', report], {
+      cwd: wt, encoding: 'utf8', timeout: 20 * 60_000, maxBuffer: 64 * 1024 * 1024, env: { ...process.env, CI: '1' },
     });
     if (!existsSync(report)) {
       const tail = `${r.stdout ?? ''}${r.stderr ?? ''}`.split('\n').slice(-12).join('\n');
-      return { ok: false, detail: `vitest run produced no report (exit ${r.status})\n${tail}` };
+      return { ok: false, detail: `the resolved test command produced no report (exit ${r.status})\n${tail}` };
     }
     try {
       const j = JSON.parse(readFileSync(report, 'utf8'));
@@ -373,10 +384,16 @@ export function compare(before, after, renames = []) {
 
   // A test that no longer RUNS is weakening, whatever made it stop — a runtime
   // ctx.skip(), a setupFile, a config change. Collection cannot see any of it.
+  // "Ran" is passed + failed: a failing test DID run. The three columns are
+  // compared together because any one of them can be laundered through the
+  // other two — round 6 turned base skips into failures to buy skip credits,
+  // which only the `failed` column sees.
   const bRun = before.run, aRun = after.run;
   if (bRun?.ok && aRun?.ok) {
-    if (aRun.passed < bRun.passed) findings.push({ kind: 'fewer-tests-ran', detail: `${bRun.passed - aRun.passed} fewer test(s) actually RAN (${bRun.passed} → ${aRun.passed} passed). Collection cannot see a runtime skip; this can.` });
+    const ran = (x) => x.passed + x.failed;
+    if (ran(aRun) < ran(bRun)) findings.push({ kind: 'fewer-tests-ran', detail: `${ran(bRun) - ran(aRun)} fewer test(s) actually RAN (${ran(bRun)} → ${ran(aRun)}). Collection cannot see a runtime skip; this can.` });
     if (aRun.skipped > bRun.skipped) findings.push({ kind: 'more-tests-skipped', detail: `${aRun.skipped - bRun.skipped} more test(s) were SKIPPED AT RUNTIME (${bRun.skipped} → ${aRun.skipped}) — e.g. a ctx.skip(), a setupFile, or a config change` });
+    if (aRun.failed > bRun.failed) findings.push({ kind: 'more-tests-failed', detail: `${aRun.failed - bRun.failed} more test(s) FAIL at the head (${bRun.failed} → ${aRun.failed}). A failing test did run, so this is not a weakening by itself — but a suite that is not green cannot be vouched for, and a skip turned into a failure is how a skip credit is laundered.` });
   }
 
   return { findings, stats: { before: B.size, after: A.size, disabled: disabled.length, deleted: deleted.length, moved: moved.length } };
@@ -400,8 +417,14 @@ export function main(argv = process.argv.slice(2)) {
   }
   if (baseSha === headSha) { console.error(`tamper-check FAILED — base and head are the same commit (${baseSha.slice(0, 7)}); a PASS here would be meaningless.`); return 1; }
 
-  const before = inventory(repo, baseSha);
-  const after = inventory(repo, headSha);
+  // Git's rename pairs feed BOTH halves: the base collects the source paths so
+  // a file renamed out of the test glob is still inventoried, and compare()
+  // normalises the destination back to its source so a skip that merely MOVED
+  // is not reported as newly disabled. Round 4 wired this; round 5 dropped it
+  // and a `git mv` of a file carrying an old skip blocked honest work (round 6 M1).
+  const renames = renamedFiles(repo, baseSha, headSha);
+  const before = inventory(repo, baseSha, renames.map((r) => r.from));
+  const after = inventory(repo, headSha, renames.map((r) => r.to));
   for (const [label, inv] of [['base', before], ['head', after]]) {
     if (!inv.collected.ok) {
       console.error(`tamper-check FAILED — vitest could not collect tests at the ${label}. That is not a pass; it is a broken comparison.`);
@@ -418,22 +441,21 @@ export function main(argv = process.argv.slice(2)) {
     }
   }
 
-  const { findings, stats } = compare(before, after);
+  const { findings, stats } = compare(before, after, renames);
 
   console.log(`tamper-check: ${baseSha.slice(0, 7)}..${headSha.slice(0, 7)}`);
   console.log(`  collected ${stats.before} → ${stats.after} · no longer collected ${stats.disabled + stats.deleted} · moved ${stats.moved}`);
-  console.log(`  ACTUALLY RAN ${before.run.passed} → ${after.run.passed} passed · ${before.run.skipped} → ${after.run.skipped} skipped`);
+  console.log(`  ACTUALLY RAN ${before.run.passed} → ${after.run.passed} passed · ${before.run.failed} → ${after.run.failed} failed · ${before.run.skipped} → ${after.run.skipped} skipped`);
 
   if (!findings.length) { console.log('tamper-check PASSED — the suite was not weakened'); return 0; }
   for (const f of findings) console.error(`  TAMPER [${f.kind}] ${f.detail}`);
   console.error(`\ntamper-check FAILED (${findings.length} finding(s)).`);
   console.error('');
-  console.error('THERE IS NO COMMIT-TRAILER WAIVER. A free-text trailer is writable by anyone,');
-  console.error('including the agent whose work is being checked, and it leaked in four');
-  console.error('consecutive review rounds by four different routes. If this weakening is');
-  console.error('legitimate, record it where accountability already exists: an ADR-0052 review');
-  console.error('record finding with `status: "accepted"` and an `acceptedBy` naming someone in');
-  console.error('reviews/OPERATORS. An agent may not add itself to that file.');
+  console.error('THERE IS NO WAIVER THIS SCRIPT READS. A free-text trailer leaked in four');
+  console.error('consecutive review rounds because the checked party could write it, and a');
+  console.error('review-record waiver was advertised in round 5 that nothing enforced. If this');
+  console.error('weakening is legitimate, say so in the PR and an operator merges it by');
+  console.error('bypassing this required check under their own name. An agent cannot.');
   return 1;
 }
 
