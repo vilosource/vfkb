@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.9.0](https://github.com/vilosource/vfkb/compare/v0.8.1...v0.9.0) (2026-09-18)
+
+
+### Features
+
+* **gate:** P12-a reproduction gate — a fix claim must prove the bug existed ([#311](https://github.com/vilosource/vfkb/issues/311)) ([1b1b4cc](https://github.com/vilosource/vfkb/commit/1b1b4cc179d1c586c8759142050669de56cc99d9))
+* **gate:** P12-a tamper detection — the suite may not get smaller or quieter ([#307](https://github.com/vilosource/vfkb/issues/307)) ([4eec36f](https://github.com/vilosource/vfkb/commit/4eec36f9594635b19def5eae0c71c9f757c4be1a))
+
+
+### Bug Fixes
+
+* **types:** delete recorded_invalid_at — dead in both directions (ADR-0074 D2) ([#302](https://github.com/vilosource/vfkb/issues/302)) ([b9bc232](https://github.com/vilosource/vfkb/commit/b9bc2321a8eaa44479e85e54f5affbc44b97f493))
+* **validate:** per-field catches so one bad field cannot destroy its siblings ([#303](https://github.com/vilosource/vfkb/issues/303)) ([#304](https://github.com/vilosource/vfkb/issues/304)) ([356a7f7](https://github.com/vilosource/vfkb/commit/356a7f753b31f96ae7d07ce57a305ebae344f016))
+
+
+### Documentation
+
+* **adr:** ADR-0074 — ratify RFC-038, D5 Brake first and observed red ([#294](https://github.com/vilosource/vfkb/issues/294)) ([36483f7](https://github.com/vilosource/vfkb/commit/36483f70c1fcfdee4c90a8b16ae566985641cffd))
+* **adr:** ADR-0075 — accept RFC-039, and the coder works offline ([#298](https://github.com/vilosource/vfkb/issues/298)) ([7f63755](https://github.com/vilosource/vfkb/commit/7f637559e27ba3f22a90e6844c58bd5b94a3a59a))
+* **adr:** ADR-0076 — the instrument is rounds-to-converge; delete recorded_invalid_at ([#301](https://github.com/vilosource/vfkb/issues/301)) ([f4296dd](https://github.com/vilosource/vfkb/commit/f4296dd38af3d30491d267816948301c770350c2))
+* **research:** Apache Maka vs vfkb — harness, not substrate; they compose ([#290](https://github.com/vilosource/vfkb/issues/290)) ([4c13a8a](https://github.com/vilosource/vfkb/commit/4c13a8a2d18060b3d3db490f6535e676d48205eb))
+* **rfc:** RFC-038 — consume the schema already shipped ([#292](https://github.com/vilosource/vfkb/issues/292)) ([3565142](https://github.com/vilosource/vfkb/commit/3565142a9dae6d3a5932d799b1e378f10844b199))
+* **rfc:** RFC-039 — the software factory, gates over agents ([#296](https://github.com/vilosource/vfkb/issues/296)) ([e7d64d1](https://github.com/vilosource/vfkb/commit/e7d64d11a85fb36ce0b775e3a3a0d78777b67e3b))
+* **roadmap:** re-ratify §4 — P12, the software factory ([#300](https://github.com/vilosource/vfkb/issues/300)) ([3a68fa9](https://github.com/vilosource/vfkb/commit/3a68fa9d1835690240a6adc1c369391a03007f97))
+
 ## [0.8.1](https://github.com/vilosource/vfkb/compare/v0.8.0...v0.8.1) (2026-09-14)
 
 
