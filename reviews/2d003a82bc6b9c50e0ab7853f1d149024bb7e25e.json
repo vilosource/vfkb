@@ -1,0 +1,163 @@
+{
+  "recordVersion": 1,
+  "sha": "2d003a82bc6b9c50e0ab7853f1d149024bb7e25e",
+  "governing": [
+    "docs/adr/ADR-0075-the-software-factory.md",
+    "docs/rfc/RFC-039-the-software-factory.md",
+    "docs/adr/ADR-0070-guards-that-can-fail.md"
+  ],
+  "reviewer": {
+    "agent": "general-purpose",
+    "model": "claude-opus-5",
+    "rounds": 6
+  },
+  "generated": "2026-09-17T11:17:24Z",
+  "findings": [
+    {
+      "id": "B1",
+      "severity": "blocking",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "the only advertised waiver does not unblock the gate: tamper-check.mjs never reads reviews/ (only message strings at :36/:436) and the workflow's tamper step exits 1 before the review-record step runs, so an operator-accepted finding cannot clear an honest deletion — the block message routes the author down a path that cannot succeed"
+    },
+    {
+      "id": "B2",
+      "severity": "blocking",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "runCounts (:270) runs npx vitest in a worktree with no dist/ build, so 49 tests fail and 37 skip at BOTH refs from missing dist/*; compare() (:376-380) never compares or prints failed. Executed defeat: try/catch around mcp.test.ts beforeAll + ctx.skip() one real test + one junk test → PASSED (37→22 skipped): hook-skips became invisible failures and bought runtime-skip credits"
+    },
+    {
+      "id": "M1",
+      "severity": "major",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "round-5 regression: renamedFiles (:70) has no call sites; inventory()/compare() at :403/:421 take no renames. git mv of a test file carrying a pre-existing it.skip at base → BLOCK [tests-disabled] on honest work (executed); round 4 had this wired (96bf785). ADR-0070 §4 signal"
+    },
+    {
+      "id": "M2",
+      "severity": "major",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "removal laundered by same-file or same-name replacement: compare() :354-355 marks a vanished test 'moved' if its name exists anywhere at head OR the file's count did not drop. Executed D1 (delete real test + junk it() same file) and D2 (decoy under same describe in a new file) → PASSED; header :39-48 does not disclose this and selftest :75 pins only the cross-file variant"
+    },
+    {
+      "id": "M3",
+      "severity": "major",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "ADR-0075 clause 4 names three RED arms incl. '|| true'; executed \"test\": \"vitest run || true\" → PASSED. Header :42-43 states the exclusion, but no brain decision / ADR-0075 amendment records the operator narrowing (UNVERIFIED beyond grep of .vfkb/entries.jsonl)"
+    },
+    {
+      "id": "M4",
+      "severity": "major",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "review-gate.mjs:307-315 isOperator reads reviews/OPERATORS from the PR's own checkout; this PR makes it the sole waiver anchor and asserts 'an agent may never add itself' (:37, :436) as if enforced. Pre-existing; UNVERIFIED by execution"
+    },
+    {
+      "id": "M5",
+      "severity": "major",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "a plain test failure is reported as tampering: flip one assertion → [fewer-tests-ran] (executed); failed is parsed (:280) but never printed (:425); a flaky test at head is a nondeterministic BLOCK (< at :378, no tolerance — flake rate UNVERIFIED)"
+    },
+    {
+      "id": "M6",
+      "severity": "major",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "review-gate.mjs:59-60 excludes package.json from review on the premise 'the tamper gate already treats a neutered test script as a HARD finding' — false after round 5 (|| true passes; echo ok fails closed only via 'could not collect')"
+    },
+    {
+      "id": "m1",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "selftest: 39 cases not 37; :145 greps review-gate.yml text (banned source-text guard, ADR-0070 §1); two headers with zero cases (:96, :147); no try/finally so tamper-self-* temp dirs leak on crash"
+    },
+    {
+      "id": "m2",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "remnants of the deleted halves: orphan comments :59-64, :235-245; show (:66) and renamedFiles (:70) unused; header :16 mislabels renamed-out-of-glob as collection loss (surfaces as tests-removed — still blocks)"
+    },
+    {
+      "id": "m3",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "runCounts :270 uses npx vitest (network fallback) while collectTests pins node_modules/.bin/vitest; a relative --repo makes the node_modules symlink self-referential → runaway wrapper recursion (observed ~250 processes) instead of a fail-closed error; realpathSync repo at :387"
+    },
+    {
+      "id": "m4",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "inventory() :288 runs the full suite even when collection already failed — wasted minutes on a fail-closed path"
+    },
+    {
+      "id": "m5",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "workflow: npm ci precedes selftest + gate (round-4 B1 fixed, verified :24-28); fetch-depth 0 + merge-base correct; no dist/ build step — B2's root in CI too; ~17 s wall locally at ~500% CPU, ubuntu-latest cost UNVERIFIED (expect 1–2 min), paid by no-test PRs as well"
+    }
+  ],
+  "findingsCount": 13,
+  "ruledOut": [
+    "it.each renames (selftest :113-114 + disabled-finding mutant); describe rename (count-neutral → moved); split one test into two (count grows); -t / positional / --exclude / --project narrowing; config exclude; base==head; unresolvable base; missing deps; JSON reporter parsing (--outputFile, not stdout); timeout → no report → fail-closed; dist/ duplicates filtered (:173); realpath vs /var (:166-167); release-please PRs (package.json not an IMPL_PATH); no AI attribution in branch commits; no secrets"
+  ],
+  "mutations": [
+    {
+      "guard": "tamper-check selftest is connected",
+      "mutation": "main() returns 0 unconditionally",
+      "observedRed": true,
+      "note": "27 check(s) failed, exit 1"
+    },
+    {
+      "guard": "runtime-skip detection (fewer-tests-ran / more-tests-skipped)",
+      "mutation": "compare(): if (bRun?.ok && aRun?.ok) → if (false)",
+      "observedRed": true,
+      "note": "2 FAIL: setupFile beforeEach ctx.skip(); single runtime ctx.skip()"
+    },
+    {
+      "guard": "tests-removed finding",
+      "mutation": "compare(): if (deleted.length) → if (false)",
+      "observedRed": true,
+      "note": "1 FAIL: count-neutral swap — all other deletions still caught by fewer-tests-ran"
+    },
+    {
+      "guard": "tests-disabled finding",
+      "mutation": "compare(): if (disabled.length) → if (false)",
+      "observedRed": true,
+      "note": "3 FAIL: -t / positional / --exclude narrowing — static .skip still caught by more-tests-skipped"
+    },
+    {
+      "guard": "real gate vs this repo (merge-base 6a525cd)",
+      "mutation": "it.skip on test/curator.test.ts:36",
+      "observedRed": true,
+      "note": "exit 1: tests-disabled + fewer-tests-ran 532→531 + more-tests-skipped 37→38"
+    },
+    {
+      "guard": "real gate vs this repo",
+      "mutation": "runtime ctx.skip() on one test",
+      "observedRed": true,
+      "note": "exit 1: fewer-tests-ran + more-tests-skipped"
+    },
+    {
+      "guard": "real gate vs this repo",
+      "mutation": "vitest.config.ts setupFiles beforeEach(ctx=>ctx.skip())",
+      "observedRed": true,
+      "note": "exit 1: 532→0 passed, 37→618 skipped"
+    },
+    {
+      "guard": "real gate vs this repo",
+      "mutation": "git rm test/curator.test.ts",
+      "observedRed": true,
+      "note": "exit 1: tests-removed 7 + fewer-tests-ran 7"
+    }
+  ],
+  "verdict": "FIX-FIRST"
+}
