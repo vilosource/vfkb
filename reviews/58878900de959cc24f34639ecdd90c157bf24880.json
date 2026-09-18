@@ -1,0 +1,163 @@
+{
+  "recordVersion": 1,
+  "sha": "58878900de959cc24f34639ecdd90c157bf24880",
+  "governing": [
+    "docs/adr/ADR-0075-the-software-factory.md",
+    "docs/rfc/RFC-039-the-software-factory.md",
+    "docs/adr/ADR-0070-guards-that-can-fail.md"
+  ],
+  "reviewer": {
+    "agent": "general-purpose",
+    "model": "claude-opus-5",
+    "rounds": 2
+  },
+  "generated": "2026-09-18T12:46:10Z",
+  "findings": [
+    {
+      "id": "M-A",
+      "severity": "major",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "introduced by round 2 (M2 fix): the vanished-red subtraction was a GLOBAL count (:209,:272), so an honest fix adding one genuine red test while removing/renaming ≥1 old reds in another file was FAILED and told to 'keep the old names' (executed: 1 newly red · 2 vanished → FAILED). Reachable: environment reds exist on real bases in the replay environment (5 at b3648ac). Fixed in b267608: per-file comparison with git-mv sources mapped to head paths; pinned; global-count mutation observed red."
+    },
+    {
+      "id": "m-A",
+      "severity": "minor",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "selftest fixture pin (:86) was vacuous vs 'support not written' — ENOENT made the test red anyway. Recast: the fixture holds the OLD greeting so the test is GREEN at base and a missing fixture flips the verdict; mutation now observed red (2 FAIL)."
+    },
+    {
+      "id": "m-B",
+      "severity": "minor",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "'every one ALREADY PASSES' printed when preExistingRed > 0 and newlyRed == 0 (old red whose body changed, name kept). Fixed: reports the already-red count; pinned."
+    },
+    {
+      "id": "m-C",
+      "severity": "minor",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "CONVENTIONAL (:116) case-sensitive — `Fix:` → untyped → SKIPPED (honest author unarmed; also a case-change escape). Fixed: /i + lowercase."
+    },
+    {
+      "id": "m-D",
+      "severity": "minor",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "isTestSupportFile (:80) matched src/test/ — head src files would be written into the base worktree. Fixed: never under src/."
+    },
+    {
+      "id": "m-E",
+      "severity": "minor",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "'deleted/removed' over-claimed (a whole-file D is never baselined); a sub-50%-similarity rewrite of a red file arrives as D+A so its old reds count as new — undisclosed M2 residue (a1 class). Fixed: wording; residue disclosed in the header."
+    },
+    {
+      "id": "m-F",
+      "severity": "minor",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "header still said runs go through npm test with lifecycle scripts; now built once + --ignore-scripts; build/prepare-only projects out of scope. Fixed in header."
+    },
+    {
+      "id": "m-G",
+      "severity": "minor",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "a support file under test/ (setupFile, helper) changed to throw makes every replayed test red with assertions → PASSED (executed, not reachable in this repo — no vitest config); a head-added vitest.config is not written so its setupFiles do not apply at base. a1 class via support files; disclosed in the header."
+    },
+    {
+      "id": "m-H",
+      "severity": "minor",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "srcTouched ignored D-only src changes (:239). Fixed."
+    },
+    {
+      "id": "m-I",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "UNVERIFIED in CI: the PASSED direction (only observed locally on main commits) and `gh issue view` under github.token (no probe carried an issue link)."
+    },
+    {
+      "id": "m6",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "carried from round 1: dominant-type tiebreak is stable-sort order; cosmetic."
+    },
+    {
+      "id": "m9",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "carried from round 1: selftest header wording about pins naming mutations."
+    },
+    {
+      "id": "m11",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "carried from round 1: gh issue view <PR number> reads the PR's labels; low impact."
+    }
+  ],
+  "findingsCount": 13,
+  "ruledOut": [
+    "all six round-2 mutations observed red (build per run 1; support not written 1; global subtraction dropped 3; no-test return 0 → 2; exact-path filter removed 1; wrong issue asked 4); RED arms observed in CI on probe #312 (runs 35343895498, 35344403520); real gate vs main: 356a7f7 PASSED 5, b9bc232 PASSED 1, b6d18d4 FAILED link, af7567b PASSED 2, c9f7172 PASSED 8, e4d6831 PASSED 4, 5b9fa61 PASSED 14 with 5 pre-existing reds subtracted (those 5 reproduce in a plain clone — not a gate artefact), ad972ce SKIPPED feat, 8effb93 SKIPPED no src/; npm test --ignore-scripts runs `test` and skips pre/post (npm 10.9.8, executed); exact-path filter proven on macOS (selftest) and Linux (CI 1 countable); D-only test change → NO-test FAIL per ruling e55a96c3ddbc; .spec.ts counted; merge commit in range harmless; keyAs/rekey gone; no temp leakage; all range commits authored by the real identity, .git/config clean; no AI attribution; no secrets."
+  ],
+  "mutations": [
+    {
+      "guard": "base built ONCE before head files (src/ pin)",
+      "mutation": "drop --ignore-scripts from the run spawn (:147)",
+      "observedRed": true,
+      "note": "1 FAIL"
+    },
+    {
+      "guard": "support files ride along",
+      "mutation": "[...files, ...support] → files (:191)",
+      "observedRed": true,
+      "note": "1 FAIL (helper pin; fixture pin was vacuous — m-A, recast in b267608)"
+    },
+    {
+      "guard": "vanished reds subtracted",
+      "mutation": "newlyRed.length > vanishedRed.length → newlyRed.length (:272)",
+      "observedRed": true,
+      "note": "3 FAIL"
+    },
+    {
+      "guard": "no test file → FAIL (ruling e55a96c3ddbc)",
+      "mutation": "no-test branch return 0 (:249)",
+      "observedRed": true,
+      "note": "2 FAIL"
+    },
+    {
+      "guard": "exact-path report filter",
+      "mutation": "remove if (!wanted.has(file)) continue (:159)",
+      "observedRed": true,
+      "note": "1 FAIL"
+    },
+    {
+      "guard": "gh shim answers only the expected issue",
+      "mutation": "issueLabels(999, env) (:236)",
+      "observedRed": true,
+      "note": "4 FAIL"
+    },
+    {
+      "guard": "RED arm in CI (ADR-0075 cl. 4)",
+      "mutation": "probe PR #312: fix with no test / fix whose test passes at base",
+      "observedRed": true,
+      "note": "runs 35343895498, 35344403520 FAILED with content messages"
+    },
+    {
+      "guard": "real gate vs main",
+      "mutation": "b6d18d4 link-failure; af7567b/c9f7172/e4d6831 src/ tests",
+      "observedRed": true,
+      "note": "FAILED link; PASSED 2/8/4"
+    }
+  ],
+  "verdict": "FIX-FIRST"
+}
