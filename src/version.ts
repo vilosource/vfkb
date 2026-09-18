@@ -40,3 +40,5 @@ export const ENGINE_VERSION: string =
   typeof __VFKB_VERSION__ !== 'undefined' ? __VFKB_VERSION__ : ownPackageVersion();
 export const ENGINE_COMMIT: string =
   typeof __VFKB_COMMIT__ !== 'undefined' ? __VFKB_COMMIT__ : 'dev';
+
+// probe: ADR-0075 cl. 4 RED-arm observation for the reproduction gate (#311); reverted, never merged
