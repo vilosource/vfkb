@@ -24,11 +24,12 @@
 // fix is visible in the log rather than silently unarmed.
 //
 // ── THE REPLAY MEASURES A BUILT TREE, TWICE ─────────────────────────────────
-// The base is checked out into a throwaway worktree and run through the
-// project's OWN `npm test` with lifecycle scripts — `pretest` builds `dist/` —
-// because a bare runner in a fresh worktree fails every test that resolves
-// build output, and the first version counted those failures as PROOF (the
-// same defect #307's round 6 found in tamper-check, pointing the other way).
+// The base is checked out into a throwaway worktree and BUILT ONCE through the
+// project's own `pretest` lifecycle script (a `build`/`prepare`-only project is
+// out of scope), then run through `npm test --ignore-scripts` — because a bare
+// runner in a fresh worktree fails every test that resolves build output, and
+// the first version counted those failures as PROOF (the same defect #307's
+// round 6 found in tamper-check, pointing the other way).
 // Two runs: a BASELINE of the base's own versions of the modified test files,
 // then the REPLAY of the head's versions of every added or modified test file.
 // The verdict is "at least one test is red in the replay that was not red in
@@ -55,8 +56,11 @@
 //
 // ── WHAT IT DELIBERATELY DOES NOT CATCH ─────────────────────────────────────
 //   * A test that is red at the base for a reason unrelated to the bug — one
-//     that asserts on a file the fix adds, on the environment, on time. "Red at
-//     the base" is what is measured; WHY it is red is review's job.
+//     that asserts on a file the fix adds, on the environment, on time, or a
+//     support file under test/ (a setup file, a helper) that the fix changes
+//     to throw. "Red at the base" is what is measured; WHY is review's job.
+//   * A red test file rewritten below git's rename threshold: it arrives as
+//     delete + add, so its old failures are not baselined and count as new.
 //   * A reproduction that is an L4 scenario (scenarios/) rather than a Vitest
 //     test. Out of scope; such a fix is FAILED here and escalates.
 //   * A mistyped claim (`refactor:` on a fix) by an interactive agent. Under D2
@@ -77,7 +81,7 @@ import { dirname, join, resolve } from 'node:path';
 // all of them (round-1 B1).
 export const isTestFile = (f) => /\.(test|spec)\.[cm]?[jt]sx?$/i.test(f) && !/^dist\//i.test(f);
 /** Fixtures and helpers a test may import: anything under a test directory. */
-export const isTestSupportFile = (f) => /(^|\/)(test|tests|__tests__|scenarios)\//i.test(f);
+export const isTestSupportFile = (f) => /(^|\/)(test|tests|__tests__|scenarios)\//i.test(f) && !/^src\//i.test(f);
 export const isSrcFile = (f) => /^src\//i.test(f) && !isTestFile(f);
 
 const git = (repo, ...a) => execFileSync('git', ['-C', repo, ...a], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
@@ -113,7 +117,7 @@ export function issueLabels(n, env = process.env) {
   return r.stdout.split('\n').map((s) => s.trim()).filter(Boolean);
 }
 
-const CONVENTIONAL = /^([a-z]+)(?:\([^)]*\))?!?:/;
+const CONVENTIONAL = /^([a-z]+)(?:\([^)]*\))?!?:/i;
 
 /**
  * What this change claims to be. `bug` on the linked issue is authoritative
@@ -126,7 +130,7 @@ export function detectClaim({ subjects = [], issue = null, labels = undefined } 
     if (labels === null) { /* lookup unavailable — fall through to the subjects, and say so */ }
     else if (Array.isArray(labels) && labels.includes('bug')) return { kind: 'fix', source: `issue #${issue.n} (${issue.via}) is labelled bug` };
   }
-  const types = subjects.map((s) => CONVENTIONAL.exec(s)?.[1] ?? 'untyped');
+  const types = subjects.map((s) => CONVENTIONAL.exec(s)?.[1]?.toLowerCase() ?? 'untyped');
   if (types.includes('fix')) return { kind: 'fix', source: `a fix: commit in the range${issue && labels === null ? ` (issue #${issue.n} lookup unavailable)` : ''}` };
   const dominant = types.sort((a, b) => types.filter((t) => t === b).length - types.filter((t) => t === a).length)[0] ?? 'none';
   return { kind: dominant, source: issue ? (labels === null ? `issue #${issue.n} lookup unavailable; commits say ${dominant}` : `issue #${issue.n} is not labelled bug; commits say ${dominant}`) : `commits say ${dominant}` };
@@ -198,17 +202,24 @@ export function replayAtBase(repo, base, head, files, support = []) {
     const replay = runTests(wt, files.map((f) => f.path));
     if (!replay.ok) return { ok: false, detail: `replay run: ${replay.detail}` };
 
-    const baseRed = new Set([...baseline.tests].filter(([, st]) => st === 'failed').map(([k]) => k));
+    // Baseline keys carry the base's path; a `git mv` puts the replay under the
+    // head's. Map old → new so the per-file comparison below lines up.
+    const toHeadPath = new Map(files.filter((f) => f.from && f.from !== f.path).map((f) => [f.from, f.path]));
+    const fileOf = (k) => k.split('::')[0];
+    const baseRed = new Set([...baseline.tests].filter(([, st]) => st === 'failed').map(([k]) => { const f = fileOf(k); return `${toHeadPath.get(f) ?? f}::${k.slice(f.length + 2)}`; }));
     const newlyRed = [...replay.tests].filter(([k, st]) => st === 'failed' && !baseRed.has(k)).map(([k]) => k);
     // A red that was already there and merely vanished (renamed, its file
-    // moved, deleted) is not a new reproduction; it is subtracted so an old
-    // failure under a new name or path cannot be sold as one (round-1 M2,
-    // latent while main has zero reds — see tamper-check's record). This is
-    // also what makes a `git mv` of a red file net to zero: the baseline is
-    // keyed by the old path, the replay by the new, and the two cancel.
+    // moved) is not a new reproduction. It is subtracted PER FILE so an old
+    // failure under a new name cannot be sold as one (round-1 M2) — and so a
+    // fix that repairs old reds in one file cannot cancel a genuine new red in
+    // another (round-2 M-A: a global count told an honest author to keep
+    // broken tests broken).
     const vanishedRed = [...baseRed].filter((k) => !replay.tests.has(k));
+    const perFile = (keys) => keys.reduce((m, k) => m.set(fileOf(k), (m.get(fileOf(k)) ?? 0) + 1), new Map());
+    const newlyByFile = perFile(newlyRed), vanishedByFile = perFile(vanishedRed);
+    const proven = [...newlyByFile].filter(([f, n]) => n > (vanishedByFile.get(f) ?? 0)).map(([f]) => f);
     const skippedAtBase = [...replay.tests.values()].filter((st) => st !== 'failed' && st !== 'passed').length;
-    return { ok: true, newlyRed, vanishedRed, countable: replay.tests.size, preExistingRed: baseRed.size, skippedAtBase, linkFailed: replay.linkFailed };
+    return { ok: true, newlyRed, vanishedRed, proven, countable: replay.tests.size, preExistingRed: baseRed.size, skippedAtBase, linkFailed: replay.linkFailed };
   } finally {
     try { git(repo, 'worktree', 'remove', '--force', wt); } catch { /* best effort */ }
     rmSync(wt, { recursive: true, force: true });
@@ -236,7 +247,7 @@ export function main(argv = process.argv.slice(2), env = process.env) {
   const claim = detectClaim({ subjects, issue, labels: issue ? issueLabels(issue.n, env) : undefined });
 
   const changed = changedFiles(repo, baseSha, headSha);
-  const srcTouched = changed.some((f) => isSrcFile(f.path) && f.status !== 'D');
+  const srcTouched = changed.some((f) => isSrcFile(f.path));
   const files = changed.filter((f) => isTestFile(f.path) && (f.status === 'A' || f.status === 'M'));
   const support = changed.filter((f) => isTestSupportFile(f.path) && !isTestFile(f.path));
 
@@ -269,9 +280,10 @@ export function main(argv = process.argv.slice(2), env = process.env) {
   console.log(`  at base: ${r.countable} test(s) countable · ${r.newlyRed.length} newly red · ${r.preExistingRed} already red before this change (${r.vanishedRed.length} of those vanished) · ${r.skippedAtBase} skipped · ${r.linkFailed.length} file(s) could not load`);
   for (const l of r.linkFailed) console.log(`    cannot load at base: ${l.file} — ${l.message}`);
 
-  if (r.newlyRed.length > r.vanishedRed.length) {
-    console.log(`reproduction-gate PASSED — ${r.newlyRed.length} test(s) go red at the merge base, so the bug is demonstrated:`);
-    for (const k of r.newlyRed.slice(0, 5)) console.log(`    ${k}`);
+  if (r.proven.length) {
+    const shown = r.newlyRed.filter((k) => r.proven.includes(k.split('::')[0]));
+    console.log(`reproduction-gate PASSED — ${shown.length} test(s) go red at the merge base, so the bug is demonstrated:`);
+    for (const k of shown.slice(0, 5)) console.log(`    ${k}`);
     return 0;
   }
   if (r.countable === 0 && r.linkFailed.length) {
@@ -281,12 +293,14 @@ export function main(argv = process.argv.slice(2), env = process.env) {
     console.error('Write the reproduction against the surface the issue names — the old entry point, the old');
     console.error('output — so it fails there for the reason the bug did.');
   } else if (r.vanishedRed.length && r.newlyRed.length) {
-    console.error(`\nreproduction-gate FAILED — ${r.newlyRed.length} test(s) are red at the base, but ${r.vanishedRed.length} test(s) that were ALREADY red there`);
-    console.error('vanished in this change (renamed, moved or removed). A pre-existing failure under a new name is not');
-    console.error('a reproduction. Keep the old names, or add a genuinely new red test.');
+    console.error(`\nreproduction-gate FAILED — ${r.newlyRed.length} test(s) are red at the base, but in the same file(s) ${r.vanishedRed.length} test(s) that were`);
+    console.error('ALREADY red there vanished in this change (renamed or moved). A pre-existing failure under a new');
+    console.error('name is not a reproduction. Add a genuinely new red test for the bug this claims to fix.');
   } else {
     console.error(`\nreproduction-gate FAILED — no test this fix adds or changes is newly red at the merge base` +
-      (r.skippedAtBase ? ` (${r.skippedAtBase} skipped there — a throwing beforeAll or a .skip is not a red test)` : ' — every one ALREADY PASSES') + '.');
+      (r.skippedAtBase ? ` (${r.skippedAtBase} skipped there — a throwing beforeAll or a .skip is not a red test)`
+        : r.preExistingRed ? ` (${r.preExistingRed} were ALREADY red before this change — an old failure is not a reproduction of this bug)`
+        : ' — every one ALREADY PASSES') + '.');
     console.error('The change claims to fix a bug but its tests do not demonstrate the old behaviour was wrong,');
     console.error('so nothing here proves the fix fixes anything. Add a test that goes red at the base.');
   }

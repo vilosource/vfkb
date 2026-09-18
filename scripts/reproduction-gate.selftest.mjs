@@ -83,8 +83,16 @@ check('  …and the replay saw a BUILT base: no file failed to load', /0 file\(s
 check('fix: only an EXPECTATION changed in an existing test, no new it()', gate(() => { fixSrc(); put('test/greet.test.ts', "import { it, expect } from 'vitest';\nimport { greet } from '../dist/greet.js';\nit('mentions the name', () => { expect(greet('bob')).toBe('hello bob'); });\n"); }) === 'PASS' && /PASSED — 1 test/.test(lastOutput), true);
 
 check('fix: the reproduction lives in src/ next to the code (this repo has 12 such files)', gate(() => { fixSrc(); put('src/hello.test.ts', "import { it, expect } from 'vitest';\nimport { greet } from '../dist/greet.js';\nit('says hello', () => { expect(greet('bob')).toBe('hello bob'); });\n"); }) === 'PASS' && /PASSED — 1 test/.test(lastOutput), true);
-check('fix: the red test reads a FIXTURE the fix adds under test/', gate(() => { fixSrc(); put('test/fixtures/expected.txt', 'hello bob'); put('test/fixture.test.ts', "import { it, expect } from 'vitest';\nimport { readFileSync } from 'node:fs';\nimport { greet } from '../dist/greet.js';\nit('matches the fixture', () => { expect(greet('bob')).toBe(readFileSync('test/fixtures/expected.txt', 'utf8')); });\n"); }) === 'PASS' && /PASSED — 1 test/.test(lastOutput) && /0 file\(s\) could not load/.test(lastOutput), true);
+// The fixture makes this test GREEN at the base (it holds the OLD greeting), so
+// if the gate failed to write it the test would go red for the wrong reason and
+// the verdict would flip to a false PASSED. A green-at-base test is the pin.
+check('fix: a test reading a FIXTURE the fix adds under test/ sees that fixture at the base', gate(() => { fixSrc(); redTest(); put('test/fixtures/old-greeting.txt', 'hi ann'); put('test/fixture.test.ts', "import { it, expect } from 'vitest';\nimport { readFileSync } from 'node:fs';\nimport { greet } from '../dist/greet.js';\nit('old greeting matches the fixture at the base', () => { expect(greet('ann')).toBe(readFileSync('test/fixtures/old-greeting.txt', 'utf8')); });\n"); }) === 'PASS' && /PASSED — 1 test/.test(lastOutput) && /says hello/.test(lastOutput), true);
 check('fix: the red test imports a HELPER the fix adds under test/', gate(() => { fixSrc(); put('test/helpers.ts', "export const expected = 'hello bob';\n"); put('test/helped.test.ts', "import { it, expect } from 'vitest';\nimport { expected } from './helpers.js';\nimport { greet } from '../dist/greet.js';\nit('matches', () => { expect(greet('bob')).toBe(expected); });\n"); }) === 'PASS' && /PASSED — 1 test/.test(lastOutput), true);
+// Round-2 M-A: a GLOBAL vanished-red count cancelled a genuine new red in one
+// file against an old red the same fix removed from another, and told the
+// author to keep the broken test. The comparison is per file.
+check('fix: a genuine new red test in one file while REMOVING an old red from another (per-file, not global)', gate(() => { fixSrc(); redTest(); put('test/broken.test.ts', "import { it, expect } from 'vitest';\nit('a replacement that passes', () => { expect(1).toBe(1); });\n"); }) === 'PASS' && /PASSED — 1 test/.test(lastOutput), true);
+
 console.log('\n--- A FIX THAT CANNOT PROVE ITS BUG (want BLOCK) ---');
 check('fix: src changed + a new test that already passes at the base', gate(() => { fixSrc(); greenTest(); }), 'BLOCK');
 check('  …and the message says the tests already pass, and offers NO waiver', /ALREADY PASSES/.test(lastOutput) && /THERE IS NO WAIVER/.test(lastOutput) && !/Reproduction-Waiver/.test(lastOutput), true);
@@ -98,6 +106,7 @@ check('  …and the message names the vanished red', /ALREADY red there/.test(la
 check('fix: git mv of a file carrying a pre-existing red is not a new reproduction', gate(() => { fixSrc(); mkdirSync(join(repo, 'test/unit'), { recursive: true }); git('mv', 'test/broken.test.ts', 'test/unit/broken.test.ts'); }), 'BLOCK');
 check('fix: a test whose beforeAll throws at the base is skipped there, not red', gate(() => { fixSrc(); put('test/hook.test.ts', "import { it, expect, beforeAll } from 'vitest';\nbeforeAll(() => { throw new Error('no'); });\nit('never runs', () => { expect(1).toBe(1); });\n"); }), 'BLOCK');
 check('  …and the message says skipped, not "already passes"', /skipped there/.test(lastOutput) && !/ALREADY PASSES/.test(lastOutput), true);
+check('fix: an old red test whose BODY changes, name kept, is still the old failure', gate(() => { fixSrc(); put('test/broken.test.ts', "import { it, expect } from 'vitest';\nimport { greet } from '../dist/greet.js';\nit('already broken at the base', () => { expect(greet('bob')).toBe('hello bob'); });\n"); }) === 'BLOCK' && /ALREADY red before this change/.test(lastOutput) && !/ALREADY PASSES/.test(lastOutput), true);
 check('fix: a Reproduction-Waiver trailer changes nothing', gate(() => { fixSrc(); greenTest(); }, 'fix: tidy\n\nReproduction-Waiver: coverage only'), 'BLOCK');
 
 console.log('\n--- THE TRIGGER IS THE CLAIM, NOT THE DIFF (honest non-fix work: want PASS, and say why) ---');
