@@ -2,159 +2,250 @@
 // ============================================================================
 // REPRODUCTION GATE (P12-a, ADR-0075 clause 3 / RFC-039 D8).
 //
-// A fix must be able to prove the bug existed. This Brake checks out the merge
-// base, drops the branch's NEW test files into it, runs them, and requires that
-// at least one newly-added test FAILS there — the mechanical form of "observed
-// red before green" (ADR-0070 §1), applied to work an agent produced rather
-// than to a guard a human wrote.
+// A change that CLAIMS to fix a bug must be able to prove the bug existed: at
+// least one of its tests must go red against the merge base and green at the
+// head. This is ADR-0070's can-fail requirement made mechanical for
+// agent-authored work — a dispatched agent is an author whose mutation log is
+// exactly as trustworthy as its self-report (RFC-039 D3).
 //
-// SCOPE IS THE WHOLE DESIGN HERE, because the naive rule is wrong. NOT every new
-// test is a regression test: adding coverage for behaviour that already works is
-// honest, valuable, and passes at the merge base by definition. A gate demanding
-// every new test go red would block exactly that, and a gate that blocks honest
-// work is a defect (ADR-0052). So the rule is narrower and matches what a fix
-// actually claims:
+// ── THE TRIGGER IS A CLAIM, NOT A DIFF SHAPE ────────────────────────────────
+// The first version armed on "src/ changed AND tests added". Under the D10
+// scope ruling (ADR-0075 cl. 7: dispatched work is cleanup, testing and
+// refactoring ONLY — bug fixes stay human-dispatched) that fires on 100% of the
+// factory's admitted work, whose tests HONESTLY pass at the base, with nearly no
+// true-positive surface. And "this fixes a bug" is a claim made by whoever
+// scoped the work; it is not derivable from a diff. So the gate arms on the
+// claim itself:
+//   1. the linked admitted issue carries the `bug` label (operator-applied at
+//      admission; `--issue N`, `Closes/Fixes/Resolves #N` in a commit or the PR
+//      body, or a `…issue-N…` branch name), or
+//   2. failing that, a `fix:` conventional-commit type anywhere in base..head.
+// Any other claim → SKIPPED, exit 0, and the claim is printed so a mislabelled
+// fix is visible in the log rather than silently unarmed.
 //
-//   IF the diff changes src/ AND adds test cases,
-//   THEN at least ONE added test must fail at the merge base.
+// ── THE REPLAY MEASURES A BUILT TREE, TWICE ─────────────────────────────────
+// The base is checked out into a throwaway worktree and run through the
+// project's OWN `npm test` with lifecycle scripts — `pretest` builds `dist/` —
+// because a bare runner in a fresh worktree fails every test that resolves
+// build output, and the first version counted those failures as PROOF (the
+// same defect #307's round 6 found in tamper-check, pointing the other way).
+// Two runs: a BASELINE of the base's own versions of the modified test files,
+// then the REPLAY of the head's versions of every added or modified test file.
+// The verdict is "at least one test is red in the replay that was not red in
+// the baseline" — by name. A pre-existing red in a modified file proves nothing;
+// a changed expectation with no new `it(` is still seen.
 //
-// A pure refactor that adds coverage trips this legitimately, so there is a real
-// escape: a `Reproduction-Waiver: <reason>` commit trailer. Same shape as
-// tamper-check's, and for the same reason — it forces the claim into a durable
-// place instead of letting an unproven fix through quietly.
+// ── A LINK FAILURE IS NOT A RED TEST ────────────────────────────────────────
+// A test file that cannot import against the old tree (it tests a module the
+// fix ADDED) produces zero countable tests. That is not proof the bug existed —
+// counting it would make every fix-plus-new-helper trivially provable — and it
+// is not inconclusive either: it is a determinate "this reproduction does not
+// exercise the surface that had the bug". Such files are excluded and named;
+// if nothing countable remains the gate FAILS and says what to write instead.
 //
-//   node scripts/reproduction-gate.mjs [--base <ref>] [--head <ref>]
+// ── THERE IS NO WAIVER ───────────────────────────────────────────────────────
+// No trailer, no review-record escape, no label. A free-text trailer leaked in
+// four consecutive review rounds of the sibling gate because the checked party
+// can write it, and a claim trigger makes an escape almost never needed: by
+// history (60 src-touching commits over 11 weeks, 44 with test changes replayed
+// against a built base) zero honest changes passed at the base and five could
+// only link-fail — about one per eleven weeks. That residue escalates per
+// ADR-0070 §4; an operator merges it by relaxing branch protection under their
+// own name (`main` has enforce_admins on — there is no admin bypass).
+//
+//   node scripts/reproduction-gate.mjs [--base <ref>] [--head <ref>] [--repo <dir>] [--issue <n>]
+//   env: PR_BODY (scanned for Closes/Fixes #N), HEAD_REF (branch name in CI)
 // ============================================================================
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync, readFileSync, mkdirSync, existsSync, symlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, dirname, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 export const isTestFile = (f) => /\.(test|spec)\.[cm]?[jt]sx?$/i.test(f) && /(^|\/)test(s)?\//i.test(f);
 export const isSrcFile = (f) => /^src\//i.test(f);
 
-/** Added test declarations per file, from a unified diff. */
-export function addedTests(diff) {
-  const out = new Map();
-  let cur = null;
-  for (const line of String(diff).split('\n')) {
-    const m = /^\+\+\+ b\/(.+)$/.exec(line);
-    if (m) { cur = m[1]; continue; }
-    if (!cur || !line.startsWith('+') || line.startsWith('+++')) continue;
-    if (!isTestFile(cur)) continue;
-    const t = line.slice(1).trim();
-    if (t.startsWith('//') || t.startsWith('*')) continue;
-    // A declaration that will actually RUN. `.skip` is tamper-check's problem.
-    if (/\b(?:it|test)\s*(?:\.\s*(?:concurrent|sequential|each|for)\s*)*\(/.test(t)) {
-      out.set(cur, (out.get(cur) ?? 0) + 1);
-    }
+const git = (repo, ...a) => execFileSync('git', ['-C', repo, ...a], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+
+/** Added/modified/deleted files between two refs, from git — not from a regex over diff text. */
+export function changedFiles(repo, base, head) {
+  const fields = git(repo, 'diff', '--name-status', '-z', '--find-renames', base, head, '--').split('\0');
+  const out = [];
+  for (let i = 0; i < fields.length && fields[i];) {
+    const status = fields[i++];
+    if (/^R\d+$/.test(status)) { out.push({ status: 'M', path: fields[i + 1], from: fields[i] }); i += 2; }
+    else if (/^C\d+$/.test(status)) { out.push({ status: 'A', path: fields[i + 1] }); i += 2; }
+    else out.push({ status: status[0], path: fields[i++] });
   }
   return out;
 }
 
-export function changedFiles(diff) {
-  return [...String(diff).matchAll(/^\+\+\+ b\/(.+)$/gm)].map((m) => m[1]);
+const ISSUE_REF = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s*:?\s*#(\d+)\b/i;
+
+/** The issue a change says it addresses, if it says so anywhere the author writes. */
+export function linkedIssue({ argIssue = null, messages = '', prBody = '', branch = '' } = {}) {
+  if (argIssue && /^\d+$/.test(String(argIssue))) return { n: Number(argIssue), via: '--issue' };
+  const b = ISSUE_REF.exec(prBody); if (b) return { n: Number(b[1]), via: 'PR body' };
+  const m = ISSUE_REF.exec(messages); if (m) return { n: Number(m[1]), via: 'commit message' };
+  const br = /(?:^|[\/_-])issue-(\d+)(?:$|[\/_-])/i.exec(branch); if (br) return { n: Number(br[1]), via: 'branch name' };
+  return null;
 }
 
-const git = (repo, ...a) => execFileSync('git', ['-C', repo, ...a], { encoding: 'utf8' });
+/** Labels on an issue via `gh`; null when the lookup itself is unavailable (no gh, no token, no network). */
+export function issueLabels(n, env = process.env) {
+  const r = spawnSync('gh', ['issue', 'view', String(n), '--json', 'labels', '--jq', '.labels[].name'], { encoding: 'utf8', timeout: 30_000, env });
+  if (r.status !== 0) return null;
+  return r.stdout.split('\n').map((s) => s.trim()).filter(Boolean);
+}
+
+const CONVENTIONAL = /^([a-z]+)(?:\([^)]*\))?!?:/;
 
 /**
- * Run the given test files at `base`, with each file's HEAD content, and report
- * whether anything failed. Returns {ran, failed, detail}.
+ * What this change claims to be. `bug` on the linked issue is authoritative
+ * (operator-applied at admission); a `fix:` subject is the fallback. Everything
+ * else is reported by its dominant conventional type so a mislabelled fix is
+ * visible in the log.
  */
-export function runAtBase(repo, base, head, files) {
+export function detectClaim({ subjects = [], issue = null, labels = undefined } = {}) {
+  if (issue) {
+    if (labels === null) { /* lookup unavailable — fall through to the subjects, and say so */ }
+    else if (Array.isArray(labels) && labels.includes('bug')) return { kind: 'fix', source: `issue #${issue.n} (${issue.via}) is labelled bug` };
+  }
+  const types = subjects.map((s) => CONVENTIONAL.exec(s)?.[1] ?? 'untyped');
+  if (types.includes('fix')) return { kind: 'fix', source: `a fix: commit in the range${issue && labels === null ? ` (issue #${issue.n} lookup unavailable)` : ''}` };
+  const dominant = types.sort((a, b) => types.filter((t) => t === b).length - types.filter((t) => t === a).length)[0] ?? 'none';
+  return { kind: dominant, source: issue ? (labels === null ? `issue #${issue.n} lookup unavailable; commits say ${dominant}` : `issue #${issue.n} is not labelled bug; commits say ${dominant}`) : `commits say ${dominant}` };
+}
+
+/**
+ * Run the given test files inside a worktree through the project's own
+ * `npm test`, and report every test by name with its status, plus the files
+ * that failed to load at all. A runner that produced no report is `ok: false`.
+ */
+function runTests(wt, files) {
+  const report = join(wt, '.repro-report.json');
+  rmSync(report, { force: true });
+  const r = spawnSync('npm', ['test', '--', '--reporter=json', '--outputFile', report, ...files], {
+    cwd: wt, encoding: 'utf8', timeout: 20 * 60_000, maxBuffer: 64 * 1024 * 1024, env: { ...process.env, CI: '1' },
+  });
+  const out = `${r.stdout ?? ''}${r.stderr ?? ''}`;
+  if (!existsSync(report)) return { ok: false, detail: `the resolved test command produced no report (exit ${r.status})\n${out.split('\n').slice(-20).join('\n')}` };
+  let j;
+  try { j = JSON.parse(readFileSync(report, 'utf8')); } catch { return { ok: false, detail: 'the test run produced unparseable JSON' }; }
+  const wtReal = (() => { try { return realpathSync(wt); } catch { return wt; } })();
+  const rel = (p) => String(p ?? '').replace(`${wtReal}/`, '').replace(`${wt}/`, '');
+  const tests = new Map(); const linkFailed = [];
+  for (const f of j.testResults ?? []) {
+    const file = rel(f.name);
+    if (f.status === 'failed' && (f.assertionResults ?? []).length === 0) { linkFailed.push({ file, message: String(f.message ?? '').split('\n')[0] }); continue; }
+    for (const a of f.assertionResults ?? []) tests.set(`${file}::${a.fullName}`, a.status);
+  }
+  return { ok: true, tests, linkFailed };
+}
+
+/**
+ * Baseline the base's own versions of the modified files, then replay the
+ * head's versions of every added or modified test file, all inside one
+ * worktree at the base so `pretest` builds the OLD tree.
+ */
+export function replayAtBase(repo, base, head, files) {
   const wt = mkdtempSync(join(tmpdir(), 'vfkb-repro-'));
   try {
     git(repo, 'worktree', 'add', '--detach', '--quiet', wt, base);
-    // The base worktree has no deps of its own; borrow the checkout's.
     const nm = join(repo, 'node_modules');
-    if (existsSync(nm) && !existsSync(join(wt, 'node_modules'))) symlinkSync(nm, join(wt, 'node_modules'), 'dir');
+    if (!existsSync(nm)) return { ok: false, detail: 'no node_modules to borrow — run `npm ci` before this gate' };
+    if (!existsSync(join(wt, 'node_modules'))) symlinkSync(nm, join(wt, 'node_modules'), 'dir');
+
+    const modified = files.filter((f) => f.status === 'M').map((f) => f.from ?? f.path).filter((p) => existsSync(join(wt, p)));
+    const baseline = modified.length ? runTests(wt, modified) : { ok: true, tests: new Map(), linkFailed: [] };
+    if (!baseline.ok) return { ok: false, detail: `baseline run: ${baseline.detail}` };
 
     for (const f of files) {
-      const dest = join(wt, f);
+      if (f.from && f.from !== f.path) rmSync(join(wt, f.from), { force: true });
+      const dest = join(wt, f.path);
       mkdirSync(dirname(dest), { recursive: true });
-      // The NEW test, against the OLD source.
-      const content = execFileSync('git', ['-C', repo, 'show', `${head}:${f}`], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-      writeFileSync(dest, content);
+      writeFileSync(dest, git(repo, 'show', `${head}:${f.path}`));  // the NEW test against the OLD source
     }
+    const replay = runTests(wt, files.map((f) => f.path));
+    if (!replay.ok) return { ok: false, detail: `replay run: ${replay.detail}` };
 
-    // A NON-ZERO EXIT IS NOT PROOF. vitest exits non-zero when a test fails AND
-    // when it cannot start at all — a bad flag, a missing dep, a module that
-    // will not resolve against the old tree. Reading the exit code alone makes
-    // a CRASHED runner look like a demonstrated bug, which is the ADR-0051 §3
-    // quiet-success trap inside the gate that exists to enforce it. (Observed:
-    // an invalid `--reporter` made every run "prove" the fix.) So the verdict
-    // comes from COUNTED TEST RESULTS, and anything else is INCONCLUSIVE.
-    const report = join(wt, '.repro-report.json');
-    const r = spawnSync('npx', ['vitest', 'run', '--reporter=json', '--outputFile', report, ...files], {
-      cwd: wt, encoding: 'utf8', timeout: 10 * 60_000,
-      env: { ...process.env, CI: '1' },
-    });
-    const out = `${r.stdout ?? ''}${r.stderr ?? ''}`;
-    const tail = out.split('\n').slice(-25).join('\n');
-
-    let counts = null;
-    try {
-      if (existsSync(report)) {
-        const j = JSON.parse(readFileSync(report, 'utf8'));
-        counts = { total: j.numTotalTests ?? 0, failed: j.numFailedTests ?? 0, passed: j.numPassedTests ?? 0 };
-      }
-    } catch { /* falls through to inconclusive */ }
-
-    if (!counts || counts.total === 0) {
-      return { ran: false, failed: false, counts, detail: `the runner produced no countable results (exit ${r.status}).\n${tail}` };
-    }
-    return { ran: true, failed: counts.failed > 0, counts, detail: tail };
+    const baseRed = new Set([...baseline.tests].filter(([, s]) => s === 'failed').map(([k]) => k));
+    const newlyRed = [...replay.tests].filter(([k, s]) => s === 'failed' && !baseRed.has(k)).map(([k]) => k);
+    return { ok: true, newlyRed, countable: replay.tests.size, preExistingRed: baseRed.size, linkFailed: replay.linkFailed };
   } finally {
     try { git(repo, 'worktree', 'remove', '--force', wt); } catch { /* best effort */ }
     rmSync(wt, { recursive: true, force: true });
   }
 }
 
-export function main(argv = process.argv.slice(2)) {
+export function main(argv = process.argv.slice(2), env = process.env) {
   const arg = (n, d) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : d; };
-  // NB: `argv.indexOf(x) + 1` is 0 when x is absent, which silently reads argv[0]
-  // as the value. Always go through `arg`.
   const repo = resolve(arg('--repo', process.cwd()));
   const head = arg('--head', 'HEAD');
   let base = arg('--base', null);
-  if (!base) { try { base = git(repo, 'merge-base', 'origin/main', head).trim(); } catch { base = git(repo, 'rev-parse', `${head}^`).trim(); } }
+  if (!base) { try { base = git(repo, 'merge-base', 'origin/main', head).trim(); } catch { base = null; } }
+  if (!base) { console.error('reproduction-gate FAILED — no base given and no merge-base with origin/main. Refusing to report a verdict on an unknown range.'); return 1; }
+  let baseSha, headSha;
+  try {
+    baseSha = git(repo, 'rev-parse', '--verify', `${base}^{commit}`).trim();
+    headSha = git(repo, 'rev-parse', '--verify', `${head}^{commit}`).trim();
+  } catch { console.error(`reproduction-gate FAILED — cannot resolve base "${base}" or head "${head}".`); return 1; }
+  if (baseSha === headSha) { console.error(`reproduction-gate FAILED — base and head are the same commit (${baseSha.slice(0, 7)}); a verdict here would be meaningless.`); return 1; }
 
-  const diff = git(repo, 'diff', '--unified=0', `${base}..${head}`);
-  const msg = (() => { try { return git(repo, 'log', '--format=%B', `${base}..${head}`); } catch { return ''; } })();
-  const waiver = /^Reproduction-Waiver:\s*(.+)$/im.exec(msg)?.[1]?.trim() ?? null;
+  const subjects = git(repo, 'log', '--format=%s', `${baseSha}..${headSha}`).split('\n').filter(Boolean);
+  const messages = git(repo, 'log', '--format=%B', `${baseSha}..${headSha}`);
+  const branch = env.HEAD_REF || (() => { try { return git(repo, 'rev-parse', '--abbrev-ref', head).trim(); } catch { return ''; } })();
+  const issue = linkedIssue({ argIssue: arg('--issue', null), messages, prBody: env.PR_BODY ?? '', branch });
+  const claim = detectClaim({ subjects, issue, labels: issue ? issueLabels(issue.n, env) : undefined });
 
-  const srcTouched = changedFiles(diff).some(isSrcFile);
-  const added = addedTests(diff);
-  const files = [...added.keys()];
-  const total = [...added.values()].reduce((a, b) => a + b, 0);
+  const changed = changedFiles(repo, baseSha, headSha);
+  const srcTouched = changed.some((f) => isSrcFile(f.path) && f.status !== 'D');
+  const files = changed.filter((f) => isTestFile(f.path) && (f.status === 'A' || f.status === 'M'));
 
-  console.log(`reproduction-gate: ${base.slice(0, 7)}..${head}`);
-  console.log(`  src/ changed: ${srcTouched} · test files with added cases: ${files.length} (${total} case(s))`);
+  console.log(`reproduction-gate: ${baseSha.slice(0, 7)}..${headSha.slice(0, 7)}`);
+  console.log(`  claim: ${claim.kind} — ${claim.source}`);
+  console.log(`  src/ changed: ${srcTouched} · test files added/modified: ${files.length}`);
 
-  if (!srcTouched) { console.log('reproduction-gate SKIPPED — no src/ change, so nothing claims to fix anything'); return 0; }
-  if (!files.length) { console.log('reproduction-gate SKIPPED — no test cases added'); return 0; }
-  if (waiver) { console.log(`reproduction-gate WAIVED — "${waiver}"`); return 0; }
+  if (claim.kind !== 'fix') { console.log(`reproduction-gate SKIPPED (claim: ${claim.kind}) — only a change that claims to fix a bug must prove the bug existed`); return 0; }
+  if (!srcTouched) { console.log('reproduction-gate SKIPPED — a fix claim with no src/ change has nothing to prove here'); return 0; }
+  if (!files.length) {
+    console.log('reproduction-gate SKIPPED — this fix adds or changes NO test. Nothing here can prove the bug existed;');
+    console.log('  the ADR-0052 review record must say why in `mutationsNote` (ADR-0070 §2).');
+    return 0;
+  }
 
-  console.log(`  replaying ${files.join(', ')} against the merge base…`);
-  const { ran, failed, counts, detail } = runAtBase(repo, base, head, files);
-  if (!ran) {
+  console.log(`  replaying ${files.map((f) => f.path).join(', ')} against the built merge base…`);
+  const r = replayAtBase(repo, baseSha, headSha, files);
+  if (!r.ok) {
     // FAIL CLOSED. A runner that could not produce results proves nothing, and
-    // treating that as proof is exactly how this gate was broken when written.
-    console.error('reproduction-gate INCONCLUSIVE — the runner produced no countable test results at the base.');
+    // treating that as proof is exactly how the first version of this was broken.
+    console.error('reproduction-gate INCONCLUSIVE — the base could not be built or run, so no verdict is possible.');
     console.error('That is NOT proof of a fix; it is a broken replay. Treating as a failure.');
-    console.error(detail);
+    console.error(r.detail);
     return 1;
   }
-  console.log(`  at base: ${counts.total} test(s) ran, ${counts.failed} failed, ${counts.passed} passed`);
-  if (failed) { console.log('reproduction-gate PASSED — an added test FAILS at the merge base, so the fix is proven'); return 0; }
+  console.log(`  at base: ${r.countable} test(s) countable · ${r.newlyRed.length} newly red · ${r.preExistingRed} already red before this change · ${r.linkFailed.length} file(s) could not load`);
+  for (const l of r.linkFailed) console.log(`    cannot load at base: ${l.file} — ${l.message}`);
 
-  console.error('\nreproduction-gate FAILED — every added test ALREADY PASSES at the merge base.');
-  console.error('This change touches src/ but its new tests do not demonstrate the old behaviour was wrong,');
-  console.error('so nothing here proves the fix fixes anything. Either add a test that goes red at the base,');
-  console.error('or, if these are coverage tests for a refactor rather than a fix, say so in a commit trailer:');
-  console.error('  Reproduction-Waiver: <why these tests are not expected to fail at the base>');
-  console.error(detail);
+  if (r.newlyRed.length) {
+    console.log(`reproduction-gate PASSED — ${r.newlyRed.length} test(s) go red at the merge base, so the bug is demonstrated:`);
+    for (const k of r.newlyRed.slice(0, 5)) console.log(`    ${k}`);
+    return 0;
+  }
+  if (r.countable === 0 && r.linkFailed.length) {
+    console.error('\nreproduction-gate FAILED — none of this fix\'s tests can run against the tree that had the bug:');
+    console.error('every added or changed test file imports something that does not exist at the merge base, so');
+    console.error('nothing here exercises the surface that was wrong. A test that cannot load is not a red test.');
+    console.error('Write the reproduction against the surface the issue names — the old entry point, the old');
+    console.error('output — so it fails there for the reason the bug did.');
+  } else {
+    console.error('\nreproduction-gate FAILED — every test this fix adds or changes ALREADY PASSES at the merge base.');
+    console.error('The change claims to fix a bug but its tests do not demonstrate the old behaviour was wrong,');
+    console.error('so nothing here proves the fix fixes anything. Add a test that goes red at the base.');
+  }
+  console.error('');
+  console.error('THERE IS NO WAIVER. If the claim is wrong (this is not a fix), retype the commits; if the fix');
+  console.error('is real but cannot be reproduced against the old tree, escalate (ADR-0070 §4) — an operator');
+  console.error('merges it by relaxing branch protection under their own name. An agent cannot.');
   return 1;
 }
 

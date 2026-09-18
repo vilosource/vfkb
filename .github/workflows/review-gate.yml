@@ -6,6 +6,10 @@ on:
 jobs:
   review-gate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -85,18 +89,31 @@ jobs:
           echo "comparing against merge-base $BASE"
           node scripts/tamper-check.mjs --base "$BASE" --head HEAD
 
-      # P12-a's second gate. A fix must be able to prove the bug existed: the
-      # branch's NEW tests are replayed against the MERGE BASE, and at least one
-      # must go red there. Scoped deliberately — not every new test is a
-      # regression test, and demanding that coverage-adding tests fail at the
-      # base would block honest work (ADR-0052). Applies only when src/ changed
-      # AND test cases were added, with a `Reproduction-Waiver:` trailer for a
-      # refactor's coverage tests.
+      # P12-a's second gate (ADR-0075 cl. 3 / RFC-039 D8). A change that CLAIMS
+      # to fix a bug must prove the bug existed: its tests are replayed against
+      # a BUILT merge base and at least one must be newly red there. The trigger
+      # is the claim — the linked issue's `bug` label, or a `fix:` commit — not a
+      # diff shape: under the D10 scope ruling every dispatched PR touches src/
+      # and adds passing tests honestly, so a diff trigger would fire on all of
+      # them. There is no waiver; non-fix work is simply not armed.
+      - name: The reproduction gate is connected — both directions go red
+        run: node scripts/reproduction-gate.selftest.mjs
+
       - name: A fix proves the bug existed (reproduction gate)
+        if: github.event_name == 'pull_request'
+        env:
+          # via env, not interpolated into the script body — a ref, a branch
+          # name and a PR body are attacker-influenceable on a fork PR.
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          BASE="origin/${{ github.base_ref || 'main' }}"
-          git fetch origin "${{ github.base_ref || 'main' }}" --quiet || true
-          node scripts/reproduction-gate.mjs --base "$(git merge-base "$BASE" HEAD)" --head HEAD
+          set -euo pipefail
+          git fetch origin "$BASE_REF" --quiet
+          BASE="$(git merge-base "origin/$BASE_REF" HEAD)"
+          echo "comparing against merge-base $BASE"
+          node scripts/reproduction-gate.mjs --base "$BASE" --head HEAD
 
       - name: An implementation change carries a review record (ADR-0052)
         run: |
