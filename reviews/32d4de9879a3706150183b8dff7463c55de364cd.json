@@ -1,0 +1,134 @@
+{
+  "recordVersion": 1,
+  "sha": "32d4de9879a3706150183b8dff7463c55de364cd",
+  "governing": [
+    "docs/adr/ADR-0075-the-software-factory.md",
+    "docs/rfc/RFC-039-the-software-factory.md",
+    "docs/adr/ADR-0070-guards-that-can-fail.md"
+  ],
+  "reviewer": {
+    "agent": "general-purpose",
+    "model": "claude-opus-5",
+    "rounds": 3
+  },
+  "generated": "2026-09-18T12:56:01Z",
+  "findings": [
+    {
+      "id": "m-J",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "per-file rule is correct but the header does not say an old red re-homed to a DIFFERENT file (A loses it, new C gains it under a new name) passes — executed PASSED. Not closable by bookkeeping: the combined rule (global excess AND per-file) FAILS the M-A honest case and the launder identically (same at-base line, executed). Same a1 class as writing expect(1).toBe(2) in a new file. Follow-up: one header line."
+    },
+    {
+      "id": "m-K",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "FAILED message (:296) says 'in the same file(s) N vanished' with N = the global vanishedRed count; with renames in more than one file it over-states. Cosmetic."
+    },
+    {
+      "id": "m-L",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "commit b267608 says a missing fixture 'flips the verdict'; the recast pin flips the COUNT (PASSED 1→2) because redTest() is also present. Mutation still observed red (2 FAIL); wording only."
+    },
+    {
+      "id": "m-I",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "UNVERIFIED in CI: the PASSED direction (observed only locally on main commits) and gh issue view under github.token (no probe carried an issue link; this PR is SKIPPED no-src/). Follow-up: a probe PR with Closes #<bug-labelled issue> and a genuine red test."
+    },
+    {
+      "id": "m6",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "carried from round 1: dominant-type tiebreak is stable-sort order; cosmetic."
+    },
+    {
+      "id": "m9",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "carried from round 1: selftest header wording about pins naming mutations."
+    },
+    {
+      "id": "m11",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "carried from round 1: gh issue view <PR number> reads the PR's labels; low impact."
+    }
+  ],
+  "findingsCount": 7,
+  "ruledOut": [
+    "round 3 introduced nothing blocking or major (ADR-0070 §4): selftest 39/39; all four round-3 mutations observed red from scratch copies (global count 1 FAIL; rename map dropped 1; support not written 2 — fixture pin now non-vacuous; old-red message 1)",
+    "per-file rule: rename-old-red + trivial red in another file PASSED and disclosed in the at-base line; git mv (R085) + appended genuine red PASSED 1 with the old red mapped and excluded; '::' in describe/it names rekeys exactly across body change and R100 rename",
+    "combined global+per-file rule reopens M-A (executed: honest and launder cases FAIL identically) — cross-file re-home is the a1 class, not a new hole",
+    "real gate vs main: 356a7f7 PASSED 5 / b9bc232 1 / b6d18d4 FAILED link / af7567b 2 / c9f7172 8 / 5b9fa61 14 with 5 already red 0 vanished / e4d6831 4",
+    "Fix:/FIX(scope)!: arm, Refactor: skipped; src/test/x.ts not written (instrumented); D-only src + red test PASSED, D+add-new-module link-FAILED; helper throwing at import → link failure, not PASSED",
+    "RED arms observed in CI on probe #312: runs 35343895498 (fix with no test → FAILED) and 35344403520 (fix whose test passes at base → FAILED)",
+    "CI at 32d4de9 (run 35346444435): selftest green, gate SKIPPED no-src/, tests + GitGuardian green; only the ADR-0052 record step red — this record",
+    "authorship real identity on all range commits; no AI attribution; no secrets; .git/config no user.*; worktrees pruned; tree clean"
+  ],
+  "mutations": [
+    {
+      "guard": "per-file vanished subtraction (M-A pin)",
+      "mutation": "proven = newlyRed.length > vanishedRed.length ? [...newlyByFile.keys()] : [] (:220)",
+      "observedRed": true,
+      "note": "1 FAIL"
+    },
+    {
+      "guard": "git mv source mapped to head path",
+      "mutation": "toHeadPath.get(f) ?? f → f (:209)",
+      "observedRed": true,
+      "note": "1 FAIL (wanted BLOCK, got PASS)"
+    },
+    {
+      "guard": "support files written; fixture pin green-at-base",
+      "mutation": "[...files, ...support] → files (:195)",
+      "observedRed": true,
+      "note": "2 FAIL"
+    },
+    {
+      "guard": "old-red-not-ALREADY-PASSES message",
+      "mutation": "preExistingRed branch removed (:302)",
+      "observedRed": true,
+      "note": "1 FAIL"
+    },
+    {
+      "guard": "reproduction-gate selftest connected (round 1)",
+      "mutation": "main() returns 0",
+      "observedRed": true,
+      "note": "20 FAIL"
+    },
+    {
+      "guard": "claim trigger (round 1)",
+      "mutation": "if (claim.kind !== 'fix') → if (false)",
+      "observedRed": true,
+      "note": "5 FAIL"
+    },
+    {
+      "guard": "base built ONCE (round 2)",
+      "mutation": "drop --ignore-scripts from the run spawn",
+      "observedRed": true,
+      "note": "1 FAIL"
+    },
+    {
+      "guard": "no test file → FAIL, ruling e55a96c3ddbc (round 2)",
+      "mutation": "no-test branch return 0",
+      "observedRed": true,
+      "note": "2 FAIL"
+    },
+    {
+      "guard": "RED arm in CI (ADR-0075 cl. 4)",
+      "mutation": "probe PR #312: fix with no test / fix whose test passes at base",
+      "observedRed": true,
+      "note": "runs 35343895498, 35344403520 FAILED with content messages"
+    }
+  ],
+  "verdict": "MERGE"
+}
