@@ -53,6 +53,16 @@
 // ADR-0070 §4; an operator merges it by relaxing branch protection under their
 // own name (`main` has enforce_admins on — there is no admin bypass).
 //
+// ── WHAT IT DELIBERATELY DOES NOT CATCH ─────────────────────────────────────
+//   * A test that is red at the base for a reason unrelated to the bug — one
+//     that asserts on a file the fix adds, on the environment, on time. "Red at
+//     the base" is what is measured; WHY it is red is review's job.
+//   * A reproduction that is an L4 scenario (scenarios/) rather than a Vitest
+//     test. Out of scope; such a fix is FAILED here and escalates.
+//   * A mistyped claim (`refactor:` on a fix) by an interactive agent. Under D2
+//     the label is operator-applied; a subject line is honour, visible in the
+//     log, the review and the changelog.
+//
 //   node scripts/reproduction-gate.mjs [--base <ref>] [--head <ref>] [--repo <dir>] [--issue <n>]
 //   env: PR_BODY (scanned for Closes/Fixes #N), HEAD_REF (branch name in CI)
 // ============================================================================
@@ -61,8 +71,14 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync,
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
-export const isTestFile = (f) => /\.(test|spec)\.[cm]?[jt]sx?$/i.test(f) && /(^|\/)test(s)?\//i.test(f);
-export const isSrcFile = (f) => /^src\//i.test(f);
+// A test is wherever Vitest collects one — this repo keeps 12 under src/ next to
+// the code they test, and 9 fixes on main had their only reproduction there.
+// The first version required a test(s)/ directory and printed "NO test" for
+// all of them (round-1 B1).
+export const isTestFile = (f) => /\.(test|spec)\.[cm]?[jt]sx?$/i.test(f) && !/^dist\//i.test(f);
+/** Fixtures and helpers a test may import: anything under a test directory. */
+export const isTestSupportFile = (f) => /(^|\/)(test|tests|__tests__|scenarios)\//i.test(f);
+export const isSrcFile = (f) => /^src\//i.test(f) && !isTestFile(f);
 
 const git = (repo, ...a) => execFileSync('git', ['-C', repo, ...a], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
 
@@ -79,7 +95,7 @@ export function changedFiles(repo, base, head) {
   return out;
 }
 
-const ISSUE_REF = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s*:?\s*#(\d+)\b/i;
+const ISSUE_REF = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s*:?\s*(?:https?:\/\/github\.com\/[\w.-]+\/[\w.-]+\/issues\/|[\w.-]+\/[\w.-]+#|#)(\d+)\b/i;
 
 /** The issue a change says it addresses, if it says so anywhere the author writes. */
 export function linkedIssue({ argIssue = null, messages = '', prBody = '', branch = '' } = {}) {
@@ -124,7 +140,11 @@ export function detectClaim({ subjects = [], issue = null, labels = undefined } 
 function runTests(wt, files) {
   const report = join(wt, '.repro-report.json');
   rmSync(report, { force: true });
-  const r = spawnSync('npm', ['test', '--', '--reporter=json', '--outputFile', report, ...files], {
+  // --ignore-scripts: the base was built ONCE by replayAtBase. Running `pretest`
+  // here would type-check the HEAD's test files against the BASE's signatures
+  // (tsc includes src/**/*.ts) and turn every honest src/ reproduction into
+  // INCONCLUSIVE (round-1 B1, observed on af7567b: TS2554).
+  const r = spawnSync('npm', ['test', '--ignore-scripts', '--', '--reporter=json', '--outputFile', report, ...files], {
     cwd: wt, encoding: 'utf8', timeout: 20 * 60_000, maxBuffer: 64 * 1024 * 1024, env: { ...process.env, CI: '1' },
   });
   const out = `${r.stdout ?? ''}${r.stderr ?? ''}`;
@@ -133,9 +153,10 @@ function runTests(wt, files) {
   try { j = JSON.parse(readFileSync(report, 'utf8')); } catch { return { ok: false, detail: 'the test run produced unparseable JSON' }; }
   const wtReal = (() => { try { return realpathSync(wt); } catch { return wt; } })();
   const rel = (p) => String(p ?? '').replace(`${wtReal}/`, '').replace(`${wt}/`, '');
-  const tests = new Map(); const linkFailed = [];
+  const tests = new Map(); const linkFailed = []; const wanted = new Set(files);
   for (const f of j.testResults ?? []) {
     const file = rel(f.name);
+    if (!wanted.has(file)) continue;   // Vitest's positional filter is a substring match; only the named files count
     if (f.status === 'failed' && (f.assertionResults ?? []).length === 0) { linkFailed.push({ file, message: String(f.message ?? '').split('\n')[0] }); continue; }
     for (const a of f.assertionResults ?? []) tests.set(`${file}::${a.fullName}`, a.status);
   }
@@ -147,7 +168,7 @@ function runTests(wt, files) {
  * head's versions of every added or modified test file, all inside one
  * worktree at the base so `pretest` builds the OLD tree.
  */
-export function replayAtBase(repo, base, head, files) {
+export function replayAtBase(repo, base, head, files, support = []) {
   const wt = mkdtempSync(join(tmpdir(), 'vfkb-repro-'));
   try {
     git(repo, 'worktree', 'add', '--detach', '--quiet', wt, base);
@@ -155,22 +176,39 @@ export function replayAtBase(repo, base, head, files) {
     if (!existsSync(nm)) return { ok: false, detail: 'no node_modules to borrow — run `npm ci` before this gate' };
     if (!existsSync(join(wt, 'node_modules'))) symlinkSync(nm, join(wt, 'node_modules'), 'dir');
 
+    // Build the OLD tree once, through the project's own lifecycle script, so
+    // tests that resolve dist/ run against what the base actually shipped.
+    const b = spawnSync('npm', ['run', 'pretest', '--if-present'], { cwd: wt, encoding: 'utf8', timeout: 10 * 60_000, maxBuffer: 64 * 1024 * 1024, env: { ...process.env, CI: '1' } });
+    if (b.status !== 0) return { ok: false, detail: `the base could not be built (pretest exit ${b.status}; dependencies are the HEAD's node_modules, which an old base may not compile against)\n${`${b.stdout ?? ''}${b.stderr ?? ''}`.split('\n').slice(-20).join('\n')}` };
+
     const modified = files.filter((f) => f.status === 'M').map((f) => f.from ?? f.path).filter((p) => existsSync(join(wt, p)));
     const baseline = modified.length ? runTests(wt, modified) : { ok: true, tests: new Map(), linkFailed: [] };
     if (!baseline.ok) return { ok: false, detail: `baseline run: ${baseline.detail}` };
 
-    for (const f of files) {
+    // The NEW tests — and every fixture or helper they may import — against the
+    // OLD source. Only test-directory files are written: a package.json or a
+    // src/ change belongs to the tree under test, not to the reproduction.
+    for (const f of [...files, ...support]) {
       if (f.from && f.from !== f.path) rmSync(join(wt, f.from), { force: true });
       const dest = join(wt, f.path);
+      if (f.status === 'D') { rmSync(dest, { force: true }); continue; }
       mkdirSync(dirname(dest), { recursive: true });
-      writeFileSync(dest, git(repo, 'show', `${head}:${f.path}`));  // the NEW test against the OLD source
+      writeFileSync(dest, git(repo, 'show', `${head}:${f.path}`));
     }
     const replay = runTests(wt, files.map((f) => f.path));
     if (!replay.ok) return { ok: false, detail: `replay run: ${replay.detail}` };
 
-    const baseRed = new Set([...baseline.tests].filter(([, s]) => s === 'failed').map(([k]) => k));
-    const newlyRed = [...replay.tests].filter(([k, s]) => s === 'failed' && !baseRed.has(k)).map(([k]) => k);
-    return { ok: true, newlyRed, countable: replay.tests.size, preExistingRed: baseRed.size, linkFailed: replay.linkFailed };
+    const baseRed = new Set([...baseline.tests].filter(([, st]) => st === 'failed').map(([k]) => k));
+    const newlyRed = [...replay.tests].filter(([k, st]) => st === 'failed' && !baseRed.has(k)).map(([k]) => k);
+    // A red that was already there and merely vanished (renamed, its file
+    // moved, deleted) is not a new reproduction; it is subtracted so an old
+    // failure under a new name or path cannot be sold as one (round-1 M2,
+    // latent while main has zero reds — see tamper-check's record). This is
+    // also what makes a `git mv` of a red file net to zero: the baseline is
+    // keyed by the old path, the replay by the new, and the two cancel.
+    const vanishedRed = [...baseRed].filter((k) => !replay.tests.has(k));
+    const skippedAtBase = [...replay.tests.values()].filter((st) => st !== 'failed' && st !== 'passed').length;
+    return { ok: true, newlyRed, vanishedRed, countable: replay.tests.size, preExistingRed: baseRed.size, skippedAtBase, linkFailed: replay.linkFailed };
   } finally {
     try { git(repo, 'worktree', 'remove', '--force', wt); } catch { /* best effort */ }
     rmSync(wt, { recursive: true, force: true });
@@ -200,21 +238,26 @@ export function main(argv = process.argv.slice(2), env = process.env) {
   const changed = changedFiles(repo, baseSha, headSha);
   const srcTouched = changed.some((f) => isSrcFile(f.path) && f.status !== 'D');
   const files = changed.filter((f) => isTestFile(f.path) && (f.status === 'A' || f.status === 'M'));
+  const support = changed.filter((f) => isTestSupportFile(f.path) && !isTestFile(f.path));
 
   console.log(`reproduction-gate: ${baseSha.slice(0, 7)}..${headSha.slice(0, 7)}`);
   console.log(`  claim: ${claim.kind} — ${claim.source}`);
   console.log(`  src/ changed: ${srcTouched} · test files added/modified: ${files.length}`);
 
   if (claim.kind !== 'fix') { console.log(`reproduction-gate SKIPPED (claim: ${claim.kind}) — only a change that claims to fix a bug must prove the bug existed`); return 0; }
-  if (!srcTouched) { console.log('reproduction-gate SKIPPED — a fix claim with no src/ change has nothing to prove here'); return 0; }
+  if (!srcTouched) { console.log('reproduction-gate SKIPPED — a fix claim that touches no src/ has nothing to prove HERE (scripts/ carry their own selftests; docs carry nothing)'); return 0; }
   if (!files.length) {
-    console.log('reproduction-gate SKIPPED — this fix adds or changes NO test. Nothing here can prove the bug existed;');
-    console.log('  the ADR-0052 review record must say why in `mutationsNote` (ADR-0070 §2).');
-    return 0;
+    // Operator ruling (brain e55a96c3ddbc): under "no waiver", a fix that
+    // simply adds no test would be the cheapest self-service escape.
+    console.error('\nreproduction-gate FAILED — this claims to fix a bug in src/ but adds or changes NO test file.');
+    console.error('A fix with no reproduction is unproven by definition. Add a test that goes red at the merge base');
+    console.error('(anywhere Vitest collects it — test/ or next to the code in src/).');
+    noWaiver();
+    return 1;
   }
 
   console.log(`  replaying ${files.map((f) => f.path).join(', ')} against the built merge base…`);
-  const r = replayAtBase(repo, baseSha, headSha, files);
+  const r = replayAtBase(repo, baseSha, headSha, files, support);
   if (!r.ok) {
     // FAIL CLOSED. A runner that could not produce results proves nothing, and
     // treating that as proof is exactly how the first version of this was broken.
@@ -223,10 +266,10 @@ export function main(argv = process.argv.slice(2), env = process.env) {
     console.error(r.detail);
     return 1;
   }
-  console.log(`  at base: ${r.countable} test(s) countable · ${r.newlyRed.length} newly red · ${r.preExistingRed} already red before this change · ${r.linkFailed.length} file(s) could not load`);
+  console.log(`  at base: ${r.countable} test(s) countable · ${r.newlyRed.length} newly red · ${r.preExistingRed} already red before this change (${r.vanishedRed.length} of those vanished) · ${r.skippedAtBase} skipped · ${r.linkFailed.length} file(s) could not load`);
   for (const l of r.linkFailed) console.log(`    cannot load at base: ${l.file} — ${l.message}`);
 
-  if (r.newlyRed.length) {
+  if (r.newlyRed.length > r.vanishedRed.length) {
     console.log(`reproduction-gate PASSED — ${r.newlyRed.length} test(s) go red at the merge base, so the bug is demonstrated:`);
     for (const k of r.newlyRed.slice(0, 5)) console.log(`    ${k}`);
     return 0;
@@ -237,16 +280,25 @@ export function main(argv = process.argv.slice(2), env = process.env) {
     console.error('nothing here exercises the surface that was wrong. A test that cannot load is not a red test.');
     console.error('Write the reproduction against the surface the issue names — the old entry point, the old');
     console.error('output — so it fails there for the reason the bug did.');
+  } else if (r.vanishedRed.length && r.newlyRed.length) {
+    console.error(`\nreproduction-gate FAILED — ${r.newlyRed.length} test(s) are red at the base, but ${r.vanishedRed.length} test(s) that were ALREADY red there`);
+    console.error('vanished in this change (renamed, moved or removed). A pre-existing failure under a new name is not');
+    console.error('a reproduction. Keep the old names, or add a genuinely new red test.');
   } else {
-    console.error('\nreproduction-gate FAILED — every test this fix adds or changes ALREADY PASSES at the merge base.');
+    console.error(`\nreproduction-gate FAILED — no test this fix adds or changes is newly red at the merge base` +
+      (r.skippedAtBase ? ` (${r.skippedAtBase} skipped there — a throwing beforeAll or a .skip is not a red test)` : ' — every one ALREADY PASSES') + '.');
     console.error('The change claims to fix a bug but its tests do not demonstrate the old behaviour was wrong,');
     console.error('so nothing here proves the fix fixes anything. Add a test that goes red at the base.');
   }
+  noWaiver();
+  return 1;
+}
+
+function noWaiver() {
   console.error('');
   console.error('THERE IS NO WAIVER. If the claim is wrong (this is not a fix), retype the commits; if the fix');
   console.error('is real but cannot be reproduced against the old tree, escalate (ADR-0070 §4) — an operator');
   console.error('merges it by relaxing branch protection under their own name. An agent cannot.');
-  return 1;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) process.exit(main());
