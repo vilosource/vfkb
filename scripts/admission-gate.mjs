@@ -56,18 +56,30 @@
 // specific questions", but the FSM is D1 and unbuilt, so the questions are the
 // only half that exists yet.
 //
-// Measured on this repo's full 38-issue corpus (re-run after round 1's fixes):
-// 9 dispatchable, 29 returned — 24 no criteria, 9 no surfaces, 8 no governing
-// decision. A gate that passed or failed ALL of them would not be
-// discriminating, which is why the split is measured rather than assumed.
+// Measured on this repo's full 38-issue corpus: 9 dispatchable, 29 returned —
+// 24 no criteria, 9 no surfaces, 8 no governing decision. A gate that passed or
+// failed ALL of them would not be discriminating, which is why the split is
+// measured rather than assumed.
 //
-// AND THE HONEST PART, by the same standard this header sets above: 100% of that
+// AND THE HONEST PART, by the same standard this header sets: 100% of that
 // discrimination comes from the STRUCTURAL checks — is there a heading, is any
 // path named, is any decision cited. The existence probes, which are the answer
 // to the model-as-judge problem and the reason given for the whole design, have
 // never fired on a real issue: not one refusal was "these surfaces do not
 // exist" or "could not be found". They are prospective — they catch a typo or a
 // stale path the day someone makes one — not the measured discriminator.
+//
+// ── WHAT IT STILL DOES NOT CATCH ────────────────────────────────────────────
+//   * WHETHER THE CRITERIA ARE GOOD. A matching heading with any word under it
+//     satisfies clause (a). "- [ ] make it work" passes. Judging criteria is
+//     review's job (ADR-0052) and a human's.
+//   * WHETHER THE CITED DECISION GOVERNS. Any real ADR/RFC satisfies clause (c);
+//     a passing mention counts the same as the decision being implemented.
+//   * WHETHER THE SURFACES ARE THE RIGHT ONES. Naming the wrong file passes.
+//   * A FORK OR A COPY THAT KEEPS package.json. The identity check reads the
+//     package name, so `cp -r` of the whole repo, or a fork, still looks like
+//     this repo. It closes the realistic case — a consumer vendoring scripts/ —
+//     and no more.
 //
 //   node scripts/admission-gate.mjs <issue-number>
 //   node scripts/admission-gate.mjs --body-file <path>     (for testing)
@@ -130,47 +142,90 @@ const GOVERNING = /(?:^|[\s`(])(docs\/(?:adr|rfc)\/(?:ADR|RFC)-[\w./-]+\.md)/gi;
 const BARE_DECISION = /\b((?:ADR|RFC)-\d{3,4})\b/gi;
 
 /**
- * Only text a HUMAN SEES on the issue counts. Round 1 admitted an issue whose
- * entire visible body was "Please fix the thing. It is broken." because a
- * nine-line HTML comment carried requirements, a surface and an ADR — the
- * source-text-guard class ADR-0070 §1 bans, already on this repo's record twice
- * (reviews/c2ab99e005*, reviews/0a2fcf8b4e*) and the worked example of a
- * blocking finding in reviews/README.md.
+ * ── VISIBILITY IS A RENDERING PROPERTY, SO THE RENDERER IS THE AUTHORITY ─────
  *
- * ONLY HTML COMMENTS ARE STRIPPED, and that is the whole rule. Round 2 also
- * stripped fenced code blocks; round 3 removed that, because a fenced block
- * RENDERS — a reader sees it — so requirements written inside one are visible
- * and admitting them is correct. The stripper was also subtly wrong (it ate the
- * opener and one line, so its own pins passed for the wrong reason), and a
- * wrong stripper only ever causes FALSE REFUSALS about text the author can see.
- * Verified against GitHub's own renderer (`POST /markdown`, mode=gfm) rather
- * than assumed: an unclosed `<!--` really does hide everything after it, so
- * strip-to-end is right; `<!-->` and `<!--->` close IMMEDIATELY and hide
- * nothing; nested comments and `&lt;!--` entities render visibly.
+ * The gate's three detectors must only ever see text a HUMAN SEES on the issue.
+ * Three review rounds tried to establish that with regexes over the raw body and
+ * produced three blocking findings of ONE species — text invisible on GitHub
+ * accepted as specification: an HTML comment (round 1), `<?…?>` and
+ * `<![CDATA[…]]>` (round 3) — and after round 3's named fixes two more doors
+ * were still open (raw-HTML block type 4 with no blank line, and a
+ * link-reference definition) while round 3's own record claimed both closed.
  *
- * A collapsed <details> is KEPT: folded is not hidden — a reader can open it,
- * and this repo's own issues use it for legitimate detail.
+ * The root cause is not any of those patterns. It is that the referent was
+ * GitHub's sanitizer and the code re-derived one slice of it per round, so it
+ * was always one slice short. This repository has ruled on that shape twice
+ * before — the plugin release gate's July redesign to render-then-strip, and
+ * tamper-check's round 5, where a hand-written parse layer over YAML and shell
+ * was DELETED rather than patched ("a parse layer that cannot model a shell
+ * cannot be patched into modelling one"). Brain `cface5291391` states the
+ * general form: when a guard keeps failing review the fix is almost never a
+ * better heuristic, it is finding the authority you were approximating.
  *
- * Known and accepted: a comment written INSIDE a fence renders literally but is
- * stripped here. It costs a refusal about visible text in a shape nobody uses;
- * the alternative is a markdown parser, which is a larger dependency than the
- * problem.
+ * So the body is rendered by GitHub itself and the detectors run over the
+ * result. Every construct the sanitizer drops — comment, processing
+ * instruction, CDATA, declaration, reference definition, `hidden`, `style` —
+ * disappears with no modelling on our side, and the class is closed by
+ * construction rather than case by case.
+ *
+ * Network is not a new cost: reading the issue at all already shells
+ * `gh issue view`, and this gate runs in the orchestrator (RFC-039 D3/D4), NOT
+ * in the coder's worktree, so ADR-0075 clause 8's no-network ruling does not
+ * bind it. A render that fails is a REFUSAL, never a pass.
+ *
+ * Deliberately kept visible: a collapsed <details>. It is folded, not hidden —
+ * a reader can open it, GitHub renders its contents, and this repo's own issues
+ * use it for legitimate detail. A path that appears ONLY inside a link target
+ * or a title attribute is now refused, because the reader cannot see it either.
  */
-export const visibleText = (body) => String(body ?? '')
-  .replace(/<!--+>/g, '\n')                    // <!--> and <!---> close immediately
-  .replace(/<!--[\s\S]*?(?:-->|$)/g, '\n');
+export const renderViaGitHub = (body, repoSlug = 'vilosource/vfkb') => {
+  const payload = JSON.stringify({ text: String(body ?? ''), mode: 'gfm', context: repoSlug });
+  return execFileSync('gh', ['api', '-X', 'POST', '/markdown', '--input', '-'], {
+    input: payload, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 60_000,
+  });
+};
+
+/**
+ * GitHub's sanitized HTML back to plain text, keeping heading levels as `#`
+ * markers so the criteria-heading vocabulary still applies. Attribute values
+ * cannot contain a raw `>` in sanitized output (it arrives as `&gt;`), which is
+ * what makes tag stripping safe here — it would not be on arbitrary HTML.
+ */
+export function visibleTextFromHtml(html) {
+  let t = String(html ?? '');
+  t = t.replace(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi, (_m, n, inner) => `\n${'#'.repeat(Number(n))} ${inner.replace(/<[^>]*>/g, '')}\n`);
+  // NO block-closer-to-newline pass. It was written, and its mutation changed
+  // nothing: GitHub pretty-prints one block per line, so `</p>\n<p>` already
+  // separates them and a surface in one paragraph never fuses with a decision in
+  // the next. The behaviour is pinned by the adjacent-blocks check, and the
+  // `--live` arm is what would catch the oracle changing its formatting. Carried
+  // as defence it could not demonstrate, so removed — third time on this branch.
+  t = t.replace(/<(br|hr)\s*\/?>/gi, '\n');
+  t = t.replace(/<[^>]*>/g, '');
+  // NO ENTITY DECODING. It was written, found unpinned, and the shapes where it
+  // could matter were checked one by one: `&amp;` beside a path does not move
+  // SURFACE's boundary, `;` before `ADR-0075` already gives \b, and `&lt;path&gt;`
+  // fails the boundary decoded or not. None of the three detectors can read an
+  // entity, so decoding was carried code no pin could cover — the same reason a
+  // \d{4} narrowing was reverted earlier on this branch. Removed.
+  return t;
+}
+
+/** The body as a reader sees it. `render` is injected so tests can be offline. */
+export const visibleText = (body, render = renderViaGitHub) => visibleTextFromHtml(render(body));
 
 const uniq = (a) => [...new Set(a)];
 const matches = (body, re) => uniq([...String(body).matchAll(re)].map((m) => m[1]));
 
 /**
- * @param body   the issue body
+ * @param body   the issue body, as written (it is rendered here, not before)
  * @param has    (path) => boolean — does this path exist in the repo?
  * @param find   (decision) => string|null — resolve "ADR-0075" to its file
+ * @param render (body) => html — GitHub by default; injected offline in tests
  * @returns {{ok: boolean, problems: string[], surfaces: string[], governing: string[]}}
  */
-export function admit(body, { has, find }) {
-  const text = visibleText(body);
+export function admit(body, { has, find, render = renderViaGitHub }) {
+  const text = visibleText(body, render);
   const problems = [];
 
   // (a) acceptance criteria — structural only
@@ -302,7 +357,18 @@ export function main(argv = process.argv.slice(2)) {
     catch { console.error(`admission-gate FAILED — could not read issue #${issue}. Refusing to admit an issue it cannot see.`); return 1; }
   } else { console.error('usage: admission-gate.mjs <issue-number> | --body-file <path>'); return 2; }
 
-  const { ok, problems, surfaces, governing } = admit(body, repoProbes(root));
+  // A render that did not happen is a REFUSAL. The whole point of the redesign
+  // is that visibility is decided by the renderer, so no renderer means no
+  // verdict — never a pass (ADR-0051 §3: exit status is not evidence).
+  let verdict;
+  try { verdict = admit(body, repoProbes(root)); }
+  catch (e) {
+    console.error(`admission-gate FAILED — could not render issue ${label} through GitHub, so what a reader would SEE is unknown.`);
+    console.error('That is not an admission; it is a missing measurement. Check `gh auth status` and network access.');
+    console.error(String(e?.message ?? e).split('\n').slice(0, 4).join('\n'));
+    return 1;
+  }
+  const { ok, problems, surfaces, governing } = verdict;
   console.log(`admission-gate: ${label}`);
   console.log(`  surfaces named: ${surfaces.length ? surfaces.join(', ') : 'none'}`);
   console.log(`  governing: ${governing.length ? governing.join(', ') : 'none'}`);
