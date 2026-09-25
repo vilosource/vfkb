@@ -1,0 +1,90 @@
+{
+  "recordVersion": 1,
+  "sha": "463822830a12d17c23ad56d944454114d63737df",
+  "governing": [
+    "docs/adr/ADR-0075-the-software-factory.md",
+    "docs/rfc/RFC-039-the-software-factory.md",
+    "docs/adr/ADR-0070-guards-that-can-fail.md",
+    "docs/adr/ADR-0051-delivery-honesty.md"
+  ],
+  "reviewer": {
+    "agent": "claude (herdr pane adm-review)",
+    "model": "claude-opus-5",
+    "rounds": 3
+  },
+  "generated": "2026-09-25T12:10:39Z",
+  "findings": [
+    {
+      "id": "R3-B1",
+      "severity": "blocking",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "NOT introduced by round 3, and missed by rounds 1 and 2: CommonMark raw-HTML block types 3 (`<?` … `?>`) and 5 (`<![CDATA[` … `]]>`) run to their closing delimiter ignoring blank lines, GitHub drops them entirely, and visibleText strips only HTML comments — so the gate admits on text no reader can see. Verified against GitHub's own renderer (POST /markdown, mode=gfm): a body of 'Please fix it.' + <?php + the three requirements + ?> renders as exactly '<p>Please fix it.</p>', and the gate prints 'PASSED — dispatchable' naming src/engine.ts and ADR-0075. Reproduced independently by the orchestrator. Identical failure scenario to round-1 B1, and the source-text-guard class ADR-0070 §1 bans. Named fix is two replaces mirroring the comment strip, each pinned and mutated. NOT FIXED — this record escalates instead (see mutationsNote)."
+    },
+    {
+      "id": "R3-M1",
+      "severity": "major",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "INTRODUCED BY ROUND 3: the repo-identity guard is unpinned — `if (!looksLikeThisRepo(root))` → `if (false)` leaves 79/79 green. The three pins exercise looksLikeThisRepo() as a pure function; nothing exercises main() ACTING on it, so round-2 M4's actual fix is pinned by nothing and a refactor reopens it silently. Third vacuous pin found on this branch by in-place mutation, exactly ADR-0070 §2's subject. Named fix: drive main() with --repo at the vendored-repo fixture the selftest already builds and assert code === 1 AND the refusal text."
+    },
+    {
+      "id": "R3-M2",
+      "severity": "major",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "the PR body still asserted what rounds 2 and 3 disproved (20/20 green in the closing line for the third round running; 63 cases when it is 79; 'at least one checkable item' when CHECKABLE is permissive; 'comments and fences are stripped' after round 3 stopped stripping fences — contradicting the shipped fix for a blocking finding), AND the round-2 record marked m1 and m2 'fixed' when the body still carried both claims. A record asserting fixed for something demonstrably unfixed is the more serious half. Fixed: the PR body is rewritten against the shipped code, and both prior records are amended — m1 and m2 to 'open'."
+    },
+    {
+      "id": "R3-m1",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "INTRODUCED BY ROUND 3: the identity refusal names the REJECTED marker ('no scripts/admission-gate.mjs + docs/adr') while the check is package.json name, so an operator whose repo is refused is told to add two irrelevant things; and it says 'Pass --repo <path>' even when --repo was just passed. Actionable refusals are this gate's whole design premise."
+    },
+    {
+      "id": "R3-m2",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "INTRODUCED BY ROUND 3 as a claim: 'the thing a copy does not bring with it' is false — a directory carrying {\"name\":\"@viloforge/vfkb\"} plus its own src/engine.ts and its own docs/adr/ADR-0075-*.md is ADMITTED and the gate prints that foreign ADR; cp -r brings package.json and a fork has it by definition. The realistic vendoring case (copying scripts/ alone) IS closed and pinned, so residual risk is small, but the commit message and the round-2 record overstate."
+    },
+    {
+      "id": "R3-m3",
+      "severity": "minor",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "INTRODUCED BY ROUND 3: the round-1 record amendment set mutations[1].observedRed to false, which scripts/review-gate.mjs:185 and reviews/README.md both forbid — a guard that stayed green under its mutation belongs in findings, not in the log. Fixed: the entry is REMOVED (the defect is carried as finding R2-M2) rather than the flag falsified."
+    }
+  ],
+  "findingsCount": 6,
+  "ruledOut": [
+    "the round-3 invisible-text sweep verified EIGHT candidate holes against GitHub's renderer and found them NOT holes, because GitHub renders the payload in every case: <div hidden> (hidden stripped), <span style=display:none> (style stripped), <style>/<script>/<iframe> (tags escaped to literal text), <td hidden>, <!DOCTYPE html>, <!ENTITY> (type 4, ends at the blank line). A 4-space indented block and a reference-link definition are refused, matching GitHub both ways",
+    "the R2-B1 entry-guard fix holds under attack: relative argv[1], trailing slash, ./ prefix, hardlink, npm exec, case-variant APFS spelling and undefined argv[1] were all exercised — main() either runs or the process does not exit 0 without a verdict on stdout",
+    "corpus stable at 9 of 38 with the same set (#22 #95 #96 #161 #186 #280 #288 #303 #306) and the same reason counts; no issue admitted in round 2 is now refused and none refused is now admitted",
+    "the round-3 reversals were each judged as decisions and upheld: not stripping fences is correct (a fence renders), --repo is not an unguarded bypass (it is still identity-checked), and CHECKABLE=/\\w/ flips no real corpus issue",
+    "all three gate selftests green; 780/780 unit; tsc clean; no AI attribution; no secrets; tree clean; no local git user.*"
+  ],
+  "mutations": [
+    {
+      "guard": "the entry guard fires through a symlinked path (R2-B1 fix)",
+      "mutation": "revert to the non-realpath comparison",
+      "observedRed": true,
+      "note": "reviewer re-ran in place: both spawn-through-symlink pins red"
+    },
+    {
+      "guard": "abrupt-closing comments hide nothing (R2-M3 fix)",
+      "mutation": "drop the /<!--+>/ replace",
+      "observedRed": true,
+      "note": "re-run in place: <!--> and <!---> pins red"
+    },
+    {
+      "guard": "criteria need a word (R2-M6 fix)",
+      "mutation": "CHECKABLE /\\w/ → /\\S/",
+      "observedRed": true,
+      "note": "re-run in place: ---, lone backtick, *** pins red"
+    }
+  ],
+  "mutationsNote": "R3-B1 and R3-M1 are OPEN and deliberately unfixed in this record. Three rounds have each returned FIX-FIRST, which is the ADR-0070 §4 convergence ceiling, so the branch is escalated to the operator rather than taken into a fourth round on the reviewer's and the author's own judgement. R3-M1 is itself a guard this round found vacuous — the third on this branch — so the honest log cannot claim it is pinned. The two named fixes are small and specified; the question for the operator is whether to spend a fourth round here or change the approach.",
+  "verdict": "FIX-FIRST"
+}

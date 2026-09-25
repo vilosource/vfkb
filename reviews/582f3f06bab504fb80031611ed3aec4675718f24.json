@@ -128,7 +128,7 @@
     "the merge of main kept all three gate blocks; tamper-check, reproduction-gate and admission-gate selftests all pass on this branch; 780/780 unit; tsc clean",
     "no AI attribution in any commit in the range; no secrets; the repo's git config carries no local user.* (the fixture identity leak from #311 has not recurred)",
     "mutation methodology itself was corrected mid-round: copies under /tmp broke five pins environmentally (the script-anchored root cannot resolve there) and masked which guard's pin fired, so all 11 mutations were re-run IN PLACE",
-    "CORRECTION, filed after round 2: this record's 'fenced blocks stripped' mutation entry certified a guard that does not exist as described, and its m1 'fixed' status was premature. Both corrected in place rather than left standing — the record is testimony, and testimony that is found wrong is amended under the same name."
+    "CORRECTION, filed after rounds 2 and 3: this record originally logged a 'fenced blocks stripped' mutation as observedRed:true, and round 2 (R2-M2) showed that guard did not exist as described — the stripper ate the opener and one line, so its pins passed for an incidental reason. A first amendment set observedRed:false; round 3 (R3-m3) pointed out that scripts/review-gate.mjs:185 and reviews/README.md both forbid that value, because a guard that stayed green under its mutation belongs in findings, not in the log. The entry is therefore REMOVED and the defect is carried as finding R2-M2 in reviews/f5078cd5*.json. Round 3 also reopened m1. Testimony found wrong is amended under the same name; the number of mutations logged went 9 -> 8."
   ],
   "mutations": [
     {
@@ -136,12 +136,6 @@
       "mutation": "visibleText(body) → String(body ?? '')",
       "observedRed": true,
       "note": "5 FAIL: HTML comment, unclosed comment, fenced, tilde-fenced, unclosed fence"
-    },
-    {
-      "guard": "fenced blocks stripped (B1)",
-      "mutation": "drop the fence replace() from visibleText",
-      "observedRed": false,
-      "note": "CORRECTED after round 2 (R2-M2): this entry was WRONG. The three fence pins did go red, but for an incidental reason — the `|$` alternative under the /m flag stops the lazy match at the first line break, so the stripper removed the opener and ONE line, and all three pins put the payload on the line immediately after the opener. Insert one filler line and the whole 'stripped' payload survives. Per ADR-0070 §2 a mutation the guard did not catch is a FINDING, not a log entry, so this is recorded as observedRed:false and carried as R2-M2. Zero live harm: scanning all 38 issues for surfaces/decisions present in the raw body but absent from visibleText() returned no rows."
     },
     {
       "guard": "criteria may be prose (B2)",
