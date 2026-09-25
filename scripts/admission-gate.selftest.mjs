@@ -15,9 +15,10 @@
 //
 //   node scripts/admission-gate.selftest.mjs
 // ============================================================================
-import { admit, repoProbes, repoRoot, main } from './admission-gate.mjs';
+import { admit, repoProbes, repoRoot, looksLikeThisRepo, main } from './admission-gate.mjs';
 
-import { chmodSync, existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -88,6 +89,11 @@ check('a null body → refused, not crashed', ok(null), false);
 
 check('a surface named in a blob permalink is seen', ok('## Requirements\n- x\n\nhttps://github.com/vilosource/vfkb/blob/main/src/engine.ts\n\nADR-0075\n'), true);
 
+console.log('\n--- A PERMALINK MUST NAME **THIS** REPOSITORY (round-2 M5) ---');
+check('a permalink into another repo is NOT a surface here', ok('## Requirements\n- x\n\nhttps://github.com/vilosource/vfkb-claude-plugin/blob/main/src/engine.ts\n\nADR-0075\n'), false);
+check("...nor another host's", ok('## Requirements\n- x\n\nhttps://github.com/evil/other/blob/v1.2.3/scripts/thing.mjs\n\nADR-0075\n'), false);
+check('this repo\'s own permalink still is', ok('## Requirements\n- x\n\nhttps://github.com/vilosource/vfkb/blob/main/src/engine.ts\n\nADR-0075\n'), true);
+
 console.log('\n--- the refusal is ACTIONABLE, which is the point ---');
 check('a bare issue names all three missing things', admit('help', probes).problems.length === 3, true);
 check('...and says what to add, not just what is wrong', why('help').includes('Add a section headed'), true);
@@ -101,9 +107,20 @@ const HIDDEN = 'Please fix the thing. It is broken.\n';
 const PAYLOAD = '## Requirements\n- [ ] x\n\n`src/engine.ts`\n\nADR-0075\n';
 check('requirements buried in an HTML comment do NOT admit', ok(`${HIDDEN}\n<!--\n${PAYLOAD}-->\n`), false);
 check('an UNCLOSED HTML comment does not admit either', ok(`${HIDDEN}\n<!--\n${PAYLOAD}`), false);
-check('requirements inside a fenced code block do NOT admit', ok(`${HIDDEN}\n\`\`\`\n${PAYLOAD}\`\`\`\n`), false);
-check('a tilde-fenced block does not admit', ok(`${HIDDEN}\n~~~\n${PAYLOAD}~~~\n`), false);
-check('an UNCLOSED fence does not admit', ok(`${HIDDEN}\n\`\`\`\n${PAYLOAD}`), false);
+// A fenced block RENDERS — a reader sees it — so requirements inside one are
+// visible and admitting them is correct. Round 2 stripped fences; its stripper
+// ate the opener and ONE line, so its own pins passed for the wrong reason
+// (round-2 M2), and a wrong stripper only ever causes false refusals about text
+// the author can see. Round 3 stopped stripping them, and pins the reversal.
+check('requirements inside a fenced code block DO admit — a fence is visible', ok(`${HIDDEN}\n\`\`\`\n${PAYLOAD}\`\`\`\n`), true);
+check('...including past the first line of the fence (round-2 M2: only 1 line was eaten)', ok(`${HIDDEN}\n\`\`\`\nfiller\nfiller\n${PAYLOAD}\`\`\`\n`), true);
+check('a tilde-fenced block admits too', ok(`${HIDDEN}\n~~~\n${PAYLOAD}~~~\n`), true);
+// <!--> and <!---> close IMMEDIATELY — verified against GitHub's own renderer —
+// so they hide nothing. Round 2 treated them as unclosed and erased the whole
+// body, refusing an issue that visibly had all three requirements (round-2 M3).
+check('an abrupt-closing <!--> hides nothing', ok(`<!-->\n${PAYLOAD}`), true);
+check('<!---> likewise', ok(`<!--->\n${PAYLOAD}`), true);
+check('a real unclosed <!-- still hides everything after it', ok(`${HIDDEN}\n<!--\n${PAYLOAD}`), false);
 // <details> is FOLDED, not hidden — a reader can open it, and this repo's issues
 // use it for legitimate detail. Kept on purpose, and pinned so the choice is visible.
 check('a collapsed <details> DOES admit — folded is not hidden', ok(`${HIDDEN}\n<details><summary>detail</summary>\n\n${PAYLOAD}</details>\n`), true);
@@ -121,8 +138,20 @@ check('#306 shape: content under a LATER matching heading counts', ok('## Scope\
 check('a heading followed only by another heading is still refused', ok('## Suggested fix\n\n## Not in scope\n\n`src/engine.ts` `ADR-0075`\n'), false);
 check('...and the message no longer calls a full section "empty"', !why('## Suggested fix\n\n## Not in scope\n\n`src/engine.ts` `ADR-0075`\n').includes('is empty'), true);
 
+// Round 2's /\S/ was the maximally permissive reading and admitted markdown that
+// renders as nothing readable — and `---` between sections is a routine template
+// idiom (round-2 M6). A word character is the floor; still prose, still no magic word.
+check('a horizontal rule is not acceptance criteria', ok('## Requirements\n\n---\n\n## Other\n\n`src/engine.ts` `ADR-0075`\n'), false);
+check('a lone backtick is not acceptance criteria', ok('## Requirements\n\n`\n\n## Other\n\n`src/engine.ts` `ADR-0075`\n'), false);
+check('*** is not acceptance criteria', ok('## Requirements\n\n***\n\n## Other\n\n`src/engine.ts` `ADR-0075`\n'), false);
+check('one real word IS enough', ok('## Requirements\n\nStop throwing.\n\n`src/engine.ts` `ADR-0075`\n'), true);
+
 console.log('\n--- A SURFACE IS INSIDE THE REPOSITORY (round-1 M5) ---');
-check('.. climbing out of the repo is refused', ok('## Requirements\n- x\n\n`src/../../../../../../etc/passwd`\n\nADR-0075\n'), false);
+// With the stub probes this was vacuous — has() rejected the traversing path
+// anyway, so only the message pin was load-bearing (round-2 minor). Real probes
+// resolve `src/../../../../../../etc/passwd` to a file that EXISTS, so the
+// refusal has to come from the traversal check itself.
+check('.. climbing out of the repo is refused, against REAL probes', admit('## Requirements\n- x\n\n`src/../../../../../../etc/passwd`\n\nADR-0075\n', repoProbes()).ok, false);
 check('...and the message says it climbs out', why('## Requirements\n- x\n\n`src/../../../.ssh`\n\nADR-0075\n').includes('climb out of it'), true);
 check('a legitimate path containing dots is fine', ok('## Requirements\n- x\n\n`src/engine.ts`\n\nADR-0075\n'), true);
 
@@ -178,6 +207,39 @@ try {
   check('main() admits from an unrelated cwd (it refused everything before)', runMain(['42']).code === 0, true);
 } finally { process.chdir(here); }
 check('find() will not accept a truncated decision number', repoProbes().find('ADR-007'), null);
+
+console.log('\n--- THE ROOT IS THIS REPOSITORY, ASSERTED (round-2 M4) ---');
+check('this repo is recognised', looksLikeThisRepo(repoRoot()), true);
+check('a directory with no package.json is not', looksLikeThisRepo(tmpdir()), false);
+// The case round-2 M4 actually names: a repo that has VENDORED the gate. A first
+// marker checked for scripts/admission-gate.mjs + docs/adr/ and this shape
+// satisfied it, so the marker has to be identity, not structure.
+const foreign = join(shim, 'foreign');
+mkdirSync(join(foreign, 'scripts'), { recursive: true });
+mkdirSync(join(foreign, 'docs/adr'), { recursive: true });
+writeFileSync(join(foreign, 'scripts/admission-gate.mjs'), '// vendored copy\n');
+writeFileSync(join(foreign, 'package.json'), JSON.stringify({ name: 'some-consumer', version: '1.0.0' }));
+check('a repo that VENDORED the gate is not this repository', looksLikeThisRepo(foreign), false);
+
+console.log('\n--- THE SCRIPT ACTUALLY RUNS WHEN SPAWNED (round-2 B1: it exited 0 SILENTLY) ---');
+// import.meta.url is realpath'd, process.argv[1] is whatever the caller spelled,
+// so through a symlinked path the entry guard never fired: main() did not run and
+// the process exited 0 — this gate's dispatchable signal — printing NOTHING. The
+// quiet-success trap of ADR-0051 §3, and unreachable by importing main() the way
+// every other check here does. So this one SPAWNS, and asserts on CONTENT.
+const bare = join(shim, 'bare.md');
+writeFileSync(bare, 'help');
+const link = join(shim, 'repo-link');
+try { symlinkSync(repoRoot(), link, 'dir'); } catch { /* already there */ }
+const spawnGate = (script) => {
+  const r = spawnSync(process.execPath, [script, '--body-file', bare], { encoding: 'utf8' });
+  return `${r.stdout ?? ''}${r.stderr ?? ''}`;
+};
+const viaLink = spawnGate(join(link, 'scripts/admission-gate.mjs'));
+check('spawned through a SYMLINKED path it still refuses a bare issue', /NOT DISPATCHABLE/.test(viaLink), true);
+check('...and does not exit silently with no output at all', viaLink.trim().length > 0, true);
+const viaReal = spawnGate(join(repoRoot(), 'scripts/admission-gate.mjs'));
+check('spawned through the real path it refuses too', /NOT DISPATCHABLE/.test(viaReal), true);
 rmSync(shim, { recursive: true, force: true });
 
 if (failed) { console.error(`\n${failed} check(s) failed.`); process.exit(1); }

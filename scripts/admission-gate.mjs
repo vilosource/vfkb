@@ -99,15 +99,23 @@ const CRITERIA_HEADING = /^#{1,4}\s*(?:acceptance\s+criteria|done\s+when|definit
  * specification. Any non-heading content now satisfies (a); judging whether the
  * criteria are GOOD stays review's job and a human's.
  */
-const CHECKABLE = /\S/;
+// A word character, not merely any non-whitespace: round 2's `/\S/` admitted a
+// section whose only content was `---`, `***` or a stray backtick — markdown
+// that renders as nothing readable — and `---` between sections is a routine
+// template idiom. Still prose-friendly, still not a magic word.
+const CHECKABLE = /\w/;
 
 /** Paths that are implementation surfaces in this repo. */
 // `*` not `+` after the slash: naming a DIRECTORY (`scripts/`) is a legitimate
 // way to say what a change touches, and requiring a filename refused it.
-// Also matched after a blob permalink, which is a normal way to name a file:
-// round 1 found `https://github.com/o/r/blob/main/src/engine.ts` yielding no
-// surface at all.
-const SURFACE = /(?:^|[\s`(]|\/blob\/[\w.-]+\/)((?:src|test|tests|scripts|scenarios|docs\/templates|\.claude|\.github)\/[\w./-]*)/g;
+// Also matched after a blob permalink of THIS repository, which is a normal way
+// to name a file (round 1 found a permalink yielding no surface at all). The
+// owner/repo segments are required: round 2 ignored them, so a permalink into
+// vfkb-claude-plugin — or any host — contributed a path that was then validated
+// against THIS repo and printed as a local surface. This repo genuinely routes
+// cross-repo issues (#175–#177), so that was reachable, not theoretical.
+const THIS_REPO_BLOB = String.raw`github\.com\/vilosource\/vfkb\/blob\/[\w.-]+\/`;
+const SURFACE = new RegExp(String.raw`(?:^|[\s\`(]|${THIS_REPO_BLOB})((?:src|test|tests|scripts|scenarios|docs\/templates|\.claude|\.github)\/[\w./-]*)`, 'g');
 /** A governing decision document. */
 const GOVERNING = /(?:^|[\s`(])(docs\/(?:adr|rfc)\/(?:ADR|RFC)-[\w./-]+\.md)/gi;
 /** A bare reference like "ADR-0075" or "RFC-039" with no path. */
@@ -127,13 +135,30 @@ const BARE_DECISION = /\b((?:ADR|RFC)-\d{3,4})\b/gi;
  * nine-line HTML comment carried requirements, a surface and an ADR — the
  * source-text-guard class ADR-0070 §1 bans, already on this repo's record twice
  * (reviews/c2ab99e005*, reviews/0a2fcf8b4e*) and the worked example of a
- * blocking finding in reviews/README.md. Comments and fenced code are stripped.
- * A collapsed <details> is KEPT: it is folded, not hidden — a reader can open
- * it, and this repo's own issues use it for legitimate detail.
+ * blocking finding in reviews/README.md.
+ *
+ * ONLY HTML COMMENTS ARE STRIPPED, and that is the whole rule. Round 2 also
+ * stripped fenced code blocks; round 3 removed that, because a fenced block
+ * RENDERS — a reader sees it — so requirements written inside one are visible
+ * and admitting them is correct. The stripper was also subtly wrong (it ate the
+ * opener and one line, so its own pins passed for the wrong reason), and a
+ * wrong stripper only ever causes FALSE REFUSALS about text the author can see.
+ * Verified against GitHub's own renderer (`POST /markdown`, mode=gfm) rather
+ * than assumed: an unclosed `<!--` really does hide everything after it, so
+ * strip-to-end is right; `<!-->` and `<!--->` close IMMEDIATELY and hide
+ * nothing; nested comments and `&lt;!--` entities render visibly.
+ *
+ * A collapsed <details> is KEPT: folded is not hidden — a reader can open it,
+ * and this repo's own issues use it for legitimate detail.
+ *
+ * Known and accepted: a comment written INSIDE a fence renders literally but is
+ * stripped here. It costs a refusal about visible text in a shape nobody uses;
+ * the alternative is a markdown parser, which is a larger dependency than the
+ * problem.
  */
 export const visibleText = (body) => String(body ?? '')
-  .replace(/<!--[\s\S]*?(?:-->|$)/g, '\n')
-  .replace(/^[ \t]*(?:```|~~~)[^\n]*\n[\s\S]*?(?:^[ \t]*(?:```|~~~)[^\n]*$|$)/gm, '\n');
+  .replace(/<!--+>/g, '\n')                    // <!--> and <!---> close immediately
+  .replace(/<!--[\s\S]*?(?:-->|$)/g, '\n');
 
 const uniq = (a) => [...new Set(a)];
 const matches = (body, re) => uniq([...String(body).matchAll(re)].map((m) => m[1]));
@@ -226,6 +251,18 @@ export function repoRoot(start = dirname(fileURLToPath(import.meta.url))) {
   catch { return realpathSync(resolve(start, '..')); }
 }
 
+/**
+ * Is this the repository the gate belongs to? Identity, not shape: a first
+ * attempt checked for `scripts/admission-gate.mjs` + `docs/adr/` and a foreign
+ * repo satisfied it BECAUSE it had vendored the gate — the very case round-2 M4
+ * names (a consumer repo, or D5's pre-seeded worktree). package.json's name is
+ * the thing a copy does not bring with it.
+ */
+export const looksLikeThisRepo = (root) => {
+  try { return JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')).name === '@viloforge/vfkb'; }
+  catch { return false; }
+};
+
 export function repoProbes(root = repoRoot()) {
   const has = (p) => existsSync(resolve(root, p));
   const find = (decision) => {
@@ -244,6 +281,17 @@ export function repoProbes(root = repoRoot()) {
 
 export function main(argv = process.argv.slice(2)) {
   const arg = (n, d) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : d; };
+  // The root is asserted, not assumed. `git rev-parse` answers for whatever repo
+  // the script currently sits in, so a vendored or copied gate validated an
+  // issue's surfaces AND its ADR against a DIFFERENT repository, printing a
+  // governing document from that repository as if the issue had cited it
+  // (round-2 M4). Round 1's M2 was the same silence in the other direction.
+  const root = arg('--repo', null) ? resolve(arg('--repo', null)) : repoRoot();
+  if (!looksLikeThisRepo(root)) {
+    console.error(`admission-gate FAILED — ${root} does not look like the vfkb repository (no scripts/admission-gate.mjs + docs/adr).`);
+    console.error('Refusing to validate an issue\'s surfaces against a repository it does not belong to. Pass --repo <path>.');
+    return 1;
+  }
   const bodyFile = arg('--body-file', null);
   const issue = argv.find((a) => /^\d+$/.test(a));
 
@@ -254,7 +302,7 @@ export function main(argv = process.argv.slice(2)) {
     catch { console.error(`admission-gate FAILED — could not read issue #${issue}. Refusing to admit an issue it cannot see.`); return 1; }
   } else { console.error('usage: admission-gate.mjs <issue-number> | --body-file <path>'); return 2; }
 
-  const { ok, problems, surfaces, governing } = admit(body, repoProbes());
+  const { ok, problems, surfaces, governing } = admit(body, repoProbes(root));
   console.log(`admission-gate: ${label}`);
   console.log(`  surfaces named: ${surfaces.length ? surfaces.join(', ') : 'none'}`);
   console.log(`  governing: ${governing.length ? governing.join(', ') : 'none'}`);
@@ -267,4 +315,13 @@ export function main(argv = process.argv.slice(2)) {
   return 1;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) process.exit(main());
+// REALPATHS BOTH SIDES. `import.meta.url` is realpath'd by Node while
+// `process.argv[1]` is whatever the caller spelled, so invoked through a
+// symlinked checkout — or any /tmp or /var path on macOS — the two differed,
+// main() never ran, and the script exited 0 PRINTING NOTHING. 0 is this gate's
+// dispatchable signal, so an orchestrator invoking it from outside the repo
+// (which is now the expected case) would have dispatched the whole backlog.
+// The quiet-success trap of ADR-0051 §3, and this repo's own recorded
+// realpath gotcha for the fourth time.
+const realOrSelf = (f) => { try { return realpathSync(f); } catch { return f; } };
+if (process.argv[1] && realOrSelf(fileURLToPath(import.meta.url)) === realOrSelf(process.argv[1])) process.exit(main());
