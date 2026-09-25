@@ -1,0 +1,209 @@
+{
+  "recordVersion": 1,
+  "sha": "26cbc528abfc1d38729534d5b584af21bcc70749",
+  "governing": [
+    "docs/adr/ADR-0075-the-software-factory.md",
+    "docs/rfc/RFC-039-the-software-factory.md",
+    "docs/adr/ADR-0070-guards-that-can-fail.md"
+  ],
+  "reviewer": {
+    "agent": "general-purpose",
+    "model": "claude-opus-5",
+    "rounds": 1
+  },
+  "generated": "2026-09-18T12:24:46Z",
+  "findings": [
+    {
+      "id": "B1",
+      "severity": "blocking",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "isTestFile (:64) required a test(s)/ directory; this repo has 12 src/*.test.ts and 9 fix: commits on main whose only reproduction lives there — gate printed 'adds or changes NO test' and exited 0 (executed on af7567b, c9f7172). Widening it exposed the base's pretest (tsc over src/**) type-checking HEAD tests against BASE signatures → INCONCLUSIVE (TS2554). Fixed in a278d71: any *.test.* outside dist/ counts; base built once before head files are written; runs use --ignore-scripts."
+    },
+    {
+      "id": "M1",
+      "severity": "major",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "only *.test.* files were written into the worktree (:162-167); a red test importing a fixture/helper the fix adds under test/ link-failed → honest fix FAILED (executed). Fixed: every A/M/D file under a test directory rides along."
+    },
+    {
+      "id": "M2",
+      "severity": "major",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "newly-red keyed by file::name — renaming a pre-existing red test or git mv of its file produced a 'new' red (executed on fixture). Latent while main has 0 reds. Fixed: base reds that vanish from the replay are subtracted; newlyRed must exceed vanishedRed."
+    },
+    {
+      "id": "M3",
+      "severity": "major",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "ADR-0075 cl. 4 / ruling point 7: the gate step had never been observed RED in CI (only SKIPPED claim: chore on this PR). Fixed by probe PR #312: run 35343895498 FAILED on a fix: with no test; second arm (test passes at base) recorded in the round-2 record."
+    },
+    {
+      "id": "M4",
+      "severity": "major",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "two exit-0 outcomes for an armed fix claim beyond the ruling — no test file (:210) and no src/ (:209); omission was the cheapest self-service escape. Operator ruling e55a96c3ddbc: no test file → FAIL; no src/ at all → SKIPPED with the reason. Fixed accordingly."
+    },
+    {
+      "id": "M5",
+      "severity": "major",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "selftest gh shim (:95) ignored its arguments — asking for the wrong issue or a PR passed the label pins. Fixed: shim answers only `gh issue view <expected>`; mutation issueLabels(999) observed red (4 FAIL)."
+    },
+    {
+      "id": "m1",
+      "severity": "minor",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "srcTouched guard unpinned (vacuous pin :91). Fixed: docs-only and test-only fix claims pinned with content assertion; mutation observed red (2 FAIL)."
+    },
+    {
+      "id": "m2",
+      "severity": "minor",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "'ALREADY PASSES' text wrong for a throwing beforeAll / all-skipped file. Fixed: reports 'skipped there'."
+    },
+    {
+      "id": "m3",
+      "severity": "minor",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "Vitest positional filter is a substring match (test/greet.test.ts also ran greet.test.tsx, executed). Fixed: report post-filtered to the named files; prefix-named red sibling at base pinned; mutation observed red."
+    },
+    {
+      "id": "m4",
+      "severity": "minor",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "INCONCLUSIVE message did not say node_modules are the HEAD's (412dd85, base 2026-07-11). Fixed in the build-failure message."
+    },
+    {
+      "id": "m5",
+      "severity": "minor",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "scenarios/ out of scope unstated; SKIP text false. Fixed: header does-not-catch list."
+    },
+    {
+      "id": "m6",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "dominant-type tiebreak is stable-sort order (CI printed 'chore' for a chore/refactor/merge triple). Cosmetic; only the fix/non-fix distinction is load-bearing."
+    },
+    {
+      "id": "m7",
+      "severity": "minor",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "ISSUE_REF missed GitHub URL and owner/repo#N forms; first match wins; PR body outranks commits. Fixed the forms (pinned); first-match and body-first are as designed."
+    },
+    {
+      "id": "m8",
+      "severity": "minor",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "this checkout's .git/config carried the fixture identity t <a@b> (three branch commits authored so; cause UNVERIFIED — a scratch worktree shares the config). Fixed: config unset, commits re-authored (26cbc52), force-pushed."
+    },
+    {
+      "id": "m9",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "selftest header says each pin names its mutation; the commit message and the review record do. Wording."
+    },
+    {
+      "id": "m10",
+      "severity": "minor",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "the any-red-counts class (a test red at base for an unrelated reason: a file the fix adds, the environment, time) is inherent and was undisclosed. Fixed: header does-not-catch list."
+    },
+    {
+      "id": "m11",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "gh issue view <PR number> returns the PR's labels — a Closes #<PR> reference reads a PR. Low impact: a PR carries no bug label."
+    }
+  ],
+  "findingsCount": 17,
+  "ruledOut": [
+    "base==head and unresolvable base refuse (pinned, executed); trailer waiver inert (pinned); --ignore-scripts/unbuilt base fails closed; pretest genuinely runs in the worktree (observed, dist/ present); timeout-at-base counts as red (legit); top-level collection throw → link-failed → FAILED; duplicate names conservative; it.skip/it.todo-only file blocks; gh missing/timeout/nonexistent issue → null → fallback with 'lookup unavailable' printed; git diff -z parsing incl. R/C; workflow permissions sufficient for every step (observed green through the tamper step in run 35337459737); PR_BODY via env with multi-line body safe (observed); cost 0.1–4.6 s per run; no AI attribution; no secrets; selftest leaves no temp dirs. UNVERIFIED: gh issue view under github.token on a fork PR."
+  ],
+  "mutations": [
+    {
+      "guard": "reproduction-gate selftest connected",
+      "mutation": "main() returns 0",
+      "observedRed": true,
+      "note": "20 FAIL (author and reviewer independently)"
+    },
+    {
+      "guard": "verdict direction",
+      "mutation": "if (r.newlyRed.length) → if (!…)",
+      "observedRed": true,
+      "note": "10 FAIL"
+    },
+    {
+      "guard": "pre-existing red subtracted",
+      "mutation": "drop !baseRed.has(k)",
+      "observedRed": true,
+      "note": "1 FAIL"
+    },
+    {
+      "guard": "base is BUILT",
+      "mutation": "npm test --ignore-scripts on the only run (round-1 code)",
+      "observedRed": true,
+      "note": "5 FAIL"
+    },
+    {
+      "guard": "issue bug label arms",
+      "mutation": "labels.includes('bug') → false",
+      "observedRed": true,
+      "note": "3 FAIL"
+    },
+    {
+      "guard": "no trailer waiver",
+      "mutation": "Reproduction-Waiver read re-added",
+      "observedRed": true,
+      "note": "1 FAIL"
+    },
+    {
+      "guard": "link failure is not red",
+      "mutation": "linkFailed counted as a failed test",
+      "observedRed": true,
+      "note": "2 FAIL"
+    },
+    {
+      "guard": "claim trigger",
+      "mutation": "if (claim.kind !== 'fix') → if (false)",
+      "observedRed": true,
+      "note": "5 FAIL"
+    },
+    {
+      "guard": "modified files replayed",
+      "mutation": "drop status 'M'",
+      "observedRed": true,
+      "note": "2 FAIL"
+    },
+    {
+      "guard": "fail closed on no report",
+      "mutation": "no report → ok:true",
+      "observedRed": true,
+      "note": "2–4 FAIL (author/reviewer variants)"
+    },
+    {
+      "guard": "real gate vs main",
+      "mutation": "b6d18d4 (new-module import)",
+      "observedRed": true,
+      "note": "FAILED with the link-failure message; 356a7f7 / b9bc232 PASSED 5 / 1; ad972ce SKIPPED claim: feat"
+    }
+  ],
+  "verdict": "FIX-FIRST"
+}

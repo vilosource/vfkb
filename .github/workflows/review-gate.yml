@@ -6,6 +6,10 @@ on:
 jobs:
   review-gate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -22,6 +26,11 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 20
+
+      # tamper-check inventories both refs through the repository's own Vitest.
+      # A bare runner lets npx fetch a CLI but leaves test imports unresolved,
+      # which made the connectedness selftest green while the real gate crashed.
+      - run: npm ci
 
       # A Brake nobody has watched fail is a Brake nobody knows is connected.
       - name: The gate is connected — negative checks go red
@@ -50,6 +59,61 @@ jobs:
       # and the stdin-watchdog TERMINATES + still-DENIES pair (issue #214).
       - name: The git-compound guard is connected — both directions go red
         run: node scripts/hook-git-compound-guard.selftest.mjs
+
+      # P12-a (ADR-0075 clause 3 / RFC-039 D8). An agent asked to make tests pass
+      # has an obvious shortcut — GitHub's own words: "remove the tests, skip the
+      # lint step, add `|| true` to test commands". This Brake refuses the four
+      # shapes that buy a green run without buying correctness. Its selftest pins
+      # the FALSE-POSITIVE half as hard as the true-positive half, because a
+      # tamper detector that blocks honest work teaches people to route around
+      # the gate, and the routing-around is invisible.
+      - name: The tamper detector is connected — both directions go red
+        run: node scripts/tamper-check.selftest.mjs
+
+      # NB the fetch is NOT `|| true` and the merge-base is NOT inlined into an
+      # argument. The first version did both, so a failed fetch collapsed the
+      # base to HEAD^ and the gate scanned ONE COMMIT and printed PASSED — a
+      # gate neutered by the very `|| true` it exists to refuse (review M1).
+      # tamper-check also refuses to report a verdict when base == head (M2).
+      - name: The change did not weaken the suite (tamper detection)
+        if: github.event_name == 'pull_request'
+        env:
+          # via env, not interpolated into the script body — a ref is
+          # attacker-influenceable on a fork PR and `check-ref-format` accepts
+          # shapes that would break out of a quoted shell string.
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          git fetch origin "$BASE_REF" --quiet
+          BASE="$(git merge-base "origin/$BASE_REF" HEAD)"
+          echo "comparing against merge-base $BASE"
+          node scripts/tamper-check.mjs --base "$BASE" --head HEAD
+
+      # P12-a's second gate (ADR-0075 cl. 3 / RFC-039 D8). A change that CLAIMS
+      # to fix a bug must prove the bug existed: its tests are replayed against
+      # a BUILT merge base and at least one must be newly red there. The trigger
+      # is the claim — the linked issue's `bug` label, or a `fix:` commit — not a
+      # diff shape: under the D10 scope ruling every dispatched PR touches src/
+      # and adds passing tests honestly, so a diff trigger would fire on all of
+      # them. There is no waiver; non-fix work is simply not armed.
+      - name: The reproduction gate is connected — both directions go red
+        run: node scripts/reproduction-gate.selftest.mjs
+
+      - name: A fix proves the bug existed (reproduction gate)
+        if: github.event_name == 'pull_request'
+        env:
+          # via env, not interpolated into the script body — a ref, a branch
+          # name and a PR body are attacker-influenceable on a fork PR.
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git fetch origin "$BASE_REF" --quiet
+          BASE="$(git merge-base "origin/$BASE_REF" HEAD)"
+          echo "comparing against merge-base $BASE"
+          node scripts/reproduction-gate.mjs --base "$BASE" --head HEAD
 
       # P12-a's admission gate (ADR-0075 clause 3 / RFC-039 D2). The gate itself
       # runs against ISSUES before dispatch, not against PRs, so only its
