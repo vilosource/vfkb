@@ -40,3 +40,5 @@ export const ENGINE_VERSION: string =
   typeof __VFKB_VERSION__ !== 'undefined' ? __VFKB_VERSION__ : ownPackageVersion();
 export const ENGINE_COMMIT: string =
   typeof __VFKB_COMMIT__ !== 'undefined' ? __VFKB_COMMIT__ : 'dev';
+
+// probe: reproduction-gate issue-label path in CI (#313 item 1); reverted, never merged
