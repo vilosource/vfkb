@@ -1,0 +1,185 @@
+{
+  "recordVersion": 1,
+  "sha": "582f3f06bab504fb80031611ed3aec4675718f24",
+  "governing": [
+    "docs/adr/ADR-0075-the-software-factory.md",
+    "docs/rfc/RFC-039-the-software-factory.md",
+    "docs/adr/ADR-0070-guards-that-can-fail.md"
+  ],
+  "reviewer": {
+    "agent": "claude (herdr pane adm-review)",
+    "model": "claude-opus-5",
+    "rounds": 1
+  },
+  "generated": "2026-09-25T08:00:26Z",
+  "findings": [
+    {
+      "id": "B1",
+      "severity": "blocking",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "hidden text admitted the exact issue the gate exists to refuse: the three detectors were regexes over the RAW body, so an issue whose rendered body was 'Please fix the thing. It is broken.' PASSED dispatchable on a nine-line HTML comment (reproduced by the orchestrator). Fenced blocks and <details> the same. The source-text-guard class ADR-0070 §1 bans, on this repo's record twice (reviews/c2ab99e005*, reviews/0a2fcf8b4e*) and reviews/README.md's own worked example. Fixed in 05c2ba4: visibleText() strips comments and fences; <details> deliberately kept (folded is not hidden) and pinned."
+    },
+    {
+      "id": "B2",
+      "severity": "blocking",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "the empty-criteria branch was wrong on 6 of 6 real issues it fired on (#95 #96 #127 #186 #280 #306) and its message was factually false in each — the sections were prose or blockquotes, not empty. #306, the best-specified issue in the corpus, was refused because text.search() takes the FIRST matching heading while its bulleted section sat under a later one (reproduced). Demanding a bullet was the header's own magic-word anti-pattern one level down. Fixed: any non-heading content satisfies (a), every matching heading is scanned, message corrected. Corpus 4 → 9 dispatchable; #127 now refuses for a true reason (names no surface)."
+    },
+    {
+      "id": "M1",
+      "severity": "major",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "the production entry point had ZERO coverage: the selftest imported admit() only and substituted a hand-written Set for the probes, so repoProbes, main, the gh call, argv parsing and every exit code were executed by nothing — which is what hid M2. Fixed: the selftest drives main() behind a gh PATH shim, the sibling gate's pattern (reproduction-gate.selftest.mjs)."
+    },
+    {
+      "id": "M2",
+      "severity": "major",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "run from any cwd but the repo root the gate refused EVERY issue, each with a false accusation that src/engine.ts does not exist — and its only intended consumer (D3/D4's orchestrator) polls from its own directory or a per-issue worktree. Fails closed, hence major not blocking. Fixed: the root comes from the SCRIPT's own location (git -C <scripts/> rev-parse --show-toplevel, realpath'd). A first attempt anchored on cwd was insufficient — verified failing from $HOME — and was corrected before commit."
+    },
+    {
+      "id": "M3",
+      "severity": "major",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "gh was hardcoded to /opt/homebrew/bin/gh: macOS-only, ENOENT swallowed into a wrong diagnosis, and unshimmable so the sibling's test pattern could not be applied. Fixed: resolve 'gh' through PATH."
+    },
+    {
+      "id": "M4",
+      "severity": "major",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "a decision that does not exist resolved to a different one: BARE_DECISION accepted \\d{3,4} and find() used an unanchored startsWith, so ADR-007 matched ADR-0070 — the gate admitted the issue AND printed a governing document it never cited (reproduced). Fixed by anchoring find() on the full 'ADR-0075-' prefix. Narrowing BARE_DECISION to \\d{4} was also tried and REVERTED: its in-place mutation changed nothing (0 FAIL), so it would have been an unpinned guard, and the wider match gives the better refusal."
+    },
+    {
+      "id": "M5",
+      "severity": "major",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "path traversal escaped the repository: src/../../../../../../etc/passwd satisfied clause (b), so the referent was the whole filesystem rather than 'the repository itself' the header claims (reproduced). Nothing is read, so no disclosure. Fixed: any surface containing a '..' segment is refused with its own message. Round 2 note: the behavioural half of this pin is vacuous — with traversing=[] only the MESSAGE check fails, because the selftest's stub has() rejects the traversing path anyway. Carried as an R2 minor."
+    },
+    {
+      "id": "M6",
+      "severity": "major",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "the design's headline half contributed nothing to the measured split — badsurf 0 across 38 issues and all governing refusals were 'no citation at all', never 'could not be found'. 100% of the discrimination is structural; the existence probes (the answer to the model-as-judge problem, the reason given for the whole design) have never fired on a real issue. A disclosure gap against the header's own standard. Fixed: stated in the header and the PR body as prospective, not the discriminator."
+    },
+    {
+      "id": "m1",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "the PR body misstated its own evidence count twice ('20 cases', '20/20'); the selftest was 35. Corrected, and now 63. NOT fully fixed (round 2): the PR body's closing line still read 'admission selftest 20/20 green', and commit 05c2ba4 says '20 → 63' when the true arc is 35 → 63."
+    },
+    {
+      "id": "m2",
+      "severity": "minor",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "the re-verified breakdown dropped the 9 missing-governing category, reading as if the reason had vanished. Corrected."
+    },
+    {
+      "id": "m3",
+      "severity": "minor",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "GOVERNING was /gi but BARE_DECISION only /g, so 'Per adr-0075.' was refused. Both case-insensitive now, with find() upper-casing."
+    },
+    {
+      "id": "m4",
+      "severity": "minor",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "a surface named in a blob permalink was not seen (surfaces named: none). SURFACE now also matches after /blob/<ref>/; pinned, mutation observed red."
+    },
+    {
+      "id": "m5",
+      "severity": "minor",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "'returned' overstated what the script does — it prints and exits, and D1's FSM is unbuilt. The header had a 'does not check' list and no 'does not do' counterpart; added."
+    },
+    {
+      "id": "m6",
+      "severity": "minor",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "three descriptions of the same ruling (brain text 'decided', entry status 'proposed', PR body 'proposed resolution ... needs a ruling'). PR body now says ruled, citing brain 1652256406c1."
+    },
+    {
+      "id": "m7",
+      "severity": "minor",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "find() shelled out to `ls` once per citation; replaced with readdirSync."
+    }
+  ],
+  "findingsCount": 15,
+  "ruledOut": [
+    "the author's corpus measurement reproduces: 4 of 38 dispatchable at round 1 (#22 #161 #288 #303), independently re-run by the orchestrator (a first tally of 0 was the orchestrator's case-sensitive grep, not the gate)",
+    "the heading vocabulary is genuinely calibrated — all 10 spellings recognised, pinned per heading",
+    "the three requirements are independently load-bearing (pinned separately, each mutation red)",
+    "criteria quality is explicitly review's job and a human's, stated in the header rather than implied ('- [ ] make it work' is admitted BY DESIGN)",
+    "the merge of main kept all three gate blocks; tamper-check, reproduction-gate and admission-gate selftests all pass on this branch; 780/780 unit; tsc clean",
+    "no AI attribution in any commit in the range; no secrets; the repo's git config carries no local user.* (the fixture identity leak from #311 has not recurred)",
+    "mutation methodology itself was corrected mid-round: copies under /tmp broke five pins environmentally (the script-anchored root cannot resolve there) and masked which guard's pin fired, so all 11 mutations were re-run IN PLACE",
+    "CORRECTION, filed after rounds 2 and 3: this record originally logged a 'fenced blocks stripped' mutation as observedRed:true, and round 2 (R2-M2) showed that guard did not exist as described — the stripper ate the opener and one line, so its pins passed for an incidental reason. A first amendment set observedRed:false; round 3 (R3-m3) pointed out that scripts/review-gate.mjs:185 and reviews/README.md both forbid that value, because a guard that stayed green under its mutation belongs in findings, not in the log. The entry is therefore REMOVED and the defect is carried as finding R2-M2 in reviews/f5078cd5*.json. Round 3 also reopened m1. Testimony found wrong is amended under the same name; the number of mutations logged went 9 -> 8."
+  ],
+  "mutations": [
+    {
+      "guard": "only visible text counts (B1)",
+      "mutation": "visibleText(body) → String(body ?? '')",
+      "observedRed": true,
+      "note": "5 FAIL: HTML comment, unclosed comment, fenced, tilde-fenced, unclosed fence"
+    },
+    {
+      "guard": "criteria may be prose (B2)",
+      "mutation": "CHECKABLE /\\S/ → the old bullet/task-box regex",
+      "observedRed": true,
+      "note": "2 FAIL: prose section, blockquote section"
+    },
+    {
+      "guard": "every matching heading is scanned (B2)",
+      "mutation": "headings.some(...) → [headings[0]].some(...)",
+      "observedRed": true,
+      "note": "1 FAIL: the #306 shape"
+    },
+    {
+      "guard": "surfaces stay inside the repo (M5)",
+      "mutation": "traversing = [] ",
+      "observedRed": true,
+      "note": "1 FAIL: the message no longer says it climbs out (the refusal itself survives via badSurfaces, so the message pin is the specific one)"
+    },
+    {
+      "guard": "find() anchors on the full decision prefix (M4)",
+      "mutation": "startsWith(`ADR-007`) without the trailing '-'",
+      "observedRed": true,
+      "note": "2 FAIL: ADR-007 resolves to a real ADR; find() returns docs/adr/ADR-0070-…"
+    },
+    {
+      "guard": "gh resolves through PATH (M3)",
+      "mutation": "execFileSync('/opt/homebrew/bin/gh', …)",
+      "observedRed": true,
+      "note": "2 FAIL: both shim-driven main() pins"
+    },
+    {
+      "guard": "root from the script's location (M2)",
+      "mutation": "repoRoot(start = process.cwd())",
+      "observedRed": true,
+      "note": "3 FAIL: probes and main() from an unrelated cwd"
+    },
+    {
+      "guard": "permalinked surfaces are seen (m4)",
+      "mutation": "drop |\\/blob\\/[\\w.-]+\\/ from SURFACE",
+      "observedRed": true,
+      "note": "1 FAIL"
+    }
+  ],
+  "mutationsNote": null,
+  "verdict": "FIX-FIRST"
+}

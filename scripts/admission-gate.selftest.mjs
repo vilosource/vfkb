@@ -1,0 +1,369 @@
+#!/usr/bin/env node
+// ============================================================================
+// Selftest for the admission gate. "A Brake nobody has watched fail is a Brake
+// nobody knows is connected" (scripts/review-gate.mjs).
+//
+// Both halves are pinned. A gate that blocks honest work is a defect (ADR-0052),
+// and an ADMISSION gate with that flaw is the worst kind: it turns "specify your
+// issue" into "guess my magic heading", which is what the first draft did — it
+// demanded a literal "Acceptance criteria" heading and matched ZERO of this
+// repo's 36 real issues. The vocabulary below is the one the corpus actually
+// uses, and the honest-work cases are drawn from real issue shapes.
+//
+// Per brain gotcha 1af189641750, "observed red" is a floor: every check here is
+// written so that DELETING its detector makes it fail. Verify that when editing.
+//
+//   node scripts/admission-gate.selftest.mjs
+// ============================================================================
+import { admit, repoProbes, repoRoot, looksLikeThisRepo, main, renderViaGitHub, visibleTextFromHtml } from './admission-gate.mjs';
+
+import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+let failed = 0;
+const check = (label, got, want) => {
+  const ok = got === want;
+  if (!ok) failed++;
+  console.log(`${ok ? 'ok   ' : 'FAIL '} ${label}${ok ? '' : ` — wanted ${want}, got ${got}`}`);
+};
+
+// ── THE RENDERER IS REPLAYED, NOT MOCKED ────────────────────────────────────
+// The gate's visibility layer is GitHub's own renderer, so every case here needs
+// rendered HTML. Rendering live on every run would make the selftest need the
+// network and make its result depend on the day; so the corpus is rendered ONCE
+// into scripts/fixtures/admission-render.json and replayed.
+//
+// A cache MISS is fatal, never a silent fallback to the live API: if it were a
+// fallback, an offline run and a networked run would mean different things and a
+// stale fixture would pass. `--live` renders everything through GitHub instead
+// and is how the cache is re-verified against the real oracle.
+//   node scripts/build-admission-fixtures.mjs        # after adding a case
+//   node scripts/admission-gate.selftest.mjs --live  # re-verify the cache
+const LIVE = process.argv.includes('--live');
+const COLLECT = process.env.ADM_MISS_FILE;   // used only by the fixture builder
+const fixturePath = resolve(dirname(fileURLToPath(import.meta.url)), 'fixtures/admission-render.json');
+const fixtures = existsSync(fixturePath) ? JSON.parse(readFileSync(fixturePath, 'utf8')) : {};
+const key = (body) => createHash('sha256').update(String(body ?? ''), 'utf8').digest('hex').slice(0, 32);
+let misses = 0;
+const render = (body) => {
+  if (LIVE) return renderViaGitHub(body);
+  const hit = fixtures[key(body)];
+  if (hit !== undefined) return hit;
+  if (COLLECT) { appendFileSync(COLLECT, `${JSON.stringify(String(body ?? ''))}\n`); return '<p></p>'; }
+  misses++; failed++;
+  console.log(`FAIL  RENDER FIXTURE MISSING for key ${key(body)} — run: node scripts/build-admission-fixtures.mjs`);
+  return '<p></p>';
+};
+
+// A repo where src/, test/, scripts/ and two decisions exist.
+const REAL = new Set(['src', 'src/engine.ts', 'test', 'test/a.test.ts', 'scripts', 'docs/adr/ADR-0075-the-software-factory.md']);
+const probes = {
+  has: (p) => REAL.has(p),
+  find: (d) => (d === 'ADR-0075' ? 'docs/adr/ADR-0075-the-software-factory.md' : null),
+};
+const probesR = { ...probes, render };
+const ok = (body) => admit(body, probesR).ok;
+const why = (body) => admit(body, probesR).problems.join(' | ');
+
+const FULL = `Some context about the bug.
+
+## Acceptance criteria
+- [ ] \`src/engine.ts\` stops throwing on an empty brain
+
+## Surfaces
+- \`src/engine.ts\`
+- \`test/a.test.ts\`
+
+Governing: \`ADR-0075\`
+`;
+
+console.log('--- a complete issue is dispatchable ---');
+check('the full shape passes', ok(FULL), true);
+
+console.log('\n--- each requirement is INDEPENDENTLY load-bearing ---');
+check('drop the criteria section → refused', ok(FULL.replace(/## Acceptance criteria\n- \[ \].*\n/, '')), false);
+check('drop the surfaces → refused', ok('## Acceptance criteria\n- [ ] it works\n\nGoverning: `ADR-0075`\n'), false);
+check('drop the governing decision → refused', ok(FULL.replace('Governing: `ADR-0075`', '')), false);
+check('empty criteria section → refused', ok(FULL.replace('- [ ] `src/engine.ts` stops throwing on an empty brain', '')), false);
+
+console.log('\n--- existence is VERIFIED, not assumed (the authoritative half) ---');
+check('a surface whose DIRECTORY does not exist → refused', ok(FULL.replace('src/engine.ts', 'src/nowhere/deep.ts')), false);
+check('...and the message names the path', why(FULL.replace('src/engine.ts', 'src/nowhere/deep.ts')).includes('src/nowhere/deep.ts'), true);
+check('a file that does not exist YET but whose dir does → allowed', ok(FULL.replace('src/engine.ts', 'src/brand-new.ts')), true);
+check('a cited ADR that does not exist → refused', ok(FULL.replace('ADR-0075', 'ADR-9999')), false);
+check('...and the message names it', why(FULL.replace('ADR-0075', 'ADR-9999')).includes('ADR-9999'), true);
+check('a full ADR path that exists → accepted', ok(FULL.replace('`ADR-0075`', '`docs/adr/ADR-0075-the-software-factory.md`')), true);
+
+console.log('\n--- the heading vocabulary THIS REPO uses (first draft matched none of it) ---');
+const withHeading = (h) => `## ${h}\n- rewrite the thing\n\nTouches \`src/engine.ts\`. Governing \`ADR-0075\`.\n`;
+for (const h of ['Acceptance criteria', 'Done when', 'Definition of done', 'Requirements', 'Suggested fix', 'Proposed fix', 'Fix shape', 'What would resolve it', 'The property to assert', 'Scope']) {
+  check(`"${h}" is recognised`, ok(withHeading(h)), true);
+}
+check('a heading with no items under it → refused', ok('## Suggested fix\n\n## Something else\n\n`src/engine.ts` `ADR-0075`\n'), false);
+
+console.log('\n--- checkable items in the forms people write them ---');
+for (const [label, item] of [['task box', '- [ ] do the thing'], ['ticked box', '- [x] done already'], ['bullet', '- do the thing'], ['star bullet', '* do the thing'], ['numbered', '1. do the thing']]) {
+  check(`${label} counts as checkable`, ok(`## Requirements\n${item}\n\n\`src/engine.ts\` \`ADR-0075\`\n`), true);
+}
+
+console.log('\n--- honest issue shapes must not be blocked ---');
+check('surfaces mentioned in prose rather than a list', ok('## Suggested fix\n- guard it\n\nThe change is in `src/engine.ts`, per `ADR-0075`.\n'), true);
+check('a directory named instead of a file', ok('## Requirements\n- add a Brake\n\nTouches `scripts/` per `ADR-0075`.\n'), true);
+check('multiple decisions cited, one real', ok('## Requirements\n- x\n\n`src/engine.ts`, per `ADR-0075` and `RFC-999`.\n'), true);
+check('a body with no markdown headings at all → refused (not crashed)', ok('just do the thing in src/engine.ts'), false);
+check('an empty body → refused, not crashed', ok(''), false);
+check('a null body → refused, not crashed', ok(null), false);
+
+check('a surface named in a blob permalink is seen', ok('## Requirements\n- x\n\nhttps://github.com/vilosource/vfkb/blob/main/src/engine.ts\n\nADR-0075\n'), true);
+
+console.log('\n--- A PERMALINK MUST NAME **THIS** REPOSITORY (round-2 M5) ---');
+check('a permalink into another repo is NOT a surface here', ok('## Requirements\n- x\n\nhttps://github.com/vilosource/vfkb-claude-plugin/blob/main/src/engine.ts\n\nADR-0075\n'), false);
+check("...nor another host's", ok('## Requirements\n- x\n\nhttps://github.com/evil/other/blob/v1.2.3/scripts/thing.mjs\n\nADR-0075\n'), false);
+check('this repo\'s own permalink still is', ok('## Requirements\n- x\n\nhttps://github.com/vilosource/vfkb/blob/main/src/engine.ts\n\nADR-0075\n'), true);
+
+console.log('\n--- the refusal is ACTIONABLE, which is the point ---');
+check('a bare issue names all three missing things', admit('help', probesR).problems.length === 3, true);
+check('...and says what to add, not just what is wrong', why('help').includes('Add a section headed'), true);
+
+console.log('\n--- ONLY VISIBLE TEXT COUNTS (round-1 B1) ---');
+// An issue whose visible body was "Please fix the thing" was admitted because a
+// nine-line HTML comment carried all three requirements. That is the
+// source-text-guard class ADR-0070 §1 bans, and reviews/README.md's own worked
+// example of a blocking finding.
+const HIDDEN = 'Please fix the thing. It is broken.\n';
+const PAYLOAD = '## Requirements\n- [ ] x\n\n`src/engine.ts`\n\nADR-0075\n';
+check('requirements buried in an HTML comment do NOT admit', ok(`${HIDDEN}\n<!--\n${PAYLOAD}-->\n`), false);
+check('an UNCLOSED HTML comment does not admit either', ok(`${HIDDEN}\n<!--\n${PAYLOAD}`), false);
+// A fenced block RENDERS — a reader sees it — so requirements inside one are
+// visible and admitting them is correct. Round 2 stripped fences; its stripper
+// ate the opener and ONE line, so its own pins passed for the wrong reason
+// (round-2 M2), and a wrong stripper only ever causes false refusals about text
+// the author can see. Round 3 stopped stripping them, and pins the reversal.
+check('requirements inside a fenced code block DO admit — a fence is visible', ok(`${HIDDEN}\n\`\`\`\n${PAYLOAD}\`\`\`\n`), true);
+check('...including past the first line of the fence (round-2 M2: only 1 line was eaten)', ok(`${HIDDEN}\n\`\`\`\nfiller\nfiller\n${PAYLOAD}\`\`\`\n`), true);
+check('a tilde-fenced block admits too', ok(`${HIDDEN}\n~~~\n${PAYLOAD}~~~\n`), true);
+// <!--> and <!---> close IMMEDIATELY — verified against GitHub's own renderer —
+// so they hide nothing. Round 2 treated them as unclosed and erased the whole
+// body, refusing an issue that visibly had all three requirements (round-2 M3).
+check('an abrupt-closing <!--> hides nothing', ok(`<!-->\n${PAYLOAD}`), true);
+check('<!---> likewise', ok(`<!--->\n${PAYLOAD}`), true);
+check('a real unclosed <!-- still hides everything after it', ok(`${HIDDEN}\n<!--\n${PAYLOAD}`), false);
+// <details> is FOLDED, not hidden — a reader can open it, and this repo's issues
+// use it for legitimate detail. Kept on purpose, and pinned so the choice is visible.
+check('a collapsed <details> DOES admit — folded is not hidden', ok(`${HIDDEN}\n<details><summary>detail</summary>\n\n${PAYLOAD}</details>\n`), true);
+check('a fence inside the criteria section does not erase the section', ok('## Requirements\n- [ ] x\n\n```\nsome sample output\n```\n\n`src/engine.ts` `ADR-0075`\n'), true);
+
+console.log('\n--- CRITERIA MAY BE PROSE, AND EVERY HEADING IS SCANNED (round-1 B2) ---');
+// All 6 "empty section" refusals on the real corpus were false: the sections were
+// prose or blockquotes. Demanding a bullet was the magic-word anti-pattern the
+// header warns about, one level down.
+check('a prose criteria section is enough', ok('## Suggested fix\n\nTighten the predicate so doctor exits non-zero when the hook is missing.\n\n`src/engine.ts` `ADR-0075`\n'), true);
+check('a blockquote criteria section is enough', ok('## The property to assert\n\n> Every declared field carries its own `.catch()`.\n\n`src/engine.ts` `ADR-0075`\n'), true);
+// #306's exact shape: a blockquote under the FIRST matching heading and bullets
+// under a LATER one. first-heading-wins refused the best-specified issue in the corpus.
+check('#306 shape: content under a LATER matching heading counts', ok('## Scope\n\n## Requirements\n\n- [ ] make it stop throwing\n\n`src/engine.ts` `ADR-0075`\n'), true);
+check('a heading followed only by another heading is still refused', ok('## Suggested fix\n\n## Not in scope\n\n`src/engine.ts` `ADR-0075`\n'), false);
+check('...and the message no longer calls a full section "empty"', !why('## Suggested fix\n\n## Not in scope\n\n`src/engine.ts` `ADR-0075`\n').includes('is empty'), true);
+
+// Round 2's /\S/ was the maximally permissive reading and admitted markdown that
+// renders as nothing readable — and `---` between sections is a routine template
+// idiom (round-2 M6). A word character is the floor; still prose, still no magic word.
+check('a horizontal rule is not acceptance criteria', ok('## Requirements\n\n---\n\n## Other\n\n`src/engine.ts` `ADR-0075`\n'), false);
+check('a lone backtick is not acceptance criteria', ok('## Requirements\n\n`\n\n## Other\n\n`src/engine.ts` `ADR-0075`\n'), false);
+check('*** is not acceptance criteria', ok('## Requirements\n\n***\n\n## Other\n\n`src/engine.ts` `ADR-0075`\n'), false);
+check('one real word IS enough', ok('## Requirements\n\nStop throwing.\n\n`src/engine.ts` `ADR-0075`\n'), true);
+
+console.log('\n--- A SURFACE IS INSIDE THE REPOSITORY (round-1 M5) ---');
+// With the stub probes this was vacuous — has() rejected the traversing path
+// anyway, so only the message pin was load-bearing (round-2 minor). Real probes
+// resolve `src/../../../../../../etc/passwd` to a file that EXISTS, so the
+// refusal has to come from the traversal check itself.
+check('.. climbing out of the repo is refused, against REAL probes', admit('## Requirements\n- x\n\n`src/../../../../../../etc/passwd`\n\nADR-0075\n', { ...repoProbes(), render }).ok, false);
+check('...and the message says it climbs out', why('## Requirements\n- x\n\n`src/../../../.ssh`\n\nADR-0075\n').includes('climb out of it'), true);
+check('a legitimate path containing dots is fine', ok('## Requirements\n- x\n\n`src/engine.ts`\n\nADR-0075\n'), true);
+
+console.log('\n--- A CITED DECISION IS THE ONE THAT EXISTS (round-1 M4, m3) ---');
+// Against the REAL repo, not the stub: with `\d{3,4}` and an unanchored
+// startsWith, `ADR-007` resolved to ADR-0070 and the gate admitted the issue
+// while printing a decision it never cited (round-1 M4). A stub that only knows
+// ADR-0075 would answer null either way, so the pin has to use real probes.
+check('ADR-007 does not resolve to a real ADR (3 digits are not a citation)', admit('## Requirements\n- x\n\n`src/engine.ts`\n\nADR-007\n', { ...repoProbes(), render }).ok, false);
+check('...and a full 4-digit citation still resolves', admit('## Requirements\n- x\n\n`src/engine.ts`\n\nADR-0070\n', { ...repoProbes(), render }).ok, true);
+check('lowercase adr-0075 is recognised', ok('## Requirements\n- x\n\n`src/engine.ts`\n\nPer adr-0075.\n'), true);
+
+console.log('\n--- THE REAL DRIVER, NOT JUST admit() (round-1 M1/M2/M3) ---');
+// repoProbes/main/the gh call were executed by nothing, which is what hid M2.
+// Driven here the way CI does, with gh behind a PATH shim — the sibling gate's
+// pattern (reproduction-gate.selftest.mjs).
+const shim = mkdtempSync(join(tmpdir(), 'adm-gh-'));
+// The shim answers only `gh issue view <n> --json body`, and answers in the
+// shape the gate parses — JSON with a `body` field. Anything else exits 2, so a
+// gate that asked for the wrong thing is observed rather than silently passing.
+// The shim stands in for GitHub — the gate's TWO external calls and nothing
+// else: `gh issue view <n> --json body`, and `gh api -X POST /markdown`, which is
+// answered with the RECORDED render of the body under test rather than an
+// invention. Anything else exits 2, so a gate that grew a third call is observed.
+writeFileSync(join(shim, 'gh'), [
+  '#!/bin/sh',
+  'if [ "$1" = api ]; then',
+  '  cat >/dev/null',
+  '  [ "${GH_RENDER_EXIT:-0}" = 0 ] || exit "$GH_RENDER_EXIT"',
+  '  cat "$ADM_FAKE_HTML"; exit 0',
+  'fi',
+  '[ "$1" = issue ] && [ "$2" = view ] && [ "$4" = --json ] || { echo "shim: unexpected: $*" >&2; exit 2; }',
+  'cat "$ADM_FAKE_BODY"',
+  '',
+].join('\n'));
+chmodSync(join(shim, 'gh'), 0o755);
+const bodyFile = join(shim, 'body.md');
+const htmlFile = join(shim, 'render.html');
+/**
+ * Point the shim's /markdown answer at the recorded render of `body`. Goes
+ * through the same `render()` the direct checks use, so a driver body is
+ * collected into the fixture cache exactly like any other and cannot silently
+ * fall back to an empty document.
+ */
+const stageRender = (body) => writeFileSync(htmlFile, render(body));
+const runMain = (argv, env = {}) => {
+  // Restores EVERY key it sets, not just PATH. An earlier version assigned the
+  // caller's env and restored only two keys, so GH_RENDER_EXIT=1 from the
+  // render-failure check leaked into every later run and made a passing case
+  // look broken — a leaked environment changing what a later assertion means,
+  // which is the same defect class this branch keeps producing.
+  const set = { PATH: `${shim}:${process.env.PATH}`, ADM_FAKE_BODY: bodyFile, ADM_FAKE_HTML: htmlFile, ...env };
+  const prev = Object.fromEntries(Object.keys(set).map((k) => [k, process.env[k]]));
+  Object.assign(process.env, set);
+  const q = console.log, qe = console.error; const lines = [];
+  console.log = (...a) => lines.push(a.join(' ')); console.error = (...a) => lines.push(a.join(' '));
+  let code;
+  try { code = main(argv); }
+  finally {
+    console.log = q; console.error = qe;
+    for (const [k, v] of Object.entries(prev)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  }
+  return { code, out: lines.join('\n') };
+};
+writeFileSync(bodyFile, JSON.stringify({ body: PAYLOAD })); stageRender(PAYLOAD);
+const viaGh = runMain(['42']);
+check('main() reads an issue through gh on PATH and admits a good one', viaGh.code === 0 && /PASSED — dispatchable/.test(viaGh.out), true);
+writeFileSync(bodyFile, JSON.stringify({ body: 'help' })); stageRender('help');
+const viaGhBad = runMain(['42']);
+check('...and refuses a bare one, exit 1', viaGhBad.code === 1 && /NOT DISPATCHABLE/.test(viaGhBad.out), true);
+check('main() with no argument is a usage error, exit 2', runMain([]).code === 2, true);
+
+// M2: the gate must work from any cwd, because its consumer polls from its own.
+// The root comes from the SCRIPT's location, so this holds even outside the repo.
+const root = repoRoot();
+check('repoRoot() finds this repository', existsSync(join(root, 'scripts/admission-gate.mjs')), true);
+const here = process.cwd();
+try {
+  process.chdir(tmpdir());
+  const pr = repoProbes();
+  check('repoProbes resolves real paths from an unrelated cwd', pr.has('src/engine.ts'), true);
+  check('...and resolves a real decision from there too', pr.find('ADR-0075') !== null, true);
+  check('...and still says no to a path that does not exist', pr.has('src/definitely-not-here.ts'), false);
+  writeFileSync(bodyFile, JSON.stringify({ body: PAYLOAD })); stageRender(PAYLOAD);
+  check('main() admits from an unrelated cwd (it refused everything before)', runMain(['42']).code === 0, true);
+} finally { process.chdir(here); }
+check('find() will not accept a truncated decision number', repoProbes().find('ADR-007'), null);
+
+console.log('\n--- THE CLASS THREE ROUNDS COULD NOT CLOSE, CLOSED BY THE ORACLE ---');
+// Each of these is a shape that DEFEATED a hand-written visibility layer, and
+// each renders to nothing on GitHub. None needed a pattern of its own: the
+// renderer drops them, so the detectors never see them. That is the property the
+// redesign is for — if a future shape needs a new pattern here, the redesign has
+// failed and the operator should be told.
+const HID = 'Please fix it.\n';
+const REQ = '## Requirements\n- [ ] x\n\n`src/engine.ts`\n\nADR-0075\n';
+for (const [label, body] of [
+  ['an HTML comment (round-1 B1)', `${HID}\n<!--\n${REQ}-->\n`],
+  ['an UNCLOSED HTML comment', `${HID}\n<!--\n${REQ}`],
+  ['a processing instruction <?…?> (round-3 B1)', `${HID}\n<?php\n${REQ}?>\n`],
+  ['a CDATA section (round-3 B1)', `${HID}\n<![CDATA[\n${REQ}]]>\n`],
+  ['a declaration block <!X … > with no blank line (found after round 3)', `${HID}\n<!X\n${REQ}>\n`],
+  ['a link-reference definition (found after round 3)', '## Requirements\n\nfix it\n\n[a]: src/engine.ts "ADR-0075"\n'],
+  ['a path only in a link target, invisible to a reader', '## Requirements\n\nfix it\n\n[here](src/engine.ts "ADR-0075")\n'],
+]) check(`hidden in ${label} → NOT dispatchable`, ok(body), false);
+
+// The other direction, pinned just as hard: everything GitHub DOES render is
+// visible, so admitting it is correct. Round 2 broke this by stripping fences.
+for (const [label, body] of [
+  ['a fenced code block', `${HID}\n\`\`\`\n${REQ}\`\`\`\n`],
+  ['a fence with an info string, payload past line 2', `${HID}\n\`\`\`text\nfiller\nfiller\n${REQ}\`\`\`\n`],
+  ['a collapsed <details> — folded is not hidden', `${HID}\n<details><summary>d</summary>\n\n${REQ}</details>\n`],
+  ['<div hidden> — GitHub strips the attribute', `${HID}\n<div hidden>\n\n${REQ}</div>\n`],
+  ['an abrupt-closing <!--> comment', `<!-->\n${REQ}`],
+  ['a blockquote criterion', '## The property to assert\n\n> every field carries its own catch\n\n`src/engine.ts` `ADR-0075`\n'],
+]) check(`visible in ${label} → dispatchable`, ok(body), true);
+
+// Rendered blocks must stay separated: a surface in one paragraph and the
+// decision in the next arrive as <p>src/engine.ts</p><p>ADR-0075</p>, and without
+// a newline between them the text fuses to "src/engine.tsADR-0075", where \b no
+// longer precedes the citation and the decision is silently missed. This is the
+// shape a person writes by hand, so the false refusal would be routine.
+check('a surface and a decision in ADJACENT blocks are both seen', ok('## Requirements\n\n- fix it\n\nsrc/engine.ts\n\nADR-0075\n'), true);
+
+console.log('\n--- A RENDER THAT DID NOT HAPPEN IS A REFUSAL, NEVER A PASS ---');
+writeFileSync(bodyFile, JSON.stringify({ body: PAYLOAD })); stageRender(PAYLOAD);
+const renderDown = runMain(['42'], { GH_RENDER_EXIT: '1' });
+check('the renderer failing refuses, exit 1', renderDown.code === 1, true);
+check('...and says the measurement is missing, not that the issue is bad', /could not render/.test(renderDown.out) && !/PASSED/.test(renderDown.out), true);
+
+console.log('\n--- THE ROOT IS THIS REPOSITORY, ASSERTED (round-2 M4) ---');
+check('this repo is recognised', looksLikeThisRepo(repoRoot()), true);
+check('a directory with no package.json is not', looksLikeThisRepo(tmpdir()), false);
+// The case round-2 M4 actually names: a repo that has VENDORED the gate. A first
+// marker checked for scripts/admission-gate.mjs + docs/adr/ and this shape
+// satisfied it, so the marker has to be identity, not structure.
+const foreign = join(shim, 'foreign');
+mkdirSync(join(foreign, 'scripts'), { recursive: true });
+mkdirSync(join(foreign, 'docs/adr'), { recursive: true });
+writeFileSync(join(foreign, 'scripts/admission-gate.mjs'), '// vendored copy\n');
+// Deliberately made a repo that would otherwise SATISFY the gate: its own
+// src/engine.ts and its own ADR-0075. Without that, main() at the foreign repo
+// refuses for missing surfaces and the exit-code pin passes for the wrong
+// reason — only the message pin would be load-bearing.
+mkdirSync(join(foreign, 'src'), { recursive: true });
+writeFileSync(join(foreign, 'src/engine.ts'), '// not this repo\n');
+writeFileSync(join(foreign, 'docs/adr/ADR-0075-a-totally-different-decision.md'), '# different\n');
+writeFileSync(join(foreign, 'package.json'), JSON.stringify({ name: 'some-consumer', version: '1.0.0' }));
+check('a repo that VENDORED the gate is not this repository', looksLikeThisRepo(foreign), false);
+// R3-M1: the three checks above exercise the PREDICATE. Deleting the guard that
+// ACTS on it left 79/79 green — the third vacuous pin on this branch. This one
+// drives main() at the foreign repo and asserts the effect.
+writeFileSync(bodyFile, JSON.stringify({ body: PAYLOAD })); stageRender(PAYLOAD);
+const atForeign = runMain(['42', '--repo', foreign]);
+check('main() REFUSES when pointed at a repo that is not this one', atForeign.code === 1, true);
+check('...and says so rather than validating against it', /does not look like the vfkb repository/.test(atForeign.out) && !/PASSED/.test(atForeign.out), true);
+const atReal = runMain(['42', '--repo', repoRoot()]);
+check('main() with --repo at THIS repo still admits', atReal.code === 0, true);
+
+console.log('\n--- THE SCRIPT ACTUALLY RUNS WHEN SPAWNED (round-2 B1: it exited 0 SILENTLY) ---');
+// import.meta.url is realpath'd, process.argv[1] is whatever the caller spelled,
+// so through a symlinked path the entry guard never fired: main() did not run and
+// the process exited 0 — this gate's dispatchable signal — printing NOTHING. The
+// quiet-success trap of ADR-0051 §3, and unreachable by importing main() the way
+// every other check here does. So this one SPAWNS, and asserts on CONTENT.
+const bare = join(shim, 'bare.md');
+writeFileSync(bare, 'help');
+const link = join(shim, 'repo-link');
+try { symlinkSync(repoRoot(), link, 'dir'); } catch { /* already there */ }
+const spawnGate = (script) => {
+  const r = spawnSync(process.execPath, [script, '--body-file', bare], { encoding: 'utf8' });
+  return `${r.stdout ?? ''}${r.stderr ?? ''}`;
+};
+const viaLink = spawnGate(join(link, 'scripts/admission-gate.mjs'));
+check('spawned through a SYMLINKED path it still refuses a bare issue', /NOT DISPATCHABLE/.test(viaLink), true);
+check('...and does not exit silently with no output at all', viaLink.trim().length > 0, true);
+const viaReal = spawnGate(join(repoRoot(), 'scripts/admission-gate.mjs'));
+check('spawned through the real path it refuses too', /NOT DISPATCHABLE/.test(viaReal), true);
+rmSync(shim, { recursive: true, force: true });
+
+if (misses) console.error(`\n${misses} render fixture(s) missing — run: node scripts/build-admission-fixtures.mjs`);
+if (failed) { console.error(`\n${failed} check(s) failed.`); process.exit(COLLECT ? 0 : 1); }
+console.log('\nadmission-gate selftest passed (the Brake is connected, and it does not block honest work).');

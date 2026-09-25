@@ -115,6 +115,13 @@ jobs:
           echo "comparing against merge-base $BASE"
           node scripts/reproduction-gate.mjs --base "$BASE" --head HEAD
 
+      # P12-a's admission gate (ADR-0075 clause 3 / RFC-039 D2). The gate itself
+      # runs against ISSUES before dispatch, not against PRs, so only its
+      # selftest belongs in CI — but it belongs here, because a gate whose
+      # selftest is not run is a gate nobody knows is connected.
+      - name: The admission gate is connected — both directions go red
+        run: node scripts/admission-gate.selftest.mjs
+
       - name: An implementation change carries a review record (ADR-0052)
         run: |
           BASE="origin/${{ github.base_ref || 'main' }}"
