@@ -1,0 +1,104 @@
+{
+  "recordVersion": 1,
+  "sha": "8ae3a4f84b8166546eef77c3ad1c0be34c4d92b2",
+  "governing": [
+    "docs/adr/ADR-0075-the-software-factory.md",
+    "docs/rfc/RFC-039-the-software-factory.md",
+    "docs/adr/ADR-0070-guards-that-can-fail.md",
+    "docs/adr/ADR-0051-delivery-honesty.md"
+  ],
+  "reviewer": {
+    "agent": "claude (herdr pane adm-review8, FRESH session)",
+    "model": "claude-opus-5",
+    "rounds": 8
+  },
+  "generated": "2026-09-28T11:38:10Z",
+  "findings": [
+    {
+      "id": "R8-F1",
+      "severity": "major",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "INTRODUCED BY 8ae3a4f, does not block, filed to #319: the shim validates the slug's SHAPE, not its VALUE, and ignores the issue number entirely. /^repos\\/[^{]/ rejects only the {owner}/{repo} spelling, so mutating the slug to a wrong-but-LITERAL repo, or the issue number to a constant, each leave the suite 153/153 green — independently reproduced by the orchestrator (wrong literal slug → 0 FAIL, exit 0). The guard installed against R7-M1 catches one spelling of the defect rather than the defect. Non-blocking: the shipped gate is correct at head, verified live against two repositories, and no consumer exists (D3/D4 unbuilt)."
+    },
+    {
+      "id": "R8-F2",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "INTRODUCED BY 8ae3a4f, filed to #319: the new spawn pin is one reordering away from vacuous. A shim that ignores the body and serves a fixed REFUSED render leaves 153/153 green, including the check named '...and the spawned run refused the BARE body, not a staged one' — its discrimination rests on the last stageRender before the spawn block having staged a DISPATCHABLE body, and nothing pins that ordering. The comment overstates what is pinned."
+    },
+    {
+      "id": "R8-F3",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "apparatus, filed to #319."
+    },
+    {
+      "id": "R8-F4",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "dead scaffolding left by 8ae3a4f, filed to #319."
+    },
+    {
+      "id": "R8-F5",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "pre-existing PR-body honesty item not corrected by 8ae3a4f, filed to #319."
+    },
+    {
+      "id": "R8-F6",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "pre-existing gate behaviour in the false-refusal direction, filed to #319."
+    }
+  ],
+  "findingsCount": 6,
+  "ruledOut": [
+    "R7-B1 CLOSED AND OBSERVED IN CI, not asserted: at head with NO gh anywhere on PATH and a scrubbed env (env -i), the suite is 153 ok / 0 FAIL / exit 0; on the PARENT 77d1fcf the identical invocation is 148 ok / 2 FAIL / exit 1, reproducing R7-B1 exactly as round 7 described; CI run 36414522225 shows the step 'The admission gate is connected' SUCCESS at 8ae3a4f where run 36408767717 shows it FAILURE at fae3041 — the red-to-green flip is observed in CI. The only remaining job failure at 8ae3a4f is the missing review record, which this record supplies; the --live step is skipped by design on pull_request.",
+    "no path reaches the network from the offline arm: the gate's only child processes are gh and git, there is no fetch or node:http, and with gh absent entirely the suite is green — a surviving network call would have been ENOENT, not a pass",
+    "R7-M1 CLOSED, demonstrated live from a foreign cwd: from the vfkb-claude-plugin checkout with --repo at vfkb, the PARENT admitted plugin issue #45 as dispatchable while printing that repo's ADRs; at head the same invocation returns NOT DISPATCHABLE exit 1 with vfkb#45's governing ADRs. The wrong repository is no longer reachable through --repo.",
+    "the shim was attacked as infrastructure — it cannot answer a call the gate should not make (unknown body, missing html+json header and placeholder slug each exit 2), readFileSync(0) with no stdin is handled, and it leaks no state between runMain calls",
+    "#319 describes every residual it names accurately and completely; two gaps (F1, F2) are to be appended",
+    "every claim in 8ae3a4f's commit message was checked against observation — the round-7 blocking finding was a false green claim, so this was re-verified rather than trusted",
+    "no AI attribution in the range; no secrets; tree clean"
+  ],
+  "mutations": [
+    {
+      "guard": "the offline arm is offline (R7-B1)",
+      "mutation": "run the parent 77d1fcf with no gh on PATH",
+      "observedRed": true,
+      "note": "148 ok / 2 FAIL / exit 1 — both spawned pins, reproducing R7-B1"
+    },
+    {
+      "guard": "the repo slug is explicit (R7-M1)",
+      "mutation": "slug -> 'repos/{owner}/{repo}/issues/N'",
+      "observedRed": true,
+      "note": "9 FAIL — the shim refuses the placeholder"
+    },
+    {
+      "guard": "the html+json Accept header is sent (R7-M4)",
+      "mutation": "Accept: application/json",
+      "observedRed": true,
+      "note": "8 FAIL"
+    },
+    {
+      "guard": "an issue's body_html is not re-rendered (R7-M3)",
+      "mutation": "preRendered = false",
+      "observedRed": true,
+      "note": "8 FAIL"
+    },
+    {
+      "guard": "the shim answers per-body",
+      "mutation": "serve a canned render regardless of stdin",
+      "observedRed": true,
+      "note": "red on the body-specific pins; the spawn pin's own discrimination is F2"
+    }
+  ],
+  "mutationsNote": null,
+  "verdict": "MERGE"
+}

@@ -1,0 +1,131 @@
+{
+  "recordVersion": 1,
+  "sha": "f5078cd5c0db63160121fee62e04643f17c126b2",
+  "governing": [
+    "docs/adr/ADR-0075-the-software-factory.md",
+    "docs/rfc/RFC-039-the-software-factory.md",
+    "docs/adr/ADR-0070-guards-that-can-fail.md",
+    "docs/adr/ADR-0051-delivery-honesty.md"
+  ],
+  "reviewer": {
+    "agent": "claude (herdr pane adm-review)",
+    "model": "claude-opus-5",
+    "rounds": 2
+  },
+  "generated": "2026-09-25T08:22:23Z",
+  "findings": [
+    {
+      "id": "R2-B1",
+      "severity": "blocking",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "PRE-EXISTING, not introduced by round 2: the entry guard compared `file://${process.argv[1]}` to import.meta.url, which Node realpaths — so invoked through a symlinked path (or any /tmp or /var path on macOS) main() never ran and the script exited 0 PRINTING NOTHING on a body of 'help'. Reproduced by the orchestrator: exit=0 via /tmp/adm2/vfkb-link vs exit=1 via the real path. 0 is this gate's dispatchable signal and round 2 deliberately made off-path invocation the expected case, so an orchestrator would have dispatched the whole backlog silently. The ADR-0051 §3 quiet-success trap, and this repo's realpath gotcha for a fourth time. Unreachable by the new main() pins because importing main() cannot exercise the line that decides whether main() runs. Fixed in 8bbbf28: both sides realpath'd; pinned by SPAWNING through a symlink and asserting on output content."
+    },
+    {
+      "id": "R2-M2",
+      "severity": "major",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "INTRODUCED BY ROUND 2: the fence stripper removed the opener and ONE line — `|$` under the /m flag stops the lazy match at the first line break — so all three fence pins went red for an incidental reason and the round-1 record certified a guard that does not exist as described. Insert one filler line and the whole payload survived. Zero live harm (scanning 38 issues for content present in the raw body but absent from visibleText returned no rows). Fixed by NOT stripping fences at all: a fence renders, so its content is visible and admitting it is correct; a wrong stripper only causes false refusals about visible text. The round-1 record's mutation entry has been corrected in place to observedRed:false."
+    },
+    {
+      "id": "R2-M3",
+      "severity": "major",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "INTRODUCED BY ROUND 2: `<!-->` and `<!--->` are abrupt-closing comments that hide nothing — verified against GitHub's own renderer via POST /markdown — but the `(?:-->|$)` alternative treated them as unclosed and erased the whole body, so an issue that visibly had all three requirements was refused with a factually false message. That is round-1 B2's disease in a new place. Fixed: they are handled before the general case. An unclosed `<!--` genuinely does hide the rest on GitHub, so strip-to-end stays correct there."
+    },
+    {
+      "id": "R2-M4",
+      "severity": "major",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "INTRODUCED BY ROUND 2: repoRoot() shells `git -C <scripts dir> rev-parse --show-toplevel`, which answers for whatever repo the script currently sits in, with nothing asserting it is the repo the issue belongs to and a silent catch fallback. A vendored copy admitted an issue while validating its surfaces AND its ADR against a DIFFERENT repository, printing that repository's ADR as if the issue had cited it (reproduced). Round 1's M2 was the same silence in the other direction: the fix moved the referent without adding the assertion. Fixed: identity asserted by package.json name ('@viloforge/vfkb'), --repo honoured, refusal loud. A first marker (scripts/admission-gate.mjs + docs/adr/) was tried and REJECTED because a foreign repo satisfied it by having vendored the gate."
+    },
+    {
+      "id": "R2-M5",
+      "severity": "major",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "INTRODUCED BY ROUND 2: the new permalink prefix ignored the owner/repo segments, so a permalink into vfkb-claude-plugin — or any host — contributed a path validated against THIS repo and printed as a local surface. Reachable rather than theoretical: this repo routes cross-repo issues (#175-#177) and the plugin repo is a constant referent. Fixed: only this repository's permalinks count; the foreign cases are pinned as negatives."
+    },
+    {
+      "id": "R2-M6",
+      "severity": "major",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "INTRODUCED BY ROUND 2: CHECKABLE = /\\S/ was the maximally permissive reading of round-1 B2's fix and admitted `---`, `***` or a lone backtick as acceptance criteria — markdown that renders as nothing readable — and `---` between sections is a routine issue-template idiom. No real issue in the corpus was admitted this way, so the harm was latent. Fixed: a word character is the floor, still prose-friendly."
+    },
+    {
+      "id": "m1",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "the PR body's CLOSING line still read 'admission selftest 20/20 green' — the exact claim round 1 flagged. CORRECTED STATUS after round 3 (R3-M2): this record originally said 'fixed'/'Both corrected' and that was FALSE — the closing line was still standing at round 3, third round on the same sentence, and the '(63 cases)' figure was itself stale at 79. A record asserting fixed for something demonstrably unfixed is the more serious half of the finding."
+    },
+    {
+      "id": "m2",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "the PR body described a gate stricter than the code ('at least one checkable item') after round 2 replaced that with a permissive check. CORRECTED STATUS after round 3 (R3-M2): this record said 'Corrected' and it was not; the PR body still carried it, and also still said 'comments and fences are stripped' after round 3 stopped stripping fences — contradicting the shipped fix for a blocking finding."
+    },
+    {
+      "id": "m3",
+      "severity": "minor",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "the traversal pin's behavioural half was vacuous — with traversing=[] only the message check failed, because the selftest's stub has() rejected the path anyway. Now run against real probes, where the traversing path resolves to a file that exists."
+    },
+    {
+      "id": "m4",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "operational, not a defect: `node scripts/review-gate.mjs --base origin/main` fails until this record is filed against f5078cd or 05c2ba4, because the round-1 record is filed against 582f3f0 and code changed after it. The gate is working correctly."
+    }
+  ],
+  "findingsCount": 10,
+  "ruledOut": [
+    "NO OVER-CORRECTION from round-1 B2: the reviewer re-measured the corpus independently (9 of 38, exactly the claimed set #22 #95 #96 #161 #186 #280 #288 #303 #306, reasons 24/9/8) and judged each of the 5 newly-admitted issues against RFC-039 D2, quoting their criteria sections — all genuinely say what done means",
+    "B1's security property holds: the HTML-comment half is verified fixed against GitHub's own renderer; nested comments and &lt;!-- entities render visibly and are admitted, matching GitHub in 3 of 4 edge cases before the <!--> fix and 4 of 4 after",
+    "a real linked git worktree resolves to the worktree root correctly; git absent from PATH falls back to the script's parent, which is the repo root by construction",
+    "whitespace-only, comment-only and fence-only criteria sections are all correctly refused",
+    "all three gate selftests green on this branch; 780/780 unit; tsc clean; no AI attribution; no secrets; the repo's git config carries no local user.*",
+    "CORRECTION, filed after round 3: two findings in this record (m1, m2) were marked 'fixed' when the PR body still carried the claims they name. Both are now 'open'. The lesson, recorded because it recurred three times on this branch: a PR body edit is not verified by having made it — re-read the shipped body before writing 'fixed' in a record."
+  ],
+  "mutations": [
+    {
+      "guard": "the entry guard fires through a symlinked path (R2-B1)",
+      "mutation": "revert to `file://${process.argv[1]}` === import.meta.url",
+      "observedRed": true,
+      "note": "2 FAIL: both spawn-through-symlink pins"
+    },
+    {
+      "guard": "abrupt-closing comments hide nothing (R2-M3)",
+      "mutation": "drop the /<!--+>/ replace",
+      "observedRed": true,
+      "note": "2 FAIL: <!--> and <!--->"
+    },
+    {
+      "guard": "the root is THIS repository (R2-M4)",
+      "mutation": "package.json name check → `.name !== undefined`",
+      "observedRed": true,
+      "note": "1 FAIL: a repo that vendored the gate. Caught vacuous first — the original pin used tmpdir(), which has no package.json at all — and a vendored-repo fixture was added before the mutation was logged"
+    },
+    {
+      "guard": "only this repository's permalinks count (R2-M5)",
+      "mutation": "THIS_REPO_BLOB → the loose /blob/<ref>/ prefix",
+      "observedRed": true,
+      "note": "2 FAIL: both foreign-permalink negatives. A first attempt substituted inside the template literal and broke the regex instead of loosening it — that run was discarded, not logged"
+    },
+    {
+      "guard": "criteria need a word (R2-M6)",
+      "mutation": "CHECKABLE /\\w/ → /\\S/",
+      "observedRed": true,
+      "note": "3 FAIL: ---, lone backtick, ***"
+    }
+  ],
+  "mutationsNote": null,
+  "verdict": "FIX-FIRST"
+}

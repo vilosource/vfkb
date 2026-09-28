@@ -115,6 +115,42 @@ jobs:
           echo "comparing against merge-base $BASE"
           node scripts/reproduction-gate.mjs --base "$BASE" --head HEAD
 
+      # P12-a's admission gate (ADR-0075 clause 3 / RFC-039 D2). The gate itself
+      # runs against ISSUES before dispatch, not against PRs, so only its
+      # selftest belongs in CI — but it belongs here, because a gate whose
+      # selftest is not run is a gate nobody knows is connected.
+      - name: The admission gate is connected — both directions go red
+        run: node scripts/admission-gate.selftest.mjs
+
+      # The gate's visibility layer IS GitHub's renderer, and the suite above
+      # replays a committed fixture cache so it can run offline and
+      # deterministically. Nothing in that arm can notice the cache going stale
+      # against the real oracle (round-4 M3), so the SAME suite runs again with
+      # --live, rendering every body through the API. A drift in GitHub's output
+      # fails here rather than silently making the Brake agree with a recording
+      # of a renderer that no longer exists.
+      # Runs on push to main ONLY, not on every PR. It issues ~110 live
+      # /markdown calls, and `review-gate` is the required check on every PR in
+      # this repo — gating all of them on GitHub's availability trades a real
+      # outage for a repo-wide red (round-6 MAJOR 2). Drift is still caught
+      # within one merge. Exit 3 means the oracle was unreachable, which is a
+      # missing measurement and not a failure of this diff; only a genuine
+      # mismatch (exit 1) fails the step.
+      - name: No admission-gate assertion rests on a recording the live renderer would contradict
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          node scripts/admission-gate.selftest.mjs --live
+          code=$?
+          set -e
+          if [ "$code" = "3" ]; then
+            echo "::warning title=Fixtures unverified::GitHub's renderer was unreachable; the cache was NOT checked against it."
+            exit 0
+          fi
+          exit "$code"
+
       - name: An implementation change carries a review record (ADR-0052)
         run: |
           BASE="origin/${{ github.base_ref || 'main' }}"
