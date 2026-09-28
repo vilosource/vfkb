@@ -182,6 +182,25 @@ const BARE_DECISION = /\b((?:ADR|RFC)-\d{3,4})\b/gi;
  * use it for legitimate detail. A path that appears ONLY inside a link target
  * or a title attribute is now refused, because the reader cannot see it either.
  */
+/**
+ * THE ISSUE'S OWN RENDERED HTML — the surface a reader actually reads.
+ *
+ * `POST /markdown` is NOT that surface, and round 6 measured the difference on
+ * #288: its `body_html` wraps a fenced block in
+ * `div.snippet-clipboard-content` and appends `notranslate position-relative
+ * overflow-auto` to the highlight div, while `/markdown` emits a bare
+ * `<pre><code>`. Zero of the 38 real issues diverge in VERDICT today, so this
+ * was an authority gap rather than a live defect — but the header's whole
+ * argument is "the renderer is the authority", and using a different renderer
+ * than the reader's made that sentence not quite true.
+ *
+ * It is also cheaper: `body_html` arrives WITH the issue, so the gate makes one
+ * call where it used to make two. `/markdown` remains only for `--body-file`,
+ * which has no issue to fetch.
+ */
+export const renderIssueHtml = (issue) =>
+  JSON.parse(gh('api', `repos/{owner}/{repo}/issues/${issue}`, '-H', 'Accept: application/vnd.github.html+json')).body_html ?? '';
+
 export const renderViaGitHub = (body, repoSlug = 'vilosource/vfkb') => {
   const payload = JSON.stringify({ text: String(body ?? ''), mode: 'gfm', context: repoSlug });
   return execFileSync('gh', ['api', '-X', 'POST', '/markdown', '--input', '-'], {
@@ -220,7 +239,13 @@ const TRANSPARENT = new Set([
 // its alert callouts (`> [!NOTE]`). Both are plainly visible, and refusing them
 // refused a fenced code block and GitHub's own documented syntax for saying
 // what must be true. This stays an ALLOWLIST: an unknown class still hides.
-const VISIBLE_DIV_CLASS = /(?:^|\s)(?:highlight|markdown-alert)(?:-[\w-]+)?(?:\s|$)/;
+const VISIBLE_DIV_CLASS = /(?:^|\s)(?:highlight|markdown-alert|snippet-clipboard-content)(?:-[\w-]+)?(?:\s|$)/;
+// ...but a class list can carry BOTH. `div.render-plaintext-hidden.highlight`
+// would have emitted its payload — a hidden container admitted because it also
+// carried an allowed token, which is the one direction this design exists to
+// exclude. No such class is emitted today (verified over ~300 renders), so this
+// fails closed against a shape GitHub has not shipped rather than one it has.
+const HIDDEN_DIV_CLASS = /(?:^|\s)(?:render-plaintext-hidden|sr-only|d-none|js-render-[\w-]+)(?:\s|$)/;
 const classOf = (attrs) => (/\bclass\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(attrs || '') || [])
   .slice(2).find((x) => x !== undefined) || '';
 
@@ -286,7 +311,9 @@ export function visibleTextFromHtml(html) {
     }
     if (m[0].endsWith('/>') || VOID.has(name)) { if (name === 'br' || name === 'hr') emit('\n'); continue; }
     const counted = COUNTED.has(name);
-    const transparent = TRANSPARENT.has(name) || (name === 'div' && VISIBLE_DIV_CLASS.test(classOf(m[2])));
+    const cls = name === 'div' ? classOf(m[2]) : '';
+    const transparent = TRANSPARENT.has(name)
+      || (name === 'div' && VISIBLE_DIV_CLASS.test(cls) && !HIDDEN_DIV_CLASS.test(cls));
     // Heading level is re-emitted as `#` markers, because the criteria-heading
     // vocabulary is written against markdown headings.
     if (counted && !blocked() && HEADING.test(name)) out.push(`\n${'#'.repeat(Number(HEADING.exec(name)[1]))} `);
@@ -438,13 +465,31 @@ export function main(argv = process.argv.slice(2)) {
   const bodyFile = arg('--body-file', null);
   const issue = argv.find((a) => /^\d+$/.test(a));
 
-  let body, label;
-  if (bodyFile) { body = readFileSync(bodyFile, 'utf8'); label = bodyFile; }
-  else if (issue) {
-    try { body = JSON.parse(gh('issue', 'view', issue, '--json', 'body')).body ?? ''; label = `#${issue}`; }
+  let body, label, preRendered = false;
+  if (bodyFile) {
+    // Outside every try until round 6: an ENOENT crashed with Node's default
+    // exit 1, which this contract now defines as "the issue is under-specified
+    // — a verdict". A path that was moved or mistyped would have been recorded
+    // as a spec failure and the issue returned to its author, for a body the
+    // gate never read. R4-M4's own species, reintroduced by R4-M4's fix.
+    try { body = readFileSync(bodyFile, 'utf8'); label = bodyFile; }
     catch (e) {
+      console.error(`admission-gate — cannot read --body-file ${bodyFile}: ${e?.code ?? e?.message}.`);
+      console.error('No verdict was reached. Fix the path; this is not a statement about any issue.');
+      return 2;
+    }
+  }
+  else if (issue) {
+    try { body = renderIssueHtml(issue); preRendered = true; label = `#${issue}`; }
+    catch (e) {
+      const permanent = /HTTP 404|Not Found|Could not resolve/i.test(String(e?.message ?? e));
       console.error(`admission-gate INCONCLUSIVE — could not read issue #${issue}. Refusing to admit an issue it cannot see.`);
-      console.error('This is not a verdict about the issue; it is a missing measurement. Check `gh auth status`.');
+      console.error('This is not a verdict about the issue; it is a missing measurement.');
+      // A 404 never becomes readable, so a consumer that retries on 3 would
+      // spin forever. The contract says retry OR escalate; say which (m5).
+      console.error(permanent
+        ? `Issue #${issue} does not exist or is not visible to this token — ESCALATE, do not retry.`
+        : 'Transient or auth-related: retry, then escalate. Check `gh auth status`.');
       console.error(String(e?.message ?? e).split('\n').slice(0, 3).join('\n'));
       return 3;
     }
@@ -454,7 +499,9 @@ export function main(argv = process.argv.slice(2)) {
   // is that visibility is decided by the renderer, so no renderer means no
   // verdict — never a pass (ADR-0051 §3: exit status is not evidence).
   let verdict;
-  try { verdict = admit(body, repoProbes(root)); }
+  // For an issue the body is ALREADY the reader's HTML, so it is passed through
+  // unrendered; only --body-file needs POST /markdown.
+  try { verdict = admit(body, { ...repoProbes(root), render: preRendered ? (h) => h : renderViaGitHub }); }
   catch (e) {
     console.error(`admission-gate INCONCLUSIVE — could not render issue ${label} through GitHub, so what a reader would SEE is unknown.`);
     console.error('That is not an admission and not a refusal; it is a missing measurement. A consumer should retry');

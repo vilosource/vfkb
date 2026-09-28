@@ -50,8 +50,17 @@ const fixturePath = resolve(dirname(fileURLToPath(import.meta.url)), 'fixtures/a
 const fixtures = existsSync(fixturePath) ? JSON.parse(readFileSync(fixturePath, 'utf8')) : {};
 const key = (body) => createHash('sha256').update(String(body ?? ''), 'utf8').digest('hex').slice(0, 32);
 let misses = 0;
+let oracleDown = 0;
 const render = (body) => {
-  if (LIVE) return renderViaGitHub(body);
+  if (LIVE) {
+    // THE SAME LESSON THE DRIVER LEARNED: a measurement that did not happen is
+    // not a verdict. This arm exists to detect FIXTURE DRIFT; if the oracle is
+    // unreachable — an incident, a secondary rate limit, a fork PR with no
+    // token — nothing drifted and saying so would be a false accusation
+    // against every PR in the repo (round-6 MAJOR 2).
+    try { return renderViaGitHub(body); }
+    catch (e) { oracleDown++; console.log(`SKIP  oracle unreachable for one body: ${String(e?.message ?? e).split('\n')[0].slice(0, 80)}`); return fixtures[key(body)] ?? '<p></p>'; }
+  }
   const hit = fixtures[key(body)];
   if (hit !== undefined) return hit;
   if (COLLECT) { appendFileSync(COLLECT, `${JSON.stringify(String(body ?? ''))}\n`); return '<p></p>'; }
@@ -210,7 +219,16 @@ const shim = mkdtempSync(join(tmpdir(), 'adm-gh-'));
 // invention. Anything else exits 2, so a gate that grew a third call is observed.
 writeFileSync(join(shim, 'gh'), [
   '#!/bin/sh',
-  'if [ "$1" = api ]; then',
+  // `gh api repos/.../issues/N` — the issue WITH its rendered body_html, which
+  // is the surface a reader reads and now the gate's only call for an issue.
+  'case "$1 $2" in',
+  '  "api repos/{owner}/{repo}/issues/"*)',
+  '    [ "${GH_FAKE_404:-0}" = 0 ] || { echo "gh: HTTP 404: Not Found" >&2; exit 1; }',
+  '    [ "${GH_FAKE_UNREADABLE:-0}" = 0 ] || exit 1',
+  '    [ "${GH_RENDER_EXIT:-0}" = 0 ] || exit "$GH_RENDER_EXIT"',
+  '    cat "$ADM_FAKE_ISSUE"; exit 0 ;;',
+  'esac',
+  'if [ "$1" = api ]; then',            // POST /markdown, for --body-file only
   '  cat >/dev/null',
   '  [ "${GH_RENDER_EXIT:-0}" = 0 ] || exit "$GH_RENDER_EXIT"',
   '  cat "$ADM_FAKE_HTML"; exit 0',
@@ -223,26 +241,37 @@ writeFileSync(join(shim, 'gh'), [
 chmodSync(join(shim, 'gh'), 0o755);
 const bodyFile = join(shim, 'body.md');
 const htmlFile = join(shim, 'render.html');
+const issueFile = join(shim, 'issue.json');
 /**
  * Point the shim's /markdown answer at the recorded render of `body`. Goes
  * through the same `render()` the direct checks use, so a driver body is
  * collected into the fixture cache exactly like any other and cannot silently
  * fall back to an empty document.
  */
-const stageRender = (body) => writeFileSync(htmlFile, render(body));
+const stageRender = (body) => {
+  const html = render(body);
+  writeFileSync(htmlFile, html);
+  // The issue path receives the SAME html as body_html, so the driver pins
+  // exercise the reader's surface rather than a second rendering of it.
+  writeFileSync(issueFile, JSON.stringify({ number: 42, body_html: html }));
+};
 const runMain = (argv, env = {}) => {
   // Restores EVERY key it sets, not just PATH. An earlier version assigned the
   // caller's env and restored only two keys, so GH_RENDER_EXIT=1 from the
   // render-failure check leaked into every later run and made a passing case
   // look broken — a leaked environment changing what a later assertion means,
   // which is the same defect class this branch keeps producing.
-  const set = { PATH: `${shim}:${process.env.PATH}`, ADM_FAKE_BODY: bodyFile, ADM_FAKE_HTML: htmlFile, ...env };
+  const set = { PATH: `${shim}:${process.env.PATH}`, ADM_FAKE_BODY: bodyFile, ADM_FAKE_HTML: htmlFile, ADM_FAKE_ISSUE: issueFile, ...env };
   const prev = Object.fromEntries(Object.keys(set).map((k) => [k, process.env[k]]));
   Object.assign(process.env, set);
   const q = console.log, qe = console.error; const lines = [];
   console.log = (...a) => lines.push(a.join(' ')); console.error = (...a) => lines.push(a.join(' '));
   let code;
-  try { code = main(argv); }
+  // main() THROWING is itself a finding: every exit is supposed to be one of the
+  // four documented codes, and an uncaught exception would reach a caller as
+  // Node's default 1 — which this contract defines as a verdict about the issue.
+  // Reported as -1 so a pin can say "not a crash" rather than the suite dying.
+  try { code = main(argv); } catch (e) { code = -1; lines.push(`THREW: ${e?.message ?? e}`); }
   finally {
     console.log = q; console.error = qe;
     for (const [k, v] of Object.entries(prev)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
@@ -317,12 +346,55 @@ for (const [label, body] of [
 check('a hand-written <br> separates a surface from a decision', ok('## Requirements\n\n- fix it\n\nsrc/engine.ts<br>ADR-0075\n'), true);
 check('a surface and a decision in ADJACENT blocks are both seen', ok('## Requirements\n\n- fix it\n\nsrc/engine.ts\n\nADR-0075\n'), true);
 
+console.log('\n--- THE WALKER\'S DEFENSIVE PARTS, PINNED DIRECTLY (round-6 m7) ---');
+// These branches are unreachable through the oracle — GitHub never emits them —
+// so ok() cannot pin them and they were carried untested. visibleTextFromHtml
+// is the only tool that can, and it was imported and unused.
+const vis = (html) => visibleTextFromHtml(html).replace(/\s+/g, ' ').trim();
+check('an unclosed counted tag still yields its text', vis('<p>MARK'), 'MARK');
+check('a stray close tag with no open does not unwind the stack', vis('<p>A</span>B</p>').replace(' ', ''), 'AB');
+check('mismatched nesting: </p> inside a div does not escape the block', vis('<div>hidden<p>x</div></p>'), '');
+check('an attribute containing a quoted > does not end the tag early', vis('<div title="a>b">hidden</div>'), '');
+check('...and the same on an allowed div', vis('<div class="highlight" title="a>b">shown</div>'), 'shown');
+check('uppercase and spaced tags are matched', vis('<DIV >hidden</DIV >'), '');
+check('a void img before the payload does not swallow it', vis('<p><img src="x">MARK</p>'), 'MARK');
+// The div-class exception is token-based, so a class list can carry BOTH an
+// allowed and a hidden token. Before round 6 that container emitted its payload
+// — a hidden element admitted because it also said "highlight", the one
+// direction this design exists to exclude. GitHub emits no such class today, so
+// this fails closed against a shape it has not shipped (round-6 MINOR 4).
+check('render-plaintext-hidden WITH highlight still hides', vis('<div class="render-plaintext-hidden highlight"><pre>MARK</pre></div>'), '');
+check('highlight-source-mermaid WITH the hidden token still hides', vis('<div class="highlight highlight-source-mermaid render-plaintext-hidden"><pre>MARK</pre></div>'), '');
+check('sr-only with an allowed token still hides', vis('<div class="highlight sr-only"><pre>MARK</pre></div>'), '');
+check('a js-render-* token still hides', vis('<div class="highlight js-render-enrichment-target"><pre>MARK</pre></div>'), '');
+check('...while a plain highlight div is still read', vis('<div class="highlight highlight-source-ts"><pre>MARK</pre></div>'), 'MARK');
+check('a lookalike class is not the allowed one', vis('<div class="not-highlight"><pre>MARK</pre></div>'), '');
+// The reader's surface is the issue's body_html, and it wraps a plain fenced
+// block in snippet-clipboard-content — a class POST /markdown never emits.
+// Round 6 measured the difference on #288 (round-6 MAJOR 3).
+check('snippet-clipboard-content is read (it is body_html\'s fence wrapper)', vis('<div class="snippet-clipboard-content notranslate position-relative overflow-auto"><pre>MARK</pre></div>'), 'MARK');
+check('...and the highlight div body_html emits, with its extra classes', vis('<div class="highlight highlight-source-yaml notranslate position-relative overflow-auto"><pre>MARK</pre></div>'), 'MARK');
+
 console.log('\n--- THE FOUR EXIT CODES ARE DISTINCT (round-4 M4) ---');
 writeFileSync(bodyFile, JSON.stringify({ body: PAYLOAD })); stageRender(PAYLOAD);
 check('dispatchable is 0', runMain(['42']).code, 0);
 writeFileSync(bodyFile, JSON.stringify({ body: 'help' })); stageRender('help');
 check('under-specified is 1 — a verdict about the issue', runMain(['42']).code, 1);
 check('no argument is 2', runMain([]).code, 2);
+// An unreadable --body-file used to crash: readFileSync sat outside every try,
+// so Node's default uncaught-exception code 1 was returned — and 1 is defined
+// here as "the issue is under-specified, a verdict". A mistyped path would have
+// been recorded as a spec failure for a body never read (round-6 MAJOR 1).
+check('a --body-file that does not exist is 2, not a verdict', runMain(['--body-file', join(shim, 'no-such-file.md')]).code, 2);
+check('a --body-file that is a directory is 2, not a verdict', runMain(['--body-file', shim]).code, 2);
+check('...and neither THROWS — an uncaught error would reach a caller as exit 1', runMain(['--body-file', join(shim, 'no-such-file.md')]).code !== -1, true);
+// 3 is the right family for a 404 (not a spec verdict), but an issue that does
+// not exist never becomes readable, so the message must say escalate (m5).
+const gone = runMain(['42'], { GH_FAKE_404: '1' });
+check('a permanent 404 is 3', gone.code, 3);
+check('...and tells the consumer to ESCALATE rather than retry', /ESCALATE, do not retry/.test(gone.out), true);
+const flaky = runMain(['42'], { GH_FAKE_UNREADABLE: '1' });
+check('a transient read failure says retry', /retry, then escalate/.test(flaky.out), true);
 
 console.log('\n--- A NUMBERED OR LETTERED HEADING PREFIX IS PURE SPELLING (round-4 m4) ---');
 check('"## 1. Requirements" is recognised', ok('## 1. Requirements\n\n- [ ] x\n\n`src/engine.ts`\n\nADR-0075\n'), true);
@@ -392,7 +464,13 @@ const renderDown = runMain(['42'], { GH_RENDER_EXIT: '1' });
 // (R4-M4), which would have let an orchestrator record an outage as a spec
 // failure and send the issue back to its author. 3 means "no verdict".
 check('the renderer failing is INCONCLUSIVE, exit 3 — not a refusal', renderDown.code === 3, true);
-check('...and says the measurement is missing, not that the issue is bad', /INCONCLUSIVE/.test(renderDown.out) && /could not render/.test(renderDown.out) && !/PASSED/.test(renderDown.out), true);
+// For an ISSUE the read IS the render — one call to the issue API for its
+// body_html — so the unreachable-oracle message is the read one. --body-file is
+// the only path that still uses POST /markdown, and it reports "could not render".
+check('...and says the measurement is missing, not that the issue is bad', /INCONCLUSIVE/.test(renderDown.out) && /could not read issue/.test(renderDown.out) && !/PASSED/.test(renderDown.out), true);
+const bodyFileRenderDown = runMain(['--body-file', bodyFile], { GH_RENDER_EXIT: '1' });
+check('--body-file with the renderer down is INCONCLUSIVE too, exit 3', bodyFileRenderDown.code === 3, true);
+check('...and that one says "could not render"', /could not render/.test(bodyFileRenderDown.out), true);
 check('an unreadable issue is INCONCLUSIVE too, exit 3', runMain(['42'], { GH_FAKE_UNREADABLE: '1' }).code === 3, true);
 
 console.log('\n--- THE ROOT IS THIS REPOSITORY, ASSERTED (round-2 M4) ---');
@@ -448,6 +526,19 @@ const viaReal = spawnGate(join(repoRoot(), 'scripts/admission-gate.mjs'));
 check('spawned through the real path it refuses too', /NOT DISPATCHABLE/.test(viaReal), true);
 rmSync(shim, { recursive: true, force: true });
 
+if (oracleDown) {
+  // Exit 3 REGARDLESS of check failures, because in this state the suite's own
+  // result is not meaningful: bodies fell back to the cache, and the spawned
+  // cases run the real driver whose --body-file path needs the same oracle, so
+  // failures here are artifacts of the outage rather than evidence about the
+  // diff. The OFFLINE arm is the authority on correctness and runs first in CI
+  // and must pass; this arm only ever answers "did the fixtures drift?", and
+  // when the oracle is unreachable the honest answer is "unknown".
+  console.error(`\n${oracleDown} live render(s) could not reach GitHub. THE FIXTURES WERE NOT VERIFIED against the`);
+  console.error('real renderer — a missing measurement, not drift, and not a statement about this diff.');
+  if (failed) console.error(`(${failed} check(s) also failed; in this state they are outage artifacts — see the offline arm.)`);
+  process.exit(3);
+}
 if (misses) console.error(`\n${misses} render fixture(s) missing — run: node scripts/build-admission-fixtures.mjs`);
 // COLLECT mode exists so the fixture builder can discover which bodies need
 // rendering; it must NOT swallow real failures. It previously exited 0 on ANY
