@@ -216,6 +216,7 @@ writeFileSync(join(shim, 'gh'), [
   '  cat "$ADM_FAKE_HTML"; exit 0',
   'fi',
   '[ "$1" = issue ] && [ "$2" = view ] && [ "$4" = --json ] || { echo "shim: unexpected: $*" >&2; exit 2; }',
+  '[ "${GH_FAKE_UNREADABLE:-0}" = 0 ] || exit 1',
   'cat "$ADM_FAKE_BODY"',
   '',
 ].join('\n'));
@@ -316,6 +317,21 @@ for (const [label, body] of [
 check('a hand-written <br> separates a surface from a decision', ok('## Requirements\n\n- fix it\n\nsrc/engine.ts<br>ADR-0075\n'), true);
 check('a surface and a decision in ADJACENT blocks are both seen', ok('## Requirements\n\n- fix it\n\nsrc/engine.ts\n\nADR-0075\n'), true);
 
+console.log('\n--- THE FOUR EXIT CODES ARE DISTINCT (round-4 M4) ---');
+writeFileSync(bodyFile, JSON.stringify({ body: PAYLOAD })); stageRender(PAYLOAD);
+check('dispatchable is 0', runMain(['42']).code, 0);
+writeFileSync(bodyFile, JSON.stringify({ body: 'help' })); stageRender('help');
+check('under-specified is 1 — a verdict about the issue', runMain(['42']).code, 1);
+check('no argument is 2', runMain([]).code, 2);
+
+console.log('\n--- A NUMBERED OR LETTERED HEADING PREFIX IS PURE SPELLING (round-4 m4) ---');
+check('"## 1. Requirements" is recognised', ok('## 1. Requirements\n\n- [ ] x\n\n`src/engine.ts`\n\nADR-0075\n'), true);
+check('"## B) Done when" is recognised', ok('## B) Done when\n\n- [ ] x\n\n`src/engine.ts`\n\nADR-0075\n'), true);
+// But a TOPIC heading is still refused: clause (a) asks for a section saying what
+// must be TRUE when the work is done, and #310's shape does not. Deliberate, and
+// stated in the header rather than left as an accident of the vocabulary.
+check('a numbered TOPIC heading is still not acceptance criteria', ok('## 1. ADR-0075 cl. 4 — observe the gate RED in CI\n\nsome prose\n\n`src/engine.ts`\n\nADR-0075\n'), false);
+
 console.log('\n--- THE ALLOWLIST: WE COUNT NODES, WE DO NOT GUESS WHAT GITHUB HIDES ---');
 // Round 4 killed the strip-every-tag approach: <math-renderer> carries raw TeX
 // SOURCE as its text, and ```mermaid falls back into a div GitHub literally
@@ -372,8 +388,12 @@ check('a one-line raw <table> keeps its cells apart', ok('## Requirements\n\n<ta
 console.log('\n--- A RENDER THAT DID NOT HAPPEN IS A REFUSAL, NEVER A PASS ---');
 writeFileSync(bodyFile, JSON.stringify({ body: PAYLOAD })); stageRender(PAYLOAD);
 const renderDown = runMain(['42'], { GH_RENDER_EXIT: '1' });
-check('the renderer failing refuses, exit 1', renderDown.code === 1, true);
-check('...and says the measurement is missing, not that the issue is bad', /could not render/.test(renderDown.out) && !/PASSED/.test(renderDown.out), true);
+// A MISSING MEASUREMENT IS NOT A REFUSAL. These shared exit 1 until round 4
+// (R4-M4), which would have let an orchestrator record an outage as a spec
+// failure and send the issue back to its author. 3 means "no verdict".
+check('the renderer failing is INCONCLUSIVE, exit 3 — not a refusal', renderDown.code === 3, true);
+check('...and says the measurement is missing, not that the issue is bad', /INCONCLUSIVE/.test(renderDown.out) && /could not render/.test(renderDown.out) && !/PASSED/.test(renderDown.out), true);
+check('an unreadable issue is INCONCLUSIVE too, exit 3', runMain(['42'], { GH_FAKE_UNREADABLE: '1' }).code === 3, true);
 
 console.log('\n--- THE ROOT IS THIS REPOSITORY, ASSERTED (round-2 M4) ---');
 check('this repo is recognised', looksLikeThisRepo(repoRoot()), true);
@@ -399,8 +419,11 @@ check('a repo that VENDORED the gate is not this repository', looksLikeThisRepo(
 // drives main() at the foreign repo and asserts the effect.
 writeFileSync(bodyFile, JSON.stringify({ body: PAYLOAD })); stageRender(PAYLOAD);
 const atForeign = runMain(['42', '--repo', foreign]);
-check('main() REFUSES when pointed at a repo that is not this one', atForeign.code === 1, true);
-check('...and says so rather than validating against it', /does not look like the vfkb repository/.test(atForeign.out) && !/PASSED/.test(atForeign.out), true);
+check('main() refuses to validate against a repo that is not this one, exit 3', atForeign.code === 3, true);
+// m1: the message used to name the marker that had been REPLACED, telling an
+// operator to create two files that would not help.
+check('...and names the REAL predicate, package.json\'s name', /package\.json name is not/.test(atForeign.out) && !/PASSED/.test(atForeign.out), true);
+check('...and echoes the --repo it was given', atForeign.out.includes(foreign), true);
 const atReal = runMain(['42', '--repo', repoRoot()]);
 check('main() with --repo at THIS repo still admits', atReal.code === 0, true);
 

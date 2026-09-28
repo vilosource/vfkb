@@ -122,6 +122,18 @@ jobs:
       - name: The admission gate is connected — both directions go red
         run: node scripts/admission-gate.selftest.mjs
 
+      # The gate's visibility layer IS GitHub's renderer, and the suite above
+      # replays a committed fixture cache so it can run offline and
+      # deterministically. Nothing in that arm can notice the cache going stale
+      # against the real oracle (round-4 M3), so the SAME suite runs again with
+      # --live, rendering every body through the API. A drift in GitHub's output
+      # fails here rather than silently making the Brake agree with a recording
+      # of a renderer that no longer exists.
+      - name: The admission gate's fixtures still match the real renderer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/admission-gate.selftest.mjs --live
+
       - name: An implementation change carries a review record (ADR-0052)
         run: |
           BASE="origin/${{ github.base_ref || 'main' }}"

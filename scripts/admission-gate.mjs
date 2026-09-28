@@ -34,32 +34,22 @@
 // implied, because a gate that overstates its reach is read as coverage it does
 // not have.
 //
-// ── WHAT THIS DELIBERATELY DOES NOT CHECK ───────────────────────────────────
-// Stated, because a gate that overstates its reach is read as coverage it does
-// not have — and because two of these are tempting to fake with a model.
-//
-//   * WHETHER THE CRITERIA ARE GOOD. It checks a section exists and has at
-//     least one checkable item. "- [ ] make it work" passes. Judging criteria is
-//     review's job (ADR-0052) and a human's.
-//   * WHETHER THE CITED DECISION ACTUALLY GOVERNS. Any real ADR/RFC reference
-//     satisfies clause (c) — a passing mention counts the same as the decision
-//     being implemented. Distinguishing them is a judgement call with no
-//     authoritative referent, so it is not attempted. The value here is narrow
-//     and real: an issue citing NO decision at all is refused, which was 9 of
-//     this repo's 36 issues when the gate was built.
-//   * WHETHER THE SURFACES ARE THE RIGHT ONES. It verifies the named paths
-//     exist (or their directories do). Naming the wrong file passes.
-//
-// ── WHAT IT DELIBERATELY DOES NOT DO ────────────────────────────────────────
-// It PRINTS a verdict and exits 0 or 1. It does not relabel, move or return
-// anything: RFC-039 D2 speaks of an issue "returned to fsm:needs-spec with
-// specific questions", but the FSM is D1 and unbuilt, so the questions are the
-// only half that exists yet.
-//
 // Measured on this repo's full 38-issue corpus: 9 dispatchable, 29 returned —
-// 24 no criteria, 9 no surfaces, 8 no governing decision. A gate that passed or
-// failed ALL of them would not be discriminating, which is why the split is
-// measured rather than assumed.
+// 24 no criteria, 9 no surfaces, 8 no governing decision (an issue can miss more
+// than one). A gate that passed or failed ALL of them would not be
+// discriminating, which is why the split is measured rather than assumed.
+//
+// AND WHAT THAT 24 IS NOT: it is not 24 issues that forgot to specify. Some are
+// REPORTS WRITTEN FOR A HUMAN whose sections are topic headings — #310 and #313
+// enumerate numbered, individually actionable items under headings like
+// "## 1. ADR-0075 cl. 4 — observe the gate RED in CI". Those are refused, and
+// that is deliberate: clause (a) asks for a section that says what must be TRUE
+// when the work is done, and a topic heading does not. The remedy is to add one,
+// not to rename anything. A numbered or lettered prefix before a recognised
+// heading word ("## 1. Requirements") is pure spelling and is accepted.
+// Calibration note: the vocabulary was calibrated against the 36 issues that
+// existed when it was written, so issues filed later can miss it for spelling —
+// check before reading a refusal as evidence of under-specification.
 //
 // AND THE HONEST PART, by the same standard this header sets: 100% of that
 // discrimination comes from the STRUCTURAL checks — is there a heading, is any
@@ -69,7 +59,10 @@
 // exist" or "could not be found". They are prospective — they catch a typo or a
 // stale path the day someone makes one — not the measured discriminator.
 //
-// ── WHAT IT STILL DOES NOT CATCH ────────────────────────────────────────────
+// ── WHAT THIS DELIBERATELY DOES NOT CHECK ───────────────────────────────────
+// Stated, because a gate that overstates its reach is read as coverage it does
+// not have — and this is the one list, after an earlier version carried two
+// overlapping copies that had already drifted apart.
 //   * WHETHER THE CRITERIA ARE GOOD. A matching heading with any word under it
 //     satisfies clause (a). "- [ ] make it work" passes. Judging criteria is
 //     review's job (ADR-0052) and a human's.
@@ -80,6 +73,17 @@
 //     package name, so `cp -r` of the whole repo, or a fork, still looks like
 //     this repo. It closes the realistic case — a consumer vendoring scripts/ —
 //     and no more.
+//
+// ── EXIT CODES: A MISSING MEASUREMENT IS NOT A REFUSAL ──────────────────────
+//   0  dispatchable
+//   1  NOT dispatchable — the issue is under-specified, and the output names
+//      exactly what is missing. This is a verdict.
+//   2  usage error.
+//   3  INCONCLUSIVE — the issue could not be read, or could not be rendered, so
+//      what a reader would see is unknown. No verdict was reached. A consumer
+//      must retry or escalate, NOT treat the issue as refused: round 4 found
+//      these sharing exit 1, which would have let an orchestrator record an
+//      outage as a spec failure and send it back to the author (R4-M4).
 //
 //   node scripts/admission-gate.mjs <issue-number>
 //   node scripts/admission-gate.mjs --body-file <path>     (for testing)
@@ -98,7 +102,7 @@ import { fileURLToPath } from 'node:url';
  * A gate that demands a magic word teaches people to add the magic word; a gate
  * that matches how people already write makes the missing ones mean something.
  */
-const CRITERIA_HEADING = /^#{1,4}\s*(?:acceptance\s+criteria|done\s+when|definition\s+of\s+done|success\s+criteria|dod|requirements?|(?:suggested|proposed|the)\s+fix|fix\s+shape|what\s+would\s+resolve|resolution|the\s+property\s+to\s+assert|proposed\s+(?:change|design)|scope)\b/im;
+const CRITERIA_HEADING = /^#{1,4}\s*(?:[0-9]+[.)]\s*|[A-Za-z][.)]\s*)?(?:acceptance\s+criteria|done\s+when|definition\s+of\s+done|success\s+criteria|dod|requirements?|(?:suggested|proposed|the)\s+fix|fix\s+shape|what\s+would\s+resolve|resolution|the\s+property\s+to\s+assert|proposed\s+(?:change|design)|scope)\b/im;
 /**
  * Something a reader could check off: a task box, a bullet, a numbered item —
  * or PROSE. Round 1 found the bullet requirement was a magic word one level
@@ -424,9 +428,12 @@ export function main(argv = process.argv.slice(2)) {
   // (round-2 M4). Round 1's M2 was the same silence in the other direction.
   const root = arg('--repo', null) ? resolve(arg('--repo', null)) : repoRoot();
   if (!looksLikeThisRepo(root)) {
-    console.error(`admission-gate FAILED — ${root} does not look like the vfkb repository (no scripts/admission-gate.mjs + docs/adr).`);
-    console.error('Refusing to validate an issue\'s surfaces against a repository it does not belong to. Pass --repo <path>.');
-    return 1;
+    // m1: this message used to name the marker that was REPLACED, telling an
+    // operator to create two files that would not help.
+    console.error(`admission-gate INCONCLUSIVE — ${root} is not the vfkb repository: its package.json name is not "@viloforge/vfkb".`);
+    console.error('Refusing to validate an issue\'s surfaces against a repository it does not belong to.');
+    console.error(`Run it from inside a vfkb checkout, or pass --repo <path-to-vfkb>${arg('--repo', null) ? ` (given: ${arg('--repo', null)})` : ''}.`);
+    return 3;
   }
   const bodyFile = arg('--body-file', null);
   const issue = argv.find((a) => /^\d+$/.test(a));
@@ -435,7 +442,12 @@ export function main(argv = process.argv.slice(2)) {
   if (bodyFile) { body = readFileSync(bodyFile, 'utf8'); label = bodyFile; }
   else if (issue) {
     try { body = JSON.parse(gh('issue', 'view', issue, '--json', 'body')).body ?? ''; label = `#${issue}`; }
-    catch { console.error(`admission-gate FAILED — could not read issue #${issue}. Refusing to admit an issue it cannot see.`); return 1; }
+    catch (e) {
+      console.error(`admission-gate INCONCLUSIVE — could not read issue #${issue}. Refusing to admit an issue it cannot see.`);
+      console.error('This is not a verdict about the issue; it is a missing measurement. Check `gh auth status`.');
+      console.error(String(e?.message ?? e).split('\n').slice(0, 3).join('\n'));
+      return 3;
+    }
   } else { console.error('usage: admission-gate.mjs <issue-number> | --body-file <path>'); return 2; }
 
   // A render that did not happen is a REFUSAL. The whole point of the redesign
@@ -444,10 +456,11 @@ export function main(argv = process.argv.slice(2)) {
   let verdict;
   try { verdict = admit(body, repoProbes(root)); }
   catch (e) {
-    console.error(`admission-gate FAILED — could not render issue ${label} through GitHub, so what a reader would SEE is unknown.`);
-    console.error('That is not an admission; it is a missing measurement. Check `gh auth status` and network access.');
+    console.error(`admission-gate INCONCLUSIVE — could not render issue ${label} through GitHub, so what a reader would SEE is unknown.`);
+    console.error('That is not an admission and not a refusal; it is a missing measurement. A consumer should retry');
+    console.error('or escalate, never send the issue back to its author. Check `gh auth status` and network access.');
     console.error(String(e?.message ?? e).split('\n').slice(0, 4).join('\n'));
-    return 1;
+    return 3;
   }
   const { ok, problems, surfaces, governing } = verdict;
   console.log(`admission-gate: ${label}`);
