@@ -1,0 +1,173 @@
+{
+  "recordVersion": 1,
+  "sha": "53e776703de9d70c6b627be74f7abe20e11031a4",
+  "governing": [
+    "docs/adr/ADR-0075-the-software-factory.md",
+    "docs/rfc/RFC-039-the-software-factory.md",
+    "docs/adr/ADR-0070-guards-that-can-fail.md",
+    "docs/adr/ADR-0051-delivery-honesty.md"
+  ],
+  "reviewer": {
+    "agent": "claude (herdr pane adm-review5, FRESH session)",
+    "model": "claude-opus-5",
+    "rounds": 5
+  },
+  "generated": "2026-09-28T07:51:42Z",
+  "findings": [
+    {
+      "id": "R5-M1",
+      "severity": "major",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "INTRODUCED BY 53e7767: every LANGUAGE-TAGGED code fence was invisible to the gate. GitHub wraps a syntax-highlighted fence in <div class=\"highlight highlight-source-X\">, and div was on neither list, so it hid the whole subtree — observed blind for ```js ```ts ```yaml ```bash ```diff ```json ```csv ```tsv ```svg ```ipynb ```gltf. Bare ``` and ```text still worked, and those were the only two spellings the suite pinned, which is why 108/108 stayed green over it. A ```ts fence whose comment named the surface and the ADR drew THREE refusals including 'the heading is there but nothing follows it'. 3 of 38 corpus issues carry a language-tagged fence; none flipped verdict, so it was latent. Fixed in 3783db5 by allowing div.highlight* by class."
+    },
+    {
+      "id": "R5-M2",
+      "severity": "major",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "INTRODUCED BY 53e7767: every GitHub ALERT (> [!NOTE] / [!IMPORTANT] / [!WARNING]) renders as <div class=\"markdown-alert …\"> and was blocked — GitHub's own documented callout syntax and the natural place to write what must be true. Fixed by allowing div.markdown-alert* by class."
+    },
+    {
+      "id": "R5-M3",
+      "severity": "major",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "INTRODUCED BY 53e7767: the header's ACCEPTED COST was materially understated (ADR-0051). It said the cost was 'a raw <div> an author writes by hand' and that 'markdown headings and lists are unaffected', while R5-M1 and R5-M2 are divs GitHub emits from ORDINARY markdown with no hand-written HTML. Rewritten to state exactly what is refused and what happens if GitHub adds a third visible-div class."
+    },
+    {
+      "id": "R5-M4",
+      "severity": "major",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "INTRODUCED BY 53e7767: FIVE load-bearing elements of the new walker carried no pin — blockquote and summary in COUNTED, span in TRANSPARENT, the lastIndexOf stack unwind, and the close-tag newline. Each mutation left the suite at 108 ok while flipping a real verdict against the live oracle. The unwind is the one whose loss ADMITS rather than refuses: with indexOf an inner </div> closes the outer one and the payload after it is admitted while invisible, which is exactly the nested-div shape the enrichment scaffolding is built from. Also on record: the close-tag newline is the SAME pass the parent commit deleted as unpinnable and 53e7767 silently reinstated — it is load-bearing on compact HTML where GitHub emits no inter-tag newline, so the right action was the pin, not the deletion. All five pinned and observed red in 3783db5."
+    },
+    {
+      "id": "R5-M5",
+      "severity": "major",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "INTRODUCED BY 53e7767: the 'a blockquote criterion' pin was VACUOUS — its surface and decision sat in a paragraph AFTER the blockquote, so it passed with the quote's contents entirely hidden while reading as 'blockquote text is visible'. Payload moved inside the quote."
+    },
+    {
+      "id": "R5-M6",
+      "severity": "major",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "carried from round 4 (R4-M3), unaddressed: nothing mechanical re-checks the fixture cache against the oracle — CI runs the offline arm only and --live is a manual step. The cache is currently sound (re-verified: 94 recorded, no orphans, a miss is fatal offline, --live genuinely bypasses) but nothing keeps it so."
+    },
+    {
+      "id": "R5-M7",
+      "severity": "major",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "carried from round 4 (R4-M4), unaddressed: a failed render and a refusal share an exit code, so a consumer cannot distinguish a missing measurement from an under-specified issue."
+    },
+    {
+      "id": "R5-m1",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "carried: the identity refusal still names the predicate that was replaced (scripts/admission-gate.mjs), telling an operator to create files that would not help."
+    },
+    {
+      "id": "R5-m2",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "carried: two overlapping 'what it does not check' lists in the header."
+    },
+    {
+      "id": "R5-m3",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "carried: the header's corpus counts contradict each other (9 of 36 vs 8 of 38)."
+    },
+    {
+      "id": "R5-m4",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "carried: #310 and #313 — the two best-specified issues in the corpus — are refused over a numbered-heading spelling."
+    }
+  ],
+  "findingsCount": 11,
+  "ruledOut": [
+    "THE STAKED PREDICTION HELD. 97 attack shapes rendered through the live oracle and run through the shipped admit(), at least ~80 of them novel relative to round 4's record: ZERO admitted while invisible. Refused as they should be: all js-render-* enrichment families (mermaid, geojson, topojson, stl — every one routed through div.render-plaintext-hidden), <math-renderer> in all four spellings ($$…$$, $…$, a ```math fence, a TeX % comment), bare/uppercase/whitespaced <div> and <DIV >, nested <div> with the payload after the inner close, <div> plus a stray </section>, <ruby><rt>, <rt> alone, <pre>-in-<div>-in-<li>",
+    "the walker survives adversarial parsing: malformed nesting, mismatched close tags, attributes containing '>' inside quotes, unusual tag-name case and whitespace, unclosed tags, deep nesting — no input made it throw, and a throw would be a refusal anyway",
+    "the fixture cache re-verified sound: no orphaned or missing keys, a deleted key is fatal offline, --live genuinely bypasses the cache, and R4-M1's fix does not re-open a green switch",
+    "corpus stable at 9 of 38 with no drift from round 4",
+    "no AI attribution in the range; no secrets; tree clean"
+  ],
+  "mutations": [
+    {
+      "guard": "unknown elements hide their subtree",
+      "mutation": "blocks: false for every element",
+      "observedRed": true,
+      "note": "5 FAIL"
+    },
+    {
+      "guard": "the ancestor chain is checked",
+      "mutation": "emit without the blocked() test",
+      "observedRed": true,
+      "note": "4 FAIL"
+    },
+    {
+      "guard": "section transparent (footnotes)",
+      "mutation": "drop 'section' from TRANSPARENT",
+      "observedRed": true,
+      "note": "1 FAIL"
+    },
+    {
+      "guard": "markdown-accessiblity-table transparent",
+      "mutation": "drop it from TRANSPARENT",
+      "observedRed": true,
+      "note": "2 FAIL"
+    },
+    {
+      "guard": "blockquote counted (R5-M4a)",
+      "mutation": "drop 'blockquote' from COUNTED",
+      "observedRed": true,
+      "note": "2 FAIL"
+    },
+    {
+      "guard": "summary counted (R5-M4b)",
+      "mutation": "drop 'summary' from COUNTED",
+      "observedRed": true,
+      "note": "1 FAIL"
+    },
+    {
+      "guard": "span transparent (R5-M4c)",
+      "mutation": "drop 'span' from TRANSPARENT",
+      "observedRed": true,
+      "note": "4 FAIL"
+    },
+    {
+      "guard": "stack unwinds to the NEAREST match (R5-M4d)",
+      "mutation": "lastIndexOf -> indexOf",
+      "observedRed": true,
+      "note": "1 FAIL — the only one of the family that fails OPEN"
+    },
+    {
+      "guard": "close-tag newline on compact HTML (R5-M4e)",
+      "mutation": "delete the newline emit",
+      "observedRed": true,
+      "note": "2 FAIL"
+    },
+    {
+      "guard": "visible div classes are allowed (R5-M1/M2)",
+      "mutation": "drop the div-class test",
+      "observedRed": true,
+      "note": "5 FAIL"
+    },
+    {
+      "guard": "...and ONLY those classes",
+      "mutation": "allow every div",
+      "observedRed": true,
+      "note": "4 FAIL — mermaid and bare-div reopen"
+    }
+  ],
+  "mutationsNote": null,
+  "verdict": "FIX-FIRST"
+}
