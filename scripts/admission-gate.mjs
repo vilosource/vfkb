@@ -198,8 +198,15 @@ const BARE_DECISION = /\b((?:ADR|RFC)-\d{3,4})\b/gi;
  * call where it used to make two. `/markdown` remains only for `--body-file`,
  * which has no issue to fetch.
  */
-export const renderIssueHtml = (issue) =>
-  JSON.parse(gh('api', `repos/{owner}/{repo}/issues/${issue}`, '-H', 'Accept: application/vnd.github.html+json')).body_html ?? '';
+export const renderIssueHtml = (issue, slug = 'vilosource/vfkb') =>
+  // The SLUG IS EXPLICIT. `repos/{owner}/{repo}/…` resolves from the current
+  // working directory's git remote, so run from another checkout the gate
+  // fetched that repo's issue N, validated its surfaces against vfkb, printed a
+  // vfkb ADR path and exited 0 — a silent wrong-repo PASS on the very
+  // invocation the INCONCLUSIVE message recommends (`--repo`), and the quiet
+  // success ADR-0051 §3 names. repoRoot() was already anchored on the script
+  // for this reason; the issue half was not (round-7 M1).
+  JSON.parse(gh('api', `repos/${slug}/issues/${issue}`, '-H', 'Accept: application/vnd.github.html+json')).body_html ?? '';
 
 export const renderViaGitHub = (body, repoSlug = 'vilosource/vfkb') => {
   const payload = JSON.stringify({ text: String(body ?? ''), mode: 'gfm', context: repoSlug });

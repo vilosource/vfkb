@@ -213,31 +213,49 @@ const shim = mkdtempSync(join(tmpdir(), 'adm-gh-'));
 // The shim answers only `gh issue view <n> --json body`, and answers in the
 // shape the gate parses — JSON with a `body` field. Anything else exits 2, so a
 // gate that asked for the wrong thing is observed rather than silently passing.
-// The shim stands in for GitHub — the gate's TWO external calls and nothing
-// else: `gh issue view <n> --json body`, and `gh api -X POST /markdown`, which is
-// answered with the RECORDED render of the body under test rather than an
-// invention. Anything else exits 2, so a gate that grew a third call is observed.
-writeFileSync(join(shim, 'gh'), [
-  '#!/bin/sh',
-  // `gh api repos/.../issues/N` — the issue WITH its rendered body_html, which
-  // is the surface a reader reads and now the gate's only call for an issue.
-  'case "$1 $2" in',
-  '  "api repos/{owner}/{repo}/issues/"*)',
-  '    [ "${GH_FAKE_404:-0}" = 0 ] || { echo "gh: HTTP 404: Not Found" >&2; exit 1; }',
-  '    [ "${GH_FAKE_UNREADABLE:-0}" = 0 ] || exit 1',
-  '    [ "${GH_RENDER_EXIT:-0}" = 0 ] || exit "$GH_RENDER_EXIT"',
-  '    cat "$ADM_FAKE_ISSUE"; exit 0 ;;',
-  'esac',
-  'if [ "$1" = api ]; then',            // POST /markdown, for --body-file only
-  '  cat >/dev/null',
-  '  [ "${GH_RENDER_EXIT:-0}" = 0 ] || exit "$GH_RENDER_EXIT"',
-  '  cat "$ADM_FAKE_HTML"; exit 0',
-  'fi',
-  '[ "$1" = issue ] && [ "$2" = view ] && [ "$4" = --json ] || { echo "shim: unexpected: $*" >&2; exit 2; }',
-  '[ "${GH_FAKE_UNREADABLE:-0}" = 0 ] || exit 1',
-  'cat "$ADM_FAKE_BODY"',
-  '',
-].join('\n'));
+// ── THE SHIM IS CONTENT-ADDRESSED, NOT A CANNED ANSWER ──────────────────────
+// It stands in for GitHub — the gate's two calls and nothing else — and round 7
+// showed why fidelity matters more than brevity. The previous shell version
+// discarded stdin and matched on "$1 $2" only, so it could not tell one body
+// from another and ignored the Accept header entirely: `preRendered` and the
+// `vnd.github.html+json` header were both unpinnable through it, and the two
+// SPAWNED cases could not use it at all (they would have received whatever
+// render was staged last). So it is a node script that serves the SAME fixture
+// cache by sha256 of the body, and REQUIRES the header the driver must send.
+// An unknown body or a missing header exits 2, which is what makes a wrong call
+// observable instead of silently answered.
+writeFileSync(join(shim, 'gh'), `#!/usr/bin/env node
+const { readFileSync, existsSync } = require('node:fs');
+const { createHash } = require('node:crypto');
+const a = process.argv.slice(2);
+const fail = (m) => { process.stderr.write('shim: ' + m + '\\n'); process.exit(2); };
+const cache = JSON.parse(readFileSync(${JSON.stringify(fixturePath)}, 'utf8'));
+const key = (b) => createHash('sha256').update(String(b ?? ''), 'utf8').digest('hex').slice(0, 32);
+if (process.env.GH_RENDER_EXIT && process.env.GH_RENDER_EXIT !== '0') process.exit(Number(process.env.GH_RENDER_EXIT));
+// the issue, with its rendered body_html — the gate's only call for an issue
+if (a[0] === 'api' && /^repos\\/[^{]/.test(a[1] || '') && /\\/issues\\/\\d+$/.test(a[1])) {
+  // The slug must be LITERAL. \`repos/{owner}/{repo}/…\` makes gh resolve from the
+  // caller's cwd, which fetched another repository's issue and returned a PASS
+  // (round-7 M1); the shim refuses the placeholder so that is observable.
+  if (process.env.GH_FAKE_404) { process.stderr.write('gh: HTTP 404: Not Found\\n'); process.exit(1); }
+  if (process.env.GH_FAKE_UNREADABLE) process.exit(1);
+  if (!a.some((x) => String(x).includes('vnd.github.html+json'))) fail('issue fetched without the html+json Accept header');
+  process.stdout.write(readFileSync(process.env.ADM_FAKE_ISSUE, 'utf8'));
+  process.exit(0);
+}
+// POST /markdown, for --body-file only: answer for the body actually sent
+if (a[0] === 'api' && a.includes('/markdown')) {
+  let raw = '';
+  try { raw = readFileSync(0, 'utf8'); } catch { raw = ''; }
+  if (!raw) fail('/markdown called with no payload on stdin');
+  const text = JSON.parse(raw).text;
+  const hit = cache[key(text)];
+  if (hit === undefined) fail('no recorded render for this body — run build-admission-fixtures.mjs');
+  process.stdout.write(hit);
+  process.exit(0);
+}
+fail('unexpected call: ' + a.join(' '));
+`);
 chmodSync(join(shim, 'gh'), 0o755);
 const bodyFile = join(shim, 'body.md');
 const htmlFile = join(shim, 'render.html');
@@ -473,6 +491,16 @@ check('--body-file with the renderer down is INCONCLUSIVE too, exit 3', bodyFile
 check('...and that one says "could not render"', /could not render/.test(bodyFileRenderDown.out), true);
 check('an unreadable issue is INCONCLUSIVE too, exit 3', runMain(['42'], { GH_FAKE_UNREADABLE: '1' }).code === 3, true);
 
+console.log('\n--- THE DRIVER ASKS FOR THE READER\'S SURFACE, EXPLICITLY (round-7 M3/M4) ---');
+// The shim requires the html+json Accept header and answers per-body, so both
+// are now observable. Without the header the gate would get no body_html, admit
+// nothing, and refuse the whole backlog AS A VERDICT; with a canned render it
+// could not tell one body from another.
+writeFileSync(bodyFile, JSON.stringify({ body: PAYLOAD })); stageRender(PAYLOAD);
+check('an issue is admitted through the issue API with the html+json header', runMain(['42']).code, 0);
+writeFileSync(bodyFile, JSON.stringify({ body: 'help' })); stageRender('help');
+check('...and a bare one is refused — the shim answered for THIS body', runMain(['42']).code, 1);
+
 console.log('\n--- THE ROOT IS THIS REPOSITORY, ASSERTED (round-2 M4) ---');
 check('this repo is recognised', looksLikeThisRepo(repoRoot()), true);
 check('a directory with no package.json is not', looksLikeThisRepo(tmpdir()), false);
@@ -516,12 +544,23 @@ writeFileSync(bare, 'help');
 const link = join(shim, 'repo-link');
 try { symlinkSync(repoRoot(), link, 'dir'); } catch { /* already there */ }
 const spawnGate = (script) => {
-  const r = spawnSync(process.execPath, [script, '--body-file', bare], { encoding: 'utf8' });
+  // The shim goes on PATH for the spawned process too. Without it these two
+  // cases reached the real network: in CI the offline arm has no token, so
+  // `gh api` failed, the gate returned 3 (INCONCLUSIVE) instead of refusing,
+  // and the required check was RED for three days while four rounds of commits
+  // and records asserted it was green (round-7 B1). "Offline" has to mean it.
+  const r = spawnSync(process.execPath, [script, '--body-file', bare], {
+    encoding: 'utf8',
+    env: { ...process.env, PATH: `${shim}:${process.env.PATH}`, ADM_FAKE_ISSUE: issueFile },
+  });
   return `${r.stdout ?? ''}${r.stderr ?? ''}`;
 };
 const viaLink = spawnGate(join(link, 'scripts/admission-gate.mjs'));
 check('spawned through a SYMLINKED path it still refuses a bare issue', /NOT DISPATCHABLE/.test(viaLink), true);
 check('...and does not exit silently with no output at all', viaLink.trim().length > 0, true);
+// The shim answers for the body actually sent, so this asserts the BODY's
+// verdict rather than whatever render was staged last (round-7 M3's root cause).
+check('...and the spawned run refused the BARE body, not a staged one', /No acceptance criteria/.test(viaLink), true);
 const viaReal = spawnGate(join(repoRoot(), 'scripts/admission-gate.mjs'));
 check('spawned through the real path it refuses too', /NOT DISPATCHABLE/.test(viaReal), true);
 rmSync(shim, { recursive: true, force: true });
