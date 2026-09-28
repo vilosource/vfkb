@@ -1,0 +1,129 @@
+{
+  "recordVersion": 1,
+  "sha": "1d5e0d59b309f6297229ba72f5ed45f04a7b212b",
+  "governing": [
+    "docs/adr/ADR-0075-the-software-factory.md",
+    "docs/rfc/RFC-039-the-software-factory.md",
+    "docs/adr/ADR-0070-guards-that-can-fail.md",
+    "docs/adr/ADR-0051-delivery-honesty.md"
+  ],
+  "reviewer": {
+    "agent": "claude (herdr pane adm-review4, FRESH session)",
+    "model": "claude-opus-5",
+    "rounds": 4
+  },
+  "generated": "2026-09-28T07:13:49Z",
+  "findings": [
+    {
+      "id": "R4-B1",
+      "severity": "blocking",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "INTRODUCED BY 1d5e0d5. THE FALSIFIABLE PREDICTION OF THE REDESIGN IS FALSIFIED: 46 shapes probed against the real oracle, ~30 novel, and 8 are ADMITTED while invisible to a reader, reducing to TWO mechanisms that both need a code change. (1) <math-renderer> carries raw TeX SOURCE as its element text — `$$\\hphantom{ x src/engine.ts ADR-0075 }$$` renders an invisible box but the gate reads the source and admits; same via inline $\\phantom{}$, a ```math fence, a TeX `%` comment, and \\color{white}. (2) GitHub's own class name says it: ```mermaid/geojson/stl/topojson fall back into <div class=\"render-plaintext-hidden\"> inside a js-render-needs-enrichment section, replaced client-side by the diagram — a mermaid `%%` comment is not even in the diagram. Reproduced by the orchestrator end-to-end on the real driver: a body whose visible content is 'Please fix the thing. It is broken.' plus an EMPTY '## Requirements' prints PASSED — dispatchable, exit 0. ROOT CAUSE, one level down from round 3's: POST /markdown returns SANITIZED HTML, and sanitized HTML is not 'what a reader sees' — the remaining layer is CSS plus client-side hydration, and visibleTextFromHtml (:194-212) is a fresh hand-written approximation of exactly that. The rule recorded in db880fe8eaca fires on this very commit."
+    },
+    {
+      "id": "R4-B2",
+      "severity": "major",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "INTRODUCED BY 1d5e0d5: the header claims a closed class it does not have, and contradicts its own selftest."
+    },
+    {
+      "id": "R4-M1",
+      "severity": "major",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "INTRODUCED BY 1d5e0d5: `process.exit(COLLECT ? 0 : 1)` (selftest:368) tolerates ALL failures when ADM_MISS_FILE is set, not only fixture misses — observed: the same 12 genuine failures exit 1 normally and exit 0 with the variable set. A one-variable green switch inside a Brake, settable by the party being checked, and the fixture builder invokes the suite with stdio:'ignore' so it would never be seen there. Not reachable from CI. Fix: `COLLECT && failed === misses`."
+    },
+    {
+      "id": "R4-M2",
+      "severity": "major",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "INTRODUCED BY 1d5e0d5: the FOURTH unpinned guard on this branch, found by the method the charge prescribed. Deleting the <br>/<hr> newline pass leaves 98 ok / exit 0 — the same test under which this commit REMOVED two other lines for being unpinnable. But unlike those it IS load-bearing: GitHub emits an author-written <br> with no following newline, so `src/engine.ts<br>ADR-0075` fuses and the decision is silently lost — a false refusal on a hand-written shape. The defect is the missing pin, not the code."
+    },
+    {
+      "id": "R4-M3",
+      "severity": "major",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "INTRODUCED BY 1d5e0d5: nothing mechanical re-checks the fixture cache against the oracle — CI runs the selftest offline only and --live is a manual step named in comments. The reviewer instrumented the cache and found it currently sound (71 recorded / 71 used / 0 orphaned / 0 missing; a deleted key IS fatal offline; a fully corrupted cache fails offline and passes --live, so --live genuinely bypasses), but nothing keeps it sound."
+    },
+    {
+      "id": "R4-M4",
+      "severity": "major",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "partly INTRODUCED BY 1d5e0d5: 'the oracle was down' and 'the issue is underspecified' are the same exit code, so a consumer cannot distinguish a missing measurement from a refusal."
+    },
+    {
+      "id": "R4-m1",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "pre-existing: the identity refusal still names the predicate that was REPLACED ('no scripts/admission-gate.mjs + docs/adr') while the check is package.json's name — and 1d5e0d5 documented the real predicate in the header without fixing the message, so they now contradict and the message tells the operator to create files that would not help."
+    },
+    {
+      "id": "R4-m2",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "INTRODUCED BY 1d5e0d5: two overlapping 'what it does not check' lists in the header, three of four bullets duplicated verbatim, inviting the drift that R4-B2 already is."
+    },
+    {
+      "id": "R4-m3",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "pre-existing: the header's corpus counts contradict each other (9 of 36 vs 8 of 38); independent re-measurement says 8, and 36 vs 38 drifts in two places."
+    },
+    {
+      "id": "R4-m4",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "pre-existing: #310 and #313 — the two newest and best-specified issues in the corpus, each enumerating numbered actionable work — are BOTH refused 'No acceptance criteria' because their headings are numbered task groups. The gate is refusing its own best input on a heading spelling."
+    }
+  ],
+  "findingsCount": 10,
+  "ruledOut": [
+    "THE REDESIGN'S DIRECTION WAS RIGHT AND ITS WINS ARE REAL, all observed: every one of the 7 shapes that defeated rounds 1-3 is now closed with no pattern of its own; <script> <style> <textarea> <iframe> <xmp> <title> are ESCAPED so their content is visibly on the page and admitting it is correct; <noscript> <template> <math> <svg> <g-emoji> have the tag dropped and content rendered; class and hidden attributes are stripped so sr-only/hidden hide nothing; &#115; is decoded by the renderer; image alt, <a title> and <abbr title> are correctly REFUSED; a fence inside a comment is correctly refused",
+    "the fixture cache is currently sound and its failure modes behave: 71 recorded / 71 used / 0 orphaned / 0 missing (instrumented); deleting one key is fatal offline; a fully corrupted cache fails offline; --live genuinely bypasses the cache; 98 ok offline AND 98 ok --live against the real oracle in 34.9 s",
+    "corpus independently re-measured at 9 of 38 dispatchable with 24/9/8 refusal reasons, matching the claim",
+    "no AI attribution in any commit in the range; no secrets; tree clean; the repo's git config carries no local user.*"
+  ],
+  "mutations": [
+    {
+      "guard": "visibility goes through the renderer",
+      "mutation": "visibleText(body, render) -> String(body ?? '')",
+      "observedRed": true,
+      "note": "12 FAIL, re-run in place by the fresh reviewer"
+    },
+    {
+      "guard": "heading markers survive the HTML->text step",
+      "mutation": "disable the <h1-6> conversion",
+      "observedRed": true,
+      "note": "42 FAIL"
+    },
+    {
+      "guard": "a failed render is a refusal",
+      "mutation": "catch returns 0 with PASSED",
+      "observedRed": true,
+      "note": "2 FAIL"
+    },
+    {
+      "guard": "the repo-identity guard's EFFECT (R3-M1 fix)",
+      "mutation": "if (!looksLikeThisRepo(root)) -> if (false)",
+      "observedRed": true,
+      "note": "2 FAIL"
+    },
+    {
+      "guard": "identity is the package NAME, not the repo's shape",
+      "mutation": "name check -> existsSync(scripts/admission-gate.mjs)",
+      "observedRed": true,
+      "note": "3 FAIL"
+    }
+  ],
+  "mutationsNote": "A sixth element, the <br>/<hr> newline pass, is load-bearing but covered by NO pin (R4-M2) — recorded as a finding rather than logged as a guard, per ADR-0070 §2.",
+  "verdict": "REDESIGN"
+}
