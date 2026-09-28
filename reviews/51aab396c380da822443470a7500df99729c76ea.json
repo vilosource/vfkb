@@ -1,0 +1,118 @@
+{
+  "recordVersion": 1,
+  "sha": "51aab396c380da822443470a7500df99729c76ea",
+  "governing": [
+    "docs/adr/ADR-0075-the-software-factory.md",
+    "docs/rfc/RFC-039-the-software-factory.md",
+    "docs/adr/ADR-0070-guards-that-can-fail.md",
+    "docs/adr/ADR-0051-delivery-honesty.md"
+  ],
+  "reviewer": {
+    "agent": "claude (herdr pane adm-review6, FRESH session)",
+    "model": "claude-opus-5",
+    "rounds": 6
+  },
+  "generated": "2026-09-28T10:16:43Z",
+  "findings": [
+    {
+      "id": "R6-M1",
+      "severity": "major",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "INTRODUCED BY 51aab39: an unreadable --body-file exited 1, which that same commit had just defined as 'NOT dispatchable — the issue is under-specified — a verdict'. readFileSync sat outside every try, so ENOENT and EISDIR crashed with Node's default exit 1; an orchestrator reading the documented second form with a moved or mistyped path would have recorded a SPEC FAILURE and returned the issue to its author, for a body it never read. R4-M4's own species reintroduced by R4-M4's fix. Fixed in e32a5fa: exit 2, with pins for a missing path, a directory, and that main() does not THROW (an uncaught error reaches a caller as exit 1 too)."
+    },
+    {
+      "id": "R6-M2",
+      "severity": "major",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "INTRODUCED BY 51aab39: the --live arm made review-gate — the required check on EVERY PR in this repo — depend on GitHub's availability. Measured ~111 live POST /markdown calls per run against a ~900/min shared secondary limit, so two overlapping runs are over budget; and with a 403 the suite died with an unhandled exception under the step name 'the fixtures still match the real renderer'. An outage would have turned every PR red claiming drift. The same commit taught the DRIVER that a missing measurement is not a verdict and did not apply it to the arm it added in the same diff. Fixed: the arm runs on push-to-main only, reports an unreachable oracle as exit 3 with the run's other results explicitly disclaimed as outage artifacts, and CI treats 3 as a warning; the offline arm runs first and is the authority on correctness."
+    },
+    {
+      "id": "R6-M3",
+      "severity": "major",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "the oracle was POST /markdown, but the surface a reader reads is the issue's body_html, and they demonstrably differ — measured on #288, whose body_html wraps a fenced block in div.snippet-clipboard-content and appends notranslate/position-relative to the highlight div while /markdown emits a bare <pre><code>. The header's load-bearing argument is 'visibility is a rendering property, so the renderer is the authority', and the renderer used was not the reader's. Evaluating all 38 real issues through both renderers produced ZERO verdict divergence, so this was an authority gap rather than a live defect — but ADR-0051 makes the silence the violation. Fixed by reading body_html from the issue API, which is strictly more authoritative AND one call instead of two; /markdown remains only for --body-file; snippet-clipboard-content added to the allowlist and pinned."
+    },
+    {
+      "id": "R6-M4",
+      "severity": "major",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "the PR body described a gate that no longer exists — R3-M2's own species, in a body that claimed it had been rewritten against the shipped code. Rewritten against e32a5fa with rounds 4-6 and the current numbers."
+    },
+    {
+      "id": "R6-m4",
+      "severity": "minor",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "INTRODUCED BY 3783db5: the div-class exception was token-based and co-occurrence-blind, so div.render-plaintext-hidden.highlight, div.highlight.highlight-source-mermaid.render-plaintext-hidden and div.markdown-alert-hidden all EMITTED their payload — a hidden container admitted because it also carried an allowed token, the one direction this design exists to exclude. No such class exists today (verified over ~300 renders), so the fix fails closed against a shape GitHub has not shipped: a hidden-token denylist is subtracted from the exception, with six pins in both directions."
+    },
+    {
+      "id": "R6-m5",
+      "severity": "minor",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "INTRODUCED BY 51aab39: exit 3 for a permanent 404 invited an unbounded retry — the contract says retry OR escalate, and an issue that does not exist never becomes readable. 3 stays (it is not a spec verdict) but the message now names the permanent case and says ESCALATE; the transient case says retry. Both pinned."
+    },
+    {
+      "id": "R6-m6",
+      "severity": "minor",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "INTRODUCED BY 51aab39: the live step's name overstated what it verifies. Staling all 96 fixture entries cosmetically (dir=auto -> dir=ltr) left BOTH arms green, because the arm re-runs the assertions against the cache rather than comparing cache to renderer. Renamed to the property that actually holds: 'No admission-gate assertion rests on a recording the live renderer would contradict'."
+    },
+    {
+      "id": "R6-m7",
+      "severity": "minor",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "visibleTextFromHtml was imported and never used, and it is the only tool that can pin the walker's defensive branches — three were unreachable through the oracle and therefore untestable via ok(). Seven direct pins added: unclosed counted tag, stray close tag, mismatched nesting, a quoted '>' inside an attribute (on both a blocked and an allowed div), uppercase/spaced tags, and a void img before the payload."
+    }
+  ],
+  "findingsCount": 8,
+  "ruledOut": [
+    "THE STAKED PREDICTION HELD A SECOND TIME, INDEPENDENTLY: 202 attack shapes rendered through the live oracle and run through the shipped admit(), ~180 of them not in round 5's record, ZERO admitted while invisible — and every one of the 96 admissions was verified against the oracle's own HTML to be text a reader sees. 0 blocking findings",
+    "the div-class exception was attacked directly: extra classes, case variants, unusual whitespace, highlight- prefixes GitHub does not emit, enrichment nested in list items and blockquotes and <details>, and pre inside an allowed div inside a hidden one — the only gap found was co-occurrence (R6-m4), which is not reachable with any class GitHub ships today",
+    "bidi controls (RLO/LRO) around a payload are admitted and were classified NOT a falsification — every character is present and selectable, so a reader sees them",
+    "the four exit codes were verified end to end on the real driver, and no path was found returning 0 or 1 for a genuinely inconclusive condition after R6-M1 was fixed",
+    "the fixture cache: no orphaned or missing keys, a deleted key is fatal offline, --live genuinely bypasses it, and R4-M1's collect-mode fix does not re-open a green switch",
+    "corpus stable at 9 of 38 measured through BOTH renderers with zero verdict divergence",
+    "no AI attribution in the range; no secrets; tree clean"
+  ],
+  "mutations": [
+    {
+      "guard": "an unreadable --body-file is not a verdict (R6-M1)",
+      "mutation": "rethrow instead of returning 2",
+      "observedRed": true,
+      "note": "3 FAIL — was UNPINNED on the first pass and only crashed the suite; runMain now reports a throw as -1 so the pin goes red cleanly"
+    },
+    {
+      "guard": "a hidden token beats an allowed one (R6-m4)",
+      "mutation": "drop the HIDDEN_DIV_CLASS subtraction",
+      "observedRed": true,
+      "note": "4 FAIL — UNPINNED on the first pass"
+    },
+    {
+      "guard": "an issue is read as body_html (R6-M3)",
+      "mutation": "revert to gh issue view --json body",
+      "observedRed": true,
+      "note": "3 FAIL"
+    },
+    {
+      "guard": "snippet-clipboard-content is allowed (R6-M3)",
+      "mutation": "drop it from VISIBLE_DIV_CLASS",
+      "observedRed": true,
+      "note": "1 FAIL — UNPINNED on the first pass"
+    },
+    {
+      "guard": "a permanent 404 says ESCALATE (R6-m5)",
+      "mutation": "permanent = false",
+      "observedRed": true,
+      "note": "1 FAIL — UNPINNED on the first pass"
+    }
+  ],
+  "mutationsNote": "Four of the five guards in this record were UNPINNED or only crash-detectable when first mutated, and were given real pins before being logged — the seventh through tenth such guard on this branch. The method keeps finding them, which is the argument for keeping it.",
+  "verdict": "FIX-FIRST"
+}
