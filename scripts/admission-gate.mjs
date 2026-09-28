@@ -191,24 +191,91 @@ export const renderViaGitHub = (body, repoSlug = 'vilosource/vfkb') => {
  * cannot contain a raw `>` in sanitized output (it arrives as `&gt;`), which is
  * what makes tag stripping safe here — it would not be on arbitrary HTML.
  */
+// THE ALLOWLIST IS `COUNTED ∪ TRANSPARENT`: the elements whose content a reader
+// can see. Everything else HIDES ITS SUBTREE. The two sets differ only in
+// whether the element is block-level — COUNTED ones also end a line (and
+// headings re-emit their `#` markers), so a surface in one block never fuses
+// with a decision in the next.
+const COUNTED = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'li', 'td', 'th', 'pre', 'code', 'summary', 'blockquote']);
+// Structure and inline formatting: contribute no text of their own but do not
+// hide what is inside them. GitHub emits <ul>/<table>/<details> around counted
+// nodes, and <a>/<strong>/<code> inside them, all plainly visible.
+const TRANSPARENT = new Set([
+  'ul', 'ol', 'dl', 'dt', 'dd', 'table', 'thead', 'tbody', 'tfoot', 'tr', 'details',
+  'a', 'strong', 'em', 'b', 'i', 'u', 'del', 's', 'strike', 'ins', 'mark', 'small',
+  'sub', 'sup', 'span', 'kbd', 'samp', 'var', 'cite', 'q', 'abbr', 'dfn', 'picture', 'font',
+  // Two wrappers GitHub puts around VISIBLE content, added because the walk
+  // refused them — the loud direction working as designed. 'section' carries
+  // footnote definitions; it also wraps the enrichment fallback, but that stays
+  // hidden because the inner <div> blocks it, which is verified by a pin.
+  'markdown-accessiblity-table', 'section',
+]);
+const HEADING = /^h([1-6])$/;
+const VOID = new Set(['br', 'hr', 'img', 'input', 'source', 'track', 'wbr', 'col', 'area', 'base', 'embed', 'link', 'meta', 'param']);
+
+/**
+ * Walk the oracle's HTML and keep text ONLY from COUNTED nodes whose every
+ * ancestor is COUNTED or TRANSPARENT. Any other element — `<div>`, `<section>`,
+ * `<math-renderer>`, anything GitHub invents next — HIDES ITS WHOLE SUBTREE.
+ *
+ * The direction of this rule is the entire design. Round 4 stripped every tag
+ * and kept the residue, which is a DENYLIST over the oracle's output, and it was
+ * defeated by two mechanisms nobody had enumerated: `<math-renderer>` carries
+ * raw TeX SOURCE as its text (so `$$\hphantom{…}$$` is an invisible box whose
+ * source was read and admitted), and ```mermaid / geojson / stl / topojson fall
+ * back into `<div class="render-plaintext-hidden">` — a name that says outright
+ * that the content is hidden. GitHub ships new `js-render-*` enrichment types
+ * over time and no API returns a hydrated, CSS-resolved DOM, so "what does
+ * GitHub hide?" has no closed answer and no termination proof.
+ *
+ * "What do we count?" does. A new enrichment type arrives as a REFUSAL rather
+ * than as a bypass, and the cost of being wrong inverts with it: too narrow is
+ * loud (a visible issue is refused; the fix is to name one more node type), too
+ * broad was silent — and silent is the failure D2 exists to prevent.
+ *
+ * ACCEPTED COST, stated because it is a real one: a raw `<div>` an author writes
+ * by hand renders, but its contents are NOT counted, because `<div>` is also the
+ * enrichment scaffolding's container and no attribute distinguishes them after
+ * sanitization. Requirements written inside a bare `<div>` are refused. That is
+ * the loud direction, and markdown headings and lists — what this corpus
+ * actually uses — are unaffected.
+ */
 export function visibleTextFromHtml(html) {
-  let t = String(html ?? '');
-  t = t.replace(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi, (_m, n, inner) => `\n${'#'.repeat(Number(n))} ${inner.replace(/<[^>]*>/g, '')}\n`);
-  // NO block-closer-to-newline pass. It was written, and its mutation changed
-  // nothing: GitHub pretty-prints one block per line, so `</p>\n<p>` already
-  // separates them and a surface in one paragraph never fuses with a decision in
-  // the next. The behaviour is pinned by the adjacent-blocks check, and the
-  // `--live` arm is what would catch the oracle changing its formatting. Carried
-  // as defence it could not demonstrate, so removed — third time on this branch.
-  t = t.replace(/<(br|hr)\s*\/?>/gi, '\n');
-  t = t.replace(/<[^>]*>/g, '');
-  // NO ENTITY DECODING. It was written, found unpinned, and the shapes where it
-  // could matter were checked one by one: `&amp;` beside a path does not move
-  // SURFACE's boundary, `;` before `ADR-0075` already gives \b, and `&lt;path&gt;`
-  // fails the boundary decoded or not. None of the three detectors can read an
-  // entity, so decoding was carried code no pin could cover — the same reason a
-  // \d{4} narrowing was reverted earlier on this branch. Removed.
-  return t;
+  const src = String(html ?? '');
+  const out = [];
+  const stack = [];                                  // open elements, innermost last
+  const blocked = () => stack.some((f) => f.blocks);
+  const tag = /<\/?([a-zA-Z][a-zA-Z0-9-]*)((?:"[^"]*"|'[^']*'|[^>"'])*?)\/?>/g;
+  let last = 0;
+  // Visible unless an ancestor hides it. An earlier version ALSO required a
+  // COUNTED ancestor, which refused text sitting directly inside a transparent
+  // element — `<details><summary>s</summary>TEXT</details>` renders TEXT when
+  // the reader expands it, and that conjunct dropped it. Removed rather than
+  // kept unpinned; the hiding rule is what carries the design.
+  const emit = (text) => { if (text && !blocked()) out.push(text); };
+  for (let m; (m = tag.exec(src)); ) {
+    emit(src.slice(last, m.index));
+    last = tag.lastIndex;
+    const name = m[1].toLowerCase();
+    if (m[0][1] === '/') {
+      const at = stack.map((f) => f.name).lastIndexOf(name);
+      if (at >= 0) {
+        // A counted block that closes ends a line, so a surface in one block
+        // never fuses with a decision in the next.
+        if (!blocked() && stack.slice(at).some((f) => f.counted)) out.push('\n');
+        stack.length = at;
+      }
+      continue;
+    }
+    if (m[0].endsWith('/>') || VOID.has(name)) { if (name === 'br' || name === 'hr') emit('\n'); continue; }
+    const counted = COUNTED.has(name);
+    // Heading level is re-emitted as `#` markers, because the criteria-heading
+    // vocabulary is written against markdown headings.
+    if (counted && !blocked() && HEADING.test(name)) out.push(`\n${'#'.repeat(Number(HEADING.exec(name)[1]))} `);
+    stack.push({ name, counted, blocks: !counted && !TRANSPARENT.has(name) });
+  }
+  emit(src.slice(last));
+  return out.join('');
 }
 
 /** The body as a reader sees it. `render` is injected so tests can be offline. */

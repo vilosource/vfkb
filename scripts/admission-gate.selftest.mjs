@@ -296,7 +296,7 @@ for (const [label, body] of [
   ['a fenced code block', `${HID}\n\`\`\`\n${REQ}\`\`\`\n`],
   ['a fence with an info string, payload past line 2', `${HID}\n\`\`\`text\nfiller\nfiller\n${REQ}\`\`\`\n`],
   ['a collapsed <details> — folded is not hidden', `${HID}\n<details><summary>d</summary>\n\n${REQ}</details>\n`],
-  ['<div hidden> — GitHub strips the attribute', `${HID}\n<div hidden>\n\n${REQ}</div>\n`],
+
   ['an abrupt-closing <!--> comment', `<!-->\n${REQ}`],
   ['a blockquote criterion', '## The property to assert\n\n> every field carries its own catch\n\n`src/engine.ts` `ADR-0075`\n'],
 ]) check(`visible in ${label} → dispatchable`, ok(body), true);
@@ -306,7 +306,36 @@ for (const [label, body] of [
 // a newline between them the text fuses to "src/engine.tsADR-0075", where \b no
 // longer precedes the citation and the decision is silently missed. This is the
 // shape a person writes by hand, so the false refusal would be routine.
+// GitHub emits an author-written <br> with NO following newline, so without the
+// break-to-newline pass `src/engine.ts<br>ADR-0075` fuses and the citation loses
+// its \b — a false refusal on a hand-written shape. Load-bearing but unpinned
+// until round 4 found it: the fourth unpinned guard on this branch.
+check('a hand-written <br> separates a surface from a decision', ok('## Requirements\n\n- fix it\n\nsrc/engine.ts<br>ADR-0075\n'), true);
 check('a surface and a decision in ADJACENT blocks are both seen', ok('## Requirements\n\n- fix it\n\nsrc/engine.ts\n\nADR-0075\n'), true);
+
+console.log('\n--- THE ALLOWLIST: WE COUNT NODES, WE DO NOT GUESS WHAT GITHUB HIDES ---');
+// Round 4 killed the strip-every-tag approach: <math-renderer> carries raw TeX
+// SOURCE as its text, and ```mermaid falls back into a div GitHub literally
+// names render-plaintext-hidden. Neither could be anticipated by a denylist, and
+// GitHub ships new js-render-* types over time. These pin the inversion.
+for (const [label, body] of [
+  ['TeX in an invisible \\hphantom box', `${HID}\n## Requirements\n\n$$\\hphantom{ x src/engine.ts ADR-0075 }$$\n`],
+  ['TeX in an inline \\phantom', `${HID}\n## Requirements\n\n$\\phantom{ x src/engine.ts ADR-0075 }$\n`],
+  ['a TeX comment inside display math', `${HID}\n## Requirements\n\n$$1 % x src/engine.ts ADR-0075 $$\n`],
+  ['a mermaid fence (render-plaintext-hidden)', `${HID}\n## Requirements\n\n\`\`\`mermaid\ngraph TD\n%% x src/engine.ts ADR-0075\nA-->B\n\`\`\`\n`],
+  ['a geojson fence (same container)', `${HID}\n## Requirements\n\n\`\`\`geojson\n{"x": "src/engine.ts ADR-0075"}\n\`\`\`\n`],
+  ['a bare <div>, which is also the enrichment scaffolding', `${HID}\n<div>\n\n${REQ}</div>\n`],
+]) check(`hidden in ${label} → NOT dispatchable`, ok(body), false);
+
+// The other direction: two wrappers GitHub puts around VISIBLE content. Both
+// were REFUSED by the first allowlist and added because of it — the loud
+// direction working. A table's cells and a footnote definition are read.
+check('a markdown table\'s cells are read (markdown-accessiblity-table)', ok('## Requirements\n\n| what | where |\n| --- | --- |\n| stop throwing | `src/engine.ts` |\n\nADR-0075\n'), true);
+check('a raw <table> is read too', ok('## Requirements\n\n<table><tr><td>fix `src/engine.ts` per ADR-0075</td></tr></table>\n'), true);
+check('text directly inside <details>, outside any block, is read', ok('## Requirements\n\n<details><summary>s</summary>fix `src/engine.ts` per ADR-0075</details>\n'), true);
+check('a footnote definition is read (it renders at the bottom)', ok('## Requirements\n\nfix it[^1]\n\n[^1]: `src/engine.ts` per ADR-0075\n'), true);
+// section is transparent for footnotes; the enrichment fallback stays hidden
+// because the inner div blocks it, which the mermaid pin above proves.
 
 console.log('\n--- A RENDER THAT DID NOT HAPPEN IS A REFUSAL, NEVER A PASS ---');
 writeFileSync(bodyFile, JSON.stringify({ body: PAYLOAD })); stageRender(PAYLOAD);
@@ -365,5 +394,9 @@ check('spawned through the real path it refuses too', /NOT DISPATCHABLE/.test(vi
 rmSync(shim, { recursive: true, force: true });
 
 if (misses) console.error(`\n${misses} render fixture(s) missing — run: node scripts/build-admission-fixtures.mjs`);
-if (failed) { console.error(`\n${failed} check(s) failed.`); process.exit(COLLECT ? 0 : 1); }
+// COLLECT mode exists so the fixture builder can discover which bodies need
+// rendering; it must NOT swallow real failures. It previously exited 0 on ANY
+// failure when ADM_MISS_FILE was set — a one-variable green switch inside a
+// Brake, settable by the party being checked (round-4 M1).
+if (failed) { console.error(`\n${failed} check(s) failed.`); process.exit(COLLECT && failed === misses ? 0 : 1); }
 console.log('\nadmission-gate selftest passed (the Brake is connected, and it does not block honest work).');

@@ -18,7 +18,7 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, writeFileSync, existsSync, readFileSync, rmSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { execFileSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { renderViaGitHub } from './admission-gate.mjs';
 
 export const key = (body) => createHash('sha256').update(String(body ?? ''), 'utf8').digest('hex').slice(0, 32);
@@ -33,7 +33,11 @@ const cache = existsSync(out) ? JSON.parse(readFileSync(out, 'utf8')) : {};
 const missFile = resolve(here, '../.admission-misses.tmp');
 for (let pass = 1; pass <= 5; pass++) {
   writeFileSync(missFile, '');
-  execFileSync(process.execPath, [resolve(here, 'admission-gate.selftest.mjs')], {
+  // The suite's EXIT CODE is deliberately ignored here: in collect mode it is
+  // expected to fail, because every check that depends on a not-yet-rendered
+  // body fails too. The miss file is the output that matters. (The suite's own
+  // collect-mode exit stays strict — it must not become a green switch.)
+  spawnSync(process.execPath, [resolve(here, 'admission-gate.selftest.mjs')], {
     env: { ...process.env, ADM_MISS_FILE: missFile }, stdio: 'ignore',
   });
   const bodies = [...new Set(readFileSync(missFile, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)))];
