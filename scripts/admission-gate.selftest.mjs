@@ -298,7 +298,10 @@ for (const [label, body] of [
   ['a collapsed <details> — folded is not hidden', `${HID}\n<details><summary>d</summary>\n\n${REQ}</details>\n`],
 
   ['an abrupt-closing <!--> comment', `<!-->\n${REQ}`],
-  ['a blockquote criterion', '## The property to assert\n\n> every field carries its own catch\n\n`src/engine.ts` `ADR-0075`\n'],
+  // The whole payload must be INSIDE the blockquote: the earlier version put the
+  // surface and decision in a paragraph after it, so it passed with the quote's
+  // contents entirely hidden and asserted nothing (round-5 M5).
+  ['a blockquote criterion, payload inside the quote', '## The property to assert\n\n> every field carries its own catch in `src/engine.ts` per `ADR-0075`\n'],
 ]) check(`visible in ${label} → dispatchable`, ok(body), true);
 
 // Rendered blocks must stay separated: a surface in one paragraph and the
@@ -336,6 +339,35 @@ check('text directly inside <details>, outside any block, is read', ok('## Requi
 check('a footnote definition is read (it renders at the bottom)', ok('## Requirements\n\nfix it[^1]\n\n[^1]: `src/engine.ts` per ADR-0075\n'), true);
 // section is transparent for footnotes; the enrichment fallback stays hidden
 // because the inner div blocks it, which the mermaid pin above proves.
+
+// Round 5: GitHub emits <div> from ORDINARY markdown in two shapes, and the
+// first allowlist refused both — a fenced code block and GitHub's own callout
+// syntax, neither involving hand-written HTML. Allowed by class; an unknown
+// class still hides.
+for (const [label, body] of [
+  ['a ```ts fence (div.highlight-source-ts)', '## Requirements\n\n```ts\n// fix src/engine.ts per ADR-0075\n```\n'],
+  ['a ```yaml fence', '## Requirements\n\n```yaml\nwhere: src/engine.ts\nwhy: ADR-0075\n```\n'],
+  ['a ```diff fence', '## Requirements\n\n```diff\n- old src/engine.ts ADR-0075\n```\n'],
+  ['a [!NOTE] alert (div.markdown-alert)', '## Requirements\n\n> [!NOTE]\n> fix `src/engine.ts` per `ADR-0075`\n'],
+  ['a [!IMPORTANT] alert', '## Requirements\n\n> [!IMPORTANT]\n> fix `src/engine.ts` per `ADR-0075`\n'],
+]) check(`visible in ${label} → dispatchable`, ok(body), true);
+check('a div with any OTHER class still hides its subtree', ok(`${HID}\n<div class="something-else">\n\n${REQ}</div>\n`), false);
+
+console.log('\n--- EVERY ELEMENT OF THE WALK IS LOAD-BEARING, AND PINNED (round-5 M4) ---');
+// Five elements were load-bearing but uncovered: the suite stayed 108 ok under
+// each mutation while a real verdict flipped. (d) is the one whose loss ADMITS
+// rather than refuses, and it is what holds the hiding property for the nested
+// same-name divs the enrichment scaffolding is built from.
+check('blockquote is counted', ok('## Requirements\n\n> fix `src/engine.ts` per ADR-0075\n'), true);
+check('summary is counted', ok('## Requirements\n\n<details><summary>fix `src/engine.ts` per ADR-0075</summary>x</details>\n'), true);
+check('span is transparent', ok('## Requirements\n\n<span>fix `src/engine.ts` per ADR-0075</span>\n'), true);
+// The stack unwinds to the LAST matching open tag: with indexOf, an inner
+// </div> would close the OUTER div and the payload after it would be admitted
+// while invisible — the only mutation in this family that fails open.
+check('a payload after an inner </div> stays hidden (stack unwinds to the nearest)', ok(`${HID}\n<div>a<div>b</div>\n\n${REQ}</div>\n`), false);
+// Compact HTML has no inter-tag newlines, so the close-tag newline is what
+// keeps a cell's surface from fusing with the next cell's decision.
+check('a one-line raw <table> keeps its cells apart', ok('## Requirements\n\n<table><tr><td>src/engine.ts</td><td>ADR-0075</td></tr></table>\n'), true);
 
 console.log('\n--- A RENDER THAT DID NOT HAPPEN IS A REFUSAL, NEVER A PASS ---');
 writeFileSync(bodyFile, JSON.stringify({ body: PAYLOAD })); stageRender(PAYLOAD);

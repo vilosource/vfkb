@@ -210,6 +210,16 @@ const TRANSPARENT = new Set([
   // hidden because the inner <div> blocks it, which is verified by a pin.
   'markdown-accessiblity-table', 'section',
 ]);
+// A `<div>` hides its subtree — it is the enrichment scaffolding's container —
+// EXCEPT for the two classes GitHub emits from ordinary markdown: the wrapper
+// around a language-tagged fence (```ts renders as div.highlight-source-ts) and
+// its alert callouts (`> [!NOTE]`). Both are plainly visible, and refusing them
+// refused a fenced code block and GitHub's own documented syntax for saying
+// what must be true. This stays an ALLOWLIST: an unknown class still hides.
+const VISIBLE_DIV_CLASS = /(?:^|\s)(?:highlight|markdown-alert)(?:-[\w-]+)?(?:\s|$)/;
+const classOf = (attrs) => (/\bclass\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(attrs || '') || [])
+  .slice(2).find((x) => x !== undefined) || '';
+
 const HEADING = /^h([1-6])$/;
 const VOID = new Set(['br', 'hr', 'img', 'input', 'source', 'track', 'wbr', 'col', 'area', 'base', 'embed', 'link', 'meta', 'param']);
 
@@ -233,12 +243,15 @@ const VOID = new Set(['br', 'hr', 'img', 'input', 'source', 'track', 'wbr', 'col
  * loud (a visible issue is refused; the fix is to name one more node type), too
  * broad was silent — and silent is the failure D2 exists to prevent.
  *
- * ACCEPTED COST, stated because it is a real one: a raw `<div>` an author writes
- * by hand renders, but its contents are NOT counted, because `<div>` is also the
- * enrichment scaffolding's container and no attribute distinguishes them after
- * sanitization. Requirements written inside a bare `<div>` are refused. That is
- * the loud direction, and markdown headings and lists — what this corpus
- * actually uses — are unaffected.
+ * ACCEPTED COST, stated precisely because an earlier version of this paragraph
+ * understated it. A `<div>` hides its subtree, and GitHub emits `<div>` from
+ * ORDINARY MARKDOWN in two cases, so both are allowed by class above: the
+ * wrapper around a language-tagged fence (```ts, ```yaml, ```diff …) and its
+ * alert callouts (`> [!NOTE]`). What remains refused is a `<div>` with any
+ * OTHER class or none — including one an author writes by hand — because after
+ * sanitization nothing distinguishes it from the enrichment scaffolding that
+ * carries `render-plaintext-hidden`. If GitHub adds a third visible-div class,
+ * this refuses it: loud, and fixed by naming it here.
  */
 export function visibleTextFromHtml(html) {
   const src = String(html ?? '');
@@ -269,10 +282,11 @@ export function visibleTextFromHtml(html) {
     }
     if (m[0].endsWith('/>') || VOID.has(name)) { if (name === 'br' || name === 'hr') emit('\n'); continue; }
     const counted = COUNTED.has(name);
+    const transparent = TRANSPARENT.has(name) || (name === 'div' && VISIBLE_DIV_CLASS.test(classOf(m[2])));
     // Heading level is re-emitted as `#` markers, because the criteria-heading
     // vocabulary is written against markdown headings.
     if (counted && !blocked() && HEADING.test(name)) out.push(`\n${'#'.repeat(Number(HEADING.exec(name)[1]))} `);
-    stack.push({ name, counted, blocks: !counted && !TRANSPARENT.has(name) });
+    stack.push({ name, counted, blocks: !counted && !transparent });
   }
   emit(src.slice(last));
   return out.join('');
