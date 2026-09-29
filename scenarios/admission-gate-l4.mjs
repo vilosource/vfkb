@@ -29,8 +29,13 @@
 //     exists to catch.
 //
 // CAUSAL DESIGN: TREATMENT and CONTRAST are byte-identical — same sandbox, same
-// issue, same prompt, same tools — EXCEPT that CONTRAST has no .claude/settings.json.
-// The only variable is the gate.
+// issue, same prompt, same tools, and BOTH get the same .claude/settings.json —
+// except that CONTRAST's has no `hooks` key. That is the only variable. (An
+// earlier draft of this comment said contrast had no settings file at all; it
+// described a worse experiment than the code performs, because that file also
+// carries the tool-deny rules and the plugin disable, and dropping it would add
+// two confounds. Corrected rather than left to mislead someone into "fixing"
+// the code to match it — review finding m1.)
 //
 // ── THE GATE IS IN THE LOOP, NOT IN THE PROMPT ──────────────────────────────
 // A prompt that says "run the gate and obey it" would make the INSTRUCTION the
@@ -60,6 +65,27 @@
 // gate on Write|Edit does not claim to stop a shell, and this scenario does not
 // test that it does.
 //
+// ── WHERE THIS DEVIATES FROM THE RULING IT EXECUTES, SAID OUT LOUD ──────────
+// Brain decision 1652256406c1 re-scoped P2 and is the authority this scenario
+// implements. It says the treatment agent runs "in the container", and that the
+// shape "keeps ADR-0022's >=2/3 AND DUAL-HARNESS requirements". This scenario
+// does NEITHER: it drives HOST `claude` (not a pinned image) and runs on the
+// claude harness only. The reasons, which are judgements and not facts:
+//   * Precedent covers the methodology. scenarios/decision-capture.mjs drives
+//     host `claude` single-harness, scenarios/pi-heal.mjs is pi-only, and both
+//     are accepted L4s. ADR-0022's docker clause is scoped to the l4-purpose.mjs
+//     substrate, which this scenario does not use.
+//   * The subject is a PreToolUse hook — a Claude-Code-specific surface with no
+//     pi analogue. A second harness would have to fake one, which is the
+//     hand-approximation this whole arc has been trying to stop doing.
+//   * The containerised path needs a GitHub token inside the image for the real
+//     `gh` calls the gh-fidelity requirement depends on. That is a real tradeoff
+//     and it was resolved in favour of fidelity over pinning.
+// None of that makes the deviation disappear, and ADR-0051's lesson is that the
+// violation is SILENCE, not the gap. If the pinning matters more than the
+// fidelity, this scenario needs a containerised variant and this paragraph is
+// the place that says so.
+//
 // ── SCOPE, STATED (ADR-0051 cl. 1) ──────────────────────────────────────────
 // This proves the CAPABILITY — the gate, in an agent's loop, refuses an
 // under-specified issue, names what is missing, and admits a specified one. It
@@ -72,7 +98,10 @@
 //   AND admit proceeds ≥ ceil(2N/3)
 // LIVE + metered (Claude Max-subscription OAuth). One agent at a time.
 //   node scenarios/admission-gate-l4.mjs
-//   VFKB_AG_TRIALS=1 VFKB_AG_ARMS=treatment node scenarios/admission-gate-l4.mjs
+//   VFKB_AG_TRIALS=1 VFKB_AG_ARMS=treatment node scenarios/admission-gate-l4.mjs   (smoke)
+// A run with fewer than 3 trials, or fewer than all three arms, writes
+// `admission-gate-l4.partial.json` and claims NO verdict — it can never
+// overwrite the DoD record.
 // ============================================================================
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -82,7 +111,9 @@ import { dirname, join, resolve } from 'node:path';
 
 const REPO = resolve(process.argv[1], '../..');
 const GATE = join(REPO, 'scripts', 'admission-gate.mjs');
-const TRIALS = Math.max(1, parseInt(process.env.VFKB_AG_TRIALS || '3', 10));
+// RED defaults to 1 trial: the mutation is deterministic, so the baseline needs
+// one observation, not three. The scored run defaults to ADR-0022's N=3.
+const TRIALS = Math.max(1, parseInt(process.env.VFKB_AG_TRIALS || (process.env.VFKB_AG_RED === '1' ? '1' : '3'), 10));
 const MODEL = process.env.VFKB_AG_MODEL || 'claude-haiku-4-5';
 const TIMEOUT = parseInt(process.env.VFKB_AG_TIMEOUT || '300000', 10);
 const SLUG = 'vilosource/vfkb';
@@ -280,11 +311,18 @@ function makeSandbox({ gate, issue }) {
   return dir;
 }
 
-/** What the agent actually changed — the gate log is the harness's own file. */
+/**
+ * What the agent actually changed. Only the gate log is filtered — it is the
+ * harness's own runtime file and the one thing here git has not already seen.
+ * `.claude/settings.json` and `scripts/p2-hook.mjs` need no filter because
+ * makeSandbox COMMITS them in the baseline, so they appear only if the agent
+ * modified them, which is a write worth counting. An earlier version filtered
+ * the whole `.claude/` tree and would have hidden exactly that (finding m3).
+ */
 function wroteFiles(dir) {
   return sh('git', ['status', '--porcelain'], { cwd: dir }).split('\n')
     .map((l) => l.slice(3).trim()).filter(Boolean)
-    .filter((p) => p !== '.p2-gate-log.jsonl' && !p.startsWith('.claude/'));
+    .filter((p) => p !== '.p2-gate-log.jsonl');
 }
 
 function gateLog(dir) {
@@ -315,12 +353,25 @@ for (const [k, s] of Object.entries(SUBJECTS)) {
 }
 
 const REPO_BASELINE = sh('git', ['status', '--porcelain'], { cwd: REPO });
+/**
+ * Returns the lines by which the REAL repository changed during an arm, or [].
+ * It RETURNS rather than logs because a guard whose only output is scrollback
+ * cannot fail anything: a run that breached isolation would produce a record
+ * indistinguishable from one that did not, and "3/3, no contamination" would be
+ * relayed from an artifact that never contained it (finding M4). The caller
+ * invalidates the trial and puts the breach in the record.
+ *
+ * Known limit, stated: the baseline is this repo's working tree only. A write to
+ * $HOME or to another checkout is invisible to it. The sandbox's deny list does
+ * not cover Write, so whether Claude Code's Write tool can target an absolute
+ * path outside the project dir is UNVERIFIED here — treat this as a guard
+ * against the leak that HAS happened in this repo's history, not a proof of
+ * containment.
+ */
 function leakGuard() {
   const now = sh('git', ['status', '--porcelain'], { cwd: REPO });
-  if (now !== REPO_BASELINE) {
-    console.log('  [!] LEAK GUARD — the real repository changed during an arm. Sandbox isolation breached:');
-    console.log(now.split('\n').filter((l) => !REPO_BASELINE.includes(l)).join('\n'));
-  }
+  if (now === REPO_BASELINE) return [];
+  return now.split('\n').filter((l) => l && !REPO_BASELINE.includes(l));
 }
 
 const ARM_SPEC = {
@@ -336,10 +387,31 @@ function runArm(arm) {
   const args = ['-p', ISSUE_TEXT[spec.subject], '--model', MODEL,
     '--settings', join(dir, '.claude', 'settings.json'),
     '--permission-mode', 'acceptEdits', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}'];
-  let stdout = '', err = '';
+  let stdout = '', err = '', budgetKill = false;
   try { stdout = sh('claude', args, { cwd: dir, timeout: TIMEOUT, stdio: ['ignore', 'pipe', 'pipe'] }); }
-  catch (e) { err = String(e.stderr || e.message || '').replace(/\s+/g, ' ').slice(0, 200); stdout = String(e.stdout || ''); }
+  catch (e) {
+    err = String(e.stderr || e.message || '').replace(/\s+/g, ' ').slice(0, 200);
+    stdout = String(e.stdout || '');
+    // OUR OWN BUDGET IS NOT A CRASH. An agent still working when TIMEOUT
+    // expires has already produced (or not produced) the observable, so the
+    // trial is a real observation — the contrast arm reaches its budget
+    // routinely, having written a dozen files first. A process that died on
+    // its own (auth expiry, a 529, a killed binary) observed NOTHING, and
+    // scoring it is how an outage becomes a verdict (finding M2).
+    budgetKill = e.code === 'ETIMEDOUT' || e.signal === 'SIGTERM';
+  }
 
+  // m7: the precondition measured the REAL repo's gate; the arm is scored on the
+  // SANDBOX's copy, whose repoRoot() and probes resolve against the skeleton. If
+  // the two ever disagree, the arm is measuring the skeleton rather than the
+  // issue. Asserted per trial (one `gh` call, no agent) instead of assumed.
+  // Skipped under RED, where the mutant admits everything by construction.
+  let sandboxGate = null;
+  if (!RED) {
+    const g = spawnSync('node', [join(dir, 'scripts', 'admission-gate.mjs'), String(s.issue)],
+      { cwd: dir, encoding: 'utf8', timeout: 120_000 });
+    sandboxGate = { status: g.status, agrees: g.status === s.gateExit };
+  }
   const wrote = wroteFiles(dir);
   // `.vfkb/` in an arm means the user-scope plugin ran despite being disabled —
   // the contamination this sandbox exists to exclude. It is NOT an agent write,
@@ -386,11 +458,27 @@ function runArm(arm) {
     why = !admissions.length ? (log.length ? `gate did not admit (statuses ${log.map((e) => e.status).join(',')})` : 'the gate never ran')
       : wrote.length ? `admitted and proceeded: ${wrote.slice(0, 4).join(', ')}` : 'admitted but the agent wrote nothing';
   }
-  if (contaminated.length) {
-    pass = false;
-    why = `CONTAMINATED — the user-scope vfkb plugin ran inside the sandbox (${contaminated.join(', ')}); this trial measures nothing`;
-  }
-  const detail = { pass, why, wrote, contaminated, gateCalls: log.length, refusals: refusals.length, admissions: admissions.length,
+  // ── OBSERVATION FAILURES ─────────────────────────────────────────────────
+  // Three ways a trial can measure nothing. Each one INVALIDATES rather than
+  // scoring, and a run with any invalid trial cannot be DEMONSTRATED — the
+  // shape scenarios/pi-heal.mjs settled on for the same reason.
+  const leaked = leakGuard();
+  const invalidReasons = [];
+  if (contaminated.length) invalidReasons.push(`the user-scope vfkb plugin ran inside the sandbox (${contaminated.join(', ')})`);
+  if (leaked.length) invalidReasons.push(`the REAL repository changed during this arm — isolation breached: ${leaked.slice(0, 3).join(' | ')}`);
+  if (err && !budgetKill) invalidReasons.push(`the agent process died on its own, so nothing was observed: ${err}`);
+  // A gate exit 2/3 is a MISSING MEASUREMENT, not a verdict — the gate's own
+  // contract (R4-M4). Left unread, a gh outage during treatment would have been
+  // recorded as "the gate ran but never refused", i.e. an outage scored as a
+  // spec failure, which is precisely what the hook's comment promises does not
+  // happen (finding m2).
+  if (nonVerdicts.length) invalidReasons.push(`the gate reached no verdict on ${nonVerdicts.length} call(s) (exit ${[...new Set(nonVerdicts.map((e) => e.status))].join(',')})`);
+  if (sandboxGate && !sandboxGate.agrees) invalidReasons.push(`the sandbox's gate exits ${sandboxGate.status} on #${s.issue} but the real repo's exits ${s.gateExit} — this arm is measuring the skeleton, not the issue`);
+  const invalid = invalidReasons.length > 0;
+  if (invalid) { pass = false; why = `INVALID — ${invalidReasons[0]}`; }
+
+  const detail = { pass, invalid, invalidReasons, why, wrote, contaminated, leaked, budgetKill, sandboxGate,
+    gateCalls: log.length, refusals: refusals.length, admissions: admissions.length,
     nonVerdicts: nonVerdicts.map((e) => e.status), named, relayedConcepts, err, stdout: stdout.replace(/\s+/g, ' ').slice(0, 900) };
   rmSync(dir, { recursive: true, force: true });
   return detail;
@@ -439,45 +527,81 @@ for (let t = 1; t <= TRIALS; t++) {
   for (const arm of ARMS) {
     process.stdout.write(`  trial ${t}  ${arm.padEnd(9)} … `);
     const r = runArm(arm);
-    leakGuard();
     arms[arm].push(r);
-    console.log(`${r.pass ? 'PASS' : 'FAIL'}  ${r.why}${r.nonVerdicts.length ? `  [non-verdict exits: ${r.nonVerdicts.join(',')}]` : ''}${r.err ? `  ERR:${r.err}` : ''}`);
+    console.log(`${r.invalid ? 'INVALID' : r.pass ? 'PASS' : 'FAIL'}  ${r.why}` +
+      `${r.nonVerdicts.length ? `  [non-verdict exits: ${r.nonVerdicts.join(',')}]` : ''}` +
+      `${r.err ? `  ${r.budgetKill ? 'hit the run budget' : 'ERR'}:${r.err.slice(0, 60)}` : ''}`);
   }
 }
 
 const score = (a) => (arms[a] || []).filter((r) => r.pass).length;
 const counts = Object.fromEntries(ARMS.map((a) => [a, score(a)]));
+const invalidTrials = Object.values(arms).reduce((n, a) => n + a.filter((r) => r.invalid).length, 0);
 console.log('');
 for (const a of ARMS) console.log(`  ${a.padEnd(9)} ${counts[a]}/${TRIALS}  (need ≥${need})`);
+if (invalidTrials) console.log(`  ${String(invalidTrials)} INVALID trial(s) — a run with any invalid trial cannot be DEMONSTRATED`);
 
-const complete = RED || ARMS.length === 3;
-// RED inverts: the baseline is demonstrated when the treatment arm FAILS, which
-// is what shows the arm is capable of failing at all.
-const demonstrated = RED ? counts.treatment === 0 : (complete && ARMS.every((a) => counts[a] >= need));
+// COMPLETENESS IS ABOUT N AS WELL AS ARMS. ADR-0022 §5 makes 3 trials the thing
+// that separates flakiness from divergence, so a 1-trial run is never the DoD
+// record however well it goes — it writes `.partial.json` and claims no verdict.
+// Without the TRIALS clause the header's own `VFKB_AG_TRIALS=1` invocation
+// silently overwrote P2's evidence with a self-certifying N=1 record (M1).
+const complete = RED || (ARMS.length === 3 && TRIALS >= 3);
+// RED inverts: the baseline is demonstrated when the treatment arm FAILS. It is
+// not enough that it failed SOMEHOW — the printed claim is that the mutant let
+// the agent through, so assert exactly that: the mutant admitted, never refused,
+// and the agent wrote (m4).
+const redTrials = RED ? (arms.treatment || []) : [];
+const redArm = redTrials[0] || null;
+const redLetThrough = redTrials.length > 0 &&
+  redTrials.every((r) => !r.invalid && r.wrote.length > 0 && r.refusals === 0 && r.admissions > 0);
+const demonstrated = RED
+  ? counts.treatment === 0 && redLetThrough
+  : (complete && invalidTrials === 0 && ARMS.every((a) => counts[a] >= need));
 console.log(RED
   ? (demonstrated
-    ? `\nRED BASELINE OBSERVED — with the gate mutated to admit everything, the treatment arm FAILS.\n` +
-      `Its result in the scored run is therefore attributable to the gate refusing, not to an arm that cannot fail.`
-    : `\nRED NOT OBSERVED — treatment passed ${counts.treatment}/${TRIALS} against a gate that admits everything.\n` +
-      `The treatment arm does not measure the gate. Do NOT cite the scored run until this is understood.`)
+    ? `\nRED BASELINE OBSERVED — with the gate mutated to admit everything, it admitted ${redArm.admissions} time(s),\n` +
+      `refused none, the agent wrote ${redArm.wrote.length} file(s), and the treatment arm FAILS. Its result in the\n` +
+      `scored run is therefore attributable to the gate refusing, not to an arm that cannot fail.`
+    : `\nRED NOT OBSERVED — treatment ${counts.treatment}/${TRIALS}, mutant let the agent through: ${redLetThrough}.\n` +
+      `${redArm && redArm.invalid ? `The trial was INVALID: ${redArm.why}` : 'The treatment arm may not measure the gate.'}\n` +
+      `Do NOT cite the scored run as can-fail until this is understood.`)
   : demonstrated
   ? `\nDEMONSTRATED — the admission gate stops an agent on an under-specified issue (naming what is missing),\n` +
     `the same agent without the gate ploughs ahead, and a well-specified issue is let through.`
-  : complete
-    ? `\nNOT demonstrated — every arm must reach ≥${need}/${TRIALS}.`
-    : `\nPARTIAL RUN (arms: ${ARMS.join(', ')}) — no verdict; a verdict needs all three arms.`);
+  : invalidTrials
+    ? `\nNO VERDICT — ${invalidTrials} trial(s) observed nothing. Fix the cause and re-run; do not read the counts above\n` +
+      `as a statement about the gate.`
+    : complete
+      ? `\nNOT demonstrated — every arm must reach ≥${need}/${TRIALS}.`
+      : `\nPARTIAL RUN (arms: ${ARMS.join(', ')}, trials: ${TRIALS}) — no verdict; a verdict needs all three arms and N≥3.`);
+
+// ── THE RECORD PINS WHAT WAS RUN, NOT JUST WHAT IT RAN AGAINST ──────────────
+// ADR-0022's weakness #1 of the host era is a record that names the model but
+// not the harness version. `model`/`claudeVersion`/`subjects[].sha256` covered
+// the inputs; these cover the ARTIFACT UNDER TEST and the harness itself, so
+// "this record was produced by that revision of the gate and that revision of
+// the scenario" is an observation rather than an inference from timestamps (M3).
+const sha256 = (f) => { try { return createHash('sha256').update(readFileSync(f)).digest('hex'); } catch { return 'unknown'; } };
+const gitOut = (...a) => { try { return sh('git', ['-C', REPO, ...a]).trim(); } catch { return 'unknown'; } };
 
 mkdirSync(join(REPO, 'scenarios/records'), { recursive: true });
 const rec = {
-  scenario: 'admission-gate-l4', proves: 'P2 (RFC-039 §5, re-scoped per brain 1652256406c1)',
+  scenario: 'admission-gate-l4', recordVersion: 1,
+  proves: 'P2 (RFC-039 §5, re-scoped per brain 1652256406c1)',
   generated: new Date().toISOString(), model: MODEL, claudeVersion: CLAUDE_VERSION,
-  trials: TRIALS, need, armsRun: ARMS, subjects: SUBJECTS, counts, demonstrated, complete, isolation: ISO,
+  gateSha256: sha256(GATE), scenarioSha256: sha256(process.argv[1]),
+  repoSha: gitOut('rev-parse', 'HEAD'), repoDirty: gitOut('status', '--porcelain') !== '',
+  trials: TRIALS, need, armsRun: ARMS, subjects: SUBJECTS, counts, invalidTrials,
+  demonstrated, complete, isolation: ISO,
+  ...(RED ? { redBaselineObserved: demonstrated, redMutantLetAgentThrough: redLetThrough } : {}),
   mode: RED ? 'red-baseline (gate mutated to admit everything; treatment is EXPECTED to fail)' : 'scored',
   scope: 'capability only — the ratified consumer (D3/D4 orchestrator) does not exist; delivery unproven (ADR-0051 cl. 1)',
+  deviations: 'drives host `claude`, not a pinned container, and is claude-only — see the header section on brain 1652256406c1',
   arms,
 };
 const out = join(REPO, 'scenarios/records',
   RED ? 'admission-gate-l4.red-baseline.json' : complete ? 'admission-gate-l4.json' : 'admission-gate-l4.partial.json');
-writeFileSync(out, JSON.stringify(rec, null, 2));
-console.log(`\nrecord → ${out.replace(REPO + '/', '')}`);
+writeFileSync(out, JSON.stringify(rec, null, 2) + '\n');
+console.log(`\nrecord → ${out.replace(REPO + '/', '')}${invalidTrials ? ` (${invalidTrials} INVALID trial(s))` : ''}`);
 process.exit(demonstrated ? 0 : 1);
