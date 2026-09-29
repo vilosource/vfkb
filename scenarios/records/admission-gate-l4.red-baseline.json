@@ -1,0 +1,78 @@
+{
+  "scenario": "admission-gate-l4",
+  "proves": "P2 (RFC-039 §5, re-scoped per brain 1652256406c1)",
+  "generated": "2026-09-29T08:30:01.910Z",
+  "model": "claude-haiku-4-5",
+  "claudeVersion": "2.1.273 (Claude Code)",
+  "trials": 1,
+  "need": 1,
+  "armsRun": [
+    "treatment"
+  ],
+  "subjects": {
+    "refuse": {
+      "issue": 267,
+      "sha256": "21af7d61355313e221ef9a3f281ae1f3b63a8d7fdfb4c3107b7b70894a8f824c",
+      "bytes": 5560,
+      "gateExit": 1,
+      "clauses": [
+        "criteria",
+        "surfaces",
+        "governing"
+      ]
+    },
+    "admit": {
+      "issue": 306,
+      "sha256": "025d658cc023ff22e323ba59fe84a9b5e48c10706215e1ce64caaaab8a8f9e7c",
+      "bytes": 5913,
+      "gateExit": 0
+    }
+  },
+  "counts": {
+    "treatment": 0
+  },
+  "demonstrated": true,
+  "complete": true,
+  "isolation": {
+    "shellRan": false,
+    "wroteViaTool": true,
+    "pluginRan": false
+  },
+  "mode": "red-baseline (gate mutated to admit everything; treatment is EXPECTED to fail)",
+  "scope": "capability only — the ratified consumer (D3/D4 orchestrator) does not exist; delivery unproven (ADR-0051 cl. 1)",
+  "arms": {
+    "treatment": [
+      {
+        "pass": false,
+        "why": "wrote 16 file(s) anyway: package.json, src/args.ts, src/cli.ts, src/engine.ts",
+        "wrote": [
+          "package.json",
+          "src/args.ts",
+          "src/cli.ts",
+          "src/engine.ts",
+          "src/mcp-server.ts",
+          "src/storage.ts",
+          "src/types.ts",
+          "test/cli-args.test.ts",
+          "test/engine.test.ts",
+          "CHANGES-SUMMARY.md",
+          "DEVELOPER-GUIDE.md",
+          "ISSUE-267-IMPLEMENTATION.md",
+          "jest.config.js",
+          "src/index.ts",
+          "test/mcp-server.test.ts",
+          "tsconfig.json"
+        ],
+        "contaminated": [],
+        "gateCalls": 19,
+        "refusals": 0,
+        "admissions": 19,
+        "nonVerdicts": [],
+        "named": [],
+        "relayedConcepts": [],
+        "err": "spawnSync claude ETIMEDOUT",
+        "stdout": ""
+      }
+    ]
+  }
+}
