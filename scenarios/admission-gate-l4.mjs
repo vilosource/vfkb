@@ -71,10 +71,13 @@
 // shape "keeps ADR-0022's >=2/3 AND DUAL-HARNESS requirements". This scenario
 // does NEITHER: it drives HOST `claude` (not a pinned image) and runs on the
 // claude harness only. The reasons, which are judgements and not facts:
-//   * Precedent covers the methodology. scenarios/decision-capture.mjs drives
-//     host `claude` single-harness, scenarios/pi-heal.mjs is pi-only, and both
-//     are accepted L4s. ADR-0022's docker clause is scoped to the l4-purpose.mjs
-//     substrate, which this scenario does not use.
+//   * Precedent covers the methodology IN PRACTICE, which is a weaker claim
+//     than the one an earlier draft of this paragraph made. ADR-0022's Decision
+//     reads "the L4 harness runs each agent inside a pinned, self-contained
+//     container", unscoped, and its title names dockerized + dual-harness as
+//     THE methodology. What is true is that several accepted L4s deviate:
+//     scenarios/decision-capture.mjs drives host `claude` single-harness and
+//     scenarios/pi-heal.mjs is pi-only. That is precedent, not permission.
 //   * The subject is a PreToolUse hook — a Claude-Code-specific surface with no
 //     pi analogue. A second harness would have to fake one, which is the
 //     hand-approximation this whole arc has been trying to stop doing.
@@ -108,6 +111,14 @@ import { createHash } from 'node:crypto';
 import { cpSync, mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+// The pure decision logic lives in its own module so it can be MUTATED and
+// observed going red in test/p2-verdict.test.ts — ADR-0070 §2. Round 2 of this
+// PR's review found six harness predicates that had never been seen to fire,
+// and one of them blind in its headline case; that is what this split fixes.
+import {
+  leakDiff, isBudgetKill, invalidReasonsFor, isCompleteRun, recordName,
+  redLetThrough, isDemonstrated,
+} from './lib/p2-verdict.mjs';
 
 const REPO = resolve(process.argv[1], '../..');
 const GATE = join(REPO, 'scripts', 'admission-gate.mjs');
@@ -287,7 +298,7 @@ const baseSettings = (withHook) => JSON.stringify({
     : {},
 }, null, 2);
 
-function makeSandbox({ gate, issue }) {
+function makeSandbox({ gate, issue, expectedExit }) {
   const dir = mkdtempSync(join(tmpdir(), 'vfkb-p2-'));
   for (const p of SKELETON) {
     const full = join(dir, p);
@@ -308,7 +319,23 @@ function makeSandbox({ gate, issue }) {
   const git = (...x) => sh('git', x, { cwd: dir, stdio: 'ignore' });
   git('init', '-q'); git('config', 'user.email', 't@t'); git('config', 'user.name', 't');
   git('add', '-A'); git('commit', '-qm', 'baseline');
-  return dir;
+
+  // m7: the precondition measured the REAL repo's gate; the arms are scored on
+  // this SANDBOX copy, whose repoRoot() and probes resolve against the skeleton.
+  // If the two disagree the arm would be measuring the skeleton, not the issue.
+  //
+  // RUN BEFORE THE AGENT, and only where a gate is wired (MA2/mi8). Round 1 put
+  // this probe AFTER the agent, which made an arm able to invalidate itself by
+  // succeeding: the gate's identity check reads package.json's `name`, the
+  // contrast and admit agents rewrite package.json as a matter of course, and
+  // the probe would then exit 3 and discard a perfectly good trial.
+  let sandboxGate = null;
+  if (gate && !RED) {
+    const g = spawnSync('node', [join(dir, 'scripts', 'admission-gate.mjs'), String(issue)],
+      { cwd: dir, encoding: 'utf8', timeout: 120_000 });
+    sandboxGate = { status: g.status, agrees: g.status === expectedExit };
+  }
+  return { dir, sandboxGate };
 }
 
 /**
@@ -322,7 +349,11 @@ function makeSandbox({ gate, issue }) {
 function wroteFiles(dir) {
   return sh('git', ['status', '--porcelain'], { cwd: dir }).split('\n')
     .map((l) => l.slice(3).trim()).filter(Boolean)
-    .filter((p) => p !== '.p2-gate-log.jsonl');
+    // `.claude/settings.local.json` is written by Claude Code itself, not by the
+    // agent, and is not in the sandbox baseline — so it would fail the treatment
+    // arm for a file the agent did not author (mi6). Not observed at claude
+    // 2.1.273 under these flags, filtered because the failure mode is silent.
+    .filter((p) => p !== '.p2-gate-log.jsonl' && p !== '.claude/settings.local.json');
 }
 
 function gateLog(dir) {
@@ -367,11 +398,16 @@ const REPO_BASELINE = sh('git', ['status', '--porcelain'], { cwd: REPO });
  * path outside the project dir is UNVERIFIED here — treat this as a guard
  * against the leak that HAS happened in this repo's history, not a proof of
  * containment.
+ *
+ * The comparison itself is `leakDiff` (symmetric, set-based, unit-mutated). The
+ * first version of this guard filtered "lines not in the baseline" with
+ * String.includes and was blind BOTH to a new line that is a substring of an
+ * existing one AND to a line being REMOVED — which is the signature of the
+ * contamination this file documents, since the plugin's SessionEnd hook
+ * COMMITTING the brain clears ` M .vfkb/entries.jsonl` from the status.
  */
 function leakGuard() {
-  const now = sh('git', ['status', '--porcelain'], { cwd: REPO });
-  if (now === REPO_BASELINE) return [];
-  return now.split('\n').filter((l) => l && !REPO_BASELINE.includes(l));
+  return leakDiff(REPO_BASELINE, sh('git', ['status', '--porcelain'], { cwd: REPO }));
 }
 
 const ARM_SPEC = {
@@ -383,7 +419,7 @@ const ARM_SPEC = {
 function runArm(arm) {
   const spec = ARM_SPEC[arm];
   const s = SUBJECTS[spec.subject];
-  const dir = makeSandbox({ gate: spec.gate, issue: s.issue });
+  const { dir, sandboxGate } = makeSandbox({ gate: spec.gate, issue: s.issue, expectedExit: s.gateExit });
   const args = ['-p', ISSUE_TEXT[spec.subject], '--model', MODEL,
     '--settings', join(dir, '.claude', 'settings.json'),
     '--permission-mode', 'acceptEdits', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}'];
@@ -398,20 +434,9 @@ function runArm(arm) {
     // routinely, having written a dozen files first. A process that died on
     // its own (auth expiry, a 529, a killed binary) observed NOTHING, and
     // scoring it is how an outage becomes a verdict (finding M2).
-    budgetKill = e.code === 'ETIMEDOUT' || e.signal === 'SIGTERM';
+    budgetKill = isBudgetKill(e);
   }
 
-  // m7: the precondition measured the REAL repo's gate; the arm is scored on the
-  // SANDBOX's copy, whose repoRoot() and probes resolve against the skeleton. If
-  // the two ever disagree, the arm is measuring the skeleton rather than the
-  // issue. Asserted per trial (one `gh` call, no agent) instead of assumed.
-  // Skipped under RED, where the mutant admits everything by construction.
-  let sandboxGate = null;
-  if (!RED) {
-    const g = spawnSync('node', [join(dir, 'scripts', 'admission-gate.mjs'), String(s.issue)],
-      { cwd: dir, encoding: 'utf8', timeout: 120_000 });
-    sandboxGate = { status: g.status, agrees: g.status === s.gateExit };
-  }
   const wrote = wroteFiles(dir);
   // `.vfkb/` in an arm means the user-scope plugin ran despite being disabled —
   // the contamination this sandbox exists to exclude. It is NOT an agent write,
@@ -459,21 +484,15 @@ function runArm(arm) {
       : wrote.length ? `admitted and proceeded: ${wrote.slice(0, 4).join(', ')}` : 'admitted but the agent wrote nothing';
   }
   // ── OBSERVATION FAILURES ─────────────────────────────────────────────────
-  // Three ways a trial can measure nothing. Each one INVALIDATES rather than
-  // scoring, and a run with any invalid trial cannot be DEMONSTRATED — the
-  // shape scenarios/pi-heal.mjs settled on for the same reason.
+  // Every way a trial can measure nothing, decided by the unit-mutated
+  // predicate in lib/p2-verdict.mjs. A run with any invalid trial cannot be
+  // DEMONSTRATED and cannot overwrite the DoD record.
   const leaked = leakGuard();
-  const invalidReasons = [];
-  if (contaminated.length) invalidReasons.push(`the user-scope vfkb plugin ran inside the sandbox (${contaminated.join(', ')})`);
-  if (leaked.length) invalidReasons.push(`the REAL repository changed during this arm — isolation breached: ${leaked.slice(0, 3).join(' | ')}`);
-  if (err && !budgetKill) invalidReasons.push(`the agent process died on its own, so nothing was observed: ${err}`);
-  // A gate exit 2/3 is a MISSING MEASUREMENT, not a verdict — the gate's own
-  // contract (R4-M4). Left unread, a gh outage during treatment would have been
-  // recorded as "the gate ran but never refused", i.e. an outage scored as a
-  // spec failure, which is precisely what the hook's comment promises does not
-  // happen (finding m2).
-  if (nonVerdicts.length) invalidReasons.push(`the gate reached no verdict on ${nonVerdicts.length} call(s) (exit ${[...new Set(nonVerdicts.map((e) => e.status))].join(',')})`);
-  if (sandboxGate && !sandboxGate.agrees) invalidReasons.push(`the sandbox's gate exits ${sandboxGate.status} on #${s.issue} but the real repo's exits ${s.gateExit} — this arm is measuring the skeleton, not the issue`);
+  const invalidReasons = invalidReasonsFor({
+    arm, contaminated, leaked, err, budgetKill, refusals: refusals.length,
+    admissions: admissions.length, nonVerdicts: nonVerdicts.map((e) => e.status),
+    gateCalls: log.length, wrote, sandboxGate, issue: s.issue, expectedExit: s.gateExit,
+  });
   const invalid = invalidReasons.length > 0;
   if (invalid) { pass = false; why = `INVALID — ${invalidReasons[0]}`; }
 
@@ -541,37 +560,37 @@ console.log('');
 for (const a of ARMS) console.log(`  ${a.padEnd(9)} ${counts[a]}/${TRIALS}  (need ≥${need})`);
 if (invalidTrials) console.log(`  ${String(invalidTrials)} INVALID trial(s) — a run with any invalid trial cannot be DEMONSTRATED`);
 
-// COMPLETENESS IS ABOUT N AS WELL AS ARMS. ADR-0022 §5 makes 3 trials the thing
-// that separates flakiness from divergence, so a 1-trial run is never the DoD
-// record however well it goes — it writes `.partial.json` and claims no verdict.
-// Without the TRIALS clause the header's own `VFKB_AG_TRIALS=1` invocation
-// silently overwrote P2's evidence with a self-certifying N=1 record (M1).
-const complete = RED || (ARMS.length === 3 && TRIALS >= 3);
-// RED inverts: the baseline is demonstrated when the treatment arm FAILS. It is
-// not enough that it failed SOMEHOW — the printed claim is that the mutant let
-// the agent through, so assert exactly that: the mutant admitted, never refused,
-// and the agent wrote (m4).
+// COMPLETENESS, THE VERDICT AND THE RECORD FILENAME all come from
+// lib/p2-verdict.mjs, where each is unit-mutated and observed red
+// (test/p2-verdict.test.ts) — ADR-0070 §2. Three things they enforce that
+// earlier revisions of this file got wrong:
+//   * N>=3 (ADR-0022 §5), so a smoke run can never write the DoD record;
+//   * the three arms are checked as a SET, not counted — `treatment` three
+//     times used to produce a `demonstrated: true` record with no contrast;
+//   * a run with ANY invalid trial goes to `.partial.json`. It reached no
+//     verdict, and an outage must not be able to destroy the DoD evidence by
+//     overwriting it with `demonstrated: false`.
+const complete = isCompleteRun({ red: RED, arms: ARMS, trials: TRIALS });
 const redTrials = RED ? (arms.treatment || []) : [];
 const redArm = redTrials[0] || null;
-const redLetThrough = redTrials.length > 0 &&
-  redTrials.every((r) => !r.invalid && r.wrote.length > 0 && r.refusals === 0 && r.admissions > 0);
-const demonstrated = RED
-  ? counts.treatment === 0 && redLetThrough
-  : (complete && invalidTrials === 0 && ARMS.every((a) => counts[a] >= need));
+const letThrough = redLetThrough(redTrials);
+const demonstrated = isDemonstrated({
+  red: RED, counts, arms: ARMS, need, complete, invalidTrials, letThrough,
+});
 console.log(RED
   ? (demonstrated
     ? `\nRED BASELINE OBSERVED — with the gate mutated to admit everything, it admitted ${redArm.admissions} time(s),\n` +
       `refused none, the agent wrote ${redArm.wrote.length} file(s), and the treatment arm FAILS. Its result in the\n` +
       `scored run is therefore attributable to the gate refusing, not to an arm that cannot fail.`
-    : `\nRED NOT OBSERVED — treatment ${counts.treatment}/${TRIALS}, mutant let the agent through: ${redLetThrough}.\n` +
+    : `\nRED NOT OBSERVED — treatment ${counts.treatment}/${TRIALS}, mutant let the agent through: ${letThrough}.\n` +
       `${redArm && redArm.invalid ? `The trial was INVALID: ${redArm.why}` : 'The treatment arm may not measure the gate.'}\n` +
       `Do NOT cite the scored run as can-fail until this is understood.`)
   : demonstrated
   ? `\nDEMONSTRATED — the admission gate stops an agent on an under-specified issue (naming what is missing),\n` +
     `the same agent without the gate ploughs ahead, and a well-specified issue is let through.`
   : invalidTrials
-    ? `\nNO VERDICT — ${invalidTrials} trial(s) observed nothing. Fix the cause and re-run; do not read the counts above\n` +
-      `as a statement about the gate.`
+    ? `\nNO VERDICT — ${invalidTrials} trial(s) observed nothing. Fix the cause and re-run; do not read the counts\n` +
+      `above as a statement about the gate. Exits 3, the same code the preconditions use for a missing measurement.`
     : complete
       ? `\nNOT demonstrated — every arm must reach ≥${need}/${TRIALS}.`
       : `\nPARTIAL RUN (arms: ${ARMS.join(', ')}, trials: ${TRIALS}) — no verdict; a verdict needs all three arms and N≥3.`);
@@ -593,15 +612,23 @@ const rec = {
   gateSha256: sha256(GATE), scenarioSha256: sha256(process.argv[1]),
   repoSha: gitOut('rev-parse', 'HEAD'), repoDirty: gitOut('status', '--porcelain') !== '',
   trials: TRIALS, need, armsRun: ARMS, subjects: SUBJECTS, counts, invalidTrials,
-  demonstrated, complete, isolation: ISO,
-  ...(RED ? { redBaselineObserved: demonstrated, redMutantLetAgentThrough: redLetThrough } : {}),
+  complete, isolation: ISO,
+  // `demonstrated` is OMITTED from a red baseline rather than set (mi3). The
+  // field means "the capability was demonstrated"; a red baseline is the
+  // opposite, and a tool globbing records for `demonstrated === true` — the
+  // shape RFC-024 §2a exists because of — would have read this file as a pass.
+  ...(RED
+    ? { redBaselineObserved: demonstrated, redMutantLetAgentThrough: letThrough }
+    : { demonstrated }),
   mode: RED ? 'red-baseline (gate mutated to admit everything; treatment is EXPECTED to fail)' : 'scored',
   scope: 'capability only — the ratified consumer (D3/D4 orchestrator) does not exist; delivery unproven (ADR-0051 cl. 1)',
   deviations: 'drives host `claude`, not a pinned container, and is claude-only — see the header section on brain 1652256406c1',
   arms,
 };
-const out = join(REPO, 'scenarios/records',
-  RED ? 'admission-gate-l4.red-baseline.json' : complete ? 'admission-gate-l4.json' : 'admission-gate-l4.partial.json');
+const out = join(REPO, 'scenarios/records', recordName({ red: RED, complete, invalidTrials }));
 writeFileSync(out, JSON.stringify(rec, null, 2) + '\n');
 console.log(`\nrecord → ${out.replace(REPO + '/', '')}${invalidTrials ? ` (${invalidTrials} INVALID trial(s))` : ''}`);
-process.exit(demonstrated ? 0 : 1);
+// mi1: exit 3 is this script's own code for "a missing measurement, not a
+// statement about the gate" (see inconclusive()). A run with invalid trials is
+// exactly that state, and must not be indistinguishable from a failed gate.
+process.exit(demonstrated ? 0 : invalidTrials ? 3 : 1);
