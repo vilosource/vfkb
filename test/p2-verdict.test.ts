@@ -115,6 +115,13 @@ describe('hasAllArms / isCompleteRun — counting arms is not checking them', ()
     expect(hasAllArms(['admit', 'treatment', 'contrast'])).toBe(true);
   });
 
+  // U12, round 3: the length clause was unpinned — "contains all three" alone
+  // accepts a duplicated arm, which skews the per-arm counts it feeds.
+  it('rejects a duplicated arm on top of the three required (U12)', () => {
+    expect(hasAllArms(['treatment', 'contrast', 'admit', 'admit'])).toBe(false);
+    expect(isCompleteRun({ red: false, arms: ['treatment', 'contrast', 'admit', 'admit'], trials: 3 })).toBe(false);
+  });
+
   it('requires N>=3 (ADR-0022 §5) and exempts RED', () => {
     expect(isCompleteRun({ red: false, arms: ['treatment', 'contrast', 'admit'], trials: 1 })).toBe(false);
     expect(isCompleteRun({ red: false, arms: ['treatment', 'contrast', 'admit'], trials: 3 })).toBe(true);
@@ -156,6 +163,22 @@ describe('redLetThrough — the mutant must be seen ADMITTING, not merely the ar
     expect(redLetThrough([{ ...through, invalid: true }])).toBe(false);
     expect(redLetThrough([])).toBe(false);
   });
+
+  // U5/U6, round 3: both halves of "the mutant ADMITTED" were unpinned — the
+  // block was named for the admitting half and did not test it. A mutant that
+  // still refuses is not a mutant that let the agent through, and a red trial
+  // with zero admissions observed nothing about admitting at all.
+  it('is false when the gate still REFUSED — the mutation did not take (U5)', () => {
+    expect(redLetThrough([{ ...through, refusals: 2 }])).toBe(false);
+  });
+
+  it('is false when the gate never ADMITTED, however many files were written (U6)', () => {
+    expect(redLetThrough([{ ...through, admissions: 0 }])).toBe(false);
+  });
+
+  it('requires EVERY red trial to have let the agent through, not just the first', () => {
+    expect(redLetThrough([through, { ...through, admissions: 0 }])).toBe(false);
+  });
 });
 
 // MUTATION OBSERVED RED: dropping `invalidTrials === 0` from isDemonstrated
@@ -170,6 +193,15 @@ describe('isDemonstrated', () => {
 
   it('is false if any trial observed nothing', () => {
     expect(isDemonstrated({ red: false, counts, arms, need: 2, complete: true, invalidTrials: 1 })).toBe(false);
+  });
+
+  // U15, round 3: `complete &&` was unpinned. Without it a one-arm smoke run
+  // prints DEMONSTRATED and exits 0, with only the .partial.json routing left
+  // standing between that and a false claim.
+  it('is false for an incomplete run even when every arm run has passed (U15)', () => {
+    expect(isDemonstrated({
+      red: false, counts: { treatment: 1 }, arms: ['treatment'], need: 1, complete: false, invalidTrials: 0,
+    })).toBe(false);
   });
 
   it('is false if any arm misses the threshold', () => {
