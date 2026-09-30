@@ -1,7 +1,7 @@
 ---
 type: RFC
 title: "RFC-040: The churn Brake — make fix-introduced findings computable, and force a referent when the same layer keeps failing"
-description: "ADR-0070 §4 escalates on blocking findings introduced by the previous round's fixes. Four review arcs this month (#307, #317, #322, vfkb-claude-plugin#60) churned for 5, 8, 4 and 3 rounds with 44–100% of each round's majors fix-introduced, and §4 never fired because none had a blocking finding. All three ended the same way: an authoritative referent replaced a hand-rolled approximation. The lesson — after two rounds in one layer, stop fixing and name the referent — is on record as prose (brain cface5291391) and was read past twice in one day. Proposes one new required review-record field (introducedBy), promotes file to required, and has the review gate compute two signals across a PR's rounds. On fire the gate fails unless the record names the referent. A forced decision, not a freeze."
+description: "ADR-0070 §4 escalates on blocking findings introduced by the previous round's fixes. Four review arcs this month (#307, #317, #322, vfkb-claude-plugin#60) churned for 5, 8, 4 and 3 rounds with 44–100% of each round's majors fix-introduced, and §4 never fired because none had a blocking finding. All four ended the same way: an authoritative referent replaced a hand-rolled approximation. The lesson — after two rounds in one layer, stop fixing and name the referent — is on record as prose (brain cface5291391) and was read past twice in one day. Proposes one new required review-record field (introducedBy), promotes file to required, and has the review gate compute two signals across a PR's rounds. On fire the gate fails unless the record names the referent. A forced decision, not a freeze."
 status: "Proposed"
 timestamp: 2026-09-30
 ---
@@ -84,7 +84,7 @@ Over those records, in order:
 - **Layer** — ≥3 findings across ≥2 rounds share one `file`.
 
 Either firing is the distress signal §4 was written to detect. The churn signal is what §4 meant;
-the layer signal is what the three arcs actually needed, since "the same file keeps producing
+the layer signal is what the four arcs actually needed, since "the same file keeps producing
 findings" is the observable shape of "the referent is wrong".
 
 ### 3. On fire, the gate fails unless the head record names the referent
@@ -119,7 +119,7 @@ already asks the question; this moves the answer into the artifact.
 ## Alternatives considered
 
 - **Leave it as prose in `review.md`** (#319 §5's second suggestion). Rejected: it is already prose,
-  in the brain, and was skipped twice in one day by an author who had written it. This repo's
+  in the brain, and was read past twice in one day. This repo's
   founding lesson is that a prose rule with no Brake gets skipped (ADR-0050's context).
 - **Change §4 to "any severity" and stop there.** Rejected: §4 as written is not computable at all —
   nothing records which round introduced a finding — so a severity change alone changes nothing a
