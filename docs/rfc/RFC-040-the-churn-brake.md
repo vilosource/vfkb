@@ -1,7 +1,7 @@
 ---
 type: RFC
 title: "RFC-040: The churn Brake — make fix-introduced findings computable, and force a referent when the same layer keeps failing"
-description: "ADR-0070 §4 escalates on blocking findings introduced by the previous round's fixes. Three review arcs this month (#317, #322, vfkb-claude-plugin#60) churned for 7, 4 and 3 rounds with 44–100% of each round's majors fix-introduced, and §4 never fired because none had a blocking finding. All three ended the same way: an authoritative referent replaced a hand-rolled approximation. The lesson — after two rounds in one layer, stop fixing and name the referent — is on record as prose (brain cface5291391) and was read past twice in one day. Proposes one new required review-record field (introducedBy), promotes file to required, and has the review gate compute two signals across a PR's rounds. On fire the gate fails unless the record names the referent. A forced decision, not a freeze."
+description: "ADR-0070 §4 escalates on blocking findings introduced by the previous round's fixes. Four review arcs this month (#307, #317, #322, vfkb-claude-plugin#60) churned for 5, 8, 4 and 3 rounds with 44–100% of each round's majors fix-introduced, and §4 never fired because none had a blocking finding. All three ended the same way: an authoritative referent replaced a hand-rolled approximation. The lesson — after two rounds in one layer, stop fixing and name the referent — is on record as prose (brain cface5291391) and was read past twice in one day. Proposes one new required review-record field (introducedBy), promotes file to required, and has the review gate compute two signals across a PR's rounds. On fire the gate fails unless the record names the referent. A forced decision, not a freeze."
 status: "Proposed"
 timestamp: 2026-09-30
 ---
@@ -16,7 +16,7 @@ timestamp: 2026-09-30
   [ADR-0051](../adr/ADR-0051-delivery-honesty.md) (the enforced-disclosure shape this copies).
   Origin: #319 §5. Build tracker: #326. Brain: `cface5291391`, `78bbdd0ef2a7`.
 
-## Context — three arcs, one shape
+## Context — four arcs, one shape
 
 ADR-0070 §4 changed the autonomous-PR escalation trigger from "three rounds" to "a round whose
 **blocking** findings were introduced by the previous round's fixes", on the argument that round
@@ -26,17 +26,21 @@ that never issues a blocking finding can be churned indefinitely with §4 silent
 
 | PR | rounds | findings introduced by the previous round's fixes | the layer | §4 fired |
 |---|---|---|---|---|
+| #307 (tamper gate) | 5 builds, 5 reviews | defeat counts 21 → 10 → 7 → 3 → 8 (brain `cface5291391`) | a regex over diff lines, hand-approximating what `vitest` already knows | never |
 | #317 (admission gate) | 8 | 44–67% of majors in every round from r2 (#319 §5) | the selftest, hand-approximating `gh` | never |
 | #322 (P2 harness) | 4 | r2: 3 of 4 majors · r3: 2 of 4 | provenance: hand-rolled file hashes where `repoSha` already existed | never |
 | vfkb-claude-plugin#60 | 3 | r2: 3 of 3 majors · r3: 5 findings | a predicate hand-enumerating what a model might say | never |
 
-All three were resolved the same way. Not by a better approximation — each round *had* produced a
+All four were resolved the same way. Not by a better approximation — each round *had* produced a
 better approximation, and that is what the next round found wanting — but by locating the authority
 that already knew the answer: a real `gh` in the L4; `repoSha` from a clean tree; the five sections
-`brief/SKILL.md` §5 mandates. That is brain `cface5291391` ("hand the hardest sub-problem to
-something authoritative"), a lesson recorded on 2026-09-14 and read past in both of 2026-09-30's
-arcs by the same author on the same day. #319 §5 proposed the fix as a paragraph; this RFC is what
-it takes to make the paragraph fire.
+`brief/SKILL.md` §5 mandates. That is brain `cface5291391` — a `pattern` recorded 2026-09-17 out of the #307 arc, whose
+diagnostic is "if a guard's core is a regex, a substring test, a count, or a similarity threshold,
+ask what tool already computes that answer authoritatively" — and which *already states the
+escalation shape this RFC mechanises*: "when §4 fires twice on the same component, stop iterating
+and ask what authority you are approximating." It was read past in both of 2026-09-30's arcs by
+the same author on the same day. #319 §5 proposed the signal as a paragraph; this RFC is what it
+takes to make the paragraph fire.
 
 Two facts make it cheap. First, every reviewer this month reliably answered "was this introduced
 by the previous round's fixes, or pre-existing?" — because the prompt asked — and every answer was
@@ -108,8 +112,9 @@ A signal that does not say where to look is a signal that gets acknowledged and 
 
 ### 5. The review rubric asks for the fields, not the prose
 
-`.claude/commands/review.md` step 8 asks for `file` and `introducedBy` per finding as record
-fields. The prompt already asks the question; this moves the answer into the artifact.
+`.claude/commands/review.md` step 7 ("cite or label") already demands `file:line` on every
+finding; step 8 (the verdict) gains `introducedBy` per finding as a record field. The prompt
+already asks the question; this moves the answer into the artifact.
 
 ## Alternatives considered
 
@@ -127,7 +132,8 @@ fields. The prompt already asks the question; this moves the answer into the art
 
 ## Consequences
 
-- **+** Both 2026-09-30 arcs would have fired at round 2 (#60) and round 3 (#322); #317 at r3 and r5.
+- **+** Both 2026-09-30 arcs would have fired at round 2 (#60) and round 3 (#322); #317 at r3 and r5;
+  #307 by its second defeat-count regression.
   That is the can-fail arm, and the DoD below requires replaying the committed records to observe
   it.
 - **+** The referent question becomes a structural step in a review, not a memory the author has to
