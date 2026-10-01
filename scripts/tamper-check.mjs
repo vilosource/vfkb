@@ -47,6 +47,14 @@
 //     Not attempted any more. Review's job.
 //   * A test weakened without changing what runs — a laxer assertion, a
 //     try/catch. A counter cannot see it.
+//   * A `-t` filter whose pattern matches the UNINTERPOLATED name of a generated
+//     block (`-t "case %s"` against `it.each([1,2])('case %s')`) on vitest 5. The
+//     list row survives under that exact spelling while no generated case runs, and
+//     one row cannot report how many cases it stands for, so the declared channel
+//     has nothing to reconcile it against. Pre-existing rather than new — the old
+//     name-counting rule scored both cases disabled at BOTH refs and cancelled —
+//     and the per-location rule does not close it either. Only the run channel sees
+//     it, and the run channel can be paid off with skip credits.
 //   * An adversary who detects the gate. Collection and the run happen in a
 //     temp worktree with distinctive env; a test that WANTS to behave
 //     differently under observation can. No in-repo measurement closes this.
@@ -112,10 +120,13 @@ export function renamedFiles(repo, base, head) {
  * tasks, while generated `it.each` and template-literal names do.
  *
  * THE TWO CHANNELS DO NOT AGREE ON GENERATED NAMES, and must not be assumed to.
- * Vitest 5's `list` reports an `it.each` or template-literal block once under its
- * UNINTERPOLATED source pattern (`case %s`); the task graph reports every
- * concrete case (`case 1`, `case 2`). Vitest 4 interpolated in both. They do
- * agree on `location` in both versions, which is what `compare()` reconciles on.
+ * Vitest 5's `list` reports an `it.each`/`describe.each` or template-literal block
+ * ONCE under its UNINTERPOLATED name — for a template literal that is the raw
+ * source text `template ${suffix}`, not a printf-style pattern — while the task
+ * graph reports every concrete case (`case 1`, `case 2`). Vitest 4 interpolated in
+ * both. They do agree on `location` in both versions, which is what `compare()`
+ * reconciles within. Note that SEVERAL differently-named tasks can share ONE
+ * location (`describe.each`), so a location does not identify a single task.
  */
 export function collectTests(repo, ref, extraCandidates = []) {
   const empty = () => ({ ok: false, tests: new Map(), declared: new Map(), detail: '' });
@@ -331,57 +342,92 @@ export function compare(before, after, renames = []) {
     return out;
   };
   /**
-   * WHICH DECLARED TASKS ARE NOT RUNNABLE — joined on task LOCATION, not name.
+   * WHICH DECLARED TASKS ARE NOT RUNNABLE — reconciled PER LOCATION, BY NAME.
    *
    * Vitest 4 reported the same interpolated names in BOTH channels, so the two
-   * could be reconciled by counting names. Vitest 5 does not: `vitest list`
-   * reports an `it.each` or template-literal block ONCE, under its
-   * UNINTERPOLATED source pattern (`case %s`), while the collect-only task graph
-   * still reports one concrete task per generated case (`case 1`, `case 2`).
-   * Counting names across the two channels therefore scored EVERY generated task
-   * as declared-but-not-runnable. That cancelled out in the base-minus-head
-   * subtraction while the name was unchanged, and became a false BLOCK the moment
-   * an `it.each` title was honestly RENAMED — observed on the vitest 5 bump
-   * (PR #329), where both generated-name honest-work arms of the selftest went
-   * BLOCK while every attack arm still held. A detector that blocks honest work
-   * teaches people to route around it, so this is a defect, not a trade-off.
+   * could be reconciled by counting names across a whole file. Vitest 5 does not:
+   * `vitest list` reports an `it.each` or `describe.each` block ONCE under its
+   * UNINTERPOLATED name, and for a template literal that name is the raw source
+   * text (`template ${suffix}`, not a printf-style pattern), while the collect-only
+   * task graph still reports one concrete task per generated case (`case 1`,
+   * `case 2`). Counting names across the two channels therefore scored EVERY
+   * generated task as declared-but-not-runnable. That cancelled out in the
+   * base-minus-head subtraction while the name was unchanged, and became a false
+   * BLOCK the moment an `it.each` title was honestly RENAMED — observed on the
+   * vitest 5 bump (PR #329), where both generated-name honest-work arms of the
+   * selftest went BLOCK while every attack arm still held. A detector that blocks
+   * honest work teaches people to route around it, so that is a defect.
    *
    * Both channels DO agree on `location`, in both versions, because both read it
-   * from the same parse of the same file. So "is this declared task runnable?" is
-   * answered by whether the resolved test command's list holds ANY entry at the
-   * same file and location — one pattern row stands for every case it generates.
-   * PRESENCE, not cardinality: that is what survives a channel which collapses N
-   * tasks into one row, and it is strictly sharper than counting for duplicate
-   * names, which it now separates by position.
+   * from the same parse of the same file. So the reconciliation is done WITHIN one
+   * location, and PRESENCE ALONE IS NOT ENOUGH — review of the first version of
+   * this fix (PR #330, finding B1) reproduced the hole: `describe.each` puts
+   * SEVERAL DIFFERENTLY-NAMED tasks at ONE location (`group 1 > inner` and
+   * `group 2 > inner` both at 2:48), so a `-t` narrowing that dropped one left the
+   * sibling vouching for it, the silenced task scored as runnable, and the gate
+   * printed "the suite was not weakened" over a test the pre-fix engine had named
+   * out loud. The run channel was no obstacle — it is paid for with the skip-credit
+   * laundering documented below.
    *
-   * The join is WITHIN one ref, where locations are stable by construction (same
-   * file content, same parse). The cross-ref comparison below stays keyed by NAME
-   * deliberately: line numbers shift whenever anything ABOVE a test is edited, so
-   * keying that comparison by location would report every test below an inserted
-   * line as newly disabled — the same false-BLOCK class, reintroduced.
+   * So, at each location: if the list holds a row whose name is NOT among the
+   * declared names there, that row is an uninterpolated pattern standing for every
+   * case it generates — it cannot say WHICH, so it vouches for all of them. That is
+   * the only shape where cardinality is unavailable, and it is exactly the vitest 5
+   * generated-name case. Otherwise the two channels agree on spelling and are
+   * reconciled BY NAME WITH CARDINALITY within that location, which is what keeps
+   * the `describe.each` detection.
    *
-   * A task Vitest reports without a location falls back to name reconciliation,
-   * so losing `includeTaskLocation` degrades to the vitest 4 behaviour rather
-   * than silently reporting nothing as disabled.
+   * The reconciliation is WITHIN one ref, where locations are stable by
+   * construction (same file content, same parse). The cross-ref comparison below
+   * stays keyed by NAME deliberately: line numbers shift whenever anything ABOVE a
+   * test is edited, so keying that comparison by location would report every test
+   * below an inserted line as newly disabled — the same false-BLOCK class.
+   *
+   * A task Vitest reports WITHOUT a location cannot be placed, so it falls back to
+   * name reconciliation across the file (the vitest 4 behaviour). Losing
+   * `includeTaskLocation` degrades to the old rule rather than to silence.
    */
   const hasLocation = (t) => Number.isFinite(t.location?.line) && Number.isFinite(t.location?.column);
   const locator = (t) => `${t.file}@${t.location.line}:${t.location.column}`;
-  const disabledCounts = (inv, normalizeFile = (f) => f) => {
-    const runnableAt = new Set();
-    for (const t of inv.collected.tests.values()) if (hasLocation(t)) runnableAt.add(locator(t));
-    const runnableNamed = counts(inv.collected.tests);   // same ref, so no file normalization
-    const spentNamed = new Map();
+  const byLocation = (m) => {
     const out = new Map();
-    for (const t of inv.collected.declared.values()) {
-      let runnable;
-      if (hasLocation(t)) runnable = runnableAt.has(locator(t));
-      else {
-        const named = identity(t);
-        const spent = spentNamed.get(named) ?? 0;
-        runnable = spent < (runnableNamed.get(named) ?? 0);
-        if (runnable) spentNamed.set(named, spent + 1);
+    for (const t of m.values()) {
+      if (!hasLocation(t)) continue;
+      const k = locator(t);
+      if (!out.has(k)) out.set(k, []);
+      out.get(k).push(t);
+    }
+    return out;
+  };
+  const disabledCounts = (inv, normalizeFile = (f) => f) => {
+    const runnableAt = byLocation(inv.collected.tests);
+    const notRunnable = [];
+    for (const [loc, declaredHere] of byLocation(inv.collected.declared)) {
+      const runnableHere = runnableAt.get(loc) ?? [];
+      const declaredNames = new Set(declaredHere.map((t) => t.name));
+      // An uninterpolated pattern row vouches for every case it generates.
+      if (runnableHere.some((t) => !declaredNames.has(t.name))) continue;
+      const left = new Map();
+      for (const t of runnableHere) left.set(t.name, (left.get(t.name) ?? 0) + 1);
+      for (const t of declaredHere) {
+        const n = left.get(t.name) ?? 0;
+        if (n > 0) left.set(t.name, n - 1);
+        else notRunnable.push(t);
       }
-      if (runnable) continue;
+    }
+    // Located tasks were settled above; anything Vitest could not place is
+    // reconciled by name across the file.
+    const runnableNamed = counts(inv.collected.tests);   // same ref, so no file normalization
+    const spent = new Map();
+    for (const t of inv.collected.declared.values()) {
+      if (hasLocation(t)) continue;
+      const named = identity(t);
+      const used = spent.get(named) ?? 0;
+      if (used < (runnableNamed.get(named) ?? 0)) spent.set(named, used + 1);
+      else notRunnable.push(t);
+    }
+    const out = new Map();
+    for (const t of notRunnable) {
       const id = identity(t, normalizeFile(t.file));
       out.set(id, (out.get(id) ?? 0) + 1);
     }

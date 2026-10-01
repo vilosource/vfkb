@@ -176,6 +176,47 @@ check('collection without node_modules fails loudly with installation guidance',
 rmSync(noDeps, { recursive: true, force: true });
 check('review-gate installs dependencies before the tamper selftest', /npm ci[\s\S]*tamper-check\.selftest/.test(readFileSync(join(process.cwd(), '.github/workflows/review-gate.yml'), 'utf8')), true);
 
+console.log('\n--- SEVERAL TASKS AT ONE LOCATION (review finding B1), end to end ---');
+// `describe.each` puts `group 1 > inner` and `group 2 > inner` at ONE line and
+// column. A `-t` narrowing silences one of them while the SIBLING keeps that
+// location occupied, and the run channel is paid for the round-6 way: un-skip a
+// base skip to buy the credit, add a junk test to hold the per-file count.
+//
+// The first version of the vitest-5 fix answered PASS here, because it treated a
+// location as runnable if the list held ANY row there. The pre-fix engine named
+// the silenced task out loud. So this arm pins the DETECTION, not the fix, and it
+// gets its own fixture repo because the shared one above cannot express a `-t`
+// that enumerates every surviving name.
+//
+// The predicate is a CONTENT assertion over the output, not the exit code: the
+// failure mode here presents as a successful run that simply lacks the finding.
+const repo2 = mkdtempSync(join(tmpdir(), 'tamper-self-loc-'));
+{
+  const g2 = (...a) => execFileSync('git', ['-C', repo2, ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  const put2 = (f, body) => { mkdirSync(join(repo2, f, '..'), { recursive: true }); writeFileSync(join(repo2, f), body); };
+  try { symlinkSync(join(process.cwd(), 'node_modules'), join(repo2, 'node_modules'), 'dir'); } catch { /* already there */ }
+  writeFileSync(join(repo2, '.gitignore'), 'node_modules\n');
+  g2('init', '-q'); g2('config', 'user.email', 'a@b'); g2('config', 'user.name', 't');
+  put2('test/a.test.ts', "import { describe, it, expect } from 'vitest';\ndescribe.each([1, 2])('group %s', (g) => { it('inner', () => { expect(g).toBe(g); }); });\nit('kept', () => { expect(1).toBe(1); });\n");
+  put2('test/legacy.test.ts', "import { it, expect } from 'vitest';\nit.skip('old skip', () => { expect(1).toBe(1); });\n");
+  put2('package.json', '{\n  "name": "t2", "type": "module",\n  "scripts": { "test": "vitest run" }\n}\n');
+  g2('add', '-A'); g2('commit', '-q', '-m', 'base');
+  const BASE2 = g2('rev-parse', 'HEAD').trim();
+  put2('test/a.test.ts', g2('show', 'HEAD:test/a.test.ts') + "it('junk', () => { expect(1).toBe(1); });\n");
+  put2('test/legacy.test.ts', "import { it, expect } from 'vitest';\nit('old skip', () => { expect(1).toBe(1); });\n");
+  put2('package.json', '{\n  "name": "t2", "type": "module",\n  "scripts": { "test": "vitest run -t \\"group 1|kept|junk|old skip\\"" }\n}\n');
+  g2('add', '-A'); g2('commit', '-q', '-m', 'silence one of two tasks sharing a location');
+  const quiet = console.log, qerr = console.error, lines = [];
+  console.log = (...a) => lines.push(a.join(' ')); console.error = (...a) => lines.push(a.join(' '));
+  let code;
+  try { code = main(['--repo', repo2, '--base', BASE2, '--head', 'HEAD']); }
+  finally { console.log = quiet; console.error = qerr; }
+  const out = lines.join('\n');
+  check('a task silenced while a SIBLING holds its location is still caught (B1)',
+    code !== 0 && /tests-disabled/.test(out) && /group 2 > inner/.test(out), true);
+}
+rmSync(repo2, { recursive: true, force: true });
+
 console.log('\n--- unit level (what is left after the scanner was deleted) ---');
 
 // THE TWO OBSERVATION CHANNELS DISAGREE ON GENERATED NAMES under vitest 5:
@@ -221,6 +262,27 @@ check('channels disagreeing on generated names reconcile by location: an it.each
 check('the same disagreement still catches a SKIPPED it.each block',
   compare(v5Base, v5Skipped).findings.some((f) => f.kind === 'tests-disabled'), true);
 // A task without a location must degrade to name reconciliation, not to silence.
+// REVIEW FINDING B1, as DATA: several DIFFERENTLY-NAMED tasks share ONE location
+// (`describe.each` puts both at 2:48). Presence at a location is therefore NOT
+// evidence that a particular task there runs. The live arm above only catches a
+// regression to pure presence while the installed vitest is 4 — on vitest 5 the
+// uninterpolated row drops entirely under `-t`, so it would block anyway. This arm
+// fails on ANY runner, which is what makes it the load-bearing pin.
+const sameLocBase = inv(
+  [{ file: F, name: 'group 1 > inner', location: at(2, 48) }, { file: F, name: 'group 2 > inner', location: at(2, 48) }],
+  [{ file: F, name: 'group 1 > inner', mode: 'run', location: at(2, 48) }, { file: F, name: 'group 2 > inner', mode: 'run', location: at(2, 48) }],
+);
+const sameLocFiltered = inv(
+  [{ file: F, name: 'group 1 > inner', location: at(2, 48) }],
+  [{ file: F, name: 'group 1 > inner', mode: 'run', location: at(2, 48) }, { file: F, name: 'group 2 > inner', mode: 'run', location: at(2, 48) }],
+);
+check('a sibling at the SAME location cannot vouch for a filtered-out task (B1)',
+  compare(sameLocBase, sameLocFiltered).findings.some((f) => f.kind === 'tests-disabled'), true);
+// A regression pin for the no-location FALLBACK, not a pin of this fix: it is green
+// both with and without the location join, and no configuration was found in which
+// Vitest omits a location (both channels force `includeTaskLocation`, and disabling
+// it makes collection fail closed). Kept because it is cheap; not claimed as
+// observed-red in the review record.
 check('a declared task with no location still reports as disabled when the list lacks its name',
   compare(inv([{ file: F, name: 'adds' }], [{ file: F, name: 'adds', mode: 'run' }]),
           inv([], [{ file: F, name: 'adds', mode: 'skip' }])).findings.some((f) => f.kind === 'tests-disabled'), true);
