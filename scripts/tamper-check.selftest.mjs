@@ -21,7 +21,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { main, collectTests } from './tamper-check.mjs';
+import { main, collectTests, compare } from './tamper-check.mjs';
 
 let failed = 0;
 const check = (label, got, want) => {
@@ -177,6 +177,53 @@ rmSync(noDeps, { recursive: true, force: true });
 check('review-gate installs dependencies before the tamper selftest', /npm ci[\s\S]*tamper-check\.selftest/.test(readFileSync(join(process.cwd(), '.github/workflows/review-gate.yml'), 'utf8')), true);
 
 console.log('\n--- unit level (what is left after the scanner was deleted) ---');
+
+// THE TWO OBSERVATION CHANNELS DISAGREE ON GENERATED NAMES under vitest 5:
+// `vitest list` reports an `it.each` block ONCE under its uninterpolated source
+// pattern, while the collect-only task graph reports one task per generated case.
+// Reconciling them by COUNTING NAMES scored every generated task as
+// declared-but-not-runnable, which turned an honest `it.each` rename into a
+// BLOCK (observed on the vitest 5 bump, PR #329).
+//
+// The two real-repo arms above only observe this when the installed vitest IS 5,
+// so the shape is ALSO pinned here as DATA. This arm fails on any vitest, which
+// is the point: it is the can-fail pin that survives a downgrade of the runner.
+const chan = (rows) => {
+  const m = new Map(), seen = new Map();
+  for (const r of rows) {
+    const id = `${r.file}::${r.name}`;
+    const n = (seen.get(id) ?? 0) + 1;
+    seen.set(id, n);
+    m.set(`${id}::${n}`, r);
+  }
+  return m;
+};
+const inv = (list, declared) => ({
+  collected: { ok: true, tests: chan(list), declared: chan(declared) },
+  run: { ok: true, total: 0, passed: 0, failed: 0, skipped: 0 },
+});
+const at = (line, column = 1) => ({ line, column });
+const F = 'test/a.test.ts';
+const v5Base = inv(
+  [{ file: F, name: 'case %s', location: at(4, 16) }],
+  [{ file: F, name: 'case 1', mode: 'run', location: at(4, 16) }, { file: F, name: 'case 2', mode: 'run', location: at(4, 16) }],
+);
+const v5Renamed = inv(
+  [{ file: F, name: 'value %s works', location: at(4, 16) }],
+  [{ file: F, name: 'value 1 works', mode: 'run', location: at(4, 16) }, { file: F, name: 'value 2 works', mode: 'run', location: at(4, 16) }],
+);
+const v5Skipped = inv(
+  [],
+  [{ file: F, name: 'case 1', mode: 'skip', location: at(4, 16) }, { file: F, name: 'case 2', mode: 'skip', location: at(4, 16) }],
+);
+check('channels disagreeing on generated names reconcile by location: an it.each rename is not a weakening',
+  compare(v5Base, v5Renamed).findings.length, 0);
+check('the same disagreement still catches a SKIPPED it.each block',
+  compare(v5Base, v5Skipped).findings.some((f) => f.kind === 'tests-disabled'), true);
+// A task without a location must degrade to name reconciliation, not to silence.
+check('a declared task with no location still reports as disabled when the list lacks its name',
+  compare(inv([{ file: F, name: 'adds' }], [{ file: F, name: 'adds', mode: 'run' }]),
+          inv([], [{ file: F, name: 'adds', mode: 'skip' }])).findings.some((f) => f.kind === 'tests-disabled'), true);
 
 rmSync(repo, { recursive: true, force: true });
 if (failed) { console.error(`\n${failed} check(s) failed.`); process.exit(1); }

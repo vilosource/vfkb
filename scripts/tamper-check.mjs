@@ -110,6 +110,12 @@ export function renamedFiles(repo, base, head) {
  * The difference between declared and runnable is the reason a test left. This
  * is semantic data from Vitest itself: comments and decoy strings do not become
  * tasks, while generated `it.each` and template-literal names do.
+ *
+ * THE TWO CHANNELS DO NOT AGREE ON GENERATED NAMES, and must not be assumed to.
+ * Vitest 5's `list` reports an `it.each` or template-literal block once under its
+ * UNINTERPOLATED source pattern (`case %s`); the task graph reports every
+ * concrete case (`case 1`, `case 2`). Vitest 4 interpolated in both. They do
+ * agree on `location` in both versions, which is what `compare()` reconciles on.
  */
 export function collectTests(repo, ref, extraCandidates = []) {
   const empty = () => ({ ok: false, tests: new Map(), declared: new Map(), detail: '' });
@@ -324,9 +330,61 @@ export function compare(before, after, renames = []) {
     }
     return out;
   };
-  const disabledCounts = (inv, normalizeFile) => {
-    const declared = counts(inv.collected.declared, normalizeFile), runnable = counts(inv.collected.tests, normalizeFile), out = new Map();
-    for (const [id, n] of declared) if (n > (runnable.get(id) ?? 0)) out.set(id, n - (runnable.get(id) ?? 0));
+  /**
+   * WHICH DECLARED TASKS ARE NOT RUNNABLE — joined on task LOCATION, not name.
+   *
+   * Vitest 4 reported the same interpolated names in BOTH channels, so the two
+   * could be reconciled by counting names. Vitest 5 does not: `vitest list`
+   * reports an `it.each` or template-literal block ONCE, under its
+   * UNINTERPOLATED source pattern (`case %s`), while the collect-only task graph
+   * still reports one concrete task per generated case (`case 1`, `case 2`).
+   * Counting names across the two channels therefore scored EVERY generated task
+   * as declared-but-not-runnable. That cancelled out in the base-minus-head
+   * subtraction while the name was unchanged, and became a false BLOCK the moment
+   * an `it.each` title was honestly RENAMED — observed on the vitest 5 bump
+   * (PR #329), where both generated-name honest-work arms of the selftest went
+   * BLOCK while every attack arm still held. A detector that blocks honest work
+   * teaches people to route around it, so this is a defect, not a trade-off.
+   *
+   * Both channels DO agree on `location`, in both versions, because both read it
+   * from the same parse of the same file. So "is this declared task runnable?" is
+   * answered by whether the resolved test command's list holds ANY entry at the
+   * same file and location — one pattern row stands for every case it generates.
+   * PRESENCE, not cardinality: that is what survives a channel which collapses N
+   * tasks into one row, and it is strictly sharper than counting for duplicate
+   * names, which it now separates by position.
+   *
+   * The join is WITHIN one ref, where locations are stable by construction (same
+   * file content, same parse). The cross-ref comparison below stays keyed by NAME
+   * deliberately: line numbers shift whenever anything ABOVE a test is edited, so
+   * keying that comparison by location would report every test below an inserted
+   * line as newly disabled — the same false-BLOCK class, reintroduced.
+   *
+   * A task Vitest reports without a location falls back to name reconciliation,
+   * so losing `includeTaskLocation` degrades to the vitest 4 behaviour rather
+   * than silently reporting nothing as disabled.
+   */
+  const hasLocation = (t) => Number.isFinite(t.location?.line) && Number.isFinite(t.location?.column);
+  const locator = (t) => `${t.file}@${t.location.line}:${t.location.column}`;
+  const disabledCounts = (inv, normalizeFile = (f) => f) => {
+    const runnableAt = new Set();
+    for (const t of inv.collected.tests.values()) if (hasLocation(t)) runnableAt.add(locator(t));
+    const runnableNamed = counts(inv.collected.tests);   // same ref, so no file normalization
+    const spentNamed = new Map();
+    const out = new Map();
+    for (const t of inv.collected.declared.values()) {
+      let runnable;
+      if (hasLocation(t)) runnable = runnableAt.has(locator(t));
+      else {
+        const named = identity(t);
+        const spent = spentNamed.get(named) ?? 0;
+        runnable = spent < (runnableNamed.get(named) ?? 0);
+        if (runnable) spentNamed.set(named, spent + 1);
+      }
+      if (runnable) continue;
+      const id = identity(t, normalizeFile(t.file));
+      out.set(id, (out.get(id) ?? 0) + 1);
+    }
     return out;
   };
   // A rename changes the path component of task identity. Normalize HEAD's
