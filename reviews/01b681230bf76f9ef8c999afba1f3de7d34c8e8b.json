@@ -1,0 +1,108 @@
+{
+  "recordVersion": 1,
+  "sha": "01b681230bf76f9ef8c999afba1f3de7d34c8e8b",
+  "governing": [
+    "docs/adr/ADR-0075-the-software-factory.md",
+    "docs/rfc/RFC-039-the-software-factory.md",
+    "docs/adr/ADR-0052-review-gate.md",
+    "docs/adr/ADR-0070-guards-that-can-fail.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "opus", "rounds": 2 },
+  "generated": "2026-10-01T11:49:53Z",
+  "findings": [
+    {
+      "id": "R2-B1",
+      "severity": "blocking",
+      "status": "open",
+      "summary": "The per-location amnesty is attacker-controllable, so a NEWLY ADDED .skip passes on vitest 4 where origin/main blocks it. The amnesty fires on NAME DISAGREEMENT, not on each-ness, and the two channels run in different processes (list under npm test via the wrapper at tamper-check.mjs:176; declared via a direct node --eval at :238), so npm_lifecycle_event alone diverges them in one line with no .each anywhere. Verified end to end by the author against both engines: origin/main 101c61a BLOCKs naming 'victim'; this head PASSes with 'the suite was not weakened'. Run channel paid off by the documented round-6 laundering. NOT introduced by round 1's fix (afdae91 passes the same attack) but a net REGRESSION against the merge target. Amnesty blast radius measured on the real suite: 0 of 650 tasks on vitest 4.1.11, 66 of 650 at 30 locations on vitest 5.0.2.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-M1",
+      "severity": "major",
+      "status": "open",
+      "summary": "The round-2 remedy re-opened a vitest-5 FALSE BLOCK on honest work. A placeholder-free it.each title produces one list row whose name is IDENTICAL to the N declared names, so the amnesty does not fire and cardinality invents N-1 disabled tasks; adding a case is reported as a weakening while the run line reads 3 -> 4 passed. Verified by the author on vitest 5.0.2: 01b6812 BLOCK, afdae91 PASS, origin/main BLOCK. INTRODUCED BY ROUND 1'S FIX relative to the artifact round 1 reviewed, AND pre-existing against origin/main — both attributions hold. The first reading is the literal ADR-0070 §4 trigger and is why this is escalated rather than patched a third time. Not reachable in vfkb today: all 10 .each call sites use %s.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-M2",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "The PR description still sold the round-1 design (presence, not cardinality) and repeated the 'strictly sharper than counting' claim that round 1 had found false — the source comment was corrected but the operator-facing artifact was not. Rewritten: the PR now leads with DO NOT MERGE, describes the merged mechanism, and carries the B1/M1 evidence tables.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-m1",
+      "severity": "minor",
+      "status": "open",
+      "summary": "The comment claim 'degrades to the old rule rather than to silence' is false for ASYMMETRIC location loss: if the list channel lacks location while declared has it, every declared task scores not-runnable and a plain rename yields a total false BLOCK. UNVERIFIED that any vitest release behaves this way — both 4.1.11 and 5.0.2 emit locations for 650/650 real tasks.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-m2",
+      "severity": "minor",
+      "status": "open",
+      "summary": "The new live B1 arm is a true pin on vitest 4 (exactly one finding, naming group 2 > inner) but on vitest 5 it reports TWO findings including 'group 1 > inner', which demonstrably ran — so its /group 2 > inner/ predicate matches for a different reason there. Disclosed in the selftest comment, but the finding text misnames the weakened test on v5.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-B1",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "Round 1: deciding runnability by mere PRESENCE of any list row at a task's location let a SIBLING vouch for a silenced task, because describe.each puts several differently-named tasks at one file:line:column. Reproduced independently by the author (origin/main BLOCKs naming 'group 2 > inner'; afdae91 PASSes). Fixed in 01b6812 for that INSTANCE by reconciling per location by name — but round 2 showed the CLASS remains open as R2-B1.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-M1",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "Round 1: the justifying comment claimed presence is 'strictly sharper than counting' — false. It is EQUIVALENT for duplicate names on different lines and was WEAKER where several tasks share one location. Corrected; in this file the header IS the coverage statement.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-M2",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "Round 1: a pre-existing hole was left implicit — on vitest 5 a -t matching the UNINTERPOLATED name of a generated block keeps the list row while no case runs, and one row cannot report how many cases it stands for. Verified pre-existing (origin/main misses it identically, both cases disabled at both refs and cancelled). Now named explicitly in the script's WHAT IT DELIBERATELY DOES NOT CATCH list.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-m1",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "Round 1: the no-location arm pins the FALLBACK and is green with and without the fix, and no configuration was found in which vitest omits a location. Kept as a cheap regression pin, now documented as such in the selftest, and deliberately NOT listed in the mutations log below — a guard that stays green under its mutation is vacuous.",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 9,
+  "ruledOut": [],
+  "mutations": [
+    {
+      "guard": "scripts/tamper-check.selftest.mjs > a task silenced while a SIBLING holds its location is still caught (B1)",
+      "mutation": "MUTATION A — replaced the name-aware per-location reconciliation with pure presence (if (runnableHere.length) continue), i.e. afdae91's rule; anchor asserted present before the edit and the replacement grep-verified after",
+      "observedRed": true
+    },
+    {
+      "guard": "scripts/tamper-check.selftest.mjs > a sibling at the SAME location cannot vouch for a filtered-out task (B1)",
+      "mutation": "MUTATION A — pure presence; observed RED on BOTH vitest 4.1.11 and 5.0.2, which is why this data arm is the load-bearing pin (the live arm above only reds on vitest 4)",
+      "observedRed": true
+    },
+    {
+      "guard": "scripts/tamper-check.selftest.mjs > channels disagreeing on generated names reconcile by location: an it.each rename is not a weakening",
+      "mutation": "MUTATION B — full revert of disabledCounts to origin/main's name-counting; anchor verified (count-based line present, byLocation absent)",
+      "observedRed": true
+    },
+    {
+      "guard": "scripts/tamper-check.selftest.mjs > the same disagreement still catches a SKIPPED it.each block",
+      "mutation": "MUTATION B — full revert to name-counting; RED on both runners (the skipped block is reported as tests-removed rather than tests-disabled)",
+      "observedRed": true
+    },
+    {
+      "guard": "scripts/tamper-check.selftest.mjs > renaming generated it.each cases without disabling them (pre-existing arm, newly passing)",
+      "mutation": "MUTATION B — full revert to name-counting, observed RED on vitest 5.0.2 (BLOCK instead of PASS); this is the false block the PR set out to fix",
+      "observedRed": true
+    }
+  ],
+  "mutationsNote": null,
+  "verdict": "REDESIGN"
+}
