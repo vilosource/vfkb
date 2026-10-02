@@ -8,7 +8,9 @@ timestamp: 2026-10-02
 
 # RFC-041: No task name may enter the comparison
 
-- **Status:** Proposed — **the constraint is the proposal; the mechanism is deliberately open**
+- **Status:** Proposed — **HELD. Round 2 returned REDESIGN and ADR-0070 §4 fired a SECOND time on
+  this arc. The constraint below is wrong in both directions on measurement, and the candidate is
+  the FIFTH defeated design. Awaiting an operator ruling; no replacement is proposed here.**
 - **Date:** 2026-10-02
 - **Deciders:** operator + Claude
 - **Relates:** [ADR-0075](../adr/ADR-0075-the-software-factory.md) (the tamper-detection clause —
@@ -41,8 +43,11 @@ The adversarial review then showed the #330 round-2 attack **transfers intact**:
 `` it(`victim ${Date.now()}`) ``, skipping it, padding the file with one junk test and un-skipping a
 base `.skip` for the run credit, the draft's design **PASSED a newly added `.skip`** on vitest 4.1.11
 *and* 5.0.2, where `main` BLOCKs and names the test. The draft also claimed its rule was *"how the
-existing cross-ref comparison already works"* — also false: `main` never reports a missing name as a
-finding, routing every vanished task through `moved` first (`tamper-check.mjs:365-366`).
+existing cross-ref comparison already works"* — also false: `main` tries two `moved`
+routes first (`tamper-check.mjs:365-366`) and only then reports `deleted` (`:367`). A missing name
+alone is not sufficient for a finding, which is the point; an earlier version of this sentence
+overstated it to *"main never reports a missing name as a finding"*, which is false — a `git rm` does
+yield `[tests-removed]`.
 
 That is a **fourth** defeated design, and it is why this RFC no longer proposes a mechanism.
 
@@ -96,50 +101,65 @@ Note the symmetry of the last two: moving the comparison from cross-channel to c
 lever from `npm_lifecycle_event` to `Date.now()` and made it *worse*, because two refs are two
 worktrees at two times whereas the two channels were at least one ref.
 
-## Leading candidate (name-free), and its known open gap
+## The fifth defeated design: C1+C2 (name-free counts) — struck
 
-Offered as the direction to develop, **not as a settled mechanism**.
+This section previously proposed a candidate. **Round 2 implemented it and measured it against the
+committed 44-arm selftest on both runners. It is defeated.** It is recorded as evidence, not a proposal.
 
-**C1 — skips, name-free.** Per file (rename-normalised by git, as `main` already does), compare the
-**count of declared tasks whose `mode` is `skip`/`todo`**, base versus head. An increase is the
-finding. A newly added `.skip` raises it by one; a rename, a title change, a computed name, a junk
-pad and a move between files all leave it unchanged. Counting per *file* also means a skip credit
-cannot be transferred between files, which is what the round-6 laundering relied on.
+The design was: **C1** — per file, compare the count of declared tasks whose `mode` is `skip`/`todo`;
+**C2** — per file, compare the declared-minus-runnable count delta, within a ref, with `task.each` /
+`task.suite.each` collapsing generated tasks to their call site as a **normalizer**.
 
-**C2 — narrowing, name-free.** Per file, compare the **delta between declared and runnable counts**,
-base versus head — i.e. `main`'s declared-vs-runnable question, aggregated to a count instead of a
-name identity, and still **within a ref** so cross-ref divergence cannot reach it. This closes the
-count-neutral `-t` attack the first draft would have lost: base `declared 4 / list 4` ⇒ delta 0; head
-with one test filtered out and one junk test added ⇒ `declared 5 / list 4` ⇒ delta 1. **Per file, not
-per location** — per-location keys false-BLOCK on inserting a single comment line at the top of a
-file, which is the most ordinary edit there is (**measured by the adversarial review** on a
-per-location variant; `main` itself PASSes that edit).
+| what was measured | result |
+|---|---|
+| `main`, 44-arm selftest | **44/44 on v4**, **42/44 on v5** (the two v5 reds are the honest-work arms that make #329 red; every attack arm holds) |
+| C1+C2, strict | **43/44 on v4** — loses the pinned attack arm *"count-neutral swap: delete a real file, add junk tests"* (`selftest:89`) |
+| C1+C2, plus the per-file collected-count deletion rule | **43/44** — arm 89 goes green, but *"moving a test between two test files"* (`selftest:116`) goes RED, and **DoD item 3 requires it to PASS** |
 
-**C1 and C2 are DERIVED, not yet observed.** The arithmetic above is reasoning over verified channel
-behaviour, not an executed probe — no implementation of C1/C2 exists. Every claim about what they
-catch or pass is therefore a **hypothesis the build must test**, which is what the Definition of Done
-below exists to force. This is stated because the three designs before this one also looked correct
-until they were probed.
+Three defects, each structural rather than an artifact of the implementation:
 
-**C2 requires a normalizer, and alternative B supplies it.** On vitest 5 the declared channel reports
-N generated cases where `list` reports one row, so a raw delta would false-BLOCK an honestly added
-`it.each` case (derived from the verified channel counts `list=614 / declared=650`, not probed). Vitest exposes a **structural** signal — `task.each === true`, and
-`task.suite.each === true` walking ancestors for `describe.each`, **verified present and identical on
-4.1.11 and 5.0.2** — so generated tasks collapse to their call site before counting. This is the
-sound use of that signal: a **normalizer**, not an amnesty. It is structural rather than
-name-derived, and collapsing cannot hide a skip, because a skipped generated block drops out of
-`list` entirely and raises the C1 skip count.
+1. **Neither C1 nor C2 answers "did a test disappear."** Both only compare declared against runnable
+   *within* a file. `main` answers deletion at `tamper-check.mjs:358-367`. Under C1+C2 a plain
+   `git rm` contributes `no longer collected 0` from the collection half and blocks only via the run
+   channel — which a junk pad neutralises.
+2. **The constraint and the no-regression DoD clause are jointly unsatisfiable.** Cross-file
+   move-versus-deletion disambiguation needs an *identity*; `main` uses the vanished task's NAME
+   across files (`:365`), which is exactly what the constraint forbids. The constraint removes the
+   only identity in the detector, supplies no replacement, and the DoD then requires the behaviour
+   that identity buys.
+3. **The normalizer is blind to loop-generated tests, so C2 does not fix #329 for vfkb's own suite.**
+   `vitest list` rows carry only `{name, file, location}` — **no `each` flag on that channel at all**
+   (observed). A plain-`for`-loop test has `task.each === undefined` and no `each` suite ancestor,
+   identically on 4.1.11 and 5.0.2, and on v5 such a site still collapses to ONE list row carrying
+   unevaluated source. vfkb has **two such live sites** — `src/hook-stdin-failopen.test.ts:153` and
+   `test/realpath-git-paths.test.ts:345`, both template literals inside loops. Observed on the real
+   suite: `test/realpath-git-paths.test.ts` reports **list=18 declared=18 on v4** but **list=15
+   declared=18 on v5**. Extending either list is ordinary honest work that C2 would BLOCK on v5 — the
+   exact defect class RFC-041 exists to remove.
 
-**THE KNOWN OPEN GAP, unresolved: the same-file skip swap.** Un-skip a dead test and skip a live one
-*in the same file*. C1's per-file skip count is unchanged, C2's delta is unchanged, and the run
-channel nets to zero. `main` catches this today by name. Any purely name-free design loses it. Three
-possible resolutions, none adopted here:
- (a) accept and document it in the script's "WHAT IT DELIBERATELY DOES NOT CATCH" list;
- (b) use names **only where they are provably static** — a name is static iff the `list` and
-     `declared` spellings agree *at the same location within one ref*, which is a within-ref check,
-     though it does not discriminate on vitest 4 where `list` interpolates;
- (c) a per-location skip count, guarded against line drift.
-**Resolving this is a precondition for the ADR**, not an implementation detail.
+Defect 3 is the sharpest self-refutation: this document's own root-cause table says a template literal
+is *"not `.each` at all"* and that `.each` was *"merely the most visible instance"* — then selects
+`.each` as the normalizer.
+
+## The constraint is wrong in BOTH directions (round 2, measured)
+
+- **Too strong.** It bans a comparison that is sound and load-bearing, at measured cost: defect 2.
+  This document's own open-gap resolution (b) then proposed *"use names only where they are provably
+  static"*, contradicting the absolute sentence two sections earlier.
+- **Too weak.** It is silent on the two keys the candidate actually rested on. **Per-file counts** are
+  manufacturable by the checked party — precisely what the cited gotcha `43c1af80effb` forbids
+  (*"a reconciliation rule whose trigger the checked party can manufacture is not a Brake"*); the
+  constraint quotes that to kill names and exempts counts without argument. And **`location`**: the
+  same gotcha's title reads *"CANNOT BE RECONCILED BY TASK NAME **OR BY LOCATION**"*, and this
+  document dropped the location half when quoting it, then used location as C2's collapse key. That
+  use is defensible — within a ref, immune to line drift — but the document rejects per-location keys
+  for a reason that does not apply to the use it makes of them, and never says so.
+
+Round 2's proposed direction, recorded for the operator and **not adopted here**: restate the rule as
+an **admissibility test over comparison keys** — a key is admissible only if attested *outside the
+checked party's collection-time control* (git for paths, the structural task graph for `mode` and
+`each`), with names admissible only under a within-ref staticness proof. That is a different
+proposal, not an edit to this one.
 
 ## Why the mechanism is deliberately left open
 
@@ -177,7 +197,16 @@ Stated because a gate that overstates its reach is read as coverage it does not 
   Verified **pre-existing** — `main` misses it identically. **UNVERIFIED** whether it is exploitable
   past the run channel end to end: the collection half is confirmed, but the one attempt to build the
   full attack was caught by `[more-tests-skipped]`.
-- The same-file skip swap, pending the open gap above.
+- **The credit-laundering family is broader than first stated, and two members defeat `main` TODAY**
+  (round 2, observed on both runners): un-skip a dead test *and* convert a live test in the same file
+  to a runtime `ctx.skip()` ⇒ `main` PASSes (its pinned arm `selftest:142` covers only the variant
+  where the base skip becomes a *failure*, which the `failed` column sees); and delete one generated
+  `it.each` case while padding with one junk test in the same file ⇒ `main` PASSes. **Pre-existing in
+  `main`**, not introduced by any draft here, but listed because a future design would otherwise be
+  credited with reach it does not have.
+- On **vitest 4**, `main` false-BLOCKs a **docs-only** diff whenever a test name is computed
+  non-deterministically (round 2, observed: `[tests-disabled]` on 2 tasks with `collected 4 → 4`). So
+  alternative C is free only for the suite *as written today*.
 
 ## Definition of Done
 
@@ -185,8 +214,11 @@ Per ADR-0029 clause 5 and ADR-0070's own scope, the proof form for a **structura
 is the deterministic selftest with can-fail arms, **not** an agent-driven L4 — the selftest *is* the
 inner gate, and this RFC exists because that gate fired.
 
-1. **NO REGRESSION: every one of the ~44 arms already pinned in
-   `scripts/tamper-check.selftest.mjs` still holds, on vitest 4.1.11 AND 5.0.2.** Each was pinned
+1. **NO REGRESSION: every one of the 44 arms pinned in `scripts/tamper-check.selftest.mjs` still
+   holds, on vitest 4.1.11 AND 5.0.2.** Baselines, measured: `main` is **44/44 on v4** and **42/44 on
+   v5**, where the two v5 reds are *"renaming generated it.each cases without disabling them"* and
+   *"changing a generated template-literal name without disabling it"* — the honest-work arms the
+   redesign must turn **green**, with every attack arm still holding. Each was pinned
    because it defeated a previous version. This clause is load-bearing and its absence from this
    RFC's first draft was a review finding: the draft's own DoD would not have caught any of the three
    defeats found in it.
@@ -197,7 +229,8 @@ inner gate, and this RFC exists because that gate fired.
 3. **Honest-work arms that must PASS**, on both runners: a title rename in place and to something
    unrelated; a test moved **between two test files**; a placeholder-free `it.each` with an added
    case; a template-literal rename; the two vitest-5 generated-name renames; inserting a comment
-   line at the top of a test file.
+   line at the top of a test file; **an added LOOP-generated case** and an added `describe.each` case
+   (the loop case is the one honest arm round 2 measured RED against the struck candidate).
 4. **A config-`exclude` arm that blocks by DETECTION, not by failing closed.** The existing pin
    writes `exclude: ['test/b.test.ts']`, which replaces vitest's default exclude so `node_modules`
    gets collected and collection dies — it blocks for the wrong reason, and C2 moves the
@@ -215,8 +248,9 @@ inner gate, and this RFC exists because that gate fired.
 
 ## Consequences
 
-- **#330 will be closed as superseded** once this is accepted. Its branch
-  (`fix/tamper-check-vitest5-generated-names`) **must not be deleted**: it carries the only copy of
+- **#330 will be closed as superseded** once this is accepted. The **remote** branch
+  `origin/fix/tamper-check-vitest5-generated-names` **must not be deleted** (the record lives there,
+  not on `origin/main`): it carries the only copy of
   `reviews/01b681230bf76f9ef8c999afba1f3de7d34c8e8b.json`.
 - **#329 stays blocked** until the mechanism is settled and built.
 - One non-behavioural gain from #330 is worth porting regardless: the newly documented pre-existing
