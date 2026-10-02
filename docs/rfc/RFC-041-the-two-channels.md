@@ -112,11 +112,18 @@ name identity, and still **within a ref** so cross-ref divergence cannot reach i
 count-neutral `-t` attack the first draft would have lost: base `declared 4 / list 4` ⇒ delta 0; head
 with one test filtered out and one junk test added ⇒ `declared 5 / list 4` ⇒ delta 1. **Per file, not
 per location** — per-location keys false-BLOCK on inserting a single comment line at the top of a
-file, which is the most ordinary edit there is.
+file, which is the most ordinary edit there is (**measured by the adversarial review** on a
+per-location variant; `main` itself PASSes that edit).
+
+**C1 and C2 are DERIVED, not yet observed.** The arithmetic above is reasoning over verified channel
+behaviour, not an executed probe — no implementation of C1/C2 exists. Every claim about what they
+catch or pass is therefore a **hypothesis the build must test**, which is what the Definition of Done
+below exists to force. This is stated because the three designs before this one also looked correct
+until they were probed.
 
 **C2 requires a normalizer, and alternative B supplies it.** On vitest 5 the declared channel reports
-N generated cases where `list` reports one row, so a raw delta false-BLOCKs an honestly added
-`it.each` case. Vitest exposes a **structural** signal — `task.each === true`, and
+N generated cases where `list` reports one row, so a raw delta would false-BLOCK an honestly added
+`it.each` case (derived from the verified channel counts `list=614 / declared=650`, not probed). Vitest exposes a **structural** signal — `task.each === true`, and
 `task.suite.each === true` walking ancestors for `describe.each`, **verified present and identical on
 4.1.11 and 5.0.2** — so generated tasks collapse to their call site before counting. This is the
 sound use of that signal: a **normalizer**, not an amnesty. It is structural rather than
@@ -194,7 +201,10 @@ inner gate, and this RFC exists because that gate fired.
 4. **A config-`exclude` arm that blocks by DETECTION, not by failing closed.** The existing pin
    writes `exclude: ['test/b.test.ts']`, which replaces vitest's default exclude so `node_modules`
    gets collected and collection dies — it blocks for the wrong reason, and C2 moves the
-   config-exclude question onto a mechanism that pin does not exercise.
+   config-exclude question onto a mechanism that pin does not exercise. Reproduced: that spelling
+   yields *"vitest could not collect tests at the head"*, whereas
+   `exclude: ['**/node_modules/**','**/dist/**','test/b.test.ts']` yields a real `[tests-disabled]`
+   plus `[fewer-tests-ran]` finding.
 5. **Content assertions over output**, not exit codes, wherever a failure presents as a successful
    run that merely lacks the finding (the quiet-success trap, ADR-0051 §3).
 6. **No arm listed in the mutations log unless observed red.** A guard that stays green under its
