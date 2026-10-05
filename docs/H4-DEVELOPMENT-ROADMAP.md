@@ -489,6 +489,20 @@ never trusts an agent's self-report.
   *Gate:* D8's pair must be **observed RED** against a deliberately tampered tree before it is
   trusted (ADR-0070 §1, reusing ADR-0074 D5's rule verbatim); D2 needs an L4 whose **load-bearing arm
   is the refusal** (RFC-039 §5 P2).
+  - **D8 tamper detection — the detector is BUILT and WIRED; its REDESIGN is `[PARKED]`**
+    (operator ruling 2026-10-05, [RFC-041](../rfc/RFC-041-the-two-channels.md)). `scripts/tamper-check.mjs`
+    runs on every PR — `review-gate.yml:71` runs its selftest and `:90` the live check — so this is
+    not a pending build. What is parked is the **re-specification** of its skip predicate, after
+    **five** designs were defeated on it and ADR-0070 §4 fired **twice**; a third adversarial review
+    then defeated the one remaining direction (the admissibility reframing) in a single round, making
+    it design **six**. Do
+    **not** treat that reframing as a starting point; it is a defeated design. Two disclosed, measured
+    holes stand: every **same-file deletion** paired with an added test reads as a rename
+    (`tamper-check.mjs:366`), and a credit-laundering family that needs a pre-existing skip the suite
+    does not currently have. **Re-open triggers are named in RFC-041's Consequences** — the live one
+    being that vitest `^4` stops being viable. **The forgetting-protection is already mechanical, not
+    prose:** [#329](https://github.com/vilosource/vfkb/issues/329) (vitest `^5`) cannot merge while the
+    detector's own selftest is red, so the question re-presents itself the moment anyone tries.
 - **P12-b — D1 label FSM**, one `fsm:` label per issue at a time. `docs/task-priority.md` is demoted
   to a generated projection. Deterministic router tests; no L4.
 - **P12-c — D3/D4/D11 dispatcher + reaper.** Local, level-triggered polling; liveness keyed off
