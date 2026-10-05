@@ -50,6 +50,35 @@
 //   * An adversary who detects the gate. Collection and the run happen in a
 //     temp worktree with distinctive env; a test that WANTS to behave
 //     differently under observation can. No in-repo measurement closes this.
+//   * A DELETED TEST PADDED BY AN ADDED TEST IN THE SAME FILE. The rename
+//     classifier at :366 asks whether the file still holds at least as many
+//     tests as it did (`aFiles[file] >= bFiles[file]`) and, if so, records the
+//     vanished one as `moved` rather than `deleted`. THE TRIGGER IS A PER-FILE
+//     COUNT, AND THE CHECKED PARTY WRITES IT — so adding any test beside the
+//     deletion keeps the count up and the deletion is absorbed as a rename.
+//     Measured against this script, 2026-10-05, with controls:
+//         delete 1 + add 1 junk, SAME file   -> PASS   `moved 1`
+//         delete 2 + add 2 junk, SAME file   -> PASS   `moved 2`
+//         delete 1 + add 1 junk, OTHER file  -> BLOCK  [tests-removed]
+//         delete 1, no padding               -> BLOCK  [tests-removed]
+//     The two controls are what attribute the PASS to :366 rather than to a
+//     broken harness. ADR-0075:62 names "a deleted test" as a target of this
+//     clause, so this is a real gap in its reach, not a design preference.
+//
+//     IT IS NOT CHEAPLY FIXABLE, which is why it is disclosed instead of
+//     patched. Telling a move from a deletion needs an IDENTITY for the
+//     vanished task. The only two available are its NAME across files (:365)
+//     and this per-file COUNT (:366) — and the party being checked authors
+//     both. Honest renames (selftest:114/:118) and honest cross-file moves
+//     (selftest:116) must keep passing, and the detector is deliberately
+//     body-blind, so every rule tried so far either loses a pinned attack arm
+//     or reds a pinned honest one. SIX designs have been defeated on this
+//     predicate and ADR-0070 §4 fired twice; the question is PARKED by
+//     operator ruling 2026-10-05. Read docs/rfc/RFC-041-the-two-channels.md
+//     (named re-open triggers in its Consequences) and brain gotchas
+//     43c1af80effb, a01b84569d79, 32ad9ef5bb64 BEFORE proposing anything here.
+//     Do NOT start from "admissibility over comparison keys" — that is one of
+//     the six, and :366 is precisely the manufacturable key it overlooked.
 //
 //   node scripts/tamper-check.mjs [--base <ref>] [--head <ref>] [--repo <dir>]
 // ============================================================================
