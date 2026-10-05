@@ -19,7 +19,7 @@
 > | **[vendor]** | TypeSafe's or OpenAI's own page — unverified by anyone else |
 > | **[independent]** | a third-party audit, benchmark or reproduction |
 > | **[secondary]** | press, blog or tracker reporting |
-> | **[measured]** | measured in *this* repo at `453a21f`, command or path given |
+> | **[measured]** | measured in *this* repo at `8237fc4`, command or path given |
 >
 > **No decision-model API has been called from this repo.** Every cost, latency
 > and accuracy figure below is someone else's measurement. That distinction is
@@ -50,9 +50,11 @@
    gate, the admission gate or RFC-041's predicate would be the fifth repetition
    of the PR #307 mistake with a faster, cheaper, *less inspectable* judge. §3.
 4. **The problem it genuinely fits is the one vfkb has measured and not solved:**
-   the session-start injection budget discards **98% of the brain** — 470 live
-   entries, ~207k tokens of knowledge, into a 10,000-char budget, selected by a
-   type-tier heuristic with **no relevance signal at all** [measured, §5]. A
+   the session-start injection budget discards **~99% of eligible knowledge** — 450
+   of 456 injectable entries, ~201k tokens, into a 10,000-char budget, selected by a
+   type-tier heuristic with **no relevance signal at all** — and four of the six
+   survivors are pinned by rule, so **the ADR-0012 reranker's entire contribution
+   to a session is two entries, both `gotcha`** [measured, §5]. A
    situational relevance gate costs ~**$0.009** and ~500ms for the whole brain
    [derived from vendor pricing].
 5. **The architectural shape it needs is already ratified twice.**
@@ -284,7 +286,7 @@ The usable rule, which §6 and §7 are just applications of:
 |---|---|---|
 | **Cost** | the operator reads one less useful line | a Brake passes a tamper; a false claim becomes durable |
 | **Recoverable** | yes, silently, next session | no — and the record shows these arcs run 4–8 review rounds |
-| **Already happening** | **yes — 451 entries dropped per session** [measured] | no, and four ADRs exist to keep it that way |
+| **Already happening** | **yes — 450 of 456 eligible entries dropped per session** [measured] | no, and four ADRs exist to keep it that way |
 | **Decision model** | **fits** | **never** |
 
 A decision model belongs entirely in the left column. The fortunate part is that
@@ -294,28 +296,84 @@ vfkb's largest *unsolved* problem lives there too.
 
 ## 5. vfkb's measured surface
 
-Measured at `453a21f`, 2026-10-03, reproducible:
+Measured at `8237fc4` on this branch, 2026-10-05. (The brain has since grown
+by the entries this document's own PR adds; re-run the command below for current
+figures. The ratio is what matters, and it moves slowly in the wrong direction.)
+
+**First, the trap, because it invalidated this section's first draft.**
+`entries.jsonl` is **append-only with delta records**: an edit, a zone move, a
+provenance re-stamp or a decision status transition appends a *new line for the
+same `id`*. `readAll()` (`src/engine.ts:137`) delegates to `materialize()`
+(`src/storage.ts:137-148`), which folds records by `id` keeping the greatest
+`updated` — last-write-wins — and additionally drops tombstones and records with
+no usable `id`. So **`wc -l` is not the entry count.**
+
+Measured at this commit, the fold is the *only* reason the two differ: **473
+physical lines → 460 distinct entries**, with **12 ids carrying 13 extra lines**,
+zero tombstones and zero id-less records. Of those 12, **9 are decisions and all
+9 changed `status` across their lines** — exactly the 103-vs-94 over-count the
+first draft published. Decisions attract deltas because `updateEntry` refuses the
+decision family outright (`src/engine.ts:150-153`; ADR-0004 — immutable in text,
+supersede rather than edit), so transitions are the delta they do get. Note the
+code permits one other path: `setProvenanceStatus` (`src/engine.ts:166-180`)
+carries **no** decision-family guard and would append a delta for any type — it
+simply has not been used on a decision here. All 9 being transitions is an
+observation about this brain, not a guarantee from the code. The other three
+duplicated ids are one `fact` and two `link`s moved to `archive` by
+`curate merge`. Measure through the engine, not the file:
 
 ```sh
-node -e '
-const fs=require("fs");
-const ls=fs.readFileSync(".vfkb/entries.jsonl","utf8").trim().split("\n").map(l=>JSON.parse(l));
-const live=ls.filter(e=>e.zone!=="archive");
-const t=live.reduce((a,e)=>a+(e.text||"").length+((e.why||"").length),0);
-console.log({entries:ls.length, live:live.length, chars:t, approxTokens:Math.round(t/4)});
+VFKB_DATA_DIR=.vfkb node --input-type=module -e '
+import { readAll, renderContextBundle, SESSION_BUDGET_CHARS, isInjectable, supersededIds }
+  from "./dist/engine.js";
+const all = readAll();                    // folded, not lines
+const live = all.filter(e => e.zone !== "archive");
+const inj = all.filter(e => isInjectable(e, undefined, supersededIds(all)));
+const chars = live.reduce((a,e) => a + (e.text||"").length + (e.why||"").length, 0);
+const bundle = renderContextBundle();
+console.log({ distinct: all.length, live: live.length, injectable: inj.length,
+  chars, approxTokens: Math.round(chars/4), budget: SESSION_BUDGET_CHARS,
+  rendered: bundle.length,
+  omitted: (bundle.match(/\+ (\d+) lower-ranked entries omitted/)||[])[1] });
 '
 ```
 
 | Measurement | Value |
 |---|---|
-| Entries in `.vfkb/entries.jsonl` | **471** (470 live, 1 archived) |
-| Total `text` + `why` | **828,758 chars ≈ 207k tokens** |
-| Entry `text` length | p50 **1,401** · p90 **3,356** · max **7,433** chars |
-| By type | fact 195 · decision 103 · link 85 · gotcha 82 · pattern 5 |
+| Distinct entries (`readAll()`) | **460** — from **473** physical lines |
+| Live (`zone !== archive`) | **458** |
+| Injectable (`isInjectable`) | **456** |
+| Total `text` + `why` (live) | **803,284 chars ≈ 201k tokens** |
+| Entry `text` length | p50 **1,408** · p90 **3,220** · max **7,433** chars |
+| Live by type | fact 194 · decision 94 · link 84 · gotcha 81 · pattern 5 |
 | Session-start budget | **10,000 chars** (`src/engine.ts:41`, `SESSION_BUDGET_CHARS`) |
-| **Share of the brain injected** | **~2%** — this session's own context block reads `+ 451 lower-ranked entries omitted for the 9798-char budget` (`src/engine.ts:633`) |
+| Rendered bundle | **9,854 chars** |
+| **Entries omitted** | **450 of 456 injectable** — the render prints it itself: `+ 450 lower-ranked entries omitted` (`src/engine.ts:633`) |
 
-**And the selection rule is, in full** (`src/engine.ts:402-433`):
+So **six entries reach a session out of 456 that are eligible — ~1.3%.** The
+headline is not "the budget is tight"; it is that **~99% of eligible knowledge is
+discarded at every session start**, and the rule deciding which 1.3% survives has
+no relevance input.
+
+**And it is worse than that, because four of the six are pinned by rule.**
+Locating each surviving entry within the render gives:
+
+| Section | Selected by | Entries |
+|---|---|---|
+| `## Constitution` | ADR-0008 pin — never budget-dropped | 2 `decision` |
+| `## Last handoff` | ADR-0049 Layer 0 pin — newest handoff/next | 1 `fact` |
+| `## Cross-repo operations` | pin | 1 `fact` |
+| the ranked bundle | **the ADR-0012 heuristic reranker** | **2 `gotcha`** |
+
+**The reranker's entire contribution to a session is two entries, and both are
+`gotcha`** — the joint-top type tier. Not one `fact`, `decision`, `pattern` or
+`link` from the ranked set survives the budget. That is the type-tier lottery of
+the rule above, observed rather than argued: once the pins are paid for,
+`TYPE_WEIGHT` has about two slots to spend and spends them both in tier 5.
+Everything ADR-0049 said about facts being unreachable under gotcha pressure is
+still true — the pin bought back exactly one `fact`, by name, as a special case.
+
+**The selection rule is, in full** (`src/engine.ts:402-433`):
 
 ```
 TYPE_WEIGHT   pattern 5 = gotcha 5 > decision 4 > fact 2 > link 1   (primary)
@@ -332,7 +390,7 @@ heuristic.
 ADR-0049's own Context section documents where that leads: with **23** gotchas in
 the brain the budget dropped **every `fact`**, which is how the end-of-day
 handoff vanished (issues #95/#96, 2026-07-09) and required a hard-coded pin to
-fix. There are now **82** gotchas. The pin rescued one entry; the structural
+fix. There are now **81** gotchas. The pin rescued one entry; the structural
 problem is **3.5× worse** than when it was diagnosed.
 
 ---
@@ -344,7 +402,9 @@ All four are propose-only or fail-open, and all four sit in §4's left column.
 
 ### 6.1 Injection selection — the real prize
 
-**Problem:** §5. 98% of the brain discarded by a rule with no relevance input.
+**Problem:** §5. ~99% of eligible knowledge discarded by a rule with no relevance
+input — and once the pins are paid for, that rule is choosing just **two** of the
+456 eligible entries, spending both slots in the top type tier.
 
 **Shape:**
 - **State** = the session's situation, derivable deterministically with **no
@@ -356,7 +416,7 @@ All four are propose-only or fail-open, and all four sit in §4's left column.
 - Parallel-and-in-isolation evaluation (§2.1) is exactly the independence
   property a reranker wants.
 
-**Cost** [derived from vendor pricing]: 207k tokens × $0.042/M ≈ **$0.0088** for
+**Cost** [derived from vendor pricing]: 201k tokens × $0.042/M ≈ **$0.0084** for
 the entire brain, in 4–8 fan-out calls to respect the 32k/call ceiling, ~500ms
 wall clock. For comparison, the same rerank through Haiku is ≈$0.21 and several
 seconds; through Opus ≈$0.62. **Cache keyed on `(branch, HEAD sha, handoff id)`**
@@ -379,7 +439,7 @@ loses to any `gotcha` about anything.
    everything scores as relevant.
 3. **Fit calibration on vfkb's own entries.** ECE 0.071 is *familiar English*;
    this brain is dense in-house jargon ("declared-vs-runnable reconciliation",
-   "the quiet-success trap"). 50–300 labels is the documented fix, and 471
+   "the quiet-success trap"). 50–300 labels is the documented fix, and 458
    entries plus session records can produce them.
 
 **Relationship to the gated S1 item:** orthogonal, not rival. S1's amended first
@@ -436,7 +496,7 @@ handoff regardless. **Nothing load-bearing rests on it** — which makes this th
 right place to de-risk the client, key handling, timeout and degrade path before
 touching the inject path.
 
-### 6.4 Curation at 470 entries
+### 6.4 Curation at 458 entries
 
 - **Semantic dedup.** `findLexicalDuplicates` is exact-match-after-normalisation
   only, and its own comment defers the rest to the gated RFC-003 embeddings
@@ -451,11 +511,14 @@ touching the inject path.
   gotcha went obsolete when ADR-0051 superseded its premise. A `score` against a
   state carrying the current ADR index could **propose** expiry candidates for
   human confirmation.
-- **Handoff sprawl.** The context map reports **108 `handoff`-tagged entries**, of
-  which exactly **one** is ever pinned. The other 107 compete for the 10k budget
-  as dead weight. A `choice` routing `keep / archive-candidate / supersede-candidate`
-  would make the `archive` zone useful. This is Track 9's Q0-hygiene queue's
-  natural next step, and it is measured debt rather than speculation.
+- **Handoff sprawl.** **106** live entries carry the `handoff` tag (112 carry
+  `handoff` or `next`), of which exactly **one** is ever pinned by ADR-0049
+  Layer 0. The other 105 compete for the 10k budget as dead weight. *(Counted
+  through `readAll()`; the injected context map reports 108 for the same brain —
+  a discrepancy not chased here, and a reminder to count rather than quote.)*
+  A `choice` routing `keep / archive-candidate / supersede-candidate` would make
+  the `archive` zone useful. This is Track 9's Q0-hygiene queue's natural next
+  step, and it is measured debt rather than speculation.
 
 ---
 
@@ -553,7 +616,7 @@ is the `tool-gating` arc waiting to recur. The shape that works:
   off.
 
 **Evidence-gating holds.** §6.1, §6.3 and §6.4 rest on measurements already in
-the repo (451 dropped entries; the cooldown incident; 108 handoffs;
+the repo (450 dropped entries; the cooldown incident; 106 handoffs;
 exact-match-only dedup). §6.2's evidence is a feature deliberately switched off.
 None of this requires the speculative-build exemption, which matters because
 `CLAUDE.md` forbids building on spec.
@@ -648,7 +711,7 @@ Stated so the gaps are not mistaken for findings.
   on; §3 does not depend on any of them being right.
 - **Judge-agreement (91.5%) is agreement with another model**, not with humans
   or ground truth. Human-judge agreement was not reported.
-- **The §6.1 cost figure is arithmetic on vendor pricing** (207k measured tokens
+- **The §6.1 cost figure is arithmetic on vendor pricing** (201k measured tokens
   × $0.042/M), not an invoice. Token counting differs between tokenizers, and
   state repeated across fan-out calls is not included.
 - **The 32k/64k limits are vendor-stated and reported inconsistently** across
