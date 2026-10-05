@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.1](https://github.com/vilosource/vfkb/compare/v0.9.0...v0.9.1) (2026-10-05)
+
+
+### Documentation
+
+* **research:** decision models ("System One") and vfkb — the reference survey ([#334](https://github.com/vilosource/vfkb/issues/334)) ([e259d89](https://github.com/vilosource/vfkb/commit/e259d89a7b888a41fdbbf2b92282f1ca1aa77c15))
+* **tamper:** disclose the per-file-count rename absorption — the only build RFC-041's parking ruling authorises ([#338](https://github.com/vilosource/vfkb/issues/338)) ([50666cb](https://github.com/vilosource/vfkb/commit/50666cbd0584210f364904a67b3ae7f968ebdf38))
+
 ## [0.9.0](https://github.com/vilosource/vfkb/compare/v0.8.1...v0.9.0) (2026-10-01)
 
 
