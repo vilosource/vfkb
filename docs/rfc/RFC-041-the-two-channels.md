@@ -384,6 +384,30 @@ inner gate, and this RFC exists because that gate fired.
   which no design in this arc has. The admissibility reframing is **not** a starting point; it is
   design six.
 
+## Provenance of the round-3 findings — who observed what
+
+Stated per the repo's standard that **VERIFIED means observed, not asserted**, and that a claim
+relayed from a reviewer is evidence rather than a conclusion. Round 3 was run by an independent
+adversarial reviewer on a different model; the operator's session then re-derived two of its
+findings before this ruling was written. The split matters, because a future session will treat
+this document as verified.
+
+| Finding | Provenance |
+|---|---|
+| **R3-1** | **Independently reproduced** in the ruling session, driving the real `collectTests()` over a synthesized fixture. Observed: with the `npm_lifecycle_event` `skipIf` pair, `dyn-skip-when-npm` is **absent from the list channel while the declared channel reports `mode: run`**, and `dyn-skip-when-not-npm` is **present in the list channel while declared reports `mode: skip`** — one ref, opposite answers, so a mode-keyed comparison is blind to a task that never runs. |
+| **R3-5** | **Independently reproduced**, with two controls that make it non-circular: same-file delete + 1 junk ⇒ PASS `moved 1`; delete 2 + 2 junk ⇒ PASS `moved 2`; the *same* deletion with the junk test cross-file ⇒ **BLOCK**; the same deletion unpadded ⇒ **BLOCK**. The gate does catch the other two forms, so the PASS is specifically the rename classifier at `:366`. |
+| **R3-2, R3-3, R3-4** | **The reviewer's measurements, not re-derived here.** Each cites a concrete observation (the `moved 1` on a cross-file delete-plus-add; the `basename(process.cwd())` name agreeing within each ref and diverging across them; `vitest list` rows carrying only `['name','file','location']`), and R3-4's row shape is trivially checkable. They are consistent with R3-1 and R3-5 and with the pre-existing record, but **this document does not claim them as independently observed.** |
+| **R3-6** | A reading of ADR-0001, ADR-0004, ADR-0007 and this RFC's own acceptance clause. Argument, not measurement. |
+
+**And the limit that bounds the whole round:** every vitest-5-specific claim is **UNVERIFIED by
+round 3**. No vitest 5 is obtainable on the operator's machine (`npm install` resolves against a
+corporate mirror; `ETARGET` off-VPN), so the reviewer re-observed none of the v5 behaviour that
+*caused* this arc. It confirmed `main` at **44/44 on vitest 4** by running the committed selftest;
+the **42/44 on v5** baseline is taken from the earlier record. **The ruling does not rest on it** —
+R3-1 through R3-5 are all vitest 4 — but nobody in the ruling session independently saw the
+original failure, and a seventh design should not assume the v5 characterisation has been
+re-checked.
+
 ## Provenance of claims this RFC cannot source from a committed record
 
 Everything in **The root cause**, **the constraint's defeat table** and **What this RFC's first draft
