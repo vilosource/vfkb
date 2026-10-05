@@ -1,16 +1,19 @@
 ---
 type: RFC
-title: "RFC-041: No task name may enter the comparison — what three defeated designs establish about the tamper detector"
+title: "RFC-041: No task name may enter the comparison — what SIX defeated designs establish about the tamper detector (PARKED)"
 description: "tamper-check answers 'did this change make the suite smaller or quieter' by comparing task NAMES. Three designs have now been defeated on that step: name-counting across the two channels (broken by the vitest 5 bump, #329), presence at a location (#330 round 1), and a location join with a name-disagreement amnesty (#330 round 2, which let a NEWLY ADDED .skip through). This RFC's own first draft proposed a fourth — declared-vs-declared across refs, matched by name — and its adversarial review killed that too: collectTests builds a separate worktree and collector process PER REF, so a name built from Date.now() diverges across refs on a docs-only diff, and the same attack transfers. The contribution is therefore the CONSTRAINT, not a mechanism: no task name may enter any comparison, cross-channel or cross-ref, because the party being checked writes the name expression. A leading name-free candidate is specified with its one known open gap, and the mechanism is deliberately left unsettled rather than becoming a fifth design written in the same session that produced three failures."
-status: "Proposed"
+status: "Proposed — **PARKED** (operator ruling 2026-10-05; no build until a trigger in Consequences fires)"
 timestamp: 2026-10-02
 ---
 
 # RFC-041: No task name may enter the comparison
 
-- **Status:** Proposed — **HELD. Round 2 returned REDESIGN and ADR-0070 §4 fired a SECOND time on
-  this arc. The constraint below is wrong in both directions on measurement, and the candidate is
-  the FIFTH defeated design. Awaiting an operator ruling; no replacement is proposed here.**
+- **Status:** Proposed — **PARKED by operator ruling 2026-10-05.** Rounds 1 and 2 returned
+  REDESIGN and ADR-0070 §4 fired twice. A third, independent adversarial review then defeated the
+  only direction left on the table (the admissibility reframing) in a single round. **Nothing in
+  this space is being built. This document is retained as the verified problem characterisation,
+  not as a proposal.** See *PARKED — the ruling* immediately below for what was decided and why,
+  and *Consequences* for the named re-open triggers.
 - **Date:** 2026-10-02
 - **Deciders:** operator + Claude
 - **Relates:** [ADR-0075](../adr/ADR-0075-the-software-factory.md) (the tamper-detection clause —
@@ -21,6 +24,108 @@ timestamp: 2026-10-02
   escalation that produced this RFC) · brain gotcha `43c1af80effb`
 - **Supersedes in practice:** PR #330, both of its designs
 - **Blocks:** #329 (dependabot vitest `^5.0.2`) until the mechanism is settled *and built*
+
+## PARKED — the ruling of 2026-10-05, and the round-3 review that produced it
+
+**Decision: park. Build nothing. Do not ratify the constraint, and do not ratify the
+admissibility reframing.** The two options put to the operator were (a) ratify round 2's
+reframing and build against it, or (b) park. A third adversarial review — run on a different
+model, on a fresh context, by a reviewer told to *defeat* rather than check, per brain gotcha
+`1af189641750` — was commissioned before the ruling. It defeated (a) in a single round, making
+the admissibility reframing **the sixth defeated design** in this arc. The findings below are
+observed on **vitest 4.1.11**, so none of them depends on the unresolved v5 question.
+
+Designs 1–5 and their measurements are in brain gotcha `a01b84569d79`; note that entry closes by
+recommending this reframing as *"the right form"*, which is exactly why its defeat is recorded here
+rather than left implicit.
+
+### R3-1. The reframing's own exemplar key is collection-time computable
+
+The reframing held that a key is admissible if attested *outside the checked party's
+collection-time control*, offering `mode` and `each` from "the structural task graph" as
+admissible. `mode` is not structural. With
+
+```js
+it.skipIf(process.env.npm_lifecycle_event !== 'test')('dyn-skip-when-not-npm', …)
+it.skipIf(process.env.npm_lifecycle_event === 'test')('dyn-skip-when-npm', …)
+```
+
+the two channels report the **exact inverse** `mode` within one ref — the list channel
+(`:157`, npm process) sees one, the collect-only channel (`:220`, `node --eval`) sees the
+other. `mode` is `skipIf(expr)` evaluated in whichever process collects, and the lever is the
+same `npm_lifecycle_event` that killed #330 round 2. **The admissibility test fails its own
+admissibility test.** A corollary kills mode-counting too: `dyn-skip-when-npm` carries declared
+`mode: run` and never runs, so a count of skip/todo modes is blind to it.
+
+### R3-2. "Attested outside collection-time control" and "the trigger is not manufacturable" are different properties
+
+Gotcha `43c1af80effb` requires the second; the reframing delivers only the first. Observed:
+delete `subs` from `test/a.test.ts` and add `it('subs', …)` to `test/b.test.ts` → **PASS,
+`moved 1`**. That name is git-attested, static within the ref, **and written by the checked
+party**, and it manufactures the `moved` verdict at `tamper-check.mjs:365` byte-identically to
+the honest arm `selftest:116`. So the reframing either admits a manufacturable trigger — and is
+not the rule it claims — or it forbids `:365`, which is **defect 2 again under a new label**.
+What separates `selftest:89` (must BLOCK) from `selftest:116` (must PASS) is nothing but a name
+the checked party writes at head.
+
+### R3-3. The within-ref staticness proof certifies non-static names
+
+Proposed test: a name is provably static iff the list and declared spellings agree at the same
+location within one ref. Observed with `` it(`where ${basename(process.cwd())}`) ``: both
+channels agree **within** each ref (`:157` and `:221` both run with `cwd: wt`) and diverge
+**across** refs (`:122`, one `mkdtempSync` per ref). Agreement is guaranteed by the detector's
+own construction, so the proof certifies exactly the names it exists to exclude. On a docs-only
+diff `main` reports `moved 1` — a move on a diff that moved nothing. The `Date.now()` variant
+disagrees only by millisecond scheduling, making the proof's verdict a race rather than a property.
+
+### R3-4. `each` is unreachable on the channel that carries the collapse
+
+`vitest list --includeTaskLocation --json` rows carry exactly `['name','file','location']`
+(observed). The declared channel carries `options.each`, with `location` at the `.each` call
+site. So `each` can normalize the declared side only, and the join to list rows must be by
+**location** — the key `43c1af80effb`'s title rejects, and which §*The constraint is wrong in
+BOTH directions* already notes this document never argued for.
+
+### R3-5. The same-file hole is not an `it.each` hole — it is every same-file deletion
+
+This is a correction to this document's own *What no design in this space closes*, and it
+enlarges the pre-existing gap in `main` rather than finding a new one. `tamper-check.mjs:366`
+classifies **any** same-file delete-plus-add as "renamed in place". Observed on `main`: deleting
+a plain (non-generated) test and adding one junk test in the same file → **PASS, `moved 1`**;
+two deletions plus two junk tests → **PASS, `moved 2`**; the same deletion with the junk test in
+a *different* file → **BLOCK `[tests-removed]`**. This is the structural price of honouring the
+rename arms `selftest:114`/`:118` in a body-blind detector, so **no design in this space closes
+it, including the reframing** — which is why it is not an argument for ratifying anything. It is
+an argument for disclosing it, which DoD item 7 anticipated and which is now owed as a prose
+truth-up of the script's own "does not catch" list.
+
+### R3-6. Ratify-the-characterisation-first was rejected
+
+The shape considered was: ratify the reframing as an ADR containing the characterisation and **no
+mechanism**, then build separately against a ratified rule. Rejected on four grounds. ADR-0007
+makes an ADR an *accepted RFC*, and the reframing is in no RFC. ADR-0001 makes an ADR immutable,
+so a characterisation whose exemplar key fails after one adversarial pass could only be
+superseded, never corrected. §*Consequences* of this very document says acceptance produces an ADR
+stating the constraint **and the settled mechanism** — a mechanism-free ADR contradicts it. And
+R3-2 shows it would ratify a constraint the eventual mechanism cannot satisfy: precisely this
+RFC's first-draft failure, one level up. (Mechanism-free constitutional ADRs do exist here —
+ADR-0050 — but their consumer is the operator; a comparison-key rule's only consumer is the
+mechanism.)
+
+### What the round-3 review did NOT establish
+
+- **Everything vitest-5-specific is UNVERIFIED.** No vitest 5 is obtainable on the operator's
+  machine (`npm install` resolves against a corporate mirror; `ETARGET` off-VPN), so the
+  reviewer re-observed none of the v5 behaviour that *caused* this arc. It confirmed `main` at
+  **44/44 on vitest 4** by running the committed selftest; the **42/44 on v5** baseline is taken
+  from the record, not re-measured. The ruling does not rest on it: R3-1 through R3-5 are all v4.
+- **The credit-laundering shape (a) is real on the fixture but has no credit to spend in this
+  suite.** Observed: it works cross-file, not just same-file. But it requires a pre-existing skip
+  at base, and the suite has none — `812/812 passed, 0 pending, 0 todo`, and zero
+  `.skip(`/`.todo(`/`skipIf`/`runIf`/`ctx.skip()` in `src/` or `test/`. Landing the credit
+  would itself BLOCK.
+- **The vitest-4 false BLOCK on nondeterministic names is self-announcing**, not silent: the PR
+  that *introduces* such a name BLOCKs. Zero instances exist today. It is a nuisance, not a hole.
 
 ## What this RFC's first draft got wrong
 
@@ -248,7 +353,7 @@ inner gate, and this RFC exists because that gate fired.
 
 ## Consequences
 
-- **#330 will be closed as superseded** once this is accepted. The **remote** branch
+- **#330 is closed as superseded** by this parking. The **remote** branch
   `origin/fix/tamper-check-vitest5-generated-names` **must not be deleted** (the record lives there,
   not on `origin/main`): it carries the only copy of
   `reviews/01b681230bf76f9ef8c999afba1f3de7d34c8e8b.json`.
@@ -258,8 +363,26 @@ inner gate, and this RFC exists because that gate fired.
 - Brain gotcha `43c1af80effb` notes that #330's head catches a same-location `-t` attack on vitest 5
   where `main` is blind, and asks for that gain to survive any redesign. Whether C2 preserves it is
   **UNVERIFIED** and must be checked during the build.
-- On acceptance this becomes an **ADR** stating the constraint and the settled mechanism; ADR-0075's
-  tamper clause keeps its *intent* and gains a re-specified mechanism.
+- **This RFC does NOT become an ADR.** It is parked as the verified problem characterisation.
+  ADR-0075's tamper clause keeps its intent and its *existing* mechanism, holes disclosed.
+- **Owed immediately, and the only build this ruling authorises:** a prose truth-up of
+  `scripts/tamper-check.mjs`'s "WHAT IT DELIBERATELY DOES NOT CATCH" list to disclose R3-5 (every
+  same-file deletion paired with an added test reads as a rename). ADR-0075:62 names "a deleted
+  test" as a target and the header does not currently say it misses the padded case. A comment
+  change in `scripts/` is an implementation path, so it carries an ADR-0052 review record.
+- **NAMED RE-OPEN TRIGGERS.** This is parked, not abandoned. Build only when one fires:
+  1. **vitest `^4` stops being viable** — a Node support drop, a security advisory, or a
+     transitive dependency forcing the major. This is alternative C's stated cost and the most
+     likely trigger.
+  2. **An observed exploitation** of R3-5 or of the credit-laundering family in a real PR, as
+     opposed to a fixture.
+  3. **A skip or todo lands in the real suite**, which gives the credit-laundering shape something
+     to spend and converts it from theoretical to live. Today the suite is `812/812` with zero.
+  4. **An explicit operator request.**
+- **What a SEVENTH design must satisfy before anyone writes a line of it:** run the committed
+  44-arm selftest first — it found three defeats in forty minutes — and clear R3-1 through R3-4,
+  which no design in this arc has. The admissibility reframing is **not** a starting point; it is
+  design six.
 
 ## Provenance of claims this RFC cannot source from a committed record
 
