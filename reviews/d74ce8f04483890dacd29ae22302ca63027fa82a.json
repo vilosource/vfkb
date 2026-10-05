@@ -1,0 +1,79 @@
+{
+  "recordVersion": 1,
+  "sha": "d74ce8f04483890dacd29ae22302ca63027fa82a",
+  "verdict": "MERGE",
+  "governing": [
+    "docs/rfc/RFC-041-the-two-channels.md",
+    "docs/adr/ADR-0075-the-software-factory.md",
+    "docs/adr/ADR-0052-review-gate.md",
+    "docs/adr/ADR-0070-guards-that-can-fail.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "fable", "rounds": 2 },
+  "generated": "2026-10-05T12:00:00Z",
+  "findings": [
+    {
+      "id": "R1-MA1",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "the comment cited merge-base line numbers :365/:366, which its own 29 insertions moved onto normalizeAfterFile — the rename NORMALISATION, not the classifier; RFC-041:421 records the identical mistake earlier in this same arc. Fixed by anchoring on unique code expressions aFiles[t.file] (:424) and afterNames.has (:423); round 2 verified one code hit each at d74ce8f and no line numbers left in the block.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-m1",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "'adding any test keeps the count up' was wrong in both directions — it overstated (deleting an it.each whose 3 cases collect as 3 and padding with 1 still BLOCKs) and understated (deleting EVERY test in a file and padding to the same count PASSes). Now states the pad must restore the file's COLLECTED count and that the absorption spans wholesale replacement, with a seven-row control table. Round 2 reproduced every row on an independent fixture at HEAD and at merge-base 336e256.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-m2",
+      "severity": "minor",
+      "status": "open",
+      "summary": "PRE-EXISTING, not introduced here, and outside RFC-041's prose-only authorisation: perFile (:411) keys on raw t.file and is not normalised through renames, unlike the disabled path (:395/:400), so a git mv plus a title rename in the same change false-BLOCKs [tests-removed] — an ADR-0052:68 defect. Reproduced in round 2 at HEAD and at merge-base, confirming it pre-exists this PR. Tracked as #336.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-m3",
+      "severity": "minor",
+      "status": "open",
+      "summary": "the disclosed hole has no known-hole selftest arm, so the comment's measurements are testimony rather than a pinned invariant. An arm is code and therefore outside RFC-041's prose-only authorisation. Tracked as #337.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-m1",
+      "severity": "minor",
+      "status": "open",
+      "summary": "INTRODUCED BY THE ROUND-1 FIX. The comment says no arm pins the hole 'so the measurements above are testimony that can decay silently'. The second clause appears to overstate the exposure: the round-2 reviewer reports that under the canonical hole-closing mutation (>= to > at :424, the mutation #337 names) the committed 44-arm selftest goes 40 ok / 4 FAIL — four honest-rename arms red, because to a body-blind detector a title rename and a padded same-file deletion are identical bytes, so a crude closure would be LOUD rather than silent. THAT SPLIT IS UNVERIFIED: the coordinator's reproduction attempt was inconclusive (39 ok / 4 FAIL on one invocation, no failing arms on an immediate re-run of the same mutated scratch copy — see mutationsNote), so the direction was observed once but neither the figure nor its stability was confirmed. What is genuinely unpinned is narrower: the 'moved N' wording, the control arms, and the asymmetric delete-1-pad-2 shape. The sentence also says 'tracked separately' without naming #337, so a reader cannot find the tracker from the comment. Deferred per the round-2 reviewer's own recommendation rather than triggering a third rewrite of the same comment (ADR-0070 anti-churn); folded into #337's acceptance criteria.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-m2",
+      "severity": "minor",
+      "status": "open",
+      "summary": "INTRODUCED BY THE ROUND-1 FIX. The comment frames 'a git mv of the file in the same change still BLOCKs' as a carve-out stated for honesty, while #336 frames the identical un-normalised perFile mechanism as an ADR-0052:68 false-positive defect. The two agree on the fact (both say it BLOCKs) and contradict in framing: a reader of the comment who does not open #336 learns the opposite lesson about whether that BLOCK is wanted. One parenthetical cross-referencing #336 removes it. Folded into #337.",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-m3",
+      "severity": "minor",
+      "status": "open",
+      "summary": "precision, none load-bearing: 'both unique' is true of the code but a reader's grep returns 2 hits each (the comment itself plus the code line); 'no same-named task in another file' is over-narrow because afterNames holds every HEAD name regardless of file, so a surviving same-file duplicate title also satisfies the name branch, and the disabled-at-head branch (:419) precedes both; and 'aFiles[file] >= bFiles[file]' elides the load-bearing '?? 0' that makes an unpadded deletion classify as deleted rather than throw. Folded into #337.",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 7,
+  "ruledOut": [
+    "seven-row control table: every row reproduced by the round-2 reviewer on an independent fixture (test() alias, describe() wrapper, 4-test file, different names and paths) against the HEAD script — delete1+pad1 PASS moved 1, delete2+pad2 PASS moved 2, delete-all-3+pad3 PASS moved 3, delete-all-3+pad2 BLOCK, it.each(3)+pad1 BLOCK, cross-file BLOCK, unpadded BLOCK; identical against merge-base 336e256, establishing the hole as pre-existing rather than introduced",
+    "the coordinator independently reproduced the four original outcomes (repro-r35.mjs) and both legs of R1-m1 (repro-m1.mjs: it.each+pad1 BLOCK, it.each+pad3 PASS moved 3, whole-file swap PASS moved 3, under-padded BLOCK) before writing any of them into the comment",
+    "'exactly two identities' for telling a move from a deletion: the name branch (:423) and the per-file count (:424). The disabled-at-head branch (:419) separates disabled from gone, not move from delete; vitest 'location' is collected but never consulted by the classifier, which keys raw t.file",
+    "every pointer in the comment resolves: the three selftest arm names ('renaming a test TITLE in place', 'moving a test between two test files', 'moving a test file to a different collected path') hit exactly one check() each at selftest:114/:116/:115; RFC-041 exists with NAMED RE-OPEN TRIGGERS in its Consequences; brain gotchas 43c1af80effb, a01b84569d79 and 32ad9ef5bb64 each resolve to one gotcha entry in .vfkb/entries.jsonl; ADR-0075:62 literally contains 'a deleted test'",
+    "comment-only: `git diff 336e256..HEAD | grep '^+' | grep -v '^+//'` yields only the +++ header — 58 insertions, one file, zero non-comment lines added or removed; node --check clean",
+    "committed selftest at d74ce8f: 44 ok / 0 FAIL / exit 0, counted independently by both the coordinator and the round-2 reviewer",
+    "no AI attribution anywhere in origin/main..HEAD commit bodies",
+    "the commit messages' own claims hold against observation: one code hit per anchor, all three arm names present, 0 non-comment lines, the 44-arm selftest passing, and #336 reproducing on the merge-base",
+    "ADR-0070 §4 not triggered: round 2 found no blocking findings, so the fix-introduced-blocker escalation threshold is not met. R2-m1 and R2-m2 ARE fix-introduced but minor, and are recorded here as such rather than silently folded away",
+    "vitest 5 is not installable on this machine (ETARGET against a corporate mirror, off-VPN), so no v5 behaviour was re-observed in either round; immaterial to a comment-only diff, and stated because RFC-041's entire origin is a v5 behaviour nobody re-checked this session"
+  ],
+  "mutations": [],
+  "mutationsNote": "Comment-only change: no guard was added or changed, so there is no new guard with an observed-red mutation to log. Separately, as evidence for finding R2-m1 rather than as a guard mutation for this PR: the round-2 reviewer mutated the subject code (>= to > at tamper-check.mjs:424, the hole-closing mutation #337 names) on a scratch copy and reports the committed selftest going 40 ok / 4 FAIL / exit 1, four honest-rename arms red — i.e. the hole is de facto pinned by the rename arms, contrary to the comment's 'decays silently' wording. THE COORDINATOR'S ATTEMPT TO REPRODUCE THAT IS INCONCLUSIVE AND THE FIGURE IS THEREFORE UNVERIFIED: a scratch copy carrying only scripts/ plus a symlinked node_modules gave 39 ok / 4 FAIL (43 arms, not 44) on its first invocation and NO failing arms at all on an immediate second invocation of the same mutated copy, so that harness is not a faithful reproduction — the first run evidently leaves state the second inherits. The direction of the reviewer's finding (four honest-rename arms go red under the mutation) was seen once, but neither the 40/4 split nor its stability was confirmed. R2-m1 is recorded as open and deferred to #337 on the reviewer's own recommendation; whoever picks up #337 must establish this on a faithful fixture before relying on it."
+}
