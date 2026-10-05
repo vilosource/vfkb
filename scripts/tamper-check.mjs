@@ -50,35 +50,64 @@
 //   * An adversary who detects the gate. Collection and the run happen in a
 //     temp worktree with distinctive env; a test that WANTS to behave
 //     differently under observation can. No in-repo measurement closes this.
-//   * A DELETED TEST PADDED BY AN ADDED TEST IN THE SAME FILE. The rename
-//     classifier at :366 asks whether the file still holds at least as many
-//     tests as it did (`aFiles[file] >= bFiles[file]`) and, if so, records the
-//     vanished one as `moved` rather than `deleted`. THE TRIGGER IS A PER-FILE
-//     COUNT, AND THE CHECKED PARTY WRITES IT — so adding any test beside the
-//     deletion keeps the count up and the deletion is absorbed as a rename.
-//     Measured against this script, 2026-10-05, with controls:
-//         delete 1 + add 1 junk, SAME file   -> PASS   `moved 1`
-//         delete 2 + add 2 junk, SAME file   -> PASS   `moved 2`
-//         delete 1 + add 1 junk, OTHER file  -> BLOCK  [tests-removed]
-//         delete 1, no padding               -> BLOCK  [tests-removed]
-//     The two controls are what attribute the PASS to :366 rather than to a
-//     broken harness. ADR-0075:62 names "a deleted test" as a target of this
-//     clause, so this is a real gap in its reach, not a design preference.
+//   * DELETIONS ABSORBED AS A RENAME WHEN THE FILE'S COLLECTED COUNT IS
+//     RESTORED. Find the classifier by grepping this file for
+//     `aFiles[t.file]` (the count branch) and `afterNames.has` (the name
+//     branch just above it) — both unique, and both code rather than prose, so
+//     neither drifts nor is diluted by this comment. Deliberately NOT cited by
+//     line number: the first draft of this very comment cited pre-insertion
+//     numbers and its own added lines moved the target onto unrelated code,
+//     which is the mistake RFC-041 records once already for this arc.
 //
-//     IT IS NOT CHEAPLY FIXABLE, which is why it is disclosed instead of
+//     The count branch — reached only when the name branch above it found no
+//     same-named task in another file — asks only whether the file still holds
+//     at least as many COLLECTED tests as it did (`aFiles[file] >= bFiles[file]`)
+//     and, if so, records each vanished test as `moved` rather than
+//     `deleted`. THE TRIGGER IS A PER-FILE COUNT AND THE CHECKED PARTY WRITES
+//     IT. Two consequences, both measured against this script on 2026-10-05:
+//
+//       * The pad must restore the COLLECTED count, not merely add a test.
+//         Deleting an `it.each` whose 3 cases collect as 3 and padding with
+//         ONE test still BLOCKs; padding with THREE PASSes `moved 3`.
+//       * It is not limited to one test. Deleting EVERY test in a file and
+//         adding the same number of junk tests PASSes `moved 3` — wholesale
+//         replacement of a file's tests, reported as a move.
+//
+//     Measured, with controls (the controls are what attribute the PASS to the
+//     count branch rather than to a broken fixture):
+//         delete 1 + pad 1, SAME file            -> PASS   `moved 1`
+//         delete 2 + pad 2, SAME file            -> PASS   `moved 2`
+//         delete all 3 in a file + pad 3         -> PASS   `moved 3`
+//         delete all 3 + pad only 2              -> BLOCK  [tests-removed]
+//         delete it.each(3 cases) + pad 1        -> BLOCK  [tests-removed]
+//         delete 1 + pad 1 in a DIFFERENT file   -> BLOCK  [tests-removed]
+//         delete 1, no pad                       -> BLOCK  [tests-removed]
+//     ADR-0075:62 names "a deleted test" as a target of this clause, so this is
+//     a real gap in its reach, not a design preference. One carve-out, for
+//     honesty: a `git mv` of the file in the same change still BLOCKs.
+//
+//     IT IS NOT CHEAPLY FIXABLE, which is why it is disclosed rather than
 //     patched. Telling a move from a deletion needs an IDENTITY for the
-//     vanished task. The only two available are its NAME across files (:365)
-//     and this per-file COUNT (:366) — and the party being checked authors
-//     both. Honest renames (selftest:114/:118) and honest cross-file moves
-//     (selftest:116) must keep passing, and the detector is deliberately
-//     body-blind, so every rule tried so far either loses a pinned attack arm
-//     or reds a pinned honest one. SIX designs have been defeated on this
-//     predicate and ADR-0070 §4 fired twice; the question is PARKED by
+//     vanished task, and the classifier has exactly two: the task's NAME seen
+//     in another file (`// same test, new file`) and this per-file COUNT — the
+//     party being checked authors both. Honest title renames and honest
+//     cross-file moves are PINNED to keep passing — the selftest arms are
+//     'renaming a test TITLE in place', 'moving a test between two test files'
+//     and 'moving a test file to a different collected path' — and the detector
+//     is deliberately body-blind, so every rule tried either loses a pinned
+//     attack arm or reds a pinned honest one. SIX designs have been defeated on
+//     this predicate and ADR-0070 §4 fired twice; the question is PARKED by
 //     operator ruling 2026-10-05. Read docs/rfc/RFC-041-the-two-channels.md
 //     (named re-open triggers in its Consequences) and brain gotchas
 //     43c1af80effb, a01b84569d79, 32ad9ef5bb64 BEFORE proposing anything here.
 //     Do NOT start from "admissibility over comparison keys" — that is one of
-//     the six, and :366 is precisely the manufacturable key it overlooked.
+//     the six, and this per-file count is precisely the manufacturable key it
+//     overlooked.
+//
+//     NO ARM PINS THIS HOLE YET, so the measurements above are testimony that
+//     can decay silently; an arm asserting the padded same-file deletion still
+//     PASSes (so that it fails loudly the day the hole is closed) is owed as a
+//     follow-up, tracked separately.
 //
 //   node scripts/tamper-check.mjs [--base <ref>] [--head <ref>] [--repo <dir>]
 // ============================================================================
