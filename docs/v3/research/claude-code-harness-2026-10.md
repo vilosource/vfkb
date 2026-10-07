@@ -110,13 +110,18 @@ that switched capture off.
 
 ### 3.2 `UserPromptSubmit` — fires when a prompt is submitted, before Claude sees it; can inject `additionalContext` [docs]
 
-**This is the most consequential finding in the document**, because it invalidates a
-premise two existing conclusions rest on.
+**This is the most consequential finding in the document**, because it changes the
+scope of a conclusion two existing documents rest on.
 
 `docs/research/decision-models-2026-10.md` §6.1 states that the gated S1 item's
 BM25-first amendment "cannot address" the inject path, *"because BM25 needs a query
 and at SessionStart there is none"* — and uses that to argue a decision model
 addresses a gap BM25 structurally cannot.
+
+**That statement remains true and is not being corrected.** At SessionStart there is
+still no query, and situational relevance with no query is still the decision
+model's distinct case. What changes is the *implication* drawn from it — that the
+automatic path therefore has no query at all. It has one, at a different moment.
 
 **A prompt-submit hook has a query.** That means:
 
