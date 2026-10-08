@@ -32,8 +32,9 @@ open question in the PRD (§7 Q5) — do not read "v3" as "3.0".
 
 | File | What it is | Status |
 |---|---|---|
-| [`PRD.md`](PRD.md) | Product requirements — eight themes (R1–R8), six operator decisions, the DoD this cycle must satisfy | **DRAFT / unratified** |
+| [`PRD.md`](PRD.md) | Product requirements — §0 the operator rulings and the one hard constraint, eight themes (R1–R8), the remaining open decisions, the DoD this cycle must satisfy | **DRAFT / unratified** |
 | [`research/claude-code-harness-2026-10.md`](research/claude-code-harness-2026-10.md) | What the Claude Code harness offers now vs. what vfkb was built against; the per-surface gap | Research survey |
+| [`research/brain-compatibility-2026-10.md`](research/brain-compatibility-2026-10.md) | What "no records lost" costs and forbids; the on-disk contract field by field; ranked record-loss risks; the L4 that proves no-loss | Research survey |
 
 Companion research outside this directory, which the PRD leans on heavily:
 
@@ -72,6 +73,25 @@ is ~1.3% of what is eligible, with the reranker itself contributing two entries.
    sandboxed agent-driven L4, DEMONSTRATED ≥2/3, a can-fail arm, observed not
    asserted, and `--plugin-dir` is not a real surface. PRD §8 names the two hazards
    specific to v3.
+
+## Rulings so far
+
+Two, both 2026-10-08, both recorded in [`PRD.md`](PRD.md) §0:
+
+1. **v3 may be a full rewrite.** Breaking changes are allowed. This withdrew the
+   first draft's non-goal N1 ("not a rewrite"), and the PRD records that inversion
+   rather than quietly deleting it.
+2. **No records may be lost** — *"either compatibility or migration"*. The
+   compatibility survey sharpens this into a floor rather than a choice:
+   **read-compatibility is mandatory and migration is optional on top of it**,
+   because mixed engine versions, a manifest that cannot gate writes, and
+   `merge=union` all keep writing old-format lines into a brain after it is
+   migrated. ~1,388 live records are at stake, ~912 of them outside this repo.
+
+So the rewrite is free above the log and constrained at it: `id`s, the `updated`
+spelling, tombstone semantics and one-JSONL-line-per-record with the LWW fold are
+fixed points. Everything else in the envelope is open, because unknown fields
+already pass through.
 
 ## Status of the cycle
 

@@ -9,7 +9,9 @@
 >
 > **Created:** 2026-10-07. **Author:** operator + Claude.
 > **Evidence base:** [`research/claude-code-harness-2026-10.md`](research/claude-code-harness-2026-10.md)
-> (what the harness offers now) and
+> (what the harness offers now),
+> [`research/brain-compatibility-2026-10.md`](research/brain-compatibility-2026-10.md)
+> (what "no records lost" costs and forbids) and
 > [`../research/decision-models-2026-10.md`](../research/decision-models-2026-10.md)
 > (the measured retrieval surface and the decision-model class).
 >
@@ -22,6 +24,47 @@
 > *(`5bb087e` is server-verified as PR #86's merge commit but is not an object in a
 > fresh local clone, the `v2` branch having been deleted. The `v2-shipped` tag points
 > at `8aca738` — the PR #85 docs-sync merge — **not** at the ship commit.)*
+
+---
+
+## 0. Operator rulings so far, and the one hard constraint
+
+**Ruling 1 (2026-10-08): v3 MAY BE A FULL REWRITE.** Breaking changes are allowed.
+This **supersedes non-goal N1 of this document's first draft**, which read "Not a
+rewrite" — that non-goal is withdrawn, and §4 records the inversion rather than
+hiding it.
+
+**Ruling 2 (2026-10-08) — THE ONE REQUIREMENT, in the operator's words:**
+
+> *"The current records should not be lost when moving to v3 — so either
+> compatibility or migration."*
+
+**C1. No record loss. A constraint, not a goal — it does not trade off against
+anything in §6.**
+
+The compatibility survey then turns it into something sharper than the either/or it
+was offered as:
+
+**C2. Read-compatibility is the floor, not one of two options.** A perfect
+`vfkb migrate` does not remove the need for v3 to read a v2 log, because three live
+mechanisms keep writing v2-format lines into a brain *after* it is migrated: mixed
+engine versions are live right now (this checkout is 0.9.1, the installed plugin
+vendors **0.8.0**); the manifest **cannot gate writes** (`readManifest` has zero call
+sites in `storage.ts`/`engine.ts`/`mcp-server.ts`/`cli.ts`, and 15 of 27 brains on
+this machine have no manifest at all); and `merge=union` plus journal recovery
+re-introduce old lines. **Migration is therefore optional, and only ever a layer on
+top of read-compatibility.**
+
+**C3. Four things a rewrite may NOT change** — entry `id`s (cited in prose and in
+structural `supersedes`/`contradicts` edges), the `updated` spelling (the fold is a
+**lexical** string compare, so re-stamping silently resurrects older revisions),
+tombstone semantics, and one-JSONL-line-per-record with the LWW fold. Everything
+else in the envelope is open, because **unknown top-level and nested fields already
+pass through** — pinned by `test/schema-honesty.test.ts:88` and `:115`.
+
+**C4. ~1,388 live records are at stake, ~912 of them outside this repo** (27 brains
+on this machine), plus an unknown count elsewhere. That is what makes "start fresh"
+not merely unwise but ruled out.
 
 ---
 
@@ -113,9 +156,15 @@ Three clauses, each falsifiable:
 
 ### Non-goals
 
-- **N1. Not a rewrite.** The storage kernel, the append-only log, `materialize()`'s
-  LWW fold, provenance and the zone model are all v2 outcomes that work. v3 touches
-  the *read and inject* path and the *harness surface*, not the log.
+- **N1. ~~Not a rewrite.~~ WITHDRAWN 2026-10-08 — a rewrite is permitted.** The
+  first draft made "not a rewrite" a non-goal, on the grounds that the storage
+  kernel, the LWW fold, provenance and the zone model are v2 outcomes that work. The
+  operator ruled otherwise (§0 Ruling 1), so the non-goal is gone. **What replaces it
+  is narrower and harder:** the *log format* is a fixed point (§0 C2/C3) while the
+  code that reads and writes it is not — a rewrite is free above the line and
+  constrained at it. The inversion is recorded rather than quietly deleted, because a
+  reader of the first draft would otherwise think this document still forbids a
+  rewrite.
 - **N2. No new Brake built on a judgement.** Settled by the decision-model survey
   §3 and reaffirmed by the RFC-041 arc: a model with no referent cannot gate. Any
   inference in v3 is advisory, propose-only, or fail-open.
@@ -125,7 +174,8 @@ Three clauses, each falsifiable:
 - **N4. Not re-opening RFC-041.** The tamper-predicate question is parked with named
   triggers. Nothing in v3 is a seventh design.
 - **N5. Not a semver commitment.** This document does not decide whether the cycle
-  ships as 0.10, 1.0 or 2.0 (§7 Q5).
+  ships as 1.0 or 2.0 (§7 Q5). Ruling 1 does remove 0.10 from the options — a
+  rewrite with breaking changes is a major by definition.
 
 ---
 
@@ -309,13 +359,21 @@ These are not rhetorical. Each changes what gets built.
   then **R2** (a correctness gap in a shipped guarantee, cheap, with a trivially
   available can-fail arm), then **R1** (the largest payoff and the largest unknown),
   then R3, R7, R4, R8.
-- **Q2. Are breaking changes allowed?** v2 allowed them explicitly (`V2-VISION.md`).
-  Nothing in R1–R8 obviously requires one — which suggests v3 may be additive, and
-  that is worth deciding deliberately rather than discovering late.
-- **Q3. Branch strategy.** ADR-0036 set up a long-lived `v2` branch; that branch is
-  merged and deleted and the ADR is historical for that cycle. Does v3 get the same
-  two-branch treatment, or does an additive cycle land on `main` behind flags?
-  Q2 largely determines this.
+- **Q2. ~~Are breaking changes allowed?~~ ANSWERED 2026-10-08: YES — a full rewrite
+  is permitted**, subject to §0's C1–C3. One sub-question stays open, and it is the
+  sharp one: *which* breaks are worth taking, given that the log format is fixed and
+  **enum values are breaking-by-stealth while any older engine is live**. An unknown
+  `type`/`zone`/`role`/`status` value read by the 0.8.0 engine is **coerced, and the
+  coercion persists** on the next write — so adding an entry type is not the free
+  additive change it looks like.
+- **Q3. Branch strategy — Ruling 1 reopens this and points it the other way.** For
+  an additive cycle, landing on `main` behind flags was the cheap answer. A rewrite
+  cannot: `main` must keep serving 0.9.1 to ~12 consumer repos while v3 is unusable,
+  which is precisely the situation ADR-0036's long-lived branch was built for. **My
+  read: revive the ADR-0036 shape** — a long-lived `v3` branch with docs still
+  landing on `main` — rather than invent a third pattern. Note the cost ADR-0036
+  itself paid: every v1 fix had to be merged forward promptly, *"not batched"*, or
+  the two branches diverge far enough that reconciliation becomes its own project.
 - **Q4. Minimum supported Claude Code version.** Every `[docs]` dependency implies a
   floor. A plugin that fails to load on an older CLI is a delivery regression for all
   12 consumers — so the floor is a product decision, not an implementation detail.
@@ -325,7 +383,9 @@ These are not rhetorical. Each changes what gets built.
 - **Q6. Does the ~1.3% number become a tracked metric?** G1 is unfalsifiable without
   one. Proposal: adopt "eligible entries reaching a session" as the headline, recorded
   per release, with the measurement command committed (it already exists in the
-  decision-model survey §5).
+  decision-model survey §5). **Ruling 2 adds a second metric that is not optional:**
+  live-record count before and after, per brain — the only thing that makes "no
+  records lost" checkable rather than asserted (§8).
 
 ---
 
