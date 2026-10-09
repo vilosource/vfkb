@@ -62,9 +62,74 @@ tombstone semantics, and one-JSONL-line-per-record with the LWW fold. Everything
 else in the envelope is open, because **unknown top-level and nested fields already
 pass through** — pinned by `test/schema-honesty.test.ts:88` and `:115`.
 
-**C4. ~1,388 live records are at stake, ~912 of them outside this repo** (27 brains
-on this machine), plus an unknown count elsewhere. That is what makes "start fresh"
-not merely unwise but ruled out.
+**C4. ~1,365 live records are at stake, ~893 of them outside this repo**, plus an
+unknown count elsewhere. That is what makes "start fresh" not merely unwise but
+ruled out. (Measured 2026-10-09 at `5c82f44`: 25 brains, 1,402 physical lines,
+1,365 live. An earlier sweep found 27 / 1,388 — see M2 below on why that denominator
+moves and why it must be pinned.)
+
+**Ruling 3 (2026-10-09): BOTH METRICS BELOW ARE ADOPTED.** G1 was unfalsifiable
+without M1, and C1 was unprovable without M2.
+
+### M1 — eligible entries reaching a session
+
+**Baseline at `5c82f44`: 6 of 470 injectable entries = 1.28%**, with the render
+printing `+ 464 lower-ranked entries omitted` against a 10,000-char budget.
+
+```sh
+VFKB_DATA_DIR=.vfkb VFKB_PROJECT=vfkb node --input-type=module -e '
+import { readAll, renderContextBundle, isInjectable, supersededIds } from "./dist/engine.js";
+const all = readAll();
+const inj = all.filter(e => isInjectable(e, undefined, supersededIds(all)));
+const b = renderContextBundle("vfkb");
+let reached = 0;
+for (const e of inj) { const probe = (e.text||"").slice(0,60).trim(); if (probe && b.includes(probe)) reached++; }
+console.log({ injectable: inj.length, reached, pct: +(100*reached/inj.length).toFixed(2) });
+'
+```
+
+**The denominator is the injectable set** (`isInjectable` survivors), not the live
+set and not the line count — a line count is not an entry count
+(brain `da3b58990c1d`).
+
+**What makes this worth tracking rather than merely interesting:** the numerator is
+pinned by the budget, not by the brain. Between 2026-10-05 and 2026-10-09 the
+eligible set grew 456 → 470 while the number reaching a session stayed at **exactly
+6** (1.32% → 1.28%). **The ratio decays on its own as knowledge accumulates.** Any
+v3 claim about retrieval has to beat a baseline that is getting worse without
+anyone touching the code.
+
+**Known gaming risk, stated so it is not discovered later:** M1 rises if you inject
+*more* rather than *more relevant*. It is a floor indicator, not a target to
+maximise, and it never replaces the L4 that asks whether an agent can name the thing
+it actually needed.
+
+### M2 — live-record count per brain, before and after
+
+**Baseline at `5c82f44` for this repo: 478 distinct, 472 live, 6 archived.**
+
+```sh
+VFKB_DATA_DIR=.vfkb node --input-type=module -e '
+import { readAll } from "./dist/engine.js";
+const all = readAll();
+console.log({ distinct: all.length, live: all.filter(e => e.zone !== "archive").length });
+'
+```
+
+This is the only thing that makes C1 checkable rather than asserted, and the
+compatibility survey §5 shows why a weaker check will not do: `import --from-markdown`
+**exits 0 while preserving nothing**. A no-loss claim resting on exit status or a
+"migrated N" line on stdout is worthless (ADR-0051 §3).
+
+**⚠ M2 must be measured over an ENUMERATED set of brains, never a filesystem
+sweep.** Observed 2026-10-09: two brains present in an earlier sweep were gone
+hours later — both ephemeral git worktrees under
+`~/OneIO-Workdir-Dev/.claude/worktrees/` — moving the fleet total from 27/1,388 to
+25/1,365 with no record lost anywhere. A denominator that drifts for reasons
+unrelated to loss cannot detect loss. The enumerated set must also exclude the
+three config-dir brains (`~/.claude`, `~/.claude-cldp`, `~/.claude-cldw`), which are
+default/global brains rather than project brains. Pinning that list is a
+prerequisite for any migration proof, and it does not exist yet.
 
 ---
 
@@ -141,9 +206,10 @@ Three clauses, each falsifiable:
 
 ### Goals
 
-- **G1.** Raise the share of *relevant* knowledge reaching a session, measured
-  against the current `6 / 456` baseline — and define the metric before building,
-  so the claim is falsifiable.
+- **G1.** Raise the share of *relevant* knowledge reaching a session, measured by
+  **M1** (§0) against its `5c82f44` baseline of **6 / 470 = 1.28%**. The metric is
+  defined and adopted, so the goal is falsifiable — and note the baseline decays
+  without anyone touching the code, so "no change" is a regression.
 - **G2.** Make injection survive the session, not just start it: compaction,
   subagents, and long-running work.
 - **G3.** Make capture work on the primary harness, closing the pi-only gap.
@@ -380,12 +446,14 @@ These are not rhetorical. Each changes what gets built.
 - **Q5. Version number.** Package is 0.9.1 and has never declared a stable API.
   "v3" is a generation name here; whether the cycle ships as 0.10, 1.0 or 2.0 is
   open, and 1.0 carries an API-stability promise this project has not made.
-- **Q6. Does the ~1.3% number become a tracked metric?** G1 is unfalsifiable without
-  one. Proposal: adopt "eligible entries reaching a session" as the headline, recorded
-  per release, with the measurement command committed (it already exists in the
-  decision-model survey §5). **Ruling 2 adds a second metric that is not optional:**
-  live-record count before and after, per brain — the only thing that makes "no
-  records lost" checkable rather than asserted (§8).
+- **Q6. ~~Does the ~1.3% number become a tracked metric?~~ ANSWERED 2026-10-09:
+  YES, both.** M1 (eligible entries reaching a session) and M2 (live-record count
+  per brain) are adopted as Ruling 3, defined with their commands and `5c82f44`
+  baselines in §0. Two things remain open and are deliberately *not* decided here:
+  **(a)** the measurement must be committed as a script rather than living in prose,
+  or it rots — a metric defined only in a document is this repo's own failure mode;
+  **(b)** M2 needs a **pinned list of consumer brains**, because a filesystem sweep
+  drifts (§0 M2). Neither is a decision, both are work.
 
 ---
 
