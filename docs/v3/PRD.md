@@ -276,8 +276,13 @@ existing lexical index, in addition to (not instead of) the session-start bundle
 Budget per injection far smaller than 10k; selection by `searchScored` plus the
 RFC-001 relevance floor, which already exist and are deterministic, offline and free.
 
-**Depends on.** `UserPromptSubmit` with `additionalContext` — **documented, not
-observed** on the installed CLI. Blocking probe: harness survey §7 item 1.
+**Depends on.** `UserPromptSubmit` — **OBSERVED FIRING** on the installed `2.1.273`
+(harness survey §7a, 2026-10-13), carrying the full `prompt` text. R1's premise is
+measured, not inferred. **One design consequence came out of the probe:** it also
+fires for **harness-generated turn starts** — a `<task-notification>` re-invocation
+produced a second `UserPromptSubmit` in a single-prompt run — so a naive
+implementation injects on turns nobody typed. Whether `additionalContext` is accepted
+on this event is documented but **not** separately exercised.
 
 **Proof.** An L4 whose can-fail arm is the current behaviour: seed a brain where the
 needed entry is below the session-start budget cut (the reproduced 2026-07-09
@@ -302,7 +307,12 @@ never been written down.
 **Capability.** Re-assert the pinned sections after compaction. Narrow by
 construction: Constitution + pinned handoff + cross-repo, not the ranked bundle.
 
-**Depends on.** `PostCompact` [docs, unobserved].
+**Depends on.** `PostCompact` — **STILL UNOBSERVED.** The 2026-10-13 probes did not
+fire it: forcing a real compaction means filling a 100k–1M token window, judged too
+expensive for a probe (harness survey §7a). **This is now the most important
+remaining gap**, because R2's premise — a shipped guarantee that silently does not
+survive compaction — is otherwise the most compelling item in this document, and it
+rests entirely on documentation.
 
 **Proof.** Deterministic test over the render; L4 arm that compacts a session and
 asserts the Constitution is still present. The can-fail arm is trivially available —
@@ -319,7 +329,13 @@ harness.
 distiller path, under the existing ADR-0021 containment (`incoming` + `unverified` +
 agent-trust, ≥2 corroborations to promote).
 
-**Depends on.** `PostToolUseFailure` [docs, unobserved].
+**Depends on.** `PostToolUseFailure` — **OBSERVED FIRING** on `2.1.273` (§7a). Its
+payload carries `tool_name`, `tool_input`, `error` and `duration_ms`, which map
+**1:1** onto the `Tool X can fail: <summary>` signal `src/distiller.ts` already
+builds — so this needs a sixth handler, not a reshaped signal. The probe also
+confirmed `PostToolUse` does **not** fire for a failed call, independently
+corroborating the open finding in `CLAUDE.md` and establishing this as a new event
+rather than a rename.
 
 **Proof.** Unit tests for the handler; an L4 that causes a real tool failure and
 asserts a candidate gotcha appears in `incoming` and **does not** reach the trusted
@@ -340,9 +356,11 @@ plugin release.
 server, collapsing the hook path and the tool path onto one process and one engine
 version.
 
-**Depends on.** `mcp_tool` hook type [docs, unobserved]; and critically its
-**failure mode when the server is down**, since the current `command` hooks fail open
-by design (`src/hook-stdin-failopen.test.ts`).
+**Depends on.** `mcp_tool` hook type — **ENTIRELY UNOBSERVED**; probe 3 was not run
+(§7a). Critically its **failure mode when the server is down** is unknown, and the
+current `command` hooks fail open by design
+(`src/hook-stdin-failopen.test.ts`). R4 remains the one theme with no measured
+footing at all.
 
 **Proof.** Probe first (harness survey §7 item 3). This is the one theme that could
 come back "no" — if an `mcp_tool` hook fails closed on a dead server, it is
@@ -535,9 +553,14 @@ Not a schedule — this repo builds on evidence, not plans
 
 ## 12. Not verified
 
-- **Every harness dependency except `claude plugin tag`, `claude plugin validate`,
-  `claude plugin details`, `--bare` and `--autocompact` is `[docs]` only** and has
-  not been fired or observed. That covers R1, R2, R3 and R4 — four of eight themes.
+- **Partly discharged 2026-10-13.** `UserPromptSubmit` (R1) and
+  `PostToolUseFailure` (R3) were **fired and observed** on `2.1.273`, as were
+  `SubagentStart`/`SubagentStop`, `PostToolBatch` and `InstructionsLoaded`;
+  `claude plugin validate --strict` and `claude plugin tag` were exercised against
+  real malformations (harness survey §7a). **Still unobserved:** `PreCompact`/
+  `PostCompact` (R2), the `mcp_tool` hook type (R4), whether `SubagentStart` can
+  inject context, whether a plugin-loaded `hooks.json` tolerates an unknown event,
+  and the permission events.
 - **The ~1.3% / `6 of 456` baseline** was measured at `8237fc4` on this repo's own
   brain. It is one project's brain at one moment, not a general claim.
 - **Claude Code Projects** is `[secondary]` only; availability unknown, nothing run.
