@@ -429,17 +429,33 @@ delivery regression for all consumers.
 as a Brake that tolerates its defect class is worse than none, per this repo's own
 `observed-red-is-a-floor` lesson (`1af189641750`).
 
-> **IN FLIGHT, 2026-10-16: built, NOT yet verified** —
-> [vfkb-claude-plugin#62](https://github.com/vilosource/vfkb-claude-plugin/pull/62).
-> #6 had been closed by the hooks-smoke L4, but **nothing ever ran the validator**.
-> - **Its first run found a real defect.** The shipped 0.20.0 `hooks.json` fails
->   `--strict`, because all six hooks pass `${CLAUDE_PLUGIN_ROOT}` unquoted. This was
->   observed in sh and bash: with a plugin root containing a space, every hook dies
->   with `MODULE_NOT_FOUND`.
-> - **A clean `--json` report lists no contents** (CLI 2.1.286), so it cannot show
->   that `hooks.json` was read. The selftest's red cases carry that proof instead.
-> - **The Brake pins the CLI version.** A pin bump is a Brake change and gets its
->   own PR.
+> **✅ DELIVERED 2026-10-16: plugin v0.20.1**
+> ([vfkb-claude-plugin#62](https://github.com/vilosource/vfkb-claude-plugin/pull/62),
+> merge `3979c9c`, tag `vfkb--v0.20.1`). Brain `c1bf20ecdcf9`.
+>
+> **What changed**
+> - **The Brake now runs on every plugin PR.** `claude plugin validate --strict`
+>   runs in `release-gate.yml` against a pinned CLI (2.1.286) and needs no
+>   credential. The verdict is a content assertion over the `--json` report. Its
+>   selftest is green on the baseline and was observed red on seven malformations.
+> - **#6 had been closed by the hooks-smoke L4**, but nothing had ever run the
+>   validator.
+>
+> **What its first run found**
+> - **The shipped 0.20.0 `hooks.json` failed `--strict`.** All six hooks passed
+>   `${CLAUDE_PLUGIN_ROOT}` unquoted, so with a plugin root containing a space,
+>   every hook died with `MODULE_NOT_FOUND`. Review found the same defect in six
+>   skill snippets. 0.20.1 fixes both.
+> - **A clean `--json` report lists no contents**, so it cannot show that
+>   `hooks.json` was read. The selftest's red cases carry that proof instead.
+>
+> **Evidence**
+> - All four L4 records were re-pinned to 0.20.1 by the CI leg. Each is
+>   DEMONSTRATED 3/3, and each can-fail arm is 0/3.
+> - Hooks-smoke wired 3/3 is the proof that the quoted hooks fire through a real
+>   marketplace install.
+> - That CI leg had been broken since 2026-09-30 and was fixed in the same PR
+>   (brain `83b015a010b0`).
 
 ### R7 — Curation that keeps the budget clean
 
