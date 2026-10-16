@@ -113,6 +113,8 @@ R5, R6 → R2 → R1 → R3, R7, R4, R8. No theme has an RFC yet.
   - R4's is the `mcp_tool` hook, whose probe has not been run.
 
   Per §9, each gets probed before anything is built.
-- **R7 and R8 — proposed**, with no harness dependency to probe.
+- **R7 — proposed**, with no harness dependency to probe.
+- **R8 — proposed.** It depends on Claude Code Projects being available, which has
+  not been checked.
 
 **Next is R2, and its first step is the `PostCompact` probe.**
