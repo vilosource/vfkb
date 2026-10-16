@@ -228,7 +228,8 @@ Three clauses, each falsifiable:
   subagents, and long-running work.
 - **G3.** Make capture work on the primary harness, closing the pi-only gap.
 - **G4.** Retire the "delivery is unproven" disclosure by landing the install-path
-  L4 that ADR-0051 names.
+  L4 that ADR-0051 names. *(Already met before this PRD was drafted. See the
+  §6 R5 banner.)*
 - **G5.** Reduce curation debt enough that the budget is not spent on dead weight
   (106 `handoff`-tagged entries, of which exactly one is ever pinned).
 - **G6.** Position deliberately relative to Claude Code Projects' shared memory,
@@ -384,7 +385,8 @@ disqualified from the inject path outright.
 
 > **✅ ALREADY DELIVERED — found 2026-10-16, after Ruling 4 put this theme first.**
 > The problem statement below is ADR-0051's July wording, and it was out of date
-> when this PRD was drafted. Verified in vfkb-claude-plugin at `origin/main` `36040f3`:
+> when this PRD was drafted. Verified in vfkb-claude-plugin at `origin/main` `36040f3`
+> (since re-pinned to 0.20.1 by the R6 release):
 > - `vfkb--v*` tags exist through `v0.20.0`, created on merge by `release-tag.yml`
 >   (ADR-0060/0061).
 > - `DELIVERY-STATUS.json` has said `delivery: proven` since 2026-07-16.
@@ -494,8 +496,9 @@ quota-capped surface.
 
 These are not rhetorical. Each changes what gets built.
 
-- **Q1. ~~Priority order of R1–R8.~~ ANSWERED 2026-10-16 (Ruling 4): adopted as written below.** My read: **R5 and R6 first** (the only
-  `[cli]`-verified dependencies, and R5 retires a standing disclosure obligation),
+- **Q1. ~~Priority order of R1–R8.~~ ANSWERED 2026-10-16 (Ruling 4): adopted as written below.** *(Kept as drafted, before the probes ran. Since §7a,
+  R1 and R3 are observed too, and R5 turned out to be already delivered.)* My read:
+  **R5 and R6 first** (the only `[cli]`-verified dependencies, and R5 retires a standing disclosure obligation),
   then **R2** (a correctness gap in a shipped guarantee, cheap, with a trivially
   available can-fail arm), then **R1** (the largest payoff and the largest unknown),
   then R3, R7, R4, R8.
