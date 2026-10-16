@@ -131,6 +131,20 @@ three config-dir brains (`~/.claude`, `~/.claude-cldp`, `~/.claude-cldw`), which
 default/global brains rather than project brains. Pinning that list is a
 prerequisite for any migration proof, and it does not exist yet.
 
+**Ruling 4 (2026-10-16): THE PRIORITY ORDER IS §7 Q1's, ADOPTED AS WRITTEN** —
+**R5, R6 → R2 → R1 → R3, R7, R4, R8.** Ruled after the 2026-10-13 probes, so on
+evidence rather than documentation. Brain `9eb330f21996`.
+
+One correction landed the same day, and it changes what "R5 first" means: **R5 was
+already delivered before this PRD was written** (§6 R5). So the order starts at R6 in
+practice.
+
+**Ruling 5 (2026-10-16): DECISION MODELS STAY OPTIONAL, exactly as R7 has them** — an
+opt-in `Reranker`/`Decider` seam, gated on the calibration spike. They are **not** a
+ninth theme, and they are **not** folded into R1. The decision-model survey's §6.1
+candidate (session-start injection selection) is therefore deliberately outside the
+theme list. That is a choice, not an oversight. Brain `8b2aefd11171`.
+
 ---
 
 ## 1. Why now
@@ -368,6 +382,20 @@ disqualified from the inject path outright.
 
 ### R5 — Close "delivery is unproven"
 
+> **✅ ALREADY DELIVERED — found 2026-10-16, after Ruling 4 put this theme first.**
+> The problem statement below is ADR-0051's July wording, and it was out of date
+> when this PRD was drafted. Verified in vfkb-claude-plugin at `origin/main` `36040f3`:
+> - `vfkb--v*` tags exist through `v0.20.0`, created on merge by `release-tag.yml`
+>   (ADR-0060/0061).
+> - `DELIVERY-STATUS.json` has said `delivery: proven` since 2026-07-16.
+> - `scenarios/records/install-path.json` is bound to plugin `0.20.0`: fresh 3/3,
+>   upgrade 3/3, and the contrast arm 0/3 with `Unknown command: /vfkb:brief`.
+> - `release-gate.mjs` passes, and its evaluation includes "delivery ok: status
+>   matches the committed evidence".
+>
+> **Nothing is left to build.** The only live obligation is the one the gate already
+> enforces: re-pin the record on every release. Brain `52f24d9414e2`.
+
 **Problem.** ADR-0051 makes the disclosure mandatory in every release note, ADR and
 handoff until `scenarios/records/install-path.json` lands, and says the L4 is "not
 even immediately buildable (blocked on adopting `claude plugin tag`; the plugin repo
@@ -400,6 +428,18 @@ delivery regression for all consumers.
 *rejects* a malformed `hooks.json` (harness survey §7 item 4) — a validator adopted
 as a Brake that tolerates its defect class is worse than none, per this repo's own
 `observed-red-is-a-floor` lesson (`1af189641750`).
+
+> **IN FLIGHT, 2026-10-16: built, NOT yet verified** —
+> [vfkb-claude-plugin#62](https://github.com/vilosource/vfkb-claude-plugin/pull/62).
+> #6 had been closed by the hooks-smoke L4, but **nothing ever ran the validator**.
+> - **Its first run found a real defect.** The shipped 0.20.0 `hooks.json` fails
+>   `--strict`, because all six hooks pass `${CLAUDE_PLUGIN_ROOT}` unquoted. This was
+>   observed in sh and bash: with a plugin root containing a space, every hook dies
+>   with `MODULE_NOT_FOUND`.
+> - **A clean `--json` report lists no contents** (CLI 2.1.286), so it cannot show
+>   that `hooks.json` was read. The selftest's red cases carry that proof instead.
+> - **The Brake pins the CLI version.** A pin bump is a Brake change and gets its
+>   own PR.
 
 ### R7 — Curation that keeps the budget clean
 
@@ -438,7 +478,7 @@ quota-capped surface.
 
 These are not rhetorical. Each changes what gets built.
 
-- **Q1. Priority order of R1–R8.** My read: **R5 and R6 first** (the only
+- **Q1. ~~Priority order of R1–R8.~~ ANSWERED 2026-10-16 (Ruling 4): adopted as written below.** My read: **R5 and R6 first** (the only
   `[cli]`-verified dependencies, and R5 retires a standing disclosure obligation),
   then **R2** (a correctness gap in a shipped guarantee, cheap, with a trivially
   available can-fail arm), then **R1** (the largest payoff and the largest unknown),

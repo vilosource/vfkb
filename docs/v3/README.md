@@ -76,7 +76,10 @@ is ~1.3% of what is eligible, with the reranker itself contributing two entries.
 
 ## Rulings so far
 
-Two, both 2026-10-08, both recorded in [`PRD.md`](PRD.md) §0:
+Five, all recorded in [`PRD.md`](PRD.md) §0. Rulings 3–5 are summarised there:
+**both metrics** (2026-10-09), **priority order R5, R6 → R2 → R1 → R3, R7, R4, R8**
+(2026-10-16; R5 then turned out to be already delivered), and **decision models stay
+optional inside R7** (2026-10-16). The first two, both 2026-10-08:
 
 1. **v3 may be a full rewrite.** Breaking changes are allowed. This withdrew the
    first draft's non-goal N1 ("not a rewrite"), and the PRD records that inversion
