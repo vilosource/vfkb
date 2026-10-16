@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.9.2](https://github.com/vilosource/vfkb/compare/v0.9.1...v0.9.2) (2026-10-16)
+
+
+### Documentation
+
+* **v3:** adopt both metrics (Ruling 3) — and the baseline decays on its own ([#346](https://github.com/vilosource/vfkb/issues/346)) ([d2acbf4](https://github.com/vilosource/vfkb/commit/d2acbf419461238a26658accd984167f8b61ad01))
+* **v3:** brain compatibility — read-compat is the floor, not one of two options ([#344](https://github.com/vilosource/vfkb/issues/344)) ([5c82f44](https://github.com/vilosource/vfkb/commit/5c82f44727551837fcc92d2c23a6689421802f04))
+* **v3:** open the v3 research/planning directory — Claude Code harness survey + PRD ([#340](https://github.com/vilosource/vfkb/issues/340)) ([6b3de16](https://github.com/vilosource/vfkb/commit/6b3de16c6f29415d2128d892bf264c125f191620))
+* **v3:** probe results + Rulings 4–5 — priority order, decision models optional, R5 already delivered ([#347](https://github.com/vilosource/vfkb/issues/347)) ([480e5bc](https://github.com/vilosource/vfkb/commit/480e5bc16d5d1b8292d3fa371c1fd0e461b55267))
+
 ## [0.9.1](https://github.com/vilosource/vfkb/compare/v0.9.0...v0.9.1) (2026-10-05)
 
 
