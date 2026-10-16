@@ -15,11 +15,14 @@
 > | **[docs]** | from `code.claude.com/docs`, fetched 2026-10-07 — describes the *latest* release, not necessarily `2.1.273` |
 > | **[secondary]** | press/blog reporting |
 >
-> **⚠ The single most important caveat, and it bounds this entire document:** the
-> installed CLI is **`2.1.273`** while the latest is **`~2.1.292`** [secondary]. Every
-> **[docs]** claim therefore describes a surface that **may not exist in the version
-> this repo actually runs**. No **[docs]** hook event below has been fired and
-> observed. §7 says what must be probed before any of it is designed against.
+> **⚠ Version caveat, now partly discharged.** The installed CLI is **`2.1.273`**
+> while the latest is **`~2.1.292`** [secondary], so a **[docs]** claim may describe a
+> surface this repo does not run. **§7a records the probes that have since been run
+> (2026-10-13):** `UserPromptSubmit`, `PostToolUseFailure`, `SubagentStart`,
+> `SubagentStop`, `PostToolBatch` and `InstructionsLoaded` were **fired and observed**
+> on `2.1.273`, and `claude plugin validate`/`tag` were exercised against real
+> malformations. **`PreCompact`/`PostCompact` and the `mcp_tool` hook type remain
+> unfired** — read §3.3 and §4 as documentation, not measurement.
 
 ---
 
@@ -271,6 +274,182 @@ Required before any v3 hook work is specified:
 5. **Confirm `claude plugin tag`'s tag format** against what the marketplace and the
    release workflow expect. It produces `{name}--v{version}`; vfkb's releases use
    `vX.Y.Z`. Those are different schemes and the interaction is unknown.
+
+---
+
+## 7a. PROBE RESULTS — 2026-10-13, on the installed CLI `2.1.273`
+
+§7 said five probes were owed before anything is designed against this surface.
+**Four ran. This section records what was observed, and it promotes most of §3 from
+`[docs]` to `[cli]`.** Everything below was executed on this machine; payload fields
+are quoted from the captured JSON, not from documentation.
+
+**Method.** A sandbox repo under the scratchpad, 24 hook events each wired to a
+logging `command` hook that appends its stdin JSON to a file, driven by
+`claude -p … --settings <probe-settings.json> --model claude-haiku-4-5
+--permission-mode bypassPermissions`. Per brain gotcha `fb712c13f39e` the sandbox
+settings set `"enabledPlugins": {"vfkb@vfkb": false}` to keep the user-scope plugin
+out, **and that was asserted** — no `.vfkb/` directory appeared in the sandbox in
+either run.
+
+### Events that FIRED
+
+| Event | Run | Previously |
+|---|---|---|
+| `SessionStart` | both | known |
+| `InstructionsLoaded` | both | `[docs]` |
+| **`UserPromptSubmit`** | both | `[docs]` — **R1's dependency** |
+| `PreToolUse` | both | known |
+| **`PostToolUseFailure`** | run 1 | `[docs]` — **R3's dependency** |
+| `PostToolUse` | run 2 | known |
+| `PostToolBatch` | both | `[docs]` |
+| **`SubagentStart`** | run 2 | `[docs]` |
+| **`SubagentStop`** | run 2 | `[docs]` |
+| `Stop` | both | known |
+| `SessionEnd` | both | known |
+
+### `UserPromptSubmit` — it carries the prompt, and R1's premise is now measured
+
+```
+session_id, transcript_path, cwd, prompt_id, permission_mode, hook_event_name
+prompt: "Read the file ./does-not-exist-12345.txt . It will fail. Then say the single word DONE."
+```
+
+**The `prompt` field is the query.** The claim in §3.2 — that the automatic path can
+have a query, which SessionStart structurally cannot — is no longer an inference
+from documentation.
+
+**But a correction to §3.2's framing, from run 2.** `UserPromptSubmit` fired
+**twice** in a single-prompt run. The second was **not** the subagent's prompt: same
+`session_id`, no `agent_type`, and its `prompt` was a harness-generated
+`<task-notification>` re-invoking the parent session. So:
+
+- `UserPromptSubmit` fires for the **parent session's turns, including
+  harness-generated re-invocations** — task notifications, and by implication other
+  non-human turn starts.
+- It does **not** fire for subagent prompts.
+
+**Design consequence for R1:** per-prompt injection would fire on task
+notifications, tool-result re-invocations and similar, not only on human prompts.
+That is either noise to filter or a signal to use deliberately, but it cannot be
+ignored — a naive implementation injects on turns nobody typed.
+
+### `PostToolUseFailure` — the payload matches the distiller's existing shape
+
+```
+tool_name:    "Read"
+tool_input:   {"file_path": ".../does-not-exist-12345.txt"}
+tool_use_id:  "toolu_012pTWmY5UuGBQK2pHGVqX41"
+error:        "File does not exist. Note: your current working directory is …"
+is_interrupt: false
+duration_ms:  1
+```
+
+`src/distiller.ts` builds its only v1 signal as `Tool X can fail: <summary>` from a
+`capture:error` fact carrying `provenance.origin.tool`. **`tool_name` and `error` map
+onto that 1:1** — R3 needs no reshaping of the signal format, only a sixth handler.
+
+**And `PostToolUse` did NOT fire for the failed call** — only `PostToolUseFailure`
+did. The two are mutually exclusive, which independently corroborates the open
+finding in `CLAUDE.md` (*"PostToolUse does not fire on a FAILED tool call"*) as an
+accurate description of the old behaviour, and confirms this is a genuinely new
+event rather than a rename.
+
+### `SubagentStart` / `SubagentStop` — capture yes, injection unknown
+
+`SubagentStart` carries `agent_id` and `agent_type` (`general-purpose`) — **and no
+prompt**, so it identifies which agent is starting but not what it was asked.
+
+`SubagentStop` carries considerably more:
+
+```
+agent_id, agent_type, agent_transcript_path, stop_hook_active
+last_assistant_message: "PING"
+background_tasks: [{id, type: "subagent", status, description, agent_type}]
+session_crons: []
+```
+
+**`last_assistant_message` is the subagent's result.** That makes the *capture* half
+of §3.4 straightforward: a subagent's finding can reach the brain.
+
+**The injection half is still unverified.** Whether `SubagentStart` accepts
+`additionalContext` the way `SessionStart` does was **not** tested — the docs' own
+control table does not list its output fields. ADR-0049 Layer 1 subagents getting no
+knowledge bundle therefore remains an open problem with an identified hook but no
+demonstrated mechanism.
+
+### Probe 2 (partial) — an unknown event name does NOT break startup
+
+The probe settings deliberately wired a 24th event named
+`TotallyBogusEventXYZ`. **Both sessions started and completed normally** (exit 0).
+So declaring a forward-looking event the host does not recognise is tolerated at
+runtime.
+
+That materially lowers the risk on PRD Q4 (minimum supported CLI version): a plugin
+can declare a newer event without bricking an older CLI. **Caveat:** this was
+observed in a `--settings` file, **not** in a plugin's `hooks.json` loaded through
+the marketplace, and §7 item 2 asked specifically about the plugin path. The
+plugin-load path remains unverified. Note also that `claude plugin validate --strict`
+*does* flag an unknown event name as a warning — see below — so the two surfaces
+disagree about severity, which is the right way round.
+
+### Probe 4 — `claude plugin validate`: works, and `--strict` is load-bearing
+
+Four malformations of a plugin's `hooks/hooks.json`, each validated with and without
+`--strict`:
+
+| Malformation | plain | `--strict` |
+|---|---|---|
+| Invalid JSON syntax | **1** | 1 |
+| Unknown event name | **0** | 1 |
+| Invalid hook `type` | **0** | 1 |
+| `command` hook missing `command` | **0** | 1 |
+
+**Without `--strict`, three of the four pass clean** — including an unknown event
+name, which is the most likely real-world defect (a typo). Only a JSON syntax error
+fails either way, and its message is well-built: *"At runtime this breaks the
+hooks."*
+
+**So ADR-0048's Brake must be `claude plugin validate <path> --strict`.** Wiring it
+without `--strict` would be a Brake that tolerates its own defect class — the vacuous
+guard this repo has been bitten by before (`1af189641750`).
+
+### Probe 5 — `claude plugin tag`: real, and it refuses a mismatch
+
+- Tag format: **`{name}--v{version}`** (observed: `probe--v0.1.0`), an **annotated**
+  tag, version read from `plugin.json`.
+- **No collision with release-please.** Plugin tags are name-prefixed; vfkb's
+  releases are `vX.Y.Z`. Different namespaces, they coexist. §7 item 5's open
+  question is answered.
+- `--dry-run` prints the exact `git tag -a` and `git push` commands.
+- **It is a genuine Brake.** With `plugin.json` at `0.1.0` and
+  `.claude-plugin/marketplace.json` at `9.9.9` it refused, **exit 1**:
+  *"Version mismatch: plugin.json says "0.1.0" but …marketplace.json plugins[0].version
+  says "9.9.9". plugin.json wins at install time, so update the marketplace entry …
+  before tagging."*
+
+That is exactly the manifest/marketplace disagreement class ADR-0051's install-path
+L4 needs gated, caught deterministically with an actionable message.
+
+### What remains UNOBSERVED after these probes
+
+- **`PreCompact` / `PostCompact` — not fired.** Forcing a real compaction means
+  filling a 100k–1M token window, which was judged too expensive for a probe. **R2's
+  dependency is therefore still `[docs]` only**, and R2 is the theme whose premise
+  (a shipped guarantee that does not survive compaction) is otherwise the most
+  compelling. This is the most important remaining gap.
+- **`PermissionRequest` / `PermissionDenied`** — suppressed by
+  `--permission-mode bypassPermissions`; not retested under a prompting mode.
+- **`Setup`, `UserPromptExpansion`, `TaskCreated`, `TaskCompleted`, `TeammateIdle`,
+  `FileChanged`, `CwdChanged`, `DirectoryAdded`, `PreModelSwitch`,
+  `PostModelSwitch`, `Notification`, `MessageDisplay`, `WorktreeCreate`,
+  `WorktreeRemove`, `Elicitation`, `ElicitationResult`, `ConfigChange`,
+  `StopFailure`** — conditions not met in either run.
+- **Whether `SubagentStart` can inject `additionalContext`** (above).
+- **Whether a plugin-loaded `hooks.json` tolerates an unknown event** (probe 2's
+  remaining half).
+- **Probe 3 — `mcp_tool` hook latency and its failure mode with the server down** —
+  not run. R4 stays entirely `[docs]`.
 
 ---
 

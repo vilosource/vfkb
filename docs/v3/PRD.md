@@ -131,6 +131,20 @@ three config-dir brains (`~/.claude`, `~/.claude-cldp`, `~/.claude-cldw`), which
 default/global brains rather than project brains. Pinning that list is a
 prerequisite for any migration proof, and it does not exist yet.
 
+**Ruling 4 (2026-10-16): THE PRIORITY ORDER IS §7 Q1's, ADOPTED AS WRITTEN** —
+**R5, R6 → R2 → R1 → R3, R7, R4, R8.** Ruled after the 2026-10-13 probes, so on
+evidence rather than documentation. Brain `9eb330f21996`.
+
+One correction landed the same day, and it changes what "R5 first" means: **R5 was
+already delivered before this PRD was written** (§6 R5). So the order starts at R6 in
+practice.
+
+**Ruling 5 (2026-10-16): DECISION MODELS STAY OPTIONAL, exactly as R7 has them** — an
+opt-in `Reranker`/`Decider` seam, gated on the calibration spike. They are **not** a
+ninth theme, and they are **not** folded into R1. The decision-model survey's §6.1
+candidate (session-start injection selection) is therefore deliberately outside the
+theme list. That is a choice, not an oversight. Brain `8b2aefd11171`.
+
 ---
 
 ## 1. Why now
@@ -214,7 +228,8 @@ Three clauses, each falsifiable:
   subagents, and long-running work.
 - **G3.** Make capture work on the primary harness, closing the pi-only gap.
 - **G4.** Retire the "delivery is unproven" disclosure by landing the install-path
-  L4 that ADR-0051 names.
+  L4 that ADR-0051 names. *(Already met before this PRD was drafted. See the
+  §6 R5 banner.)*
 - **G5.** Reduce curation debt enough that the budget is not spent on dead weight
   (106 `handoff`-tagged entries, of which exactly one is ever pinned).
 - **G6.** Position deliberately relative to Claude Code Projects' shared memory,
@@ -276,8 +291,13 @@ existing lexical index, in addition to (not instead of) the session-start bundle
 Budget per injection far smaller than 10k; selection by `searchScored` plus the
 RFC-001 relevance floor, which already exist and are deterministic, offline and free.
 
-**Depends on.** `UserPromptSubmit` with `additionalContext` — **documented, not
-observed** on the installed CLI. Blocking probe: harness survey §7 item 1.
+**Depends on.** `UserPromptSubmit` — **OBSERVED FIRING** on the installed `2.1.273`
+(harness survey §7a, 2026-10-13), carrying the full `prompt` text. R1's premise is
+measured, not inferred. **One design consequence came out of the probe:** it also
+fires for **harness-generated turn starts** — a `<task-notification>` re-invocation
+produced a second `UserPromptSubmit` in a single-prompt run — so a naive
+implementation injects on turns nobody typed. Whether `additionalContext` is accepted
+on this event is documented but **not** separately exercised.
 
 **Proof.** An L4 whose can-fail arm is the current behaviour: seed a brain where the
 needed entry is below the session-start budget cut (the reproduced 2026-07-09
@@ -302,7 +322,12 @@ never been written down.
 **Capability.** Re-assert the pinned sections after compaction. Narrow by
 construction: Constitution + pinned handoff + cross-repo, not the ranked bundle.
 
-**Depends on.** `PostCompact` [docs, unobserved].
+**Depends on.** `PostCompact` — **STILL UNOBSERVED.** The 2026-10-13 probes did not
+fire it: forcing a real compaction means filling a 100k–1M token window, judged too
+expensive for a probe (harness survey §7a). **This is now the most important
+remaining gap**, because R2's premise — a shipped guarantee that silently does not
+survive compaction — is otherwise the most compelling item in this document, and it
+rests entirely on documentation.
 
 **Proof.** Deterministic test over the render; L4 arm that compacts a session and
 asserts the Constitution is still present. The can-fail arm is trivially available —
@@ -319,7 +344,13 @@ harness.
 distiller path, under the existing ADR-0021 containment (`incoming` + `unverified` +
 agent-trust, ≥2 corroborations to promote).
 
-**Depends on.** `PostToolUseFailure` [docs, unobserved].
+**Depends on.** `PostToolUseFailure` — **OBSERVED FIRING** on `2.1.273` (§7a). Its
+payload carries `tool_name`, `tool_input`, `error` and `duration_ms`, which map
+**1:1** onto the `Tool X can fail: <summary>` signal `src/distiller.ts` already
+builds — so this needs a sixth handler, not a reshaped signal. The probe also
+confirmed `PostToolUse` does **not** fire for a failed call, independently
+corroborating the open finding in `CLAUDE.md` and establishing this as a new event
+rather than a rename.
 
 **Proof.** Unit tests for the handler; an L4 that causes a real tool failure and
 asserts a candidate gotcha appears in `incoming` and **does not** reach the trusted
@@ -340,15 +371,32 @@ plugin release.
 server, collapsing the hook path and the tool path onto one process and one engine
 version.
 
-**Depends on.** `mcp_tool` hook type [docs, unobserved]; and critically its
-**failure mode when the server is down**, since the current `command` hooks fail open
-by design (`src/hook-stdin-failopen.test.ts`).
+**Depends on.** `mcp_tool` hook type — **ENTIRELY UNOBSERVED**; probe 3 was not run
+(§7a). Critically its **failure mode when the server is down** is unknown, and the
+current `command` hooks fail open by design
+(`src/hook-stdin-failopen.test.ts`). R4 remains the one theme with no measured
+footing at all.
 
 **Proof.** Probe first (harness survey §7 item 3). This is the one theme that could
 come back "no" — if an `mcp_tool` hook fails closed on a dead server, it is
 disqualified from the inject path outright.
 
 ### R5 — Close "delivery is unproven"
+
+> **✅ ALREADY DELIVERED — found 2026-10-16, after Ruling 4 put this theme first.**
+> The problem statement below is ADR-0051's July wording, and it was out of date
+> when this PRD was drafted. Verified in vfkb-claude-plugin at `origin/main` `36040f3`
+> (since re-pinned to 0.20.1 by the R6 release):
+> - `vfkb--v*` tags exist through `v0.20.0`, created on merge by `release-tag.yml`
+>   (ADR-0060/0061).
+> - `DELIVERY-STATUS.json` has said `delivery: proven` since 2026-07-16.
+> - `scenarios/records/install-path.json` is bound to plugin `0.20.0`: fresh 3/3,
+>   upgrade 3/3, and the contrast arm 0/3 with `Unknown command: /vfkb:brief`.
+> - `release-gate.mjs` passes, and its evaluation includes "delivery ok: status
+>   matches the committed evidence".
+>
+> **Nothing is left to build.** The only live obligation is the one the gate already
+> enforces: re-pin the record on every release. Brain `52f24d9414e2`.
 
 **Problem.** ADR-0051 makes the disclosure mandatory in every release note, ADR and
 handoff until `scenarios/records/install-path.json` lands, and says the L4 is "not
@@ -382,6 +430,34 @@ delivery regression for all consumers.
 *rejects* a malformed `hooks.json` (harness survey §7 item 4) — a validator adopted
 as a Brake that tolerates its defect class is worse than none, per this repo's own
 `observed-red-is-a-floor` lesson (`1af189641750`).
+
+> **✅ DELIVERED 2026-10-16: plugin v0.20.1**
+> ([vfkb-claude-plugin#62](https://github.com/vilosource/vfkb-claude-plugin/pull/62),
+> merge `3979c9c`, tag `vfkb--v0.20.1`). Brain `c1bf20ecdcf9`.
+>
+> **What changed**
+> - **The Brake now runs on every plugin PR.** `claude plugin validate --strict`
+>   runs in `release-gate.yml` against a pinned CLI (2.1.286) and needs no
+>   credential. The verdict is a content assertion over the `--json` report. Its
+>   selftest is green on the baseline and was observed red on seven malformations.
+> - **#6 had been closed by the hooks-smoke L4**, but nothing had ever run the
+>   validator.
+>
+> **What its first run found**
+> - **The shipped 0.20.0 `hooks.json` failed `--strict`.** All six hooks passed
+>   `${CLAUDE_PLUGIN_ROOT}` unquoted, so with a plugin root containing a space,
+>   every hook died with `MODULE_NOT_FOUND`. Review found the same defect in six
+>   skill snippets. 0.20.1 fixes both.
+> - **A clean `--json` report lists no contents**, so it cannot show that
+>   `hooks.json` was read. The selftest's red cases carry that proof instead.
+>
+> **Evidence**
+> - All four L4 records were re-pinned to 0.20.1 by the CI leg. Each is
+>   DEMONSTRATED 3/3, and each can-fail arm is 0/3.
+> - Hooks-smoke wired 3/3 is the proof that the quoted hooks fire through a real
+>   marketplace install.
+> - That CI leg had been broken since 2026-09-30 and was fixed in the same PR
+>   (brain `83b015a010b0`).
 
 ### R7 — Curation that keeps the budget clean
 
@@ -420,8 +496,9 @@ quota-capped surface.
 
 These are not rhetorical. Each changes what gets built.
 
-- **Q1. Priority order of R1–R8.** My read: **R5 and R6 first** (the only
-  `[cli]`-verified dependencies, and R5 retires a standing disclosure obligation),
+- **Q1. ~~Priority order of R1–R8.~~ ANSWERED 2026-10-16 (Ruling 4): adopted as written below.** *(Kept as drafted, before the probes ran. Since §7a,
+  R1 and R3 are observed too, and R5 turned out to be already delivered.)* My read:
+  **R5 and R6 first** (the only `[cli]`-verified dependencies, and R5 retires a standing disclosure obligation),
   then **R2** (a correctness gap in a shipped guarantee, cheap, with a trivially
   available can-fail arm), then **R1** (the largest payoff and the largest unknown),
   then R3, R7, R4, R8.
@@ -535,9 +612,14 @@ Not a schedule — this repo builds on evidence, not plans
 
 ## 12. Not verified
 
-- **Every harness dependency except `claude plugin tag`, `claude plugin validate`,
-  `claude plugin details`, `--bare` and `--autocompact` is `[docs]` only** and has
-  not been fired or observed. That covers R1, R2, R3 and R4 — four of eight themes.
+- **Partly discharged 2026-10-13.** `UserPromptSubmit` (R1) and
+  `PostToolUseFailure` (R3) were **fired and observed** on `2.1.273`, as were
+  `SubagentStart`/`SubagentStop`, `PostToolBatch` and `InstructionsLoaded`;
+  `claude plugin validate --strict` and `claude plugin tag` were exercised against
+  real malformations (harness survey §7a). **Still unobserved:** `PreCompact`/
+  `PostCompact` (R2), the `mcp_tool` hook type (R4), whether `SubagentStart` can
+  inject context, whether a plugin-loaded `hooks.json` tolerates an unknown event,
+  and the permission events.
 - **The ~1.3% / `6 of 456` baseline** was measured at `8237fc4` on this repo's own
   brain. It is one project's brain at one moment, not a general claim.
 - **Claude Code Projects** is `[secondary]` only; availability unknown, nothing run.

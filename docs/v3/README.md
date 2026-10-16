@@ -76,7 +76,10 @@ is ~1.3% of what is eligible, with the reranker itself contributing two entries.
 
 ## Rulings so far
 
-Two, both 2026-10-08, both recorded in [`PRD.md`](PRD.md) §0:
+Five, all recorded in [`PRD.md`](PRD.md) §0. Rulings 3–5 are summarised there:
+**both metrics** (2026-10-09), **priority order R5, R6 → R2 → R1 → R3, R7, R4, R8**
+(2026-10-16; R5 then turned out to be already delivered), and **decision models stay
+optional inside R7** (2026-10-16). The first two, both 2026-10-08:
 
 1. **v3 may be a full rewrite.** Breaking changes are allowed. This withdrew the
    first draft's non-goal N1 ("not a rewrite"), and the PRD records that inversion
@@ -95,12 +98,23 @@ already pass through.
 
 ## Status of the cycle
 
-**Pre-ratification.** The PRD exists; no theme has an RFC; nothing is built. The
-honest status of every requirement is *proposed*.
+**Prioritised, two themes closed** *(as of 2026-10-16)*. The order is Ruling 4's:
+R5, R6 → R2 → R1 → R3, R7, R4, R8. No theme has an RFC yet.
 
-Two of the eight themes (R5, R6) rest on dependencies **verified by running the
-installed CLI**, and both retire obligations vfkb already carries — ADR-0051's
-mandatory "delivery is unproven" disclosure, and ADR-0048's pending plugin-manifest
-validation. Four themes (R1–R4) rest on hook events that are documented but
-**unobserved on the installed version**, which is why §9's first step is probing
-rather than building.
+- **R5 — already delivered, before this cycle opened.** The plugin's install-path L4
+  has had `delivery: proven` since 2026-07-16, so there is nothing to build.
+- **R6 — delivered 2026-10-16** as plugin v0.20.1
+  ([vfkb-claude-plugin#62](https://github.com/vilosource/vfkb-claude-plugin/pull/62)).
+  `claude plugin validate --strict` now runs on every plugin PR.
+- **R1 and R3 — dependencies observed** on CLI 2.1.273 in the 2026-10-13 probes
+  (harness survey §7a). Both are still *proposed*.
+- **R2 and R4 — dependencies still unobserved.**
+  - R2's is `PostCompact`, which needs a real compaction to observe.
+  - R4's is the `mcp_tool` hook, whose probe has not been run.
+
+  Per §9, each gets probed before anything is built.
+- **R7 — proposed**, with no harness dependency to probe.
+- **R8 — proposed.** It depends on Claude Code Projects being available, which has
+  not been checked.
+
+**Next is R2, and its first step is the `PostCompact` probe.**
