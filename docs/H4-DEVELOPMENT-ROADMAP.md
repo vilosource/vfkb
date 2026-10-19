@@ -9,6 +9,8 @@
 > [ADR-0075](adr/ADR-0075-the-software-factory.md) ← [RFC-039](rfc/RFC-039-the-software-factory.md).
 > P12 is the continuation of P11's motto, not a new direction: *build the thing that builds the
 > thing*. Also carries P11-b's residual forward rather than leaving it stranded.)
+> **Re-ratified:** 2026-10-19 (the **v3 cycle** supersedes P12 as the ▶ Current action, in
+> [v3 PRD](v3/PRD.md) Ruling 4's order; **P12 is paused, not abandoned**. Brain `ef3500b68252`.)
 > Sits under [STATUS-AND-ROADMAP](STATUS-AND-ROADMAP.md) §4 H4 (the broad north-star) and above
 > the decisions ([docs/adr/](adr/)) + proposals ([docs/rfc/](rfc/)) it sequences. ADRs ratify the
 > *decisions* (what to build); **this roadmap ratifies the *order* and is the standing authority to
@@ -23,7 +25,8 @@
 
 > ⚠️ **This snapshot is frozen at 2026-06-28 and is no longer true.** v2 shipped to `main` on
 > 2026-07-08 (PR #86); the suite is **345/345**, not 95/95; the frontier is the **P10 trust-and-cadence
-> phase** ratified 2026-07-18. Read [§4's Current action](#4-ratified-order--execution-protocol) for
+> phase** ratified 2026-07-18. *(That line is itself stale: since 2026-10-19 the frontier is the
+> **v3 cycle**, and the suite is 815/815.)* Read [§4's Current action](#4-ratified-order--execution-protocol) for
 > where we actually are — this section is kept for the Track 1–4b history it records, not for status.
 
 `main` is green (**95/95** unit, @ `0e75823`). v1 (per-project tier) is shipped; **M1 (session-continuity
@@ -466,7 +469,7 @@ section only sequences it. One RFC per theme, ADRs decide (ADR-0007); the DoD do
 | 1 | **R6** — wiring Brake for the plugin | ✅ plugin v0.20.1 (plugin#62): `claude plugin validate --strict` on every PR |
 | 2 | **R2** — survive compaction | **in progress.** Probe → RFC-042 → [ADR-0077](adr/ADR-0077-compaction-survival-guard.md). Clauses 1–2 landed (plugin#63, vfkb#352). **Next: clause 3, the `compaction-survival` L4** (phased; first probe the L4 CLI pin 2.1.220 and `/compact` under a marketplace install). Status: built, NOT yet verified |
 | 3 | **R1** — query-time injection (`UserPromptSubmit`) | proposed; dependency observed |
-| 4 | **R3**, **R7** — failure capture; curation | proposed |
+| 4 | **R3**, **R7** — failure capture; curation | proposed; R3's dependency (`PostToolUseFailure`) observed |
 | 5 | **R4**, **R8** — `mcp_tool` hooks; Projects position | proposed; R4's dependency unobserved |
 
 **P12 is paused, not abandoned.** Its section below is kept intact: the ratified sequence, the

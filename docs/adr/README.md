@@ -89,19 +89,19 @@ Immutable records of significant vfkb architecture decisions, in
 | [ADR-0049](ADR-0049-session-start-handoff-pinning.md) | Session-start briefing — deterministic handoff pinning + an on-demand, Haiku-pinned briefing skill (accepts RFC-023) | Accepted |
 | [ADR-0050](ADR-0050-l4-dod-constitutional-brake.md) | The sandboxed agent-driven L4 Definition of Done is constitutional and mechanically enforced (amends ADR-0029) | Accepted (Amended by ADR-0051) |
 | [ADR-0051](ADR-0051-delivery-honesty.md) | Delivery is a capability, it is unproven, and saying so is mechanically enforced (amends ADR-0050; accepts RFC-024) | Accepted |
-| [ADR-0052](ADR-0052-review-gate.md) | The adversarial review of every implementation change is mechanically enforced | Accepted |
+| [ADR-0052](ADR-0052-review-gate.md) | The adversarial review of every implementation change is mechanically enforced | Accepted (Amended by ADR-0073) |
 | [ADR-0053](ADR-0053-going-public-sequencing.md) | Going public — the five-workstream sequencing (umbrella; accepts RFC-025) | Accepted |
 | [ADR-0054](ADR-0054-pre-public-disclosure-gate.md) | The pre-public disclosure gate — audit + explicit exposure rulings before the visibility flip (accepts RFC-026) | Accepted |
 | [ADR-0055](ADR-0055-public-ci-and-community-hygiene.md) | Public CI (test.yml required Brake, can-fail-proven) + community hygiene files (accepts RFC-027) | Accepted |
 | [ADR-0056](ADR-0056-versioning-and-release-automation.md) | Versioning + release automation via release-please — the release is a reviewable PR (accepts RFC-028) | Accepted |
 | [ADR-0057](ADR-0057-npm-delivery-channel.md) | The npm delivery channel — trusted publishing behind a pack-based install proof, born delivery-proven (accepts RFC-029) | Accepted |
 | [ADR-0058](ADR-0058-update-awareness.md) | Update awareness — GitHub Releases canonical + opt-in doctor --check-remote npm currency; no phone-home (accepts RFC-030) | Accepted |
-| [ADR-0059](ADR-0059-inactive-signal-guard.md) | Restore the 'vfkb INACTIVE' signal under plugin wiring — a deterministic, engine-free repo-side guard (accepts RFC-032) | Accepted |
+| [ADR-0059](ADR-0059-inactive-signal-guard.md) | Restore the 'vfkb INACTIVE' signal under plugin wiring — a deterministic, engine-free repo-side guard (accepts RFC-032) | Accepted (Amended by ADR-0072) |
 | [ADR-0060](ADR-0060-plugin-release-tagging.md) | Tag every plugin release `vfkb--v{version}` — durable version refs (unblocks the install-path delivery L4) | Accepted |
 | [ADR-0061](ADR-0061-plugin-release-version-automation.md) | Enforce bump-and-tag mechanically — a version Brake plus tag-on-merge (release-please rejected) | Accepted |
 | [ADR-0062](ADR-0062-engine-delivery-signal.md) | Engine changes surface automatically as a ready-to-prove plugin release PR — producer-side automation over a normalized-bundle drift signal | Accepted |
 | [ADR-0063](ADR-0063-cross-repo-brain-write.md) | Cross-repo brain write — read the target's brain first, then one deliberate `cross-repo` record per operation, delivered via a second pinned section (accepts RFC-033) | Accepted |
-| [ADR-0064](ADR-0064-durable-capture-journal.md) | Durable capture — untracked write-ahead journal + `(id, updated)`-pair recovery closes the brain-loss window between write and commit (accepts RFC-034) | Accepted |
+| [ADR-0064](ADR-0064-durable-capture-journal.md) | Durable capture — untracked write-ahead journal + `(id, updated)`-pair recovery closes the brain-loss window between write and commit (accepts RFC-034) | Accepted (Amended by ADR-0069) |
 | [ADR-0065](ADR-0065-write-health-loudness.md) | Write-health loudness — probe-first: silent MCP-disconnect must never look like successful capture (accepts RFC-035) | Accepted |
 | [ADR-0066](ADR-0066-pi-package-delivery.md) | The pi face ships as a package, not a path — separate `vfkb-pi-package` repo, git-only, vfkb's own MCP bridge kept, install-path L4 with an AGENTS.md-only contrast arm (accepts RFC-037) | Accepted |
 | [ADR-0067](ADR-0067-hybrid-credential-model.md) | Hybrid credential model for machine-produced plugin evidence — DeepSeek in CI, OAuth stays on the laptop (accepts RFC-036) | Accepted |
@@ -112,6 +112,6 @@ Immutable records of significant vfkb architecture decisions, in
 | [ADR-0072](ADR-0072-guard-resolves-the-session-config-dir.md) | The INACTIVE guard resolves the SESSION's config dir, not ~/.claude (amends ADR-0059) | Accepted |
 | [ADR-0073](ADR-0073-gate-what-consumers-receive.md) | The review gate covers what CONSUMERS receive — all of .claude/ and docs/templates/ (amends ADR-0052) | Accepted |
 | [ADR-0074](ADR-0074-consume-the-schema-already-shipped.md) | Specified, shipped, never read — wire the envelope and make the seam observable (accepts RFC-038) | Accepted |
-| [ADR-0075](ADR-0075-the-software-factory.md) | The software factory — gates over agents, and the coder works offline (accepts RFC-039) | Accepted |
+| [ADR-0075](ADR-0075-the-software-factory.md) | The software factory — gates over agents, and the coder works offline (accepts RFC-039) | Accepted (Amended by ADR-0076) |
 | [ADR-0076](ADR-0076-two-owed-rulings.md) | Two owed rulings — the instrument is rounds-to-converge, and recorded_invalid_at is deleted | Accepted |
 | [ADR-0077](ADR-0077-compaction-survival-guard.md) | The compaction re-injection is a guarantee, not an accident — fail-closed matcher Brake, source-independent render test, compaction-survival L4 phased in then re-pinned every release (accepts RFC-042, v3 R2) | Accepted |
