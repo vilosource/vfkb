@@ -9,8 +9,9 @@ timestamp: 2026-10-19
 # ADR-0077: The compaction re-injection is a guarantee, not an accident
 
 - **Status:** Accepted (2026-10-19, operator ratification). Brain decision `b11eab62644c`.
-- **Build status:** *built, NOT yet verified* until clause 3's record is DEMONSTRATED.
-  Progress is tracked in the v3 PRD §6 R2, not here.
+- **Build status:** nothing is built at acceptance. Once clauses 1 and 2 land, the status
+  is *built, NOT yet verified* until clause 3's record is DEMONSTRATED. Progress is tracked
+  in the v3 PRD §6 R2, not here.
 - **Date:** 2026-10-19
 - **Accepts:** [RFC-042](../rfc/RFC-042-compaction-survival-guard.md), as written at `9306f18`.
   The RFC holds the evidence, the matcher table, the full L4 specification and the
@@ -57,7 +58,9 @@ and the agent still did not use it.
    partly known: false reds are accepted and false greens are not. At least one
    session-start entry must be identified. The observed matcher shapes are pinned to the
    CLI version through a committed `matcher-semantics.json` holding raw probe output, which
-   the Brake re-parses. Its selftest must be observed red on every case RFC-042 lists.
+   the Brake re-parses. **The Brake fails when that record's `cliVersion` differs from the CLI
+   pinned in `release-gate.yml`.** Its selftest must be observed red on every red case
+   RFC-042 lists, and green on every green one.
 
 2. **Engine test (RFC-042 part 2).** A unit test asserts that `hook session-start` emits the
    same pinned sections, the Constitution and the handoff pin in the same leading order, for
@@ -85,8 +88,11 @@ and the agent still did not use it.
   From then on, a release without a valid, version-bound record is red. This follows the
   ADR-0067 D5 precedent. It lets the two cheap deterministic guards ship without waiting on
   the metered L4. Until the record lands, R2's status is *built, NOT yet verified*.
-- **Q2 — EVERY RELEASE.** Once required, the record is re-pinned on every release, at about
-  six metered sessions on the CI or laptop leg. **No conditional re-pin rule is added.** Such
+  **The same-PR rule is enforced, not prose.** The gate goes red if a committed
+  `compaction-survival` record is DEMONSTRATED but the scenario is not in `REQUIRED`.
+- **Q2 — EVERY RELEASE.** Once required, the record is re-pinned on every release. That
+  costs at least six metered sessions (3 valid trials × 2 arms) and up to twelve at the
+  attempts cap, on the CI or laptop leg. **No conditional re-pin rule is added.** Such
   a rule would need its own trigger (any `plugin/hooks/**` or engine change), and that
   trigger would itself need guarding.
 
@@ -95,7 +101,14 @@ and the agent still did not use it.
 - **A matcher that drops `compact` becomes a CI red** that names this ADR. Until now it was a
   silent loss.
 - **R2's capability becomes provable,** and the proof can fail.
-- **Releases cost about six more metered sessions** once the record is required.
+- **Releases cost 6–12 more metered sessions** once the record is required.
+- **Phasing has no forcing event for the first record.** Nothing makes the first
+  DEMONSTRATED record get produced. ADR-0067 D5 tied its phase to its own deliverable;
+  this ADR does not. If clause 3 stalls, for example because `/compact` turns out not to
+  work under a marketplace install, the record stays optional indefinitely.
+  ADR-0051 still holds R2 at *built, NOT yet verified* for that whole time, and the R2
+  status in the PRD and the handoff are where that shows. This is an accepted risk of the
+  operator's Q1 ruling, named so that it decays visibly rather than silently.
 - **Auto-compaction (`trigger:"auto"`) remains `[docs]`-only.** Every observation used
   `/compact`. Release notes citing the record must say "manual compaction".
 - **`/compact` in stream-json under a marketplace install has not yet been observed.**

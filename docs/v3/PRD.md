@@ -347,6 +347,11 @@ was wrong, because `/compact` is a real compaction on demand. Auto-compaction
 
 **Reshaped capability — [RFC-042](../rfc/RFC-042-compaction-survival-guard.md), ACCEPTED 2026-10-19 → [ADR-0077](../adr/ADR-0077-compaction-survival-guard.md) (Q1 phased, Q2 every release). Status: built, NOT yet verified once parts 1–2 land; verified only when the compaction-survival record is DEMONSTRATED.**
 
+> **The items and Proof below are the pre-RFC sketch, superseded by ADR-0077.** Where they
+> differ, the ADR wins. The Brake is a **fail-closed allowlist**: `"startup, compact"` goes
+> red even though it covers compact. **Narrowing is deferred**, not open. The L4 runs with
+> no tools and with `/compact` omit-code-words instructions.
+
 1. **Make it deliberate.**
    - A deterministic Brake asserts that the plugin's SessionStart covers `compact`.
      That means no matcher, or a matcher that includes `compact`, so the tidy-up

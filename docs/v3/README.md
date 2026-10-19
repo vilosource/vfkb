@@ -99,7 +99,7 @@ already pass through.
 ## Status of the cycle
 
 **Prioritised, two themes closed** *(as of 2026-10-16)*. The order is Ruling 4's:
-R5, R6 → R2 → R1 → R3, R7, R4, R8. No theme has an RFC yet.
+R5, R6 → R2 → R1 → R3, R7, R4, R8. R2 is the only theme with an RFC so far: RFC-042, accepted as ADR-0077.
 
 - **R5 — already delivered, before this cycle opened.** The plugin's install-path L4
   has had `delivery: proven` since 2026-07-16, so there is nothing to build.
