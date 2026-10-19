@@ -345,7 +345,7 @@ construction: Constitution + pinned handoff + cross-repo, not the ranked bundle.
 was wrong, because `/compact` is a real compaction on demand. Auto-compaction
 (`trigger: "auto"`) is still `[docs]` only.
 
-**Reshaped capability (proposed — now [RFC-042](../rfc/RFC-042-compaction-survival-guard.md)):**
+**Reshaped capability — [RFC-042](../rfc/RFC-042-compaction-survival-guard.md), ACCEPTED 2026-10-19 → [ADR-0077](../adr/ADR-0077-compaction-survival-guard.md) (Q1 phased, Q2 every release). Status: built, NOT yet verified once parts 1–2 land; verified only when the compaction-survival record is DEMONSTRATED.**
 
 1. **Make it deliberate.**
    - A deterministic Brake asserts that the plugin's SessionStart covers `compact`.

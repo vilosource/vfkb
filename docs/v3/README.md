@@ -118,4 +118,4 @@ R5, R6 → R2 → R1 → R3, R7, R4, R8. No theme has an RFC yet.
 - **R8 — proposed.** It depends on Claude Code Projects being available, which has
   not been checked.
 
-**Next is R2's RFC: the guard on the compaction re-injection.**
+**R2's RFC-042 is accepted as ADR-0077 (2026-10-19). Next is building its guard.**
