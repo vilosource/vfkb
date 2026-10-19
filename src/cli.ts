@@ -592,8 +592,10 @@ async function dispatch() {
       // Ignoring the payload's `source` is LOAD-BEARING (ADR-0077). Claude Code fires
       // SessionStart again with source "compact" after a compaction, and this render is
       // the only thing carrying the Constitution (ADR-0008) and the handoff pin (ADR-0049)
-      // past it. Do not gate or narrow the render on `source` without amending ADR-0077;
-      // test/compaction-survival.test.ts goes red if you do.
+      // past it. Do not gate or narrow the render on `source` without amending ADR-0077.
+      // test/compaction-survival.test.ts guards the context block's head (Constitution
+      // leading, handoff pin) across sources; changes to the rest of the render are not
+      // tested, and narrowing it is deferred by ADR-0077 clause 4.
       try {
         const p = JSON.parse(raw || '{}');
         if (typeof p.session_id === 'string') payloadId = p.session_id;

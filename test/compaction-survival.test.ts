@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -30,17 +30,31 @@ function sessionStart(brain: string, payload: object): string {
   return out.hookSpecificOutput.additionalContext as string;
 }
 
-/** The two pinned sections, from the Constitution heading up to the knowledge map. */
+/**
+ * The context block's head: from its opening tag up to the knowledge map. That
+ * covers the Constitution, the handoff pin and anything placed before them, so a
+ * block inserted ahead of the Constitution is caught too, since ADR-0008 says the
+ * Constitution LEADS. The resume digest and the restore note live outside it in
+ * <vfkb-resume>, which may legitimately differ between two calls in a session.
+ */
 function pinned(ctx: string): string {
-  const start = ctx.indexOf('## Constitution');
+  const start = ctx.indexOf('<vfkb-context');
   const end = ctx.indexOf('<vfkb-map>');
   return start >= 0 && end > start ? ctx.slice(start, end) : '';
+}
+
+/** The first `## ` heading inside the context block must be the Constitution. */
+function leadsWithConstitution(ctx: string): boolean {
+  const head = pinned(ctx);
+  const first = head.split('\n').find((l) => l.startsWith('## '));
+  return first?.startsWith('## Constitution') ?? false;
 }
 
 const CONSTITUTION = 'every reply about vaults must use the code word KUMQUAT-8812';
 const HANDOFF = 'HANDOFF: the single next step is the migration codenamed sentinel-step-77';
 
 let brain: string;
+afterEach(() => rmSync(brain, { recursive: true, force: true }));
 beforeEach(() => {
   brain = mkdtempSync(join(tmpdir(), 'vfkb-compact-'));
   cli(brain, ['add', 'decision', CONSTITUTION, '--why', 'test', '--status', 'accepted', '--constitutional', '--role', 'human']);
@@ -51,6 +65,7 @@ describe('compaction re-injection (ADR-0077 clause 2)', () => {
   it('a compaction re-emits the Constitution and the handoff pin', () => {
     sessionStart(brain, { session_id: 'sess-c', source: 'startup' });
     const ctx = sessionStart(brain, { session_id: 'sess-c', source: 'compact' });
+    expect(leadsWithConstitution(ctx)).toBe(true);
     expect(ctx).toContain('## Constitution');
     expect(ctx).toContain('KUMQUAT-8812');
     expect(ctx).toContain('## Last handoff');
@@ -63,6 +78,7 @@ describe('compaction re-injection (ADR-0077 clause 2)', () => {
     const p = pinned(afterCompact);
     expect(p).not.toBe('');
     expect(p).toBe(pinned(atStartup));
+    expect(leadsWithConstitution(afterCompact)).toBe(true);
     expect(p.indexOf('## Constitution')).toBeLessThan(p.indexOf('## Last handoff'));
   });
 
