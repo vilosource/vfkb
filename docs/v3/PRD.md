@@ -322,16 +322,57 @@ never been written down.
 **Capability.** Re-assert the pinned sections after compaction. Narrow by
 construction: Constitution + pinned handoff + cross-repo, not the ranked bundle.
 
-**Depends on.** `PostCompact` — **STILL UNOBSERVED.** The 2026-10-13 probes did not
-fire it: forcing a real compaction means filling a 100k–1M token window, judged too
-expensive for a probe (harness survey §7a). **This is now the most important
-remaining gap**, because R2's premise — a shipped guarantee that silently does not
-survive compaction — is otherwise the most compelling item in this document, and it
-rests entirely on documentation.
+> **⚠ RESHAPED BY THE 2026-10-19 PROBE** (harness survey §7b; brain `1b10486b07c6`).
+>
+> **The premise holds in general:** injected context survives compaction only if the
+> summariser keeps it, and even then the agent may not use it. Across the
+> 2026-10-19 runs (survey §7b), a synthetic startup-only sentinel was lost 3 of 3
+> times. A startup-only constitution was recalled 1 of 2 times. The miss came
+> despite the summary containing it.
+>
+> **It does not hold for the shipped plugin.** The plugin **already re-injects after
+> compaction**, and the trigger is `SessionStart(source:"compact")`, not
+> `PostCompact`. Its SessionStart has no matcher and the handler ignores `source`.
+> Observed: `hook_response SessionStart:compact` carried the constitution, and the
+> agent named it.
+>
+> **So R2 is a guard, not a build.** The guarantee exists by accident, untested, one
+> `"matcher": "startup|resume"` away from silently disappearing. Read the problem
+> and capability text below with that in mind.
 
-**Proof.** Deterministic test over the render; L4 arm that compacts a session and
-asserts the Constitution is still present. The can-fail arm is trivially available —
-today it is absent after compaction.
+**Depends on.** **Observed 2026-10-19 on CLI 2.1.286**: `PreCompact` →
+`SessionStart(compact)` → `PostCompact` fire on `/compact`. The 100k-token premise
+was wrong, because `/compact` is a real compaction on demand. Auto-compaction
+(`trigger: "auto"`) is still `[docs]` only.
+
+**Reshaped capability (proposed, for the RFC):**
+
+1. **Make it deliberate.**
+   - A deterministic Brake asserts that the plugin's SessionStart covers `compact`.
+     That means no matcher, or a matcher that includes `compact`, so the tidy-up
+     goes red.
+   - A unit test asserts that the engine's session-start render still leads with
+     the Constitution and the pinned handoff when the payload says
+     `source: "compact"`.
+2. **Decide whether to narrow it.** Today the *whole* resume render is re-injected,
+   bundle included. The original R2 text wanted only the Constitution, the pinned
+   handoff and cross-repo context. Narrowing is a token-cost choice for the RFC,
+   not a correctness fix.
+3. **Optionally use `PostCompact`** to record what the summary kept. This is
+   observation only.
+
+**Proof.** An L4 whose can-fail arm is the **startup-only matcher**. The predicate is a
+**content assertion over the output** (ADR-0051 §3), and it pairs two things:
+
+- **Recall,** in a trial whose `PostCompact.compact_summary` provably **lacks** the
+  sentinel. This is the case where only a re-injection can supply it.
+- **`hook_response SessionStart:compact` carrying the pinned sections.**
+
+Neither works alone:
+
+- **Recall alone can pass the contrast arm by luck.** The probe showed the
+  summariser can keep a salient constitution.
+- **The hook response alone proves emission, not receipt.**
 
 ### R3 — Failure capture on the Claude face
 
@@ -497,7 +538,9 @@ quota-capped surface.
 These are not rhetorical. Each changes what gets built.
 
 - **Q1. ~~Priority order of R1–R8.~~ ANSWERED 2026-10-16 (Ruling 4): adopted as written below.** *(Kept as drafted, before the probes ran. Since §7a,
-  R1 and R3 are observed too, and R5 turned out to be already delivered.)* My read:
+  R1 and R3 are observed too, and R5 turned out to be already delivered. R2's can-fail
+  arm turned out **not** to be trivial: a recall-only contrast can pass by
+  summariser luck. See §6 R2.)* My read:
   **R5 and R6 first** (the only `[cli]`-verified dependencies, and R5 retires a standing disclosure obligation),
   then **R2** (a correctness gap in a shipped guarantee, cheap, with a trivially
   available can-fail arm), then **R1** (the largest payoff and the largest unknown),
@@ -616,8 +659,9 @@ Not a schedule — this repo builds on evidence, not plans
   `PostToolUseFailure` (R3) were **fired and observed** on `2.1.273`, as were
   `SubagentStart`/`SubagentStop`, `PostToolBatch` and `InstructionsLoaded`;
   `claude plugin validate --strict` and `claude plugin tag` were exercised against
-  real malformations (harness survey §7a). **Still unobserved:** `PreCompact`/
-  `PostCompact` (R2), the `mcp_tool` hook type (R4), whether `SubagentStart` can
+  real malformations (harness survey §7a). `PreCompact`/`PostCompact` and
+  `SessionStart(compact)` were observed 2026-10-19 (§7b, R2). **Still unobserved:**
+  auto-compaction, the `mcp_tool` hook type (R4), whether `SubagentStart` can
   inject context, whether a plugin-loaded `hooks.json` tolerates an unknown event,
   and the permission events.
 - **The ~1.3% / `6 of 456` baseline** was measured at `8237fc4` on this repo's own

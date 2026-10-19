@@ -108,13 +108,14 @@ R5, R6 → R2 → R1 → R3, R7, R4, R8. No theme has an RFC yet.
   `claude plugin validate --strict` now runs on every plugin PR.
 - **R1 and R3 — dependencies observed** on CLI 2.1.273 in the 2026-10-13 probes
   (harness survey §7a). Both are still *proposed*.
-- **R2 and R4 — dependencies still unobserved.**
-  - R2's is `PostCompact`, which needs a real compaction to observe.
-  - R4's is the `mcp_tool` hook, whose probe has not been run.
-
-  Per §9, each gets probed before anything is built.
+- **R2 — probed 2026-10-19 and reshaped** (harness survey §7b). The shipped
+  plugin already re-injects after compaction via `SessionStart(source:"compact")`,
+  but by accident and untested. R2 is now a guard to make that deliberate, not a
+  build.
+- **R4 — dependency still unobserved.** That is the `mcp_tool` hook, whose probe has
+  not been run. Per §9, it gets probed before anything is built.
 - **R7 — proposed**, with no harness dependency to probe.
 - **R8 — proposed.** It depends on Claude Code Projects being available, which has
   not been checked.
 
-**Next is R2, and its first step is the `PostCompact` probe.**
+**Next is R2's RFC: the guard on the compaction re-injection.**
