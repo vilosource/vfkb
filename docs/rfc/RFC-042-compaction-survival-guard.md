@@ -83,8 +83,10 @@ as Claude Code itself decides that.
 
 **The check does not try to emulate Claude Code's matcher semantics, because they are
 not fully known.** Two probes on CLI 2.1.286 (brain `26887a51ef91`, which corrects
-`b6060bb9705c`; kit `docs/v3/research/probes/compaction-2026-10-19/matcher-probe.sh`; one
-run reproduced independently by the PR #350 reviewer) established this much:
+`b6060bb9705c`; kit `docs/v3/research/probes/compaction-2026-10-19/matcher-probe.sh`)
+established this much. The PR #350 reviewer independently reproduced every row except
+`"startup, compact"`, which only the author's run covers. `"compact"` alone was observed in
+review round 2.
 
 | Matcher | Fires on `compact`? |
 |---|---|
@@ -128,8 +130,10 @@ Two more conditions apply:
 - **It is a structural invariant, so it is a deterministic check (CLAUDE.md, testing
   pyramid).** It is not an LLM gate.
 - **The observed shapes are pinned to a CLI version, and a Brake enforces that.** The
-  plugin commits `scenarios/records/matcher-semantics.json`, containing the matcher probe's
-  output and the CLI version it ran on. The Brake fails if that `cliVersion` differs from
+  plugin commits `scenarios/records/matcher-semantics.json`. It holds the matcher probe's
+  **raw output** and the CLI version it ran on. The Brake re-parses that raw output rather
+  than reading a summary, though it still cannot prove the probe was re-run rather than the
+  version string edited by hand. That residual rests on review. The Brake fails if that `cliVersion` differs from
   the pinned CLI in `release-gate.yml`. So a CLI pin bump cannot merge without re-running the
   probe. The Brake also asserts that the record still shows its allowlisted shapes behaving
   as allowlisted. Without that, "re-run the probe on a pin bump" would be a prose rule.
@@ -182,11 +186,17 @@ marketplace path, not `--plugin-dir`.
   `installPath …/cache/vfkb/vfkb/<version>`. So editing an installed copy in place is not
   used: whether Claude Code honours or re-syncs such an edit is unprobed. The scenario
   asserts the byte difference between the two installed `hooks.json` files before running.
+- **The logging hooks must print nothing beyond `{}`.** Observed by the reviewer: the
+  `PreCompact` and `PostCompact` hooks' stdout is replayed into the post-compaction
+  conversation inside `<local-command-stdout>`. A logger that echoed its stdin would turn the
+  observation hook into a second injection path.
 - **Per-trial booleans,** each a content assertion over the output (ADR-0051 §3), all
   written to the record so the gate can recompute every verdict:
   1. `emitted`: `hook_response SessionStart:compact` carries both sentinels;
   2. `noLeak`: `PostCompact.compact_summary`, captured by a logging hook, carries
-     **neither** sentinel;
+     **neither** sentinel. Matching is **normalised**: lower-cased and stripped of
+     non-alphanumerics, so paraphrases such as `kumquat 8812` or split halves still count
+     as a leak. A summary containing the numeric half of either sentinel is also a leak;
   3. `noToolUse`: there is no `tool_use` block after `compact_boundary`;
   4. `received`: the agent's final answer names both sentinels.
 - **Validity, recomputed by the gate rather than filtered by the scenario.** A trial is
@@ -197,10 +207,17 @@ marketplace path, not `--plugin-dir`.
   - **contrast** is positive when `received` alone. Its hits must be exactly **0**. The
     contrast uses `received` alone because reusing the full predicate would score 0 by
     construction, since `emitted` is false there, and then the contrast could never fail.
-- **DEMONSTRATED** needs both of these, in a committed record
+- **DEMONSTRATED** needs all of these, in a committed record
   `scenarios/records/compaction-survival.json`:
-  - at least 3 valid trials per arm, compacted ≥2/3, and contrast 0/3;
-  - every attempt present in the record.
+  - at least 3 valid trials per arm;
+  - compacted positives ≥ `ceil(2n/3)` over **all** `n` valid trials, not the first three;
+  - contrast hits = 0 over all its valid trials;
+  - `attempts ≤ cap` and `attempts == trials.length`.
+
+  **What the gate cannot see:** it can recompute everything in the record, but not an
+  attempt that the scenario dropped before writing the record. "Every attempt recorded" is
+  therefore a property of the scenario's code. It rests on review of that code, not on the
+  gate.
 
 **This needs a gate change, and it is part of this RFC.** Today `release-gate.mjs`'s
 `verdict()` accepts a contrast with up to `floor(trials/3)` hits, and it has no notion of
