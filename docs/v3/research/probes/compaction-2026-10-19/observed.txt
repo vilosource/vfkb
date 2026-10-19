@@ -87,3 +87,8 @@ system compact_boundary
 user message carries sentinel (the compaction summary)
 result ""
 result "NONE"
+
+# --- matcher-probe.sh, 2026-10-19, CLI 2.1.286 ---
+m0=null m1="startup" m2="startup|compact" m3="compact|resume" m4="compa" m5="omp.ct" m6="c.mpact" m7="^compact$" m8="comp.*" m9="*" m10="" m11="Compact"
+startup: m0 m1 m10 m2 m9
+compact: m0 m10 m2 m3 m5 m6 m7 m8 m9
