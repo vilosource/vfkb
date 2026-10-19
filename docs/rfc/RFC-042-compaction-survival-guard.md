@@ -26,7 +26,8 @@ timestamp: 2026-10-19
   - [ADR-0070](../adr/ADR-0070-guards-that-can-fail.md): a guard is trusted only once it has
     been seen red.
 - **Evidence:**
-  - brain `b6060bb9705c` (the matcher semantics);
+  - brain `26887a51ef91` (the matcher shapes, correcting `b6060bb9705c`) and `c276f42c1f2f`
+    (a no-tools trial still re-injects);
   - harness survey [§7b](../v3/research/claude-code-harness-2026-10.md);
   - the probe kit in
     [`docs/v3/research/probes/compaction-2026-10-19/`](../v3/research/probes/compaction-2026-10-19/);
@@ -80,42 +81,58 @@ Add a check to vfkb-claude-plugin's `release-gate.yml`, next to the R6 wiring Br
 SessionStart hook entry that runs `hook session-start` must **fire on `source:"compact"`**,
 as Claude Code itself decides that.
 
-**The check must emulate Claude Code's matcher semantics, and those are not "a regex".**
-They were probed on CLI 2.1.286 (brain `b6060bb9705c`, kit
-`docs/v3/research/probes/compaction-2026-10-19/matcher-probe.sh`):
+**The check does not try to emulate Claude Code's matcher semantics, because they are
+not fully known.** Two probes on CLI 2.1.286 (brain `26887a51ef91`, which corrects
+`b6060bb9705c`; kit `docs/v3/research/probes/compaction-2026-10-19/matcher-probe.sh`; one
+run reproduced independently by the PR #350 reviewer) established this much:
 
-| Matcher | Fires on `compact`? | Mode |
-|---|---|---|
-| absent, `""`, `"*"` | yes | match-all |
-| `"startup"`, `"startup\|resume"`, `"compa"`, `"Compact"` | **no** | **exact, case-sensitive, `\|`-separated list**, used when the matcher is only word characters and `\|` |
-| `"startup\|compact"`, `"compact\|resume"` | yes | exact list |
-| `"omp.ct"`, `"c.mpact"`, `"^compact$"`, `"comp.*"` | yes | **unanchored regex search**, used for anything else |
+| Matcher | Fires on `compact`? |
+|---|---|
+| absent, `""`, `"*"` | yes, every source |
+| `"startup\|compact"`, `"compact\|resume"`, `"compact"` | yes |
+| `"startup \| compact"`, `"compact,startup"`, `"startup, compact"`, `"compact "`, `" compact"` | **yes.** `,` also separates items and whitespace around items is trimmed; the first three fire on `startup` too |
+| `"startup"`, `"startup\|resume"`, `"compa"`, `"compac"`, `"Compact"`, `"comp-act"`, `"startup\|compa"` | **no.** Items are exact and case-sensitive, not substrings |
+| `"omp.ct"`, `"c.mpact"`, `"^compact$"`, `"comp.*"`, `"compact\\b"`, `"[c]ompact"` | yes, as an unanchored regex search |
 
-A naive `new RegExp(m).test("compact")` gets this wrong: it would accept `"compa"`, a matcher
-that silently drops compaction. The Brake implements both modes.
+**What is not established is the rule for when a matcher is read as a list versus a
+regex.** A naive `new RegExp(m).test("compact")` would accept `"compa"`, which drops
+compaction. A naive list split would reject `"omp.ct"`. Either emulation would be guessing.
 
-The exact boundary of "word characters", for example whether `-` keeps a matcher in exact
-mode, was **not** probed. Until it is, the Brake accepts only three kinds of matcher:
-- one that is absent, `""` or `"*"`;
-- an exact-mode matcher, made of `[A-Za-z0-9_|]` only, whose `|`-list contains `compact`.
+**So the Brake allowlists observed shapes and fails closed on everything else.** It
+accepts a session-start entry only if one of these holds:
+- its matcher is absent, `""` or `"*"`;
+- its matcher is made only of `[A-Za-z0-9_|]`, and its `|`-separated items include the
+  exact string `compact`.
 
-**Anything else is rejected, even a regex that does match `compact`.** It fails closed on
-the unprobed region, with a message saying so. The shipped plugin has no matcher, so this
-costs nothing today.
+Everything else is rejected with a message naming this rule. That includes matchers that
+really do cover compact, such as `"startup, compact"` or `"c.mpact"`. **That trade gives
+false reds and never false greens.** The shipped plugin has no matcher, so it costs nothing
+today.
+
+Two more conditions apply:
+- **There must be at least one identified session-start entry.** If none is found, the
+  Brake goes red. That way a wrapper script or an unusual command spelling that hides the
+  entry fails closed instead of passing silently.
+- **Gating on `source` inside the command,** for example an inline `case` or a wrapper
+  script, is invisible to the Brake. That case belongs to the part 3 L4, and the
+  Consequences section says so.
 
 - **Selftest, observed red first (ADR-0070 §1).** A baseline matching the shipped
   `hooks.json` (no matcher) stays green.
-  - **Red:** `"startup"`, `"startup|resume"`, `"resume"`, `"compa"`, `"Compact"`, and the
-    session-start entry removed.
-  - **Green:** absent, `""`, `"*"`, `"startup|compact"`, `"compact"`.
-  - Regex-mode matchers such as `"c.mpact"` go red under the fail-closed rule, and the
-    message must name the rule. That case is in the selftest too, so the fail-closed
-    behaviour is itself observed.
+  - **Red:** `"startup"`, `"startup|resume"`, `"resume"`, `"compa"`, `"Compact"`,
+    `"startup|compa"`, and the session-start entry removed.
+  - **Green:** absent, `""`, `"*"`, `"startup|compact"`, `"compact"`, `"compact|"`.
+  - **Red under the fail-closed rule,** with a message naming it: `"c.mpact"` and
+    `"startup, compact"`. The selftest includes these, so the fail-closed behaviour is
+    itself observed.
 - **It is a structural invariant, so it is a deterministic check (CLAUDE.md, testing
   pyramid).** It is not an LLM gate.
-- **The semantics table is pinned to a CLI version.** The Brake pins the CLI already
-  (R6 pins 2.1.286). A pin bump re-runs the matcher probe kit before the bump merges, so a
-  semantics change shows up as a red rather than as a silently wrong emulation.
+- **The observed shapes are pinned to a CLI version, and a Brake enforces that.** The
+  plugin commits `scenarios/records/matcher-semantics.json`, containing the matcher probe's
+  output and the CLI version it ran on. The Brake fails if that `cliVersion` differs from
+  the pinned CLI in `release-gate.yml`. So a CLI pin bump cannot merge without re-running the
+  probe. The Brake also asserts that the record still shows its allowlisted shapes behaving
+  as allowlisted. Without that, "re-run the probe on a pin bump" would be a prose rule.
 
 ### 2. Engine: the render does not depend on `source`, and a test says so
 
@@ -130,6 +147,9 @@ deliberate:
   sections, in the same leading order.
 - **A comment at the handler** naming this RFC/ADR, so the next person to touch it knows that
   ignoring `source` is load-bearing.
+- **One known difference is harmless.** `healBrain` is latched per session id, so a
+  restore note emitted at startup is not re-emitted after a compaction. The pinned sections
+  are unaffected. The test compares those sections, not the whole output.
 - **The session-record path needs no change.** `SessionState.load` keys on `session_id`, and
   that is unchanged across a compaction (observed). A compaction therefore updates the same
   session record and does not open a new one.
@@ -138,34 +158,56 @@ deliberate:
 
 This goes in the plugin repo because the behaviour under test is the shipped wiring, the
 same reasoning that put `hooks-smoke` there. It loads the plugin through the real
-marketplace path, as `hooks-smoke` does, not `--plugin-dir`.
+marketplace path, not `--plugin-dir`.
 
 - **Brain:** a sandbox brain with one constitutional decision and one pinned handoff, each
   carrying its own unguessable sentinel.
-- **Each trial is one `--input-format stream-json` process:**
+- **Each trial is one `--input-format stream-json` process,** run with
+  **`--tools "" --strict-mcp-config`**:
   1. a startup turn;
   2. `/compact` with the omit-code-words instructions;
   3. a turn that asks for both sentinels.
 
-  It must be a single process, because every `--resume` fires `SessionStart(resume)` and
-  would re-inject between the compaction and the question.
-- **The arms:**
-  - **compacted:** the plugin as shipped;
-  - **contrast:** the identical sandbox, but with `hooks.json`'s SessionStart matched to
-    `startup`. Applied to an installed copy, this is the single variable.
-- **Predicate:** a content assertion over the output (ADR-0051 §3). A trial is **positive**
-  only if all three of these hold:
-  1. *emission:* the stream's `hook_response SessionStart:compact` carries both sentinels;
-  2. *no-leak:* `PostCompact.compact_summary`, captured by a logging hook, carries
-     **neither** sentinel;
-  3. *receipt:* the agent's final answer names both.
+  It must be **one process** because every `--resume` fires `SessionStart(resume)` and
+  would re-inject between the compaction and the question. It must have **no tools and no
+  MCP**, or the agent could satisfy receipt by reading the brain itself through `kb_*` or
+  `Read`. Observed: with `tools: []` and `mcp_servers: []` the plugin's hooks still fire and
+  re-inject, and no tool call was made (brain `c276f42c1f2f`).
+- **The arms, with one variable: the bytes of `hooks.json`.**
+  - **compacted:** a marketplace install of the checkout under test.
+  - **contrast:** a marketplace install of a **temp copy** of that checkout, whose only
+    difference is SessionStart `"matcher":"startup"`.
 
-  A trial whose summary leaked is scored **invalid**, not positive. A run that cannot produce
-  three valid trials in the attempt budget is a red, not a pass.
-- **Contrast arm:** must be 0/3 on receipt, with summaries that did not leak.
-- **DEMONSTRATED:** ≥2/3 compacted arm and 0/3 contrast, per ADR-0022, in a committed record
-  `scenarios/records/compaction-survival.json`. It joins the gate's `REQUIRED` list, so every
-  release re-pins it.
+  Directory-source installs copy into the plugin cache, as the reviewer observed with
+  `installPath …/cache/vfkb/vfkb/<version>`. So editing an installed copy in place is not
+  used: whether Claude Code honours or re-syncs such an edit is unprobed. The scenario
+  asserts the byte difference between the two installed `hooks.json` files before running.
+- **Per-trial booleans,** each a content assertion over the output (ADR-0051 §3), all
+  written to the record so the gate can recompute every verdict:
+  1. `emitted`: `hook_response SessionStart:compact` carries both sentinels;
+  2. `noLeak`: `PostCompact.compact_summary`, captured by a logging hook, carries
+     **neither** sentinel;
+  3. `noToolUse`: there is no `tool_use` block after `compact_boundary`;
+  4. `received`: the agent's final answer names both sentinels.
+- **Validity, recomputed by the gate rather than filtered by the scenario.** A trial is
+  *valid* only if `noLeak` and `noToolUse` both hold. Every attempt is recorded, invalid ones
+  included, with `attempts` capped (proposed: 6 per arm).
+- **Verdicts,** computed over valid trials only:
+  - **compacted** is positive when `emitted ∧ received`;
+  - **contrast** is positive when `received` alone. Its hits must be exactly **0**. The
+    contrast uses `received` alone because reusing the full predicate would score 0 by
+    construction, since `emitted` is false there, and then the contrast could never fail.
+- **DEMONSTRATED** needs both of these, in a committed record
+  `scenarios/records/compaction-survival.json`:
+  - at least 3 valid trials per arm, compacted ≥2/3, and contrast 0/3;
+  - every attempt present in the record.
+
+**This needs a gate change, and it is part of this RFC.** Today `release-gate.mjs`'s
+`verdict()` accepts a contrast with up to `floor(trials/3)` hits, and it has no notion of
+validity. Part 3 therefore adds a scenario-specific rule for `compaction-survival`. That
+rule recomputes validity from the per-trial booleans, requires contrast hits = 0, and
+requires ≥3 valid trials per arm. The gate's selftest gains cases where each of these goes
+red. The record joins `REQUIRED`, subject to Q1.
 
 ### 4. Narrowing: deferred, evidence-gated
 
@@ -188,6 +230,12 @@ cross-repo context, not the whole bundle. **This RFC does not propose that.**
   whose can-fail arm is a compaction.
 - **Each release re-pins one more record.** `compaction-survival` costs about six metered
   sessions per release on the CI leg (DeepSeek) or the laptop leg.
+- **Part 3 is the only defence against gating on `source` inside the command,** such as an
+  inline `case` or a wrapper script under `plugin/hooks/`. Part 1 cannot see it. If Q2 picks
+  conditional re-pinning, the trigger must therefore be *any* change under
+  `plugin/hooks/**` or to the vendored engine, not just `hooks.json`.
+- **Still unverified:** `/compact` in a stream-json process under a **marketplace**
+  install. Every observation so far used `--plugin-dir`. Building part 3 probes it first.
 - **Auto-compaction (`trigger:"auto"`) stays unproven.** Every observation here used
   `/compact`. The docs say `SessionStart(compact)` fires for both, but that is `[docs]` only.
   The L4 records `trigger:"manual"`, and any release note citing it must say so. Proving
@@ -221,8 +269,10 @@ Capability level, per ADR-0050/0051:
    listed, with output quoted in the PR.
 2. **Part 2** is merged in vfkb, the unit test was observed red against a deliberately
    source-gated handler, and the engine is re-vendored into the plugin.
-3. **Part 3:** `scenarios/records/compaction-survival.json` is DEMONSTRATED (compacted ≥2/3
-   valid trials, contrast 0/3), version-bound, and required by the release gate.
+3. **Part 3:** the gate's new `compaction-survival` rule has been observed red on each
+   failure mode. `scenarios/records/compaction-survival.json` is DEMONSTRATED under that
+   rule (≥3 valid trials per arm, compacted ≥2/3, contrast 0/3, every attempt recorded),
+   version-bound, and required by the release gate.
 4. **Until 3 lands,** the honest status of R2 is *"built, NOT yet verified"*, whatever parts 1
    and 2 say.
 

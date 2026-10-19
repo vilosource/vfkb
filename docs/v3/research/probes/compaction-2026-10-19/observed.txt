@@ -92,3 +92,16 @@ result "NONE"
 m0=null m1="startup" m2="startup|compact" m3="compact|resume" m4="compa" m5="omp.ct" m6="c.mpact" m7="^compact$" m8="comp.*" m9="*" m10="" m11="Compact"
 startup: m0 m1 m10 m2 m9
 compact: m0 m10 m2 m3 m5 m6 m7 m8 m9
+
+# --- matcher boundary run, 2026-10-19 (matcher-probe.sh with a different list) ---
+m0=null m1="startup | compact" m2="compact,startup" m3="compact " m4=" compact" m5="startup, compact" m6="comp-act" m7="startup|compa" m8="compac"
+startup: m0 m1 m2 m5 m7
+compact: m0 m1 m2 m3 m4 m5
+# => `,` also separates items; whitespace around items is trimmed. Corrects brain b6060bb9705c (see 26887a51ef91).
+
+# --- no-tools receipt trial, 2026-10-19 (real.sh + --tools "" --strict-mcp-config, /compact omit-code-words) ---
+init tools: [] mcp: []
+system hook_response SessionStart:compact [carries sentinel]
+PostCompact summary carries sentinel: false
+tool_use after compact_boundary: 0
+result "KUMQUAT-8812"

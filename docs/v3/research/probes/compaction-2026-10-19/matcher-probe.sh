@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# usage: matcher-probe.sh <scratch-dir>
+# usage: matcher-probe.sh <scratch-dir> [json-array-of-matchers]
 # Which SessionStart matchers fire on source "startup" vs "compact"? One process:
 # a startup turn, then /compact. Each matcher's hook logs its own tag + stdin.
 # Tags are m0..mN on purpose: a `|` in a hook-command argument is a shell pipe.
@@ -12,11 +12,12 @@ TAG
 chmod +x "$M/tag.sh"
 node -e '
 const M = process.argv[1];
-const ms = [null, "startup", "startup|compact", "compact|resume", "compa", "omp.ct",
-            "c.mpact", "^compact$", "comp.*", "*", "", "Compact"];
+const ms = process.argv[2] ? JSON.parse(process.argv[2]) :
+  [null, "startup", "startup|compact", "compact|resume", "compa", "omp.ct",
+   "c.mpact", "^compact$", "comp.*", "*", "", "Compact"];
 const e = (m, i) => ({ ...(m === null ? {} : { matcher: m }), hooks: [{ type: "command", command: `${M}/tag.sh m${i}` }] });
 require("fs").writeFileSync(`${M}/s.json`, JSON.stringify({ enabledPlugins: { "vfkb@vfkb": false }, hooks: { SessionStart: ms.map(e) } }));
-console.log(ms.map((m, i) => "m" + i + "=" + JSON.stringify(m)).join(" "));' "$M"
+console.log(ms.map((m, i) => "m" + i + "=" + JSON.stringify(m)).join(" "));' "$M" "${2:-}"
 export MLOG="$M/log.txt"; rm -f "$MLOG"
 cd "$M/sb"
 { printf '%s\n' '{"type":"user","message":{"role":"user","content":"Reply OK."}}'; sleep 20
