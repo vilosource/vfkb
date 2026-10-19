@@ -7,11 +7,10 @@ queue**: what to pick up next and why. It is *not* an execution authority.
 tier-1 item here implies a *track*-level change, the move is to update and re-ratify the roadmap —
 not to grow this file into one.
 
-> **The roadmap is stale.** §4's last entry is the PI-CODING-AGENT initiative (2026-07-22..23) and
-> the file was last touched **2026-07-25**. Everything since — the ADR-0064 journal, ADR-0070,
-> ADR-0072/0073, plugin v0.18.x/v0.19.0, the whole `$CLAUDE_CONFIG_DIR` arc — is unrecorded there.
-> CLAUDE.md says a "what's next?" urge is a signal to re-ratify it. That re-ratification is itself
-> the highest-value item on this page, and it is an operator act, not an agent one.
+> **The roadmap was re-ratified on 2026-10-19** (brain `ef3500b68252`). §4's ▶ Current action is
+> now the **v3 cycle**, which supersedes P12; P12 is paused, not abandoned. The tiers below date
+> from 2026-09-14 and predate that ruling, so treat them as the open-issue backlog, not the
+> frontier. *(The earlier "roadmap is stale" note is resolved.)*
 
 **Maintenance:** re-sort when an issue is filed, closed, or its evidence gate fires. Every priority
 claim below names *why now*, so a stale rationale is visible rather than inherited.
