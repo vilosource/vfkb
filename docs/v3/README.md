@@ -118,4 +118,4 @@ R5, R6 → R2 → R1 → R3, R7, R4, R8. R2 is the only theme with an RFC so far
 - **R8 — proposed.** It depends on Claude Code Projects being available, which has
   not been checked.
 
-**R2's RFC-042 is accepted as ADR-0077 (2026-10-19). Next is building its guard.**
+**R2: RFC-042 → ADR-0077 accepted, and clauses 1–2 landed on 2026-10-19 (plugin#63, vfkb#352). R2 is built, NOT yet verified. Next is clause 3, the compaction-survival L4.**

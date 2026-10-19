@@ -345,7 +345,7 @@ construction: Constitution + pinned handoff + cross-repo, not the ranked bundle.
 was wrong, because `/compact` is a real compaction on demand. Auto-compaction
 (`trigger: "auto"`) is still `[docs]` only.
 
-**Reshaped capability — [RFC-042](../rfc/RFC-042-compaction-survival-guard.md), ACCEPTED 2026-10-19 → [ADR-0077](../adr/ADR-0077-compaction-survival-guard.md) (Q1 phased, Q2 every release). Status: built, NOT yet verified once parts 1–2 land; verified only when the compaction-survival record is DEMONSTRATED.**
+**Reshaped capability — [RFC-042](../rfc/RFC-042-compaction-survival-guard.md), ACCEPTED 2026-10-19 → [ADR-0077](../adr/ADR-0077-compaction-survival-guard.md) (Q1 phased, Q2 every release). Status (2026-10-19): **clauses 1–2 LANDED. R2 is built, NOT yet verified.** Clause 1 is the plugin compaction-coverage Brake ([vfkb-claude-plugin#63](https://github.com/vilosource/vfkb-claude-plugin/pull/63)). Clause 2 is the engine render test ([vfkb#352](https://github.com/vilosource/vfkb/pull/352)). R2 is verified only when the clause-3 compaction-survival record is DEMONSTRATED.**
 
 > **The items and Proof below are the pre-RFC sketch, superseded by ADR-0077.** Where they
 > differ, the ADR wins. The Brake is a **fail-closed allowlist**: `"startup, compact"` goes
