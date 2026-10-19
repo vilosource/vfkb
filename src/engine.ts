@@ -537,7 +537,7 @@ export function renderCaptureFallback(engineDir = dirname(fileURLToPath(import.m
   return (
     `capture fallback: if the kb_* tools error or disappear, the CLI still writes ` +
     `(same engine, separate process; journaled per ADR-0064) —\n` +
-    `  VFKB_DATA_DIR="${resolvePath(brainDir())}" ${target} add <type> "…" [--tags a,b] [--why "…"]`
+    `  VFKB_DATA_DIR="${resolvePath(brainDir())}" ${target} add <type> "…" [--tag a,b] [--why "…"]`
   );
 }
 
