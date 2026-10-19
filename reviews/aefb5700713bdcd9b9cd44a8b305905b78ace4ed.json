@@ -1,0 +1,83 @@
+{
+  "recordVersion": 1,
+  "sha": "aefb5700713bdcd9b9cd44a8b305905b78ace4ed",
+  "governing": [
+    "docs/adr/ADR-0065-write-health-loudness.md"
+  ],
+  "reviewer": {
+    "agent": "general-purpose",
+    "model": "opus",
+    "rounds": 2
+  },
+  "generated": "2026-10-19T14:47:38.212Z",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "guard extracted only [--lower value] flags: unbracketed --tags, --Why, bare --bogus, unbracketed --zzz stayed green; now every --flag token after `add` is extracted",
+      "acceptedBy": null
+    },
+    {
+      "id": "F2",
+      "severity": "minor",
+      "status": "open",
+      "summary": "guard feeds its own values, not the advertised ones, so a bad value form ([--tag a b]) passes; carried, non-blocking",
+      "acceptedBy": null
+    },
+    {
+      "id": "F3",
+      "severity": "minor",
+      "status": "open",
+      "summary": "slice starts at the first \" add \": a TMPDIR containing \" add --x\" false-reds; default macOS/CI temp paths do not; non-blocking",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 3,
+  "ruledOut": [
+    "source-text guard: drives dist/cli.js via the real `add`",
+    "--status/--valid-until/--constitutional with a dummy value: accepted, no false red",
+    "other agent-facing --tags in src/docs/skills: none (args.ts trap comment, RFC-033 history, rejection tests only)",
+    "AI attribution / secrets: none",
+    "stale dist: npm test runs tsc in pretest; CI builds"
+  ],
+  "mutations": [
+    {
+      "guard": "test/capture-fallback.test.ts > every optional flag it advertises is one the real CLI `add` accepts",
+      "mutation": "hint reverted to [--tags a,b]",
+      "observedRed": true
+    },
+    {
+      "guard": "test/capture-fallback.test.ts > every optional flag it advertises is one the real CLI `add` accepts",
+      "mutation": "unbracketed --tags a,b",
+      "observedRed": true
+    },
+    {
+      "guard": "test/capture-fallback.test.ts > every optional flag it advertises is one the real CLI `add` accepts",
+      "mutation": "[--Why \"…\"]",
+      "observedRed": true
+    },
+    {
+      "guard": "test/capture-fallback.test.ts > every optional flag it advertises is one the real CLI `add` accepts",
+      "mutation": "bare [--bogus]",
+      "observedRed": true
+    },
+    {
+      "guard": "test/capture-fallback.test.ts > every optional flag it advertises is one the real CLI `add` accepts",
+      "mutation": "unbracketed --zzz x",
+      "observedRed": true
+    },
+    {
+      "guard": "test/capture-fallback.test.ts > every optional flag it advertises is one the real CLI `add` accepts",
+      "mutation": "invented [--foo x]",
+      "observedRed": true
+    },
+    {
+      "guard": "test/capture-fallback.test.ts > every optional flag it advertises is one the real CLI `add` accepts",
+      "mutation": "all bracketed flags removed",
+      "observedRed": true
+    }
+  ],
+  "mutationsNote": null,
+  "verdict": "MERGE"
+}
