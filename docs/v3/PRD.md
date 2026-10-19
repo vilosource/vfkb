@@ -322,16 +322,49 @@ never been written down.
 **Capability.** Re-assert the pinned sections after compaction. Narrow by
 construction: Constitution + pinned handoff + cross-repo, not the ranked bundle.
 
-**Depends on.** `PostCompact` — **STILL UNOBSERVED.** The 2026-10-13 probes did not
-fire it: forcing a real compaction means filling a 100k–1M token window, judged too
-expensive for a probe (harness survey §7a). **This is now the most important
-remaining gap**, because R2's premise — a shipped guarantee that silently does not
-survive compaction — is otherwise the most compelling item in this document, and it
-rests entirely on documentation.
+> **⚠ RESHAPED BY THE 2026-10-19 PROBE** (harness survey §7b; brain `1b10486b07c6`).
+>
+> **The premise holds in general:** injected context survives compaction only if the
+> summariser keeps it. One synthetic sentinel was lost and one constitution was kept,
+> at N=1 each.
+>
+> **It does not hold for the shipped plugin.** The plugin **already re-injects after
+> compaction**, and the trigger is `SessionStart(source:"compact")`, not
+> `PostCompact`. Its SessionStart has no matcher and the handler ignores `source`.
+> Observed: `hook_response SessionStart:compact` carried the constitution, and the
+> agent named it.
+>
+> **So R2 is a guard, not a build.** The guarantee exists by accident, untested, one
+> `"matcher": "startup|resume"` away from silently disappearing. Read the problem
+> and capability text below with that in mind.
 
-**Proof.** Deterministic test over the render; L4 arm that compacts a session and
-asserts the Constitution is still present. The can-fail arm is trivially available —
-today it is absent after compaction.
+**Depends on.** **Observed 2026-10-19 on CLI 2.1.286**: `PreCompact` →
+`SessionStart(compact)` → `PostCompact` fire on `/compact`. The 100k-token premise
+was wrong, because `/compact` is a real compaction on demand. Auto-compaction
+(`trigger: "auto"`) is still `[docs]` only.
+
+**Reshaped capability (proposed, for the RFC):**
+
+1. **Make it deliberate.**
+   - A deterministic Brake asserts that the plugin's SessionStart covers `compact`.
+     That means no matcher, or a matcher that includes `compact`, so the tidy-up
+     goes red.
+   - A unit test asserts that the engine's session-start render still leads with
+     the Constitution and the pinned handoff when the payload says
+     `source: "compact"`.
+2. **Decide whether to narrow it.** Today the *whole* resume render is re-injected,
+   bundle included. The original R2 text wanted only the Constitution, the pinned
+   handoff and cross-repo context. Narrowing is a token-cost choice for the RFC,
+   not a correctness fix.
+3. **Optionally use `PostCompact`** to record what the summary kept. This is
+   observation only.
+
+**Proof.** An L4 whose can-fail arm is the **startup-only matcher**. The predicate must
+be a **content assertion over the stream**: `hook_response SessionStart:compact`
+carries the pinned sections. Agent recall alone cannot be the predicate, because the
+probe showed the summariser can keep a salient constitution by luck. A recall-only
+contrast arm can therefore pass, and a proof that cannot fail proves nothing
+(ADR-0051 §3).
 
 ### R3 — Failure capture on the Claude face
 

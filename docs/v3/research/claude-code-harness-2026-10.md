@@ -433,11 +433,8 @@ L4 needs gated, caught deterministically with an actionable message.
 
 ### What remains UNOBSERVED after these probes
 
-- **`PreCompact` / `PostCompact` — not fired.** Forcing a real compaction means
-  filling a 100k–1M token window, which was judged too expensive for a probe. **R2's
-  dependency is therefore still `[docs]` only**, and R2 is the theme whose premise
-  (a shipped guarantee that does not survive compaction) is otherwise the most
-  compelling. This is the most important remaining gap.
+- ~~**`PreCompact` / `PostCompact` — not fired.**~~ **Observed 2026-10-19 — see §7b.**
+  The 100k-token premise was wrong: `/compact` is a real compaction on demand.
 - **`PermissionRequest` / `PermissionDenied`** — suppressed by
   `--permission-mode bypassPermissions`; not retested under a prompting mode.
 - **`Setup`, `UserPromptExpansion`, `TaskCreated`, `TaskCompleted`, `TeammateIdle`,
@@ -450,6 +447,56 @@ L4 needs gated, caught deterministically with an actionable message.
   remaining half).
 - **Probe 3 — `mcp_tool` hook latency and its failure mode with the server down** —
   not run. R4 stays entirely `[docs]`.
+
+### 7b. PROBE 6 — compaction, 2026-10-19, on CLI `2.1.286`
+
+Kit and traces: [`probes/compaction-2026-10-19/`](probes/compaction-2026-10-19/).
+Brain `1b10486b07c6`. Everything here was observed at N=1 per arm. This is an
+observation probe, not an L4.
+
+**Method.** `/compact` forces a real compaction (`trigger: "manual"`), so there is no
+need to fill a 100k–1M window. §7a's estimate was wrong, and it cost the probe a
+week.
+
+- **Synthetic arms.** A SessionStart hook injects a sentinel naming its `source`,
+  gated to fire on every source, on `startup` only, or on `compact` only. Then:
+  startup turn → `/compact` → a turn asking for the sentinel.
+- **Real-plugin arms.** These run in **one `--input-format stream-json` process**,
+  because every `--resume` fires `SessionStart(source:"resume")` and would re-inject
+  in between.
+
+**What fired, in order (every arm):** `PreCompact` (`trigger: "manual"`,
+`custom_instructions: null`) → **`SessionStart` with `source: "compact"`** →
+`PostCompact` (`trigger: "manual"`, carrying `compact_summary`). In the stream that
+appears as `hook_response SessionStart:compact` followed by `compact_boundary`.
+
+| Arm | Injected on | Agent's answer after compaction | Where it came from |
+|---|---|---|---|
+| synthetic, every source | all | `TANGERINE-compact-4471` | the compact re-injection |
+| synthetic, **startup only** | startup | **`NONE`** | lost; the summary dropped it |
+| synthetic, compact only | compact | `TANGERINE-compact-4471` | the compact re-injection |
+| **real plugin 0.20.1 as shipped** | all (no matcher) | `KUMQUAT-8812` | `hook_response SessionStart:compact` carries the constitution |
+| real plugin, `matcher: "startup"` | startup | `KUMQUAT-8812` | **the compaction summary**, which happened to keep "Constitutional code word requirement: KUMQUAT-8812" |
+
+**Four findings.**
+
+1. **R2's premise is real, but it is not the shipped state.** Content injected at
+   session start survives compaction only if the summariser decides to keep it.
+   That happened once and failed to happen once, which is not a guarantee.
+2. **The re-injection point already exists, and it is `SessionStart(compact)`, not
+   `PostCompact`.** Its `additionalContext` reaches the post-compaction context.
+3. **The shipped plugin already re-injects, by accident.** Its `hooks.json`
+   SessionStart has no matcher, and `src/cli.ts`'s `hook session-start` ignores
+   `source`. So the full resume render (the Constitution, the pinned handoff and
+   the ranked bundle) is re-injected after every compaction. Nobody designed it and
+   nothing tests it. A tidy-looking `"matcher": "startup|resume"` would silently
+   delete it.
+4. **`PostCompact` remains the right place for an *observation*, not an
+   injection.** Its `compact_summary` is the one signal of what the summariser
+   kept.
+
+**Not exercised:** auto-compaction (`trigger: "auto"`). That `SessionStart(compact)`
+also fires there is `[docs]` only.
 
 ---
 
