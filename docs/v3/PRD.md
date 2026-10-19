@@ -325,8 +325,10 @@ construction: Constitution + pinned handoff + cross-repo, not the ranked bundle.
 > **⚠ RESHAPED BY THE 2026-10-19 PROBE** (harness survey §7b; brain `1b10486b07c6`).
 >
 > **The premise holds in general:** injected context survives compaction only if the
-> summariser keeps it. One synthetic sentinel was lost and one constitution was kept,
-> at N=1 each.
+> summariser keeps it, and even then the agent may not use it. Across the
+> 2026-10-19 runs (survey §7b), a synthetic startup-only sentinel was lost 3 of 3
+> times. A startup-only constitution was recalled 1 of 2 times. The miss came
+> despite the summary containing it.
 >
 > **It does not hold for the shipped plugin.** The plugin **already re-injects after
 > compaction**, and the trigger is `SessionStart(source:"compact")`, not

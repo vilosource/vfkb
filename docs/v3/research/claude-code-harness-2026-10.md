@@ -460,8 +460,8 @@ L4 needs gated, caught deterministically with an actionable message.
 ### 7b. PROBE 6 — compaction, 2026-10-19, on CLI `2.1.286`
 
 Kit and traces: [`probes/compaction-2026-10-19/`](probes/compaction-2026-10-19/).
-Brain `1b10486b07c6`. Everything here was observed at N=1 per arm. This is an
-observation probe, not an L4.
+Brain `1b10486b07c6`. Each arm was run 1–3 times (tallies below). This is an
+observation probe, not an L4, so the counts are observations, not rates.
 
 **Method.** `/compact` forces a real compaction (`trigger: "manual"`), so there is no
 need to fill a 100k–1M window. §7a's estimate was wrong, and it cost the probe a
@@ -521,10 +521,10 @@ committed kit. Each is still small-N, so read them as observations, not rates.
 
 | Arm | Agent recalled the sentinel after compaction |
 |---|---|
-| real plugin, as shipped (re-injects on `compact`) | **3/3** |
+| real plugin, as shipped (re-injects on `compact`) | **3/3** — the re-injection carried the sentinel in all 3 runs, but only 1 isolates receipt; in the clean-kit run the summary also carried it |
 | real plugin, `matcher: "startup"` | **1/2** — once via the summary; once **`NONE` even though the summary contained the sentinel** |
 | synthetic, startup only | **0/3** |
-| synthetic, startup only, **no `/compact`** (control) | 1/1 |
+| synthetic, startup only, **no `/compact`** (control) | 2/2 |
 
 Two of these runs matter most:
 

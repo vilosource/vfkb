@@ -75,10 +75,15 @@ luck channel), and the agent's answers (receipt).
 
 ## Limits
 
-- **N=1 per arm.** This is an observation probe, not an L4. It establishes that the
-  events fire and what the shipped plugin does. It does not establish rates.
+- **Small N.** Each arm was run 1–3 times; the survey §7b tallies have the counts.
+  This is an observation probe, not an L4. It establishes that the events fire and
+  what the shipped plugin does. It does not establish rates.
 - **The summariser is a model.** Whether an un-reinjected sentinel survives depends
-  on what the summary chose to keep. The synthetic sentinel was lost; the
-  constitutional one was kept. That is exactly why survival must not be left to it.
+  on what the summary chose to keep, and on whether the agent then uses it:
+  - the synthetic sentinel was lost 3 of 3 times;
+  - the constitution was recalled once via the summary;
+  - it was missed once even though the summary contained it.
+
+  That is exactly why survival must not be left to it.
 - **Only `trigger: "manual"` was exercised.** Auto-compaction (`trigger: "auto"`) is
   `[docs]` only.
