@@ -61,7 +61,10 @@ describe('ADR-0065 §1 — the capture-fallback line', () => {
     mkdirSync(d, { recursive: true });
     writeFileSync(join(d, 'cli.js'), '');
     const line = renderCaptureFallback(d);
-    const flags = [...line.matchAll(/\[(--[a-z-]+) ([^\]]+)\]/g)].map((m) => m[1]);
+    // EVERY --flag token after `add`, bracketed or not and whatever its case, so the
+    // same bug written another way (`--tags a,b` without brackets, `--Tag`) is caught too.
+    const cmd = line.slice(line.indexOf(' add '));
+    const flags = [...new Set([...cmd.matchAll(/(--[A-Za-z][A-Za-z-]*)/g)].map((m) => m[1]))];
     expect(flags.length).toBeGreaterThan(0);
     const cli = resolve(__dirname, '../dist/cli.js');
     const args = ['add', 'fact', 'fallback hint probe'];
