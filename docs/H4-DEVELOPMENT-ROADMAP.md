@@ -414,6 +414,7 @@ operator request. When it fires: schedule the existing deterministic `distill` +
 `→ **PI-CODING-AGENT initiative** *(2026-07-22..23)*: RFC-037 → **ADR-0066** (pi ships as a package, delivery-before-capability) → delivered as a three-way split (**#238** git.ts in-repo-brain fix → **#239** doctor gitlink detection → **#240** pi wiring) after #236 would not converge in seven adversarial review rounds → **vfkb v0.7.0 shipped to npm 2026-07-23**. The **vfkb-pi-package** exists (public) but its delivery is UNPROVEN (ADR-0051): single-trial fresh-arm observation, install-path L4 still owed.`
 `→ **P11 "build the thing that builds the thing" — release & review automation** *(re-ratified 2026-07-24, see Current action below; subsumes P10-d)*: **P11-a release wrapper** (DONE 2026-07-24 — shipped v0.13.0; pi-package sibling DONE 2026-07-25, PR #5) → **P11-b RFC-036 CI automation** (RATIFIED 2026-07-25 → ADR-0067 hybrid; build unblocked — the plugin scenarios' auth seam + producedBy + produce→vouch workflow remain).`
 `→ **P12 — the software factory: gates over agents** *(ratified 2026-09-14, see Current action below; carries P11-b's residual)*: GitHub Issues become the system of record with state in `fsm:` labels ([RFC-039](rfc/RFC-039-the-software-factory.md) → **[ADR-0075](adr/ADR-0075-the-software-factory.md)**). Sequence is ratified, not incidental — **D2 admission gate** + **D8 tamper-detection & reproduction gates** FIRST (both deliver value with **no coding agent in existence**; D8's pair must be OBSERVED RED before they are trusted) → **D1** label FSM → **D3/D4/D11** dispatcher + reaper → **D5** coder in an offline worktree → **D6** advisory cross-model reviewer. Build state: [#297](https://github.com/vilosource/vfkb/issues/297).`
+`→ **v3 cycle — THE ACTIVE FRONTIER; supersedes P12, which is PAUSED, not abandoned** *(operator re-ratification 2026-10-19, brain `ef3500b68252`; see Current action below)*: [v3 PRD](v3/PRD.md) Rulings 1–5 (full rewrite allowed · no record loss, read-compat the floor · metrics M1/M2 · order **R5, R6 → R2 → R1 → R3, R7, R4, R8** · decision models stay an optional R7 seam). **R5 ✅** (already delivered before v3 opened) → **R6 ✅** (plugin v0.20.1, plugin#62) → **R2 in progress** (RFC-042 → **[ADR-0077](adr/ADR-0077-compaction-survival-guard.md)**; clauses 1–2 landed plugin#63 + vfkb#352, clause 3 L4 next) → R1 → R3, R7, R4, R8.`
 **Track 4b is COMPLETE** — D-i `verified`-filter (pi/claude 2/3, 2026-06-27); D-iii relabel-on-promotion
 (`promotion-relabel` pi/claude 2/3, ADR-0024, 2026-06-27); D-iv pi live tool-result capture
 (`live-capture-result` pi 3/3, 2026-06-27; claude failure-capture EXTERNAL-BLOCKED); **D-ii context-doc +
@@ -453,7 +454,26 @@ In all three cases the response is the same: **update this roadmap and re-ratify
 — never leave the next step to an ad-hoc question. (Scope: in-repo `vfkb` only; vafi/vtaskforge
 work stays out-of-scope/HITL per H2.)
 
-### ▶ Current action — **P12: the software factory — gates over agents** *(ratified 2026-09-14)*
+### ▶ Current action — **the v3 cycle** *(re-ratified 2026-10-19; supersedes P12)*
+
+**Authority for the cycle's content is [`v3/PRD.md`](v3/PRD.md) §0 (Rulings 1–5) and §6;** this
+section only sequences it. One RFC per theme, ADRs decide (ADR-0007); the DoD does not relax
+(ADR-0050/0051).
+
+| Order | Theme | State (2026-10-19) |
+|---|---|---|
+| 1 | **R5** — close "delivery is unproven" | ✅ already delivered before v3 opened (install-path L4 proven since 2026-07-16) |
+| 1 | **R6** — wiring Brake for the plugin | ✅ plugin v0.20.1 (plugin#62): `claude plugin validate --strict` on every PR |
+| 2 | **R2** — survive compaction | **in progress.** Probe → RFC-042 → [ADR-0077](adr/ADR-0077-compaction-survival-guard.md). Clauses 1–2 landed (plugin#63, vfkb#352). **Next: clause 3, the `compaction-survival` L4** (phased; first probe the L4 CLI pin 2.1.220 and `/compact` under a marketplace install). Status: built, NOT yet verified |
+| 3 | **R1** — query-time injection (`UserPromptSubmit`) | proposed; dependency observed |
+| 4 | **R3**, **R7** — failure capture; curation | proposed |
+| 5 | **R4**, **R8** — `mcp_tool` hooks; Projects position | proposed; R4's dependency unobserved |
+
+**P12 is paused, not abandoned.** Its section below is kept intact: the ratified sequence, the
+carried P11-b residual and the build tracker #297. ADR-0076 has since ruled its two owed
+rulings. Resuming it is an operator re-ratification, not a polling decision.
+
+### ⏸ (paused 2026-10-19) — **P12: the software factory — gates over agents** *(ratified 2026-09-14)*
 
 *Why a re-ratification:* [ADR-0075](adr/ADR-0075-the-software-factory.md) (← [RFC-039](rfc/RFC-039-the-software-factory.md))
 ratified a work programme this roadmap did not know about, so the execution authority and the ADR
@@ -519,7 +539,7 @@ never trusts an agent's self-report.
 `producedBy` provenance, and the produce→vouch workflow (ADR-0067 hybrid). It is **not** superseded
 by P12 and should land alongside P12-a, since both are release/review automation under the same motto.
 
-**Two rulings owed BEFORE dispatch begins, not after.** These are §4 gates, not polling points:
+**Two rulings owed BEFORE dispatch begins, not after** *(both since ruled by [ADR-0076](adr/ADR-0076-two-owed-rulings.md), 2026-09-14)*. These are §4 gates, not polling points:
 
 1. **RFC-039 §6 Q4 — the merge-rate instrument.** ADR-0075 clause 7 makes our own merge and revert
    rate the *only* valid evidence for scope, and **a baseline cannot be retrofitted**. Ruled after

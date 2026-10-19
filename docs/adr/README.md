@@ -104,4 +104,14 @@ Immutable records of significant vfkb architecture decisions, in
 | [ADR-0064](ADR-0064-durable-capture-journal.md) | Durable capture — untracked write-ahead journal + `(id, updated)`-pair recovery closes the brain-loss window between write and commit (accepts RFC-034) | Accepted |
 | [ADR-0065](ADR-0065-write-health-loudness.md) | Write-health loudness — probe-first: silent MCP-disconnect must never look like successful capture (accepts RFC-035) | Accepted |
 | [ADR-0066](ADR-0066-pi-package-delivery.md) | The pi face ships as a package, not a path — separate `vfkb-pi-package` repo, git-only, vfkb's own MCP bridge kept, install-path L4 with an AGENTS.md-only contrast arm (accepts RFC-037) | Accepted |
+| [ADR-0067](ADR-0067-hybrid-credential-model.md) | Hybrid credential model for machine-produced plugin evidence — DeepSeek in CI, OAuth stays on the laptop (accepts RFC-036) | Accepted |
+| [ADR-0068](ADR-0068-release-pr-self-merge.md) | A green release PR merges itself — the last manual step of the release chain closes (accepts plugin #25) | Accepted |
+| [ADR-0069](ADR-0069-recovery-runs-on-every-face.md) | Journal recovery runs on every face that starts a session, once per session (amends ADR-0064 §2) | Accepted |
+| [ADR-0070](ADR-0070-guards-that-can-fail.md) | Guards must be observed failing, by the author, before review — and escalation keys on fix-introduced findings, not round count | Accepted |
+| [ADR-0071](ADR-0071-consumer-wiring-hardening.md) | Consumer wiring hardens against vfkb's own drift — generic process hooks move into the plugin, consumer settings.json is sourced from a dedicated template, and the bootstrap skill is versioned | Accepted |
+| [ADR-0072](ADR-0072-guard-resolves-the-session-config-dir.md) | The INACTIVE guard resolves the SESSION's config dir, not ~/.claude (amends ADR-0059) | Accepted |
+| [ADR-0073](ADR-0073-gate-what-consumers-receive.md) | The review gate covers what CONSUMERS receive — all of .claude/ and docs/templates/ (amends ADR-0052) | Accepted |
+| [ADR-0074](ADR-0074-consume-the-schema-already-shipped.md) | Specified, shipped, never read — wire the envelope and make the seam observable (accepts RFC-038) | Accepted |
+| [ADR-0075](ADR-0075-the-software-factory.md) | The software factory — gates over agents, and the coder works offline (accepts RFC-039) | Accepted |
+| [ADR-0076](ADR-0076-two-owed-rulings.md) | Two owed rulings — the instrument is rounds-to-converge, and recorded_invalid_at is deleted | Accepted |
 | [ADR-0077](ADR-0077-compaction-survival-guard.md) | The compaction re-injection is a guarantee, not an accident — fail-closed matcher Brake, source-independent render test, compaction-survival L4 phased in then re-pinned every release (accepts RFC-042, v3 R2) | Accepted |
