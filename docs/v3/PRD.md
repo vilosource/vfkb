@@ -359,12 +359,18 @@ was wrong, because `/compact` is a real compaction on demand. Auto-compaction
 3. **Optionally use `PostCompact`** to record what the summary kept. This is
    observation only.
 
-**Proof.** An L4 whose can-fail arm is the **startup-only matcher**. The predicate must
-be a **content assertion over the stream**: `hook_response SessionStart:compact`
-carries the pinned sections. Agent recall alone cannot be the predicate, because the
-probe showed the summariser can keep a salient constitution by luck. A recall-only
-contrast arm can therefore pass, and a proof that cannot fail proves nothing
-(ADR-0051 §3).
+**Proof.** An L4 whose can-fail arm is the **startup-only matcher**. The predicate is a
+**content assertion over the output** (ADR-0051 §3), and it pairs two things:
+
+- **Recall,** in a trial whose `PostCompact.compact_summary` provably **lacks** the
+  sentinel. This is the case where only a re-injection can supply it.
+- **`hook_response SessionStart:compact` carrying the pinned sections.**
+
+Neither works alone:
+
+- **Recall alone can pass the contrast arm by luck.** The probe showed the
+  summariser can keep a salient constitution.
+- **The hook response alone proves emission, not receipt.**
 
 ### R3 — Failure capture on the Claude face
 
@@ -530,7 +536,9 @@ quota-capped surface.
 These are not rhetorical. Each changes what gets built.
 
 - **Q1. ~~Priority order of R1–R8.~~ ANSWERED 2026-10-16 (Ruling 4): adopted as written below.** *(Kept as drafted, before the probes ran. Since §7a,
-  R1 and R3 are observed too, and R5 turned out to be already delivered.)* My read:
+  R1 and R3 are observed too, and R5 turned out to be already delivered. R2's can-fail
+  arm turned out **not** to be trivial: a recall-only contrast can pass by
+  summariser luck. See §6 R2.)* My read:
   **R5 and R6 first** (the only `[cli]`-verified dependencies, and R5 retires a standing disclosure obligation),
   then **R2** (a correctness gap in a shipped guarantee, cheap, with a trivially
   available can-fail arm), then **R1** (the largest payoff and the largest unknown),
@@ -649,8 +657,9 @@ Not a schedule — this repo builds on evidence, not plans
   `PostToolUseFailure` (R3) were **fired and observed** on `2.1.273`, as were
   `SubagentStart`/`SubagentStop`, `PostToolBatch` and `InstructionsLoaded`;
   `claude plugin validate --strict` and `claude plugin tag` were exercised against
-  real malformations (harness survey §7a). **Still unobserved:** `PreCompact`/
-  `PostCompact` (R2), the `mcp_tool` hook type (R4), whether `SubagentStart` can
+  real malformations (harness survey §7a). `PreCompact`/`PostCompact` and
+  `SessionStart(compact)` were observed 2026-10-19 (§7b, R2). **Still unobserved:**
+  auto-compaction, the `mcp_tool` hook type (R4), whether `SubagentStart` can
   inject context, whether a plugin-loaded `hooks.json` tolerates an unknown event,
   and the permission events.
 - **The ~1.3% / `6 of 456` baseline** was measured at `8237fc4` on this repo's own

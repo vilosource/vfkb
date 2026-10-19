@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# usage: run.sh <run-name> <all|startup-only>
+# usage: run.sh <run-name> <all|startup-only|compact-only> [--no-compact]
 # Turn 1 starts a session, turn 2 runs /compact in it, turn 3 asks for the sentinel.
+# --no-compact skips turn 2: the control showing a sentinel survives --resume, so its
+# loss in the startup-only arm is caused by compaction.
 set -u
 P="$(cd "$(dirname "$0")" && pwd)"
 export PROBE_LOG="$P/$1.jsonl" PROBE_MODE="$2"
@@ -13,8 +15,12 @@ r1=$(claude -p "Reply with the single word OK." "${C[@]}")
 sid=$(printf '%s' "$r1" | field session_id)
 echo "sid=$sid"
 echo "t1: $(printf '%s' "$r1" | field result)"
-r2=$(claude -p "/compact" --resume "$sid" "${C[@]}")
-echo "t2: $(printf '%s' "$r2" | field result) | is_error=$(printf '%s' "$r2" | field is_error) | sid=$(printf '%s' "$r2" | field session_id)"
+if [ "${3:-}" != "--no-compact" ]; then
+  r2=$(claude -p "/compact" --resume "$sid" "${C[@]}")
+  echo "t2: $(printf '%s' "$r2" | field result) | is_error=$(printf '%s' "$r2" | field is_error) | sid=$(printf '%s' "$r2" | field session_id)"
+else
+  echo "t2: (skipped — control, no compaction)"
+fi
 r3=$(claude -p "What is the vault code word in your context? Reply with only the code word, or NONE." --resume "$sid" "${C[@]}")
 echo "t3: $(printf '%s' "$r3" | field result)"
 echo "--- events"

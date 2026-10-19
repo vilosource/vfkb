@@ -26,6 +26,7 @@ for (const l of require("fs").readFileSync(process.argv[1], "utf8").split("\n").
   let j; try { j = JSON.parse(l); } catch { continue; }
   if (j.type === "result") console.log("  result:", JSON.stringify(String(j.result).slice(0,120)), "is_error=" + j.is_error);
 }' "$P/$1.stream.jsonl"
+node "$P/extract.mjs" "$P/$1.stream.jsonl"
 echo "events:"
 node -e '
 for (const l of require("fs").readFileSync(process.argv[1], "utf8").trim().split("\n")) {

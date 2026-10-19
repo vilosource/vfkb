@@ -23,7 +23,7 @@ injected on, gated by `PROBE_MODE`. Each run has three turns:
 **Confound.** Every `--resume` fires `SessionStart(source:"resume")`. The `*-only`
 modes suppress injection on `resume`, which is what makes them clean.
 
-Setup. Run it from this directory, and set `P` to wherever these files live:
+Setup. Copy this directory somewhere outside the repo, and set `P` to that copy:
 
 ```sh
 node -e '
@@ -34,7 +34,8 @@ require("fs").writeFileSync(`${P}/settings.json`, JSON.stringify({
            PreCompact: log("PreCompact"), PostCompact: log("PostCompact"),
            UserPromptSubmit: log("UserPromptSubmit"), Stop: log("Stop") }}));' "$P"
 mkdir -p "$P/sandbox" && git -C "$P/sandbox" init -q
-bash run.sh run2 startup-only
+bash "$P/run.sh" run2 startup-only                  # expect NONE after compaction
+bash "$P/run.sh" ctl  startup-only --no-compact     # control: expect TANGERINE-startup-4471
 ```
 
 ## Real-plugin arms — `real.sh <name> <plugin-dir>`
@@ -57,10 +58,20 @@ VFKB_DATA_DIR="$P/real/.vfkb" node <plugin>/dist/bundles/vfkb.mjs add decision \
   "PROBE CONSTITUTION: every reply about vaults must use the code word KUMQUAT-8812." \
   --why "compaction probe sentinel" --status accepted --constitutional --role human
 node -e 'const P=process.argv[1], log=ev=>[{hooks:[{type:"command",command:`${P}/log.sh ${ev}`}]}];
-require("fs").writeFileSync(`${P}/real-settings.json`, JSON.stringify({hooks:{
-  SessionStart: log("SessionStart"), PreCompact: log("PreCompact"), PostCompact: log("PostCompact")}}));' "$P"
-bash real.sh real-shipped <plugin>
+require("fs").writeFileSync(`${P}/real-settings.json`, JSON.stringify({
+  enabledPlugins: {"vfkb@vfkb": false},   // only the --plugin-dir copy may load
+  hooks: { SessionStart: log("SessionStart"), PreCompact: log("PreCompact"), PostCompact: log("PostCompact") }}));' "$P"
+# can-fail arm: the same plugin with SessionStart matched to startup only
+cp -R <plugin> "$P/plugin-startup-only"
+node -e 'const f=process.argv[1]+"/plugin-startup-only/hooks/hooks.json", fs=require("fs");
+const h=JSON.parse(fs.readFileSync(f)); h.hooks.SessionStart[0].matcher="startup"; fs.writeFileSync(f, JSON.stringify(h,null,2));' "$P"
+bash "$P/real.sh" real-shipped      <plugin>                     # expect SessionStart:compact [carries sentinel]
+bash "$P/real.sh" real-startup-only "$P/plugin-startup-only"     # expect no compact injection
 ```
+
+`real.sh` runs `extract.mjs` over the stream. That prints which `hook_response`
+carried the sentinel (emission), whether the compaction summary carried it (the
+luck channel), and the agent's answers (receipt).
 
 ## Limits
 

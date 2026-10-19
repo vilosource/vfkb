@@ -21,8 +21,10 @@
 > (2026-10-13):** `UserPromptSubmit`, `PostToolUseFailure`, `SubagentStart`,
 > `SubagentStop`, `PostToolBatch` and `InstructionsLoaded` were **fired and observed**
 > on `2.1.273`, and `claude plugin validate`/`tag` were exercised against real
-> malformations. **`PreCompact`/`PostCompact` and the `mcp_tool` hook type remain
-> unfired** — read §3.3 and §4 as documentation, not measurement.
+> malformations. **§7b (2026-10-19, `2.1.286`) adds `PreCompact`, `PostCompact` and
+> `SessionStart(source:"compact")`, and it overturns §3.3:** the shipped plugin
+> already re-injects after compaction. **The `mcp_tool` hook type remains unfired**,
+> so read §4 as documentation, not measurement.
 
 ---
 
@@ -44,10 +46,11 @@
    *"because BM25 needs a query and at SessionStart there is none."* A
    prompt-submit hook has a query, and can inject `additionalContext` [docs].
    **This reframes the whole retrieval problem** and partly un-gates S1. §3.2
-4. **`PostCompact` closes a continuity hole nobody has named.** vfkb injects once,
-   at session start. After a compaction the knowledge bundle is gone and nothing
-   re-injects it. With `--autocompact` now spanning 100k–1M tokens [cli], long
-   sessions compact routinely. §3.3
+4. ~~**`PostCompact` closes a continuity hole nobody has named.**~~ **Overturned by
+   §7b.** The hole is real in general, because injected context survives compaction
+   only if the summariser keeps it. But the shipped plugin already closes it, by
+   accident, through `SessionStart(source:"compact")`, not `PostCompact`. What
+   nobody had named is that the closure is **unguarded**. §3.3, §7b
 5. **Hooks are no longer only shell commands.** Five types are documented —
    `command`, `http`, `mcp_tool`, `prompt`, `agent` [docs]. **`mcp_tool` is an
    architectural simplification of vfkb's hardest distribution problem:** the hook
@@ -146,6 +149,12 @@ vfkb injects its bundle once. `--autocompact` accepts `auto` or an explicit
 100k–1M token window [cli], so a long session compacts as a matter of course — and
 after it does, the Constitution, the pinned handoff and the ranked bundle are
 whatever the summariser chose to keep. Nothing re-injects them.
+
+> **⚠ Overturned by §7b (observed 2026-10-19).** Something does re-inject them:
+> `SessionStart` fires again with `source:"compact"` after every manual compaction
+> observed, and the plugin's matcher-less SessionStart runs the full resume render on
+> it. The paragraphs below are kept as written. Their premise holds only for a
+> SessionStart that is matched to `startup`.
 
 ADR-0008 ("the Constitution always leads") and ADR-0049 (the handoff pin is "never
 budget-dropped") both encode *injection-time* guarantees that silently do not
@@ -469,6 +478,10 @@ week.
 `custom_instructions: null`) → **`SessionStart` with `source: "compact"`** →
 `PostCompact` (`trigger: "manual"`, carrying `compact_summary`). In the stream that
 appears as `hook_response SessionStart:compact` followed by `compact_boundary`.
+*(Stream order is not execution order. In the transcript, `SessionStart(compact)` is
+timestamped **after** the summary was written. Timed hooks that each sleep 2s ran
+strictly in sequence: `PreCompact`, then `SessionStart(compact)`, then `PostCompact`,
+which started only after SessionStart finished. Confirmed by the PR #349 review.)*
 
 | Arm | Injected on | Agent's answer after compaction | Where it came from |
 |---|---|---|---|
@@ -488,12 +501,38 @@ appears as `hook_response SessionStart:compact` followed by `compact_boundary`.
 3. **The shipped plugin already re-injects, by accident.** Its `hooks.json`
    SessionStart has no matcher, and `src/cli.ts`'s `hook session-start` ignores
    `source`. So the full resume render (the Constitution, the pinned handoff and
-   the ranked bundle) is re-injected after every compaction. Nobody designed it and
+   the ranked bundle) is re-injected after every manual compaction observed. Nobody designed it and
    nothing tests it. A tidy-looking `"matcher": "startup|resume"` would silently
    delete it.
 4. **`PostCompact` remains the right place for an *observation*, not an
    injection.** Its `compact_summary` is the one signal of what the summariser
-   kept.
+   kept, and the L4 needs it. A predicate on `hook_response` alone proves that the
+   hook *emitted* the content, not that the model *received* it. Recall alone can
+   pass by summariser luck. **The sound predicate is both together:** recall, in a
+   trial whose `compact_summary` provably lacks the sentinel.
+
+**Control (2026-10-19):** the same startup-only setup **without** `/compact`
+recalls `TANGERINE-startup-4471`. So the sentinel survives `--resume`, and its loss
+in the startup-only arm is caused by compaction.
+
+**Tallies across all runs on 2026-10-19.** These come from the original runs, the
+PR #349 reviewer's independent reproduction, and a re-run from a clean copy of the
+committed kit. Each is still small-N, so read them as observations, not rates.
+
+| Arm | Agent recalled the sentinel after compaction |
+|---|---|
+| real plugin, as shipped (re-injects on `compact`) | **3/3** |
+| real plugin, `matcher: "startup"` | **1/2** — once via the summary; once **`NONE` even though the summary contained the sentinel** |
+| synthetic, startup only | **0/3** |
+| synthetic, startup only, **no `/compact`** (control) | 1/1 |
+
+Two of these runs matter most:
+
+- **In the reviewer's shipped-plugin run, the compaction summary did not contain the
+  sentinel**, so the re-injection was the only way it could have arrived.
+- **In the clean-kit contrast run, the summary did contain it and the agent still
+  answered `NONE`.** A summary that keeps a fact is not the same as an agent that
+  uses it, which makes the luck channel weaker still.
 
 **Not exercised:** auto-compaction (`trigger: "auto"`). That `SessionStart(compact)`
 also fires there is `[docs]` only.
@@ -536,11 +575,13 @@ permission decision and `updatedInput`; `PostToolUse` gained `updatedToolOutput`
 
 ## 10. Not verified
 
-- **No `[docs]` hook event has been fired and observed.** The installed CLI is
-  `2.1.273`; the docs describe `~2.1.292`. Existence, payload shape and firing
-  conditions of `PostToolUseFailure`, `UserPromptSubmit`, `PostCompact`,
-  `SubagentStart`/`SubagentStop` and every event in §8 are **documented, not
-  measured here**. §7 item 1 is the remedy.
+- ~~**No `[docs]` hook event has been fired and observed.**~~ *Superseded by
+  §7a/§7b.* `PostToolUseFailure`, `UserPromptSubmit`, `SubagentStart`/`SubagentStop`,
+  `PreCompact`, `PostCompact` and `SessionStart(compact)` are now observed (on
+  `2.1.273` and `2.1.286`). These remain documented but unmeasured:
+  - the `mcp_tool` hook type;
+  - auto-compaction (`trigger:"auto"`);
+  - the events §7a lists as not fired.
 - **The 33-event count is the docs' table as fetched**, cross-checked against one
   secondary source claiming 31. The exact number is not load-bearing; the
   *presence* of the four events in §3 is, and that is still `[docs]`.

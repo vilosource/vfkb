@@ -49,3 +49,41 @@ system compact_boundary
 user (compaction summary) carries sentinel
 result ""
 result "KUMQUAT-8812"
+
+# --- Re-run 2026-10-19 from a clean copy of the committed kit (README steps verbatim) ---
+## ctl (startup-only, --no-compact)
+SessionStart startup 
+UserPromptSubmit  
+Stop  last_assistant_message=OK
+SessionStart resume 
+UserPromptSubmit  
+Stop  last_assistant_message=TANGERINE-startup-4471
+## run2 (startup-only)
+SessionStart startup 
+UserPromptSubmit  
+Stop  last_assistant_message=OK
+SessionStart resume 
+PreCompact manual 
+SessionStart compact 
+PostCompact manual 
+SessionStart resume 
+UserPromptSubmit  
+Stop  last_assistant_message=NONE
+## real-shipped
+system hook_response SessionStart:startup 
+system hook_response SessionStart:startup [carries sentinel]
+result "OK"
+system hook_response SessionStart:compact 
+system hook_response SessionStart:compact [carries sentinel]
+system compact_boundary  
+result ""
+result "KUMQUAT-8812"
+## real-startup-only
+system hook_response SessionStart:startup 
+system hook_response SessionStart:startup [carries sentinel]
+result "OK"
+system hook_response SessionStart:compact 
+system compact_boundary  
+user message carries sentinel (the compaction summary)
+result ""
+result "NONE"
