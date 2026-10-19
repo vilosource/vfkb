@@ -89,7 +89,9 @@ and the agent still did not use it.
   ADR-0067 D5 precedent. It lets the two cheap deterministic guards ship without waiting on
   the metered L4. Until the record lands, R2's status is *built, NOT yet verified*.
   **The same-PR rule is enforced, not prose.** The gate goes red if a committed
-  `compaction-survival` record is DEMONSTRATED but the scenario is not in `REQUIRED`.
+  `compaction-survival` record is DEMONSTRATED but the scenario is not in `REQUIRED`. Like
+  every gate rule here, it must be seen red in the gate's selftest: a fixture with a
+  DEMONSTRATED record and the scenario left out of `REQUIRED`.
 - **Q2 — EVERY RELEASE.** Once required, the record is re-pinned on every release. That
   costs at least six metered sessions (3 valid trials × 2 arms) and up to twelve at the
   attempts cap, on the CI or laptop leg. **No conditional re-pin rule is added.** Such
