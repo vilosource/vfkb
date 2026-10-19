@@ -2,13 +2,13 @@
 type: RFC
 title: "RFC-042: The compaction re-injection exists by accident — make it a guarantee"
 description: "v3 theme R2. The 2026-10-19 probe found that the shipped plugin already re-injects the Constitution, the pinned handoff and the knowledge bundle after a compaction. SessionStart fires again with source:\"compact\", the plugin's SessionStart hook has no matcher, and the engine never reads `source`. Nobody designed that, nothing tests it, and a tidy-looking matcher edit would silently delete it. This RFC proposes the guard: a deterministic Brake on the matcher, an engine unit test on the compact-source render, and an L4 that can actually fail, because /compact custom instructions close the summary-luck channel. Narrowing the re-injected payload is deferred until there is evidence it costs anything."
-status: "Proposed"
+status: "Accepted → ADR-0077 (2026-10-19)"
 timestamp: 2026-10-19
 ---
 
 # RFC-042: The compaction re-injection exists by accident — make it a guarantee
 
-- **Status:** Proposed
+- **Status:** **Accepted 2026-10-19 → [ADR-0077](../adr/ADR-0077-compaction-survival-guard.md)**, as recommended: Q1 phased, Q2 every release.
 - **Date:** 2026-10-19
 - **Deciders:** operator + Claude
 - **Theme:** v3 PRD §6 **R2** ("Survive compaction"), which Ruling 4 places after R5/R6.
