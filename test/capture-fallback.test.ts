@@ -7,9 +7,10 @@
 // runnable, and survive budget pressure — otherwise it is documentation that
 // vanishes exactly when it is needed.
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
-import { join, basename } from 'node:path';
+import { join, basename, resolve } from 'node:path';
 import { renderCaptureFallback, renderContextBundle, resolveCliFace, SESSION_BUDGET_CHARS } from '../src/engine.js';
 
 let brain: string;
@@ -49,6 +50,26 @@ describe('ADR-0065 §1 — the capture-fallback line', () => {
     expect(bd![1].startsWith('/')).toBe(true);
     expect(line).toMatch(/VFKB_DATA_DIR=/);
     expect(line).toMatch(/node .+ add <type>/);
+  });
+
+  it('every optional flag it advertises is one the real CLI `add` accepts', () => {
+    // The hint is pasted by an agent mid-loss, so a flag the CLI rejects defeats it.
+    // It once advertised `--tags`, which `add` rejects with "unknown flag --tags"
+    // (args.ts names it the observed trap). This drives the real built CLI with
+    // every [--flag value] the line advertises; it does not grep the source.
+    const d = join(brain, 'r');
+    mkdirSync(d, { recursive: true });
+    writeFileSync(join(d, 'cli.js'), '');
+    const line = renderCaptureFallback(d);
+    const flags = [...line.matchAll(/\[(--[a-z-]+) ([^\]]+)\]/g)].map((m) => m[1]);
+    expect(flags.length).toBeGreaterThan(0);
+    const cli = resolve(__dirname, '../dist/cli.js');
+    const args = ['add', 'fact', 'fallback hint probe'];
+    for (const f of flags) args.push(f, f === '--tag' || f === '--tags' ? 'probe,hint' : 'because');
+    execFileSync('node', [cli, ...args], { env: { ...process.env, VFKB_DATA_DIR: brain }, encoding: 'utf8', stdio: 'pipe' });
+    const entry = readFileSync(join(brain, 'entries.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l)).pop();
+    expect(entry.text).toContain('fallback hint probe');
+    if (flags.includes('--tag')) expect(entry.tags).toEqual(['probe', 'hint']);
   });
 
   it('QUOTES both paths — an unquoted path truncates at the first space', () => {
