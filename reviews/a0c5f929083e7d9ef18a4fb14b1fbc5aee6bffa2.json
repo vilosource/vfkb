@@ -1,0 +1,89 @@
+{
+  "recordVersion": 1,
+  "sha": "a0c5f929083e7d9ef18a4fb14b1fbc5aee6bffa2",
+  "governing": [
+    "docs/adr/ADR-0077-compaction-survival-guard.md",
+    "docs/rfc/RFC-042-compaction-survival-guard.md"
+  ],
+  "reviewer": {
+    "agent": "general-purpose",
+    "model": "opus",
+    "rounds": 2
+  },
+  "generated": "2026-10-19T12:03:18.429Z",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "leading position unguarded: a compact-only 20KB block before ## Constitution stayed green (mutation i); fixed by slicing from <vfkb-context and asserting the Constitution is the first heading",
+      "acceptedBy": null
+    },
+    {
+      "id": "F2",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "handler comment overclaimed that the test guards the whole render; reworded to the context block head, narrowing deferred by ADR-0077 clause 4",
+      "acceptedBy": null
+    },
+    {
+      "id": "F3",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "temp brains were never removed; afterEach rmSync added",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 3,
+  "ruledOut": [
+    "rebase: round 2 reviewed c89a913 (base 9306f18); rebased onto main f7a9a11 only to bring ADR-0077 into the tree — the src/ and test/ diff is byte-identical (sha1 of both diffs compared), suite 815/815 on the rebased head",
+    "false reds from the slice: it spans only project attr, Constitution, handoff pin, cross-repo pin; 5 calls across 2 sessions x 3 sources gave identical md5",
+    "flakiness: full suite 815/815 twice per round; new file 3/3 five consecutive runs",
+    "AI attribution in commits: none (squash uses COMMIT_MESSAGES)",
+    "fail-open regression: only a comment changed in src/"
+  ],
+  "mutations": [
+    {
+      "guard": "test/compaction-survival.test.ts > a compaction re-emits the Constitution and the handoff pin; test/compaction-survival.test.ts > the pinned sections are identical for compact and startup, and lead in the same order; test/compaction-survival.test.ts > every source Claude Code sends gets the same pinned sections",
+      "mutation": "handler returns empty context when source===compact (a)",
+      "observedRed": true
+    },
+    {
+      "guard": "test/compaction-survival.test.ts > a compaction re-emits the Constitution and the handoff pin; test/compaction-survival.test.ts > the pinned sections are identical for compact and startup, and lead in the same order; test/compaction-survival.test.ts > every source Claude Code sends gets the same pinned sections",
+      "mutation": "compact drops only the Constitution section (b)",
+      "observedRed": true
+    },
+    {
+      "guard": "test/compaction-survival.test.ts > a compaction re-emits the Constitution and the handoff pin; test/compaction-survival.test.ts > the pinned sections are identical for compact and startup, and lead in the same order; test/compaction-survival.test.ts > every source Claude Code sends gets the same pinned sections",
+      "mutation": "compact drops only the handoff pin (c)",
+      "observedRed": true
+    },
+    {
+      "guard": "test/compaction-survival.test.ts > a compaction re-emits the Constitution and the handoff pin; test/compaction-survival.test.ts > the pinned sections are identical for compact and startup, and lead in the same order; test/compaction-survival.test.ts > every source Claude Code sends gets the same pinned sections",
+      "mutation": "compact reorders handoff before Constitution (d)",
+      "observedRed": true
+    },
+    {
+      "guard": "test/compaction-survival.test.ts > a compaction re-emits the Constitution and the handoff pin; test/compaction-survival.test.ts > the pinned sections are identical for compact and startup, and lead in the same order; test/compaction-survival.test.ts > every source Claude Code sends gets the same pinned sections",
+      "mutation": "compact inserts a 20KB ## preamble before the Constitution inside <vfkb-context> (i)",
+      "observedRed": true
+    },
+    {
+      "guard": "test/compaction-survival.test.ts > the pinned sections are identical for compact and startup, and lead in the same order; test/compaction-survival.test.ts > every source Claude Code sends gets the same pinned sections",
+      "mutation": "compact inserts a 20KB plain-text preamble before the Constitution (i2)",
+      "observedRed": true
+    },
+    {
+      "guard": "test/compaction-survival.test.ts > every source Claude Code sends gets the same pinned sections",
+      "mutation": "gate on resume only (f); gate on clear only (g)",
+      "observedRed": true
+    },
+    {
+      "guard": "test/compaction-survival.test.ts > the pinned sections are identical for compact and startup, and lead in the same order; test/compaction-survival.test.ts > every source Claude Code sends gets the same pinned sections",
+      "mutation": "compact changes the project attribute (p)",
+      "observedRed": true
+    }
+  ],
+  "mutationsNote": null,
+  "verdict": "MERGE"
+}
