@@ -1,7 +1,7 @@
 ---
 type: RFC
 title: "RFC-044: Query-time injection needs a ranker that can rank — R1 rides on S1's BM25"
-description: "v3 theme R1. Probes on 2026-10-20 found the delivery half sound: a UserPromptSubmit hook's injected text reaches the agent (3/3 in both JSON and plain form, contrast 0/3), provided it reads as project knowledge, not as a secret or instruction. The selection half is not: vfkb's stage-1 index counts token occurrences with no IDF and no length normalisation, so for real operator prompts 446-450 of ~470 entries match, the RFC-001 floor never fires, the top hits are 4-7.7k-char handoffs, and the entries a prompt is actually about rank 77th-319th. This RFC proposes R1 in two steps: first S1's already-amended first resort (BM25 in InMemoryIndex, stdlib, deterministic) behind an offline labelled retrieval eval, then the UserPromptSubmit injection itself with dedup, a budget ceiling, harness-turn skipping and knowledge framing. Un-gating S1 is put to the operator."
+description: "v3 theme R1. Probes on 2026-10-20 found the delivery half sound: a UserPromptSubmit hook's injected text reaches the agent (3/3 in both JSON and plain form, contrast 0/3) when it reads as project knowledge, not as a secret. The selection half is not: vfkb's stage-1 index counts token occurrences with no IDF, no length normalisation and no stopwords, so a chatty prompt matches nearly every entry, the long handoffs win, and the entries a prompt is about rank 86th-348th. On two labelled cases, BM25 alone still misses one; BM25 plus stopword pruning ranks them 1st-11th. This RFC proposes R1 in two steps: first S1's amended first resort (BM25 in InMemoryIndex) plus query-term pruning, behind an offline labelled eval; then the UserPromptSubmit injection with dedup, a budget, harness-turn skipping and knowledge framing. Un-gating S1 is put to the operator."
 status: "Proposed"
 timestamp: 2026-10-20
 ---
@@ -54,23 +54,36 @@ text arrives looking like system-injected content. **What it says about itself d
 whether it is used**, which is the same family of lesson as ADR-0079.
 
 **2. Selection does not work on the current index.** `InMemoryIndex.searchScored` scores an
-entry by the number of its tokens that match any query term. Its own comment says: "NOT
-BM25 (no IDF, no length normalization)". Measured against this repo's brain (~470 live
-entries) with eight real operator prompts:
+entry by the number of its tokens that match any query term. Its own comment says "NOT BM25 (no
+IDF, no length normalization)", and it has **no stopword list**. Measured with the
+reproducible `measure.mjs`, on the brain at `9095dc4` (524 live entries), with eight real
+operator prompts:
 
-- **446–450 of ~470 entries match each prompt.** Common words match nearly everything.
-- **The RFC-001 floor never fired.** Results were identical with `minTermRatio: 0`.
-- **The top three hits were 4,178–7,750-character handoffs for every prompt.**
-- **The entries a prompt is about rank far down.**
-  - "we were going to use JEV as well were we not?": the Jev decision-model fact ranks
-    **77th**, the Jev ruling **101st**, and the Jev survey link **319th**. The top hit is a
-    7,750-char handoff that mentions Jev.
-  - "what is in our roadmap?": the first roadmap link ranks **308th**.
+- **A chatty prompt matches nearly everything.** The two headline prompts matched 446 and
+  450 entries; five others matched 457–473. A terse prompt ("continue autonomously")
+  matched 13.
+- **The RFC-001 floor fires but cannot help.** It drops 93–238 matches, but it never
+  reorders, so it cannot change what reaches the top.
+- **The top three hits were 4–7.7k-character handoffs for 7 of 8 prompts.**
+- **The entries a prompt is about rank far down.** Ranks are 1-based:
+  - "we were going to use JEV as well were we not?": 86th, 112th and 348th;
+  - "what is in our roadmap?": 263rd and 264th.
 
-Injecting the top hits per prompt would push the same long handoffs into context every
-turn. That is worse than nothing: a token cost paid forever, and no relevance. The failure
-is structural (occurrence counting with no IDF and no length normalisation), not a tuning
-problem.
+  Anything past 200 never reaches `kb_search` at all.
+
+**Which fix?** The same two cases under alternative scorers, with a generic stopword list
+not tuned to these prompts:
+
+| Scorer | Jev case | Roadmap case |
+|---|---|---|
+| current | 86, 112, 348 | 263, 264 |
+| count + stopwords | 6, 7, 23 | 3, 8 |
+| BM25 | 6, 15, 17 | **21, 27** |
+| **BM25 + stopwords** | **4, 7, 11** | **1, 2** |
+
+**BM25 alone is not enough; stopword pruning is the larger single factor; the two together
+are best.** That is two labelled cases, so it is direction, not tuning. The eval in step 1
+decides.
 
 **The roadmap already names the fix and gates it.** S1's amended first resort is "BM25
 scoring inside `InMemoryIndex` (stdlib, deterministic, zero-dep)". Its build trigger is "a
@@ -85,22 +98,29 @@ R1 is built in **two steps**, and step 2 does not start until step 1 has met its
 
 ### Step 1 — BM25 in `InMemoryIndex` (S1's first resort), gated by an offline eval
 
-1. **Replace stage-1 occurrence counting with BM25:** per-term IDF over the live brain, and
-   document-length normalisation, with standard `k1`/`b` defaults, stdlib only. Stage 2,
-   the ADR-0012 heuristic reranker, is unchanged.
+1. **Replace stage-1 occurrence counting with BM25 plus query-term pruning.**
+   - **BM25:** per-term IDF over the live brain, and document-length normalisation, with
+     standard `k1`/`b` defaults, stdlib only.
+   - **Pruning:** a stopword list applied to the query, and optionally an IDF cutoff that
+     drops terms present in most entries.
+   - **Unchanged:** stage 2, the ADR-0012 heuristic reranker.
    - **It changes `kb_search` and the CLI `search` for everyone,** not just R1. That is
      intended, and it is why the eval below runs on the explicit-search path too.
 2. **The bar is an offline labelled retrieval eval,** committed as a deterministic test:
    - a set of real prompts, each labelled with the entry ids it is *about*, drawn from this
      repo's brain and session history, with at least 25 prompts;
+   - a **pinned brain snapshot**, because entries that *quote* the eval's prompts would
+     otherwise rank first for them (observed: this RFC's own probe gotchas do). The snapshot
+     must predate any such entry, or exclude it;
    - a metric of **recall@5 and MRR**, measured on the current index and on BM25.
 
    The eval must be **observed failing on the current index** (ADR-0070): the measurement
    above says it will. It gates step 2 by reaching a threshold the operator sets when
    ratifying (see Q2).
-3. **The relevance floor is revisited** under BM25 scores. RFC-001's term-ratio floor is
-   meaningless for long prompts, as measured, so step 1 proposes a score-based floor. It is
-   calibrated on the eval set, not guessed.
+3. **The relevance floor is revisited** under BM25 scores. RFC-001's term-ratio floor
+   removes candidates but cannot reorder them, and for chatty prompts most of the ranking's
+   top survives it. Step 1 proposes a score-based floor, calibrated on the eval set, not
+   guessed.
 
 ### Step 2 — inject at `UserPromptSubmit`
 
@@ -109,16 +129,25 @@ R1 is built in **two steps**, and step 2 does not start until step 1 has met its
    - The budget is far below the session-start 10k, proposed at **≤1,500 chars and ≤3
      entries per prompt**.
    - It emits `hookSpecificOutput.additionalContext`.
+   - **Long entries are truncated, not skipped,** to their first ~600 characters with an
+     elision marker. Skipping them would make a long relevant entry impossible to recall.
+   - **Dedup is per session.** An entry injected once is not re-injected until a compaction
+     resets the set.
    - It **fails open**: no output on any error, like every other hook.
 5. **Dedup** against everything already in context this session.
-   - The Claude face's `hook session-start` must call `SessionState.markInjected` for the
-     bundle it renders. Today only the Pi face does that.
+   - The Claude face's `hook session-start` must call `SessionState.markInjected` with the
+     **ids it actually rendered**. Today `renderResume` returns only text, so this needs an
+     API change: return the rendered ids, or render from an id list.
+   - **Do not copy the Pi face's call.** It marks `currentInjectableIds()`, which is every
+     injectable entry (~470), not the rendered bundle. On the Claude face that would dedup
+     away everything, and R1 would inject nothing.
    - Per-prompt injections are marked too, so an entry arrives once per session.
    - A compaction (ADR-0077) re-emits the bundle, so the injected set is **reset on
      `source: "compact"`**: what the summariser dropped may be needed again.
 6. **Skip turns nobody typed.** `UserPromptSubmit` also fires for harness-generated turn
-   starts (harness survey §7a). The hook skips prompts that are harness envelopes, such as
-   `<task-notification>`. The exact discriminator is probed first (Q4), not guessed.
+   starts. Harness survey §7a recorded the second `prompt` as a `<task-notification>`
+   envelope. The hook skips prompts that are harness envelopes; whether that prefix is a
+   reliable discriminator across turn kinds is probed first (Q4).
 7. **Frame as knowledge, never as instruction:** a labelled block,
    `<vfkb-recall project="…">` with `[type trust] text` lines, and no imperative wording.
    That is the probe's lesson; credentials and instruction-shaped text are distrusted.
@@ -128,24 +157,35 @@ R1 is built in **two steps**, and step 2 does not start until step 1 has met its
 
 ### The proof (ADR-0050)
 
-An L4, `query-time-recall`, with a can-fail arm, inheriting ADR-0078's validity discipline.
+An L4, `query-time-recall`, that **can fail on selection as well as delivery**. It inherits
+ADR-0078's validity discipline and ADR-0079's wording rule.
 
-- **Brain:** a large seeded brain where the needed entry is **below the session-start budget
-  cut**. That is the reproduced 2026-07-09 failure the PRD names.
-- **Arms:** a prompt that is about the entry, asked with the hook on (the positive arm) and
-  with it off (the contrast).
+- **Brain:** a large seeded brain where the needed entry, carrying a random sentinel, is
+  **below the session-start budget cut**. That is the reproduced 2026-07-09 failure the PRD
+  names. It is surrounded by **long distractor entries that share the prompt's common
+  words**, which is the measured failure shape.
+- **Three arms, each a prompt that is about the entry:**
+  1. **recall:** the hook on, with the step-1 ranker. Must hit at least 2/3 valid.
+  2. **ranker contrast:** the hook on, with the **current** ranker. Must be **red**: the
+     distractors win, and the sentinel is not named. This is the arm that proves
+     *selection* matters. Without it, the proof shows only delivery, which the probe
+     already showed.
+  3. **delivery contrast:** the hook off. Must be 0 hits.
 - **Validity:**
   - no tools;
   - the answer engages: it names the sentinel or says NONE;
-  - the injection is observed in the `hook_response`;
-  - the entry is not already in the session-start bundle. This is the anti-luck condition,
-    because otherwise the contrast passes for the wrong reason.
-- **Wording:** scope, never naming what to hide (ADR-0079), with knowledge framing.
+  - the injection is observed in the `hook_response`, as either present or absent;
+  - **anti-luck:** the entry is not in the session-start bundle. Otherwise the contrasts
+    pass for the wrong reason.
+- **Wording:** knowledge framing, and scope rather than naming what to hide.
 
 ## Consequences
 
 - **`kb_search` gets better for everyone in step 1,** whether or not step 2 ships. The eval
   is the guard against making it worse.
+- **Stale handoffs stay injectable.** Old handoffs say "supersedes X" in their text but
+  carry no supersession edge, so a better ranker will still surface them. Tidying that is
+  R7's job (curation), and R1 does not depend on it.
 - **R1 costs tokens on every typed prompt.** The ≤1,500-char ceiling bounds that; Q3 asks
   whether the feature is on by default.
 - **R1's success becomes measurable against M1** (PRD §0: eligible entries reaching a
@@ -162,9 +202,10 @@ An L4, `query-time-recall`, with a can-fail arm, inheriting ADR-0078's validity 
   non-deterministic, and a dependency. BM25 is S1's own first resort.
 - **A decision model (Jev) as the selector.** Rejected for this RFC: Ruling 5 keeps decision
   models an optional R7 seam, not R1.
-- **Keyword extraction from the prompt with the current scorer.** Rejected: it treats the
-  symptom (prompt length) and leaves the cause (no IDF, no length normalisation). The eval
-  can still compare it if someone proposes it.
+- **Stopword pruning on the current scorer, without BM25.** This is not rejected outright:
+  it does nearly as well on the two measured cases (6, 7, 23 and 3, 8). But it keeps
+  rewarding long entries for repeated terms. BM25 plus stopwords is better on both cases,
+  and the eval compares all of them before step 1 commits to one.
 
 ## Open questions for the operator
 
@@ -173,6 +214,7 @@ An L4, `query-time-recall`, with a can-fail arm, inheriting ADR-0078's validity 
 - **Q2. The eval bar.** The proposal is that step 2 starts only when BM25 reaches **recall@5
   ≥ 0.6** on the labelled set and beats the current index on MRR. Or set your own number.
 - **Q3. On by default, or opt-in** (`VFKB_RECALL=1`) for the first release?
-- **Q4. Probe first, or design now?** The harness-turn discriminator, meaning what a
-  `<task-notification>` prompt looks like in the `UserPromptSubmit` payload, would be probed
-  before step 2 is designed. The proposal is to probe first.
+- **Q4. Probe first, or design now?** Harness survey §7a already shows a
+  `<task-notification>` envelope as a harness-generated `prompt`. What is still unknown is
+  whether that prefix reliably separates harness turns from typed ones across turn kinds.
+  The proposal is to probe that before step 2 is designed.

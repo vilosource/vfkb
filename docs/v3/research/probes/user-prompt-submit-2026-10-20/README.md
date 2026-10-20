@@ -5,11 +5,12 @@ dependencies before any RFC: does injection at `UserPromptSubmit` reach the agen
 can vfkb's existing lexical index pick what to inject from a raw prompt.
 Brain: `553c8c38d131` (delivery) and `8f21f98df86a` (selection).
 
-## 1. Delivery — `ups-json.sh`, `ups-plain.sh`
+## 1. Delivery — `run-delivery.sh` + `ups-hook.sh`
 
 A `UserPromptSubmit` hook injects a sentinel. One variant emits
 `hookSpecificOutput.additionalContext` JSON; the other emits plain stdout. The contrast
-arm has no hook. Each run is one `claude -p` turn with `--tools "" --strict-mcp-config`
+arm has no hook. To reproduce, run `bash run-delivery.sh knowledge 3` or
+`bash run-delivery.sh credential 3` (metered, cents). Each run is one `claude -p` turn with `--tools "" --strict-mcp-config`
 and `claude-haiku-4-5`, and a fresh random sentinel every time.
 
 **Framed as a credential** ("the depot passphrase is …"):
@@ -37,31 +38,46 @@ codenamed …"):
   This is the same lesson as ADR-0079: what an injection *says about itself* changes what
   the agent does with it.
 
-## 2. Selection — `measure-lexical.mjs`, `rank-relevant.mjs`
+## 2. Selection — `measure.mjs`
 
-These run vfkb's existing lexical query, the same one `kb_search` uses, against this
-repo's real brain (~470 live entries) with eight real operator prompts from the
-2026-10-16 → 2026-10-20 sessions. They are deterministic and cost nothing to run:
-`VFKB_REPO=<vfkb checkout> node <script>` after `npm run build`.
+`measure.mjs` rebuilds the brain exactly as it was at `9095dc4` (524 live entries) from git,
+then runs eight real operator prompts from the 2026-10-16 → 2026-10-20 sessions. It is
+deterministic and free to run: `npm run build`, then `node <kit>/measure.mjs 9095dc4`.
 
 The stage-1 scorer's own comment says it is "NOT BM25 (no IDF, no length normalization;
-the score is # of entry tokens matching a query term)". Observed:
+the score is # of entry tokens matching a query term)". It also has **no stopword list**,
+so words like "we", "is" and "our" match almost every entry.
 
-- **The RFC-001 relevance floor never fires on prompts.** Results with and without it
-  were identical for all eight prompts. A chatty prompt's common words match nearly
-  every entry: 446–450 of ~470 entries matched each prompt tested.
-- **Long entries win.** The top three hits were 4–7.7k-character handoffs for every
-  prompt.
-- **Relevant entries rank far down:**
-  - "we were going to use JEV as well were we not?": the Jev decision-model fact
-    `aa294b2708c4` ranks **77th**, the Jev ruling `8b2aefd11171` **101st**, and the
-    Jev survey link `7a1ffdd4e6f0` **319th**. The top hit is a 7,750-character
-    handoff that mentions Jev.
-  - "what is in our roadmap?": the first roadmap link ranks **308th**.
+**(a) The RFC-001 floor.** The floor **does fire**: for 7 of 8 prompts it drops 93–238
+matches, and it shrinks the 194-candidate result set by 0–44. But it only *removes*
+candidates and never reorders them, so it **cannot fix what reaches the top**.
+- The headline prompts matched 446 and 450 entries; five others matched 457–473.
+- "continue autonomously" matched only 13.
+- The top three hits were 4–7.7k-character handoffs for 7 of the 8 prompts.
 
-**Finding:** R1 cannot stand on the current stage-1 index. Injecting its top hits per
-prompt would push the same long handoffs into context every turn. This is the evidence
-that bears on the gated **S1** item (BM25 first, RFC-003 embeddings second).
+**(b) Rankers compared.** These are 1-based ranks of the entries each prompt is about,
+using a generic English stopword list (NLTK-style, not tuned to these prompts):
+
+| Scorer | "…use JEV as well…" (`aa294b2708c4`, `8b2aefd11171`, `7a1ffdd4e6f0`) | "what is in our roadmap?" (roadmap links) |
+|---|---|---|
+| current (occurrence count) | 86, 112, 348 | 263, 264 |
+| count + stopwords | 6, 7, 23 | 3, 8 |
+| BM25 (k1 1.2, b 0.75) | 6, 15, 17 | 21, 27 |
+| **BM25 + stopwords** | **4, 7, 11** | **1, 2** |
+
+**Findings:**
+- **The current scorer cannot select from a raw prompt.**
+- **Stopword pruning is the larger single factor.** Plain BM25 still misses the roadmap
+  case (21, 27); BM25 with stopwords gets both.
+- **Ranks past 200 never reach `kb_search` at all.** `read.ts` asks `searchScored` for
+  200 candidates.
+
+These are two labelled cases. That is directional evidence for *which* fix, not a tuned
+result; RFC-044's labelled eval decides.
+
+**A trap for that eval:** entries that *quote* the test prompts, such as this probe's own
+brain gotchas, rank first under BM25 for those prompts. The eval must use a pinned brain
+snapshot from before the quoting entries existed, or exclude them.
 
 ## Limits
 
@@ -70,6 +86,6 @@ that bears on the gated **S1** item (BM25 first, RFC-003 embeddings second).
   scorer's failure mode, which is structural (counted occurrences, no IDF, no length
   normalisation). It is not enough to tune a replacement; RFC-044 asks for a labelled
   set for that.
-- **Not probed:** `UserPromptSubmit` on harness-generated turn starts. Its firing there
-  was observed on 2026-10-13 (harness survey §7a); what its payload `prompt` looks like
-  in that case was not captured here.
+- **Harness-generated turns:** `UserPromptSubmit` also fires on these. Harness survey §7a
+  (2026-10-13) recorded the second `prompt` as a `<task-notification>` envelope. Whether
+  that envelope is a reliable discriminator across turn kinds was not probed here.
