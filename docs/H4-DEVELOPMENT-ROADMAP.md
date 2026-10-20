@@ -467,8 +467,8 @@ section only sequences it. One RFC per theme, ADRs decide (ADR-0007); the DoD do
 |---|---|---|
 | 1 | **R5** — close "delivery is unproven" | ✅ already delivered before v3 opened (install-path L4 proven since 2026-07-16) |
 | 1 | **R6** — wiring Brake for the plugin | ✅ plugin v0.20.1 (plugin#62): `claude plugin validate --strict` on every PR |
-| 2 | **R2** — survive compaction | **in progress.** Probe → RFC-042 → [ADR-0077](adr/ADR-0077-compaction-survival-guard.md). Clauses 1–2 landed (plugin#63, vfkb#352). **Next: clause 3, the `compaction-survival` L4** (phased; first probe the L4 CLI pin 2.1.220 and `/compact` under a marketplace install). Status: built, NOT yet verified |
-| 3 | **R1** — query-time injection (`UserPromptSubmit`) | proposed; dependency observed |
+| 2 | **R2** — survive compaction | ✅ **verified 2026-10-20, manual compaction only.** Probe → RFC-042 → [ADR-0077](adr/ADR-0077-compaction-survival-guard.md), amended by [ADR-0078](adr/ADR-0078-compaction-trial-validity.md) and [ADR-0079](adr/ADR-0079-compaction-trial-wording.md). Clauses 1–2 (plugin#63, vfkb#352); clause 3 L4 DEMONSTRATED and gate-required (plugin#64): compacted 3/3, contrast 0/3. Auto-compaction and the CI evidence leg are not yet exercised |
+| 3 | **R1** — query-time injection (`UserPromptSubmit`) | **next.** Proposed; dependency observed |
 | 4 | **R3**, **R7** — failure capture; curation | proposed; R3's dependency (`PostToolUseFailure`) observed |
 | 5 | **R4**, **R8** — `mcp_tool` hooks; Projects position | proposed; R4's dependency unobserved |
 
