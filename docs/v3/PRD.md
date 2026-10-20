@@ -283,6 +283,12 @@ separately RFC-able. Priority is the operator's call (§7 Q1).
 
 ### R1 — Query-time injection
 
+> **2026-10-20: probed, and now [RFC-044](../rfc/RFC-044-query-time-injection.md) (Proposed).** Delivery works:
+> `UserPromptSubmit` injection reaches the agent, 3/3, when framed as project knowledge. But the
+> "existing lexical index" this section relies on cannot select. It has no IDF and no length
+> normalisation, so for real prompts the relevant entries rank 77th–319th behind long handoffs.
+> R1 therefore rides on S1's BM25 first. Read the capability text below with that in mind.
+
 **Problem.** One injection moment, no query, ~1.3% delivered, and the reranker
 contributing two entries.
 
