@@ -1,7 +1,7 @@
 ---
 type: Decision
 title: "ADR-0078: A compaction trial is valid only if a compaction actually happened (amends ADR-0077 clause 3)"
-description: "The clause-3 probes for ADR-0077's compaction-survival L4 found three ways a trial looks real when it is not. A one-exchange conversation makes /compact a no-op. A mid-response API failure is reported as result:success with nothing compacted. And the CLI can hang on exit after a valid final answer. In the first two cases the startup context is never removed, so either arm 'recalls' the sentinel; under ADR-0077 as accepted that scores as a real result. This ADR adds three validity conditions (compacted, no compaction error, answered before a hard timeout) and three run requirements. An invalid trial is never scored as a hit or a miss."
+description: "The clause-3 probes for ADR-0077's compaction-survival L4 found four ways a trial looks real when it is not: a one-exchange /compact is a no-op; a failed compaction is reported as result:success; a refusal scores as a contrast miss; and host sleep (macOS maintenance sleep) stretches a trial across minutes of wall-clock time and drops connections. This ADR adds validity conditions (compacted by THIS manual /compact, no compaction error, engaged answer, answered in time with no host sleep) and run requirements (caffeinate, message pacing on results, stream to file). An invalid trial is never scored as a hit or a miss."
 status: "Accepted"
 timestamp: 2026-10-20
 ---
@@ -36,10 +36,12 @@ omit-code-words `/compact` instructions, and one stream-json process per trial.
 | CLI **2.1.220** (the CI evidence leg's pin), `--plugin-dir` | shipped | compacted, re-injected, summary clean, agent recalled |
 | | startup-matcher | compacted, nothing re-injected, summary clean, agent said NONE |
 | 2.1.220, **marketplace install** (sandboxed HOME, `marketplace add` + `install`) | shipped | compacted, re-injected, summary clean, 0 tool uses, agent recalled |
-| | startup-matcher (a temp-copy source; the installed `hooks.json` carries the matcher) | compacted, nothing re-injected, summary clean, agent did not produce the sentinel (it refused) |
+| | startup-matcher (a temp-copy source; the installed `hooks.json` carries the matcher) | **no valid trial under this ADR.** One run was a no-op, one compaction failed, and the one that compacted ended in a refusal ("I can't help with that request") |
 
-So no CLI pin bump is needed, and the trial shape works under a real marketplace install. All
-counts are N=1 per arm. These are observations, not rates.
+So no CLI pin bump is needed. The re-injection path is observed working under a real
+marketplace install. The marketplace **contrast** arm has not yet produced a trial this ADR
+would count; its counterpart under `--plugin-dir` has. All counts are N=1 per arm. These are
+observations, not rates.
 
 **But three quiet-success shapes turned up. ADR-0077 clause 3 as accepted would score each
 one:**
@@ -53,14 +55,22 @@ one:**
    mid-response." There was no boundary, and the agent then recalled the sentinel from the
    never-compacted context. In the contrast arm that is a *hit*, which turns the verdict red
    for the wrong reason.
-3. **A hang on exit after a valid answer.** The process sometimes fails to exit after its final
-   result. One single-turn run took 906 s and ignored SIGTERM; an identical run exited in 4 s.
-   This was intermittent, on a day with a flaky network, and the cause is not established.
-   A trial that times out after its final answer has real content. One that times out before
-   the answer has none.
+3. **A refusal scores as a contrast miss.** The only compacted marketplace contrast trial
+   ended with "I can't help with that request." Scored on `received` alone, that is a clean
+   contrast miss, the outcome the contrast exists to show, without the agent ever reporting
+   what it knew.
+4. **Host sleep.** The probes ran on a laptop in macOS maintenance sleep. `pmset -g log` shows
+   DarkWake every 4–5 minutes, and the session's message timestamps match those wakes to
+   within seconds: messages read at 19:07:31, 19:12:45, 19:17:18 and 19:21:50 EEST against
+   DarkWakes at 19:07:29, 19:12:42, 19:17:18 and 19:21:41. Each message paced 25–70 s apart
+   arrived about 4.5 minutes apart. A "906 s" single-turn run was wall-clock time across one
+   sleep (19:42:08 → 19:57:10); it exited normally (exit 0), so it did **not** "ignore
+   SIGTERM". The mid-response disconnect in shape 2, and an earlier `ENOTFOUND`, are
+   **plausibly** sleep as well. That is likely but not established, so it is labelled here
+   rather than asserted. A wall-clock timeout cannot be interpreted across sleep.
 
-The noLeak and noToolUse conditions do not catch any of these. ADR-0077's per-trial booleans
-all assume a compaction happened.
+The noLeak and noToolUse conditions catch none of these. ADR-0077's per-trial booleans
+assume a compaction happened, an engaged answer, and a machine that stays awake.
 
 ## Decision
 
@@ -72,13 +82,21 @@ A trial is **valid** only if **all** of these hold. RFC-042's two conditions sta
    per RFC-042).
 2. `noToolUse`: no `tool_use` appears after `compact_boundary`.
 
-Three are new:
+These are new:
 
-3. **`compacted`:** at least one `compact_boundary` is observed in the stream **before** the
-   final question's result.
-4. **`compactionOk`:** the `/compact` turn's result text does not contain
-   `Error during compaction`.
-5. **`answered`:** the final question produced a `result` event before the hard timeout.
+3. **`compacted`:** a `compact_boundary` with `compact_metadata.trigger == "manual"` is
+   observed **between** the `/compact` input and its result. An earlier auto-compaction does
+   not count. `noLeak` reads the `PostCompact` of **that** compaction.
+4. **`compactionOk`:** the `/compact` result text does not contain `Error during compaction`.
+   This is a second line behind `compacted`. It is a literal string, so it would break if the
+   CLI rewords the message, and `compacted` is the condition that matters.
+5. **`engaged`:** the final answer, lower-cased and stripped of non-alphanumerics, is one of
+   the trial's sentinels or `none`. A refusal or any other answer is invalid in **both** arms.
+6. **`answered`:** the final question produced a `result` before the hard timeout. The number
+   of `result` events equals the number of messages sent, so no turn was merged or answered
+   out of order.
+7. **`awake`:** the host did not sleep during the trial. Wall-clock and monotonic time
+   (`Date.now()` against `process.hrtime`) agree to within a small tolerance, proposed at 5 s.
 
 Two more rules apply to validity:
 
@@ -90,29 +108,30 @@ Two more rules apply to validity:
 
 ### Run requirements
 
-- **At least 3 real exchanges come before `/compact`,** so a compaction is possible at all.
-- **The stream is written to a file as it arrives,** not buffered in the parent. A process
-  that hangs **after** its final result therefore remains scoreable.
-- **Each trial runs under a hard timeout.** On expiry the **process group** is killed: SIGTERM
-  alone was observed to be ignored. The trial is then scored from the captured file. It is
-  valid only if `answered` holds, so a kill before the final result is invalid.
+- **Run under `caffeinate -i`** (or an equivalent on another host), so idle sleep cannot
+  occur. `awake` detects it if it happens anyway.
+- **Send each message only after the previous `result` arrives.** No fixed sleeps. At least 3
+  real exchanges come before `/compact`, so a compaction is possible at all.
+- **The stream is written to a file as it arrives,** and each trial runs under a hard timeout
+  measured in monotonic time. On expiry the process group is killed and the trial is scored
+  from the file.
 
 ### Gate
 
-The scenario-specific `release-gate.mjs` rule from ADR-0077 recomputes validity from all five
-booleans. Its selftest must be observed red on four fixtures:
-
-- a trial with `compacted: false` that is counted as valid;
-- a trial with `compactionOk: false` that is counted as valid;
-- a trial with `answered: false` that is counted as valid;
-- a contrast "hit" that came from an invalid trial.
+The scenario-specific `release-gate.mjs` rule from ADR-0077 recomputes validity from all
+seven booleans. Its selftest must be observed red when the trial counts as valid while any
+one of these is false: `compacted`, `compactionOk`, `engaged`, `answered`, `awake`. It must
+also be observed red on a contrast "hit" that came from an invalid trial.
 
 ## Consequences
 
-- **Network flakiness costs attempts, not verdicts.** An unstable afternoon produces invalid
-  trials and may exhaust the attempts cap, which is a red. It does not produce a false hit.
+- **Transient failures cost attempts, not verdicts.** Host sleep, network drops and
+  refusals produce invalid trials and may exhaust the attempts cap, which is a red. They do
+  not produce a false hit.
   ADR-0077 named the cap at 6 per arm, and that may need raising if invalid trials are common.
   That is a separate decision, made on evidence.
-- **The exit hang is unexplained.** The rule makes it harmless to the verdict. It does not
-  diagnose it, and if it is a CLI defect it may be worth reporting upstream.
+- **The "exit hang" was host sleep, not a CLI defect.** It was first misread as the CLI
+  ignoring SIGTERM. The PR #356 review found the sleep/wake correlation and this ADR's author
+  confirmed it in `pmset -g log`. The correction is recorded in brain `89e4002fdf66`'s
+  follow-up.
 - **Auto-compaction (`trigger: "auto"`) remains unobserved,** as ADR-0077 states.
