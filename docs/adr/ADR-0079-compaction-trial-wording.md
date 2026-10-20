@@ -31,8 +31,10 @@ marketplace installs, no tools) was **NOT DEMONSTRATED**:
 | compacted | hit | miss: named only the Constitution's sentinel | miss: `NONE` |
 | contrast | clean | clean | clean |
 
-**Re-injection reached the agent in every compacted trial** (`emitted` true all three times).
-The plugin did its job, and the agent did not report what it had.
+**Re-injection was emitted in every compacted trial** (`emitted` true all three times): the
+`SessionStart:compact` hook response carried both sentinels. Its arrival in the agent's
+context was observed directly in the two kept diagnostic trials below. The plugin did its job,
+and the agent did not report what it had.
 
 Two diagnostic trials were kept for inspection. Both showed the re-injected Constitution and
 handoff present in the post-compaction context (`hook_additional_context`), yet one agent
@@ -82,9 +84,10 @@ supported by the claim being about *both* sentinels.
 
 ## Consequences
 
-- **The first run's record is superseded,** not erased. Its result (compacted 1/3) is kept in
-  the brain entry and here as evidence that the old wording could fail the capability for
-  reasons unrelated to it.
+- **The first run's record is superseded.** Its file was not kept in the repository. Its
+  tally, compacted 1/3 with re-injection emitted 3/3, is preserved in plugin brain
+  `f09f2ec5dcfd` and in this ADR, as evidence that the old wording could fail the capability
+  for reasons unrelated to it.
 - **The question is now more leading.** It names "Constitution" and "handoff". That cannot
   manufacture a hit: with no tools, a clean summary and no re-injection, the contrast arm has
   no way to produce the sentinels, and the 2/2 contrast misses observed this. The contrast arm
