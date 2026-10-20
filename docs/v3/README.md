@@ -108,14 +108,15 @@ R5, R6 → R2 → R1 → R3, R7, R4, R8. R2 is the only theme with an RFC so far
   `claude plugin validate --strict` now runs on every plugin PR.
 - **R1 and R3 — dependencies observed** on CLI 2.1.273 in the 2026-10-13 probes
   (harness survey §7a). Both are still *proposed*.
-- **R2 — probed 2026-10-19 and reshaped** (harness survey §7b). The shipped
-  plugin already re-injects after compaction via `SessionStart(source:"compact")`,
-  but by accident and untested. R2 is now a guard to make that deliberate, not a
-  build.
+- **R2 — ✅ verified 2026-10-20 (manual compaction).** The probe (harness survey
+  §7b) found the shipped plugin already re-injects after compaction via
+  `SessionStart(source:"compact")`, by accident and untested. ADR-0077 (amended by
+  ADR-0078/0079) made it a guarantee: a matcher Brake, an engine test, and the
+  `compaction-survival` L4 (plugin#64, compacted 3/3, contrast 0/3, gate-required).
 - **R4 — dependency still unobserved.** That is the `mcp_tool` hook, whose probe has
   not been run. Per §9, it gets probed before anything is built.
 - **R7 — proposed**, with no harness dependency to probe.
 - **R8 — proposed.** It depends on Claude Code Projects being available, which has
   not been checked.
 
-**R2: RFC-042 → ADR-0077 accepted, and clauses 1–2 landed on 2026-10-19 (plugin#63, vfkb#352). R2 is built, NOT yet verified. Next is clause 3, the compaction-survival L4.**
+**R2 is VERIFIED (2026-10-20) for manual compaction:** RFC-042 → ADR-0077 (amended by ADR-0078/0079); all three clauses landed (plugin#63, vfkb#352, plugin#64), and the compaction-survival L4 is DEMONSTRATED, compacted 3/3 against contrast 0/3, and required by the release gate. Auto-compaction is still unobserved. **Next is R1, query-time injection.**
