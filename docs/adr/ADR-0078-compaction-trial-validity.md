@@ -67,8 +67,8 @@ one:**
    - the failed compaction's output was written at 19:17:18, the instant of the DarkWake at
      19:17:18.
 
-   Several messages paced 25 s apart arrived minutes apart; two arrived on time, 25 s after
-   the one before. A "906 s" single-turn run was wall-clock time across one sleep
+   Three messages arrived minutes late (two paced at 25 s, one at 70 s); two arrived on time,
+   25 s after the one before. A "906 s" single-turn run was wall-clock time across one sleep
    (19:42:08 → 19:57:10). It exited normally (exit 0); there is no evidence it ignored
    SIGTERM. The mid-response disconnect in shape 2, and an earlier `ENOTFOUND`, are
    **plausibly** sleep as well. That is likely but not established, so it is labelled here
@@ -107,7 +107,9 @@ These are new:
 
    So "The code word is KUMQUAT-8812" is a hit, not invalid; a wordy contrast leak stays a
    leak. "Both sentinels, in any wording" counts as receiving both. "The code word is NONE" is
-   invalid, which is conservative: it costs an attempt, never a false verdict.
+   invalid, which is conservative: it costs an attempt, never a false verdict. This scoring is
+   sound only if sentinels cannot be produced by chance. Each sentinel is random, at least 8
+   characters, and mixes letters and digits.
 6. **`answered`:** the final question produced a `result` before the hard timeout. The number
    of `result` events equals the number of messages sent, so no turn was merged or answered
    out of order.
@@ -138,11 +140,11 @@ Two more rules apply to validity:
 The scenario-specific `release-gate.mjs` rule from ADR-0077 recomputes validity from all
 seven booleans. Its selftest must be observed red when the trial counts as valid while any
 one of these is false: `compacted`, `compactionOk`, `engaged`, `answered`, `awake`. It must
-also be observed red on a contrast "hit" that came from an invalid trial. The scorer must be
-observed red on two fixtures:
-- a wordy contrast answer naming a sentinel, which must count as a **hit**, not invalid;
-- a shipped answer naming both sentinels in prose, which must count as **received**, not
-  invalid.
+also be observed red on a contrast "hit" that came from an invalid trial. It must also go
+red if the scorer mis-scores either of two fixtures:
+- a wordy contrast answer naming a sentinel, which the scorer must count as a **hit**, not as
+  invalid;
+- a shipped answer naming both sentinels in prose, which it must count as **received**.
 
 ## Consequences
 
@@ -156,3 +158,7 @@ observed red on two fixtures:
   confirmed it in `pmset -g log`. The correction is brain `e0ff1b78a31a`, which contradicts
   `89e4002fdf66`.
 - **Auto-compaction (`trigger: "auto"`) remains unobserved,** as ADR-0077 states.
+- **Open for the build: a partial contrast leak.** Under RFC-042 a contrast hit means
+  `received`, which requires both sentinels. A contrast answer leaking only one is engaged but
+  not a hit. Whether a single-sentinel leak should count as a contrast hit is settled when the
+  L4 is built. This ADR does not change it.
