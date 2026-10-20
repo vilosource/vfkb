@@ -9,8 +9,12 @@ no transcript data is committed here.
   next user prompt, and whether the fire was on the session's final turn.
 
   ```
-  python3 nudge-fires.py "$HOME/.claude-cldp/projects/*vfkb*" "$HOME/.claude/projects/*vfkb*" "$HOME/.claude-cldw/projects/*vfkb*"
+  python3 nudge-fires.py "$HOME/.claude-cldp/projects/-Users-jasonviloria-GitHub-vfkb" "$HOME/.claude/projects/-Users-jasonviloria-GitHub-vfkb"
   ```
+
+  Point it at the repo's own session directory. A `*vfkb*` glob also matches L4 sandbox and
+  probe directories. On 2026-10-19 that inflated the session count to 104, when there were
+  19 real sessions; the fires all come from real ones.
 
 - `turn-corpus.py <out.jsonl> <glob>...` writes one record per turn: the prompt, the final
   assistant text, brain writes and issue creation, and background mechanisms started. That
@@ -19,6 +23,9 @@ no transcript data is committed here.
 Caveats:
 - Claude Code keeps transcripts for about 30 days, so a re-run covers a different window.
 - Older transcripts without `promptSource` are skipped by `nudge-fires.py`.
+- Before 2026-10-20 the scripts matched only `--tags` for CLI writes; the CLI flag is
+  `--tag`. The first run therefore reported 14 acted and 10 declined, against 18 and 6 after
+  the fix.
 - "Acted" means a handoff was written before the next user prompt, not that it was a good
   handoff.
 - The figures in RFC-043 are the 2026-10-19 run: 104 sessions, 23 B3 fires. A re-run the

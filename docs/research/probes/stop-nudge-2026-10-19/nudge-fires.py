@@ -11,7 +11,7 @@ def is_handoff_write(b):
   if n=='Skill' and 'handoff' in str(i.get('skill','')): return True
   if n=='Bash':
     c=i.get('command','')
-    return bool(re.search(r'\badd fact\b',c) and re.search(r'--tags[ =][^ ]*handoff',c))
+    return bool(re.search(r'\badd fact\b',c) and re.search(r'--tags?[ =][^ ]*handoff',c))
   return False
 for f in files:
   try: lines=[json.loads(l) for l in open(f)]

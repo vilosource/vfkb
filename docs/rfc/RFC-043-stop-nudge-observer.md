@@ -1,42 +1,52 @@
 ---
 type: RFC
-title: "RFC-043: The stale-handoff nudge fires on a fact, not a moment — a stale-pin floor and an opt-in decision-model observer"
-description: "The Stop-hook nudge that fires 'all the time' is B3 (stale-handoff), not B1: over 104 sessions B1 fired 0 times and B3 23 times, 18 of them mid-session, and agents complied in 14, writing handoffs that the next merge made stale again. B3 has no RFC, ADR or L4. Its trigger is a fact that stays true for the rest of the session, so a cooldown only spaces the nags out. This RFC proposes (A) a deterministic floor that flags a stale pin at the next SessionStart, with no write and no commit, so suppressing B3 is safe; and (B) an opt-in observer seam, where a decision model such as TypeSafe Jev judges from a bounded window of the session whether the session is wrapping up, in shadow mode first, and only times B3, never creating or blocking anything."
+title: "RFC-043: The stale-handoff nudge fires on a fact, not a moment — fix its anchor, give it a floor, and gate any decision model on evidence"
+description: "B3, the stale-handoff Stop nudge, has no RFC, ADR or L4, and it is the nudge that fires 'all the time'. Adversarial review found that a large share of its fires are a deterministic false positive: a squash merge makes the handoff it carries look stale, because the staleness anchor uses committer date. So the first fix is deterministic (Part 0: anchor on the commit that contains the pin). It is followed by a reminder-text change (Part 1) and a read-only stale-pin floor in the shared resume render (Part A), which makes suppressing B3 safe. A decision-model observer such as TypeSafe Jev (Part B) is kept as a design, but it is built only if B3 still fires mid-session after Part 0 and a throwaway calibration spike shows the model beats a rule-only baseline."
 status: "Proposed"
 timestamp: 2026-10-20
 ---
 
 # RFC-043: The stale-handoff nudge fires on a fact, not a moment
 
-- **Status:** Proposed
+- **Status:** Proposed (revised after adversarial review round 1, 2026-10-20)
 - **Date:** 2026-10-20
 - **Deciders:** operator + Claude
 - **Governs:** the **B3 stale-handoff nudge** in `src/stop-reminder.ts`. B3 shipped as a
   "pragmatic patch, built NOT yet verified — no RFC/ADR/L4 yet" (its own code comment). This
   is its first governing proposal.
-- **Operator ruling it implements:** brain `e9c19cc5819e` (2026-10-19). Scope is B3. A
-  decision model only times B3 and never creates a fire. A stale-pin fallback makes a wrong
-  "stay quiet" safe. Jev is the leading candidate but not pre-chosen. The shape is an
-  observer seam, opt-in, consistent with Ruling 5.
+- **Operator ruling it implements:** brain `4bbe73188958` (2026-10-19; it supersedes
+  `e9c19cc5819e`, whose only changes are a corrected *Why* and the `handoff` tag removed). The
+  ruling: scope is B3; a decision model only times B3 and never creates a fire; a stale-pin
+  fallback makes a wrong "stay quiet" safe; Jev is the leading candidate but not pre-chosen;
+  the shape is an observer seam, opt-in, consistent with Ruling 5. **Where this revision
+  departs from that ruling, it says so and asks (Q1, Q4).**
 - **Relates:**
   - [ADR-0027](../adr/ADR-0027-stop-hook-decision-capture-reminder.md) (the Stop-hook
     reminder pattern),
     [ADR-0033](../adr/ADR-0033-session-end-continuity.md) (the B2 missing-handoff floor),
-    [ADR-0034](../adr/ADR-0034-b1-handoff-nudge.md) (B1) and
-    [ADR-0049](../adr/ADR-0049-session-start-handoff-pinning.md) (the handoff pin is a
-    filter, not an inference — unchanged here).
+    [ADR-0034](../adr/ADR-0034-b1-handoff-nudge.md) (B1),
+    [ADR-0049](../adr/ADR-0049-session-start-handoff-pinning.md) (the handoff pin; Part A
+    amends how its section renders, not how it is selected) and
+    [ADR-0077](../adr/ADR-0077-compaction-survival-guard.md) (the resume render re-runs after
+    compaction).
   - [ADR-0013](../adr/ADR-0013-no-hard-native-dep.md): degrade to deterministic behaviour,
     take no hard dependency.
   - [ADR-0050](../adr/ADR-0050-l4-dod-constitutional-brake.md) and
-    [ADR-0051](../adr/ADR-0051-delivery-honesty.md): the L4 contract.
-  - v3 PRD Ruling 5 (brain `8b2aefd11171`): decision models stay an optional seam, not a
-    theme.
+    [ADR-0051](../adr/ADR-0051-delivery-honesty.md): the L4 contract and the content
+    assertion it must use.
+  - v3 PRD Ruling 5 (brain `8b2aefd11171`): decision models stay an optional seam, **gated on
+    the decision-model survey's §10 calibration spike.**
 - **Evidence:**
-  - brain `a91f82e76700`: B3 is the nudge that fires, with the churn numbers;
-  - brain `4f5077d1b89b`: the hand-labelled use-case measurement;
-  - brain `fc07da198bfa`: what the native `type:"prompt"` Stop hook can and cannot see;
-  - brain `aa294b2708c4`: a decision model can never be a Brake;
-  - the probe kit in [`docs/research/probes/stop-nudge-2026-10-19/`](../research/probes/stop-nudge-2026-10-19/);
+  - brain `68ea8f1db58d` (a squash merge makes its own handoff stale) and `583374f75808` (a
+    topical `handoff` tag hijacks the pin). Both were found by the round-1 review and
+    reproduced on 2026-10-20.
+  - brain `a91f82e76700` (the first B3 count; its session denominator is corrected below),
+    `4f5077d1b89b` (the hand-labelled use-case measurement) and `c5dd75a6661e` (a
+    correction).
+  - brain `fc07da198bfa`: what the native `type:"prompt"` Stop hook can and cannot see.
+  - brain `aa294b2708c4`: a decision model can never be a Brake.
+  - the probe kit in
+    [`docs/research/probes/stop-nudge-2026-10-19/`](../research/probes/stop-nudge-2026-10-19/);
   - the decision-model survey,
     [`docs/research/decision-models-2026-10.md`](../research/decision-models-2026-10.md)
     §6.3, §9 and §10.
@@ -51,164 +61,264 @@ timestamp: 2026-10-20
 |---|---|---|
 | decision | uncommitted `src/` or `docs/` changes and no `decision` entry since HEAD | ADR-0027 |
 | handoff (B1) | the same, plus at least 3 new entries and no `handoff`/`next` entry | ADR-0034 |
-| stale-handoff (B3) | the pinned handoff predates a non-brain commit | **nothing** |
+| stale-handoff (B3) | `handoffIsStale`: the tree at HEAD differs, outside the brain, from the commit nearest the pinned handoff's `updated` time | **nothing** |
 
 Each repeats at most once every `NUDGE_COOLDOWN_TURNS = 10` turns (operator ruling
 2026-07-31).
 
 ### Which nudge actually fires
 
-The retained transcripts for this repo (104 sessions across the `~/.claude-cldp`, `~/.claude`
-and `~/.claude-cldw` config dirs, counting `hook_additional_context` attachments only) show:
+Re-run 2026-10-20 with the probe kit, restricted to this repo's real session directory
+(`~/.claude-cldp/projects/-Users-jasonviloria-GitHub-vfkb/`). **The first count's "104
+sessions" also matched about 85 sandbox and probe sessions,** whose directory names contain
+`vfkb`; the fires themselves all come from real sessions.
 
-| Nudge | Fires |
+| | Count |
 |---|---|
-| B1 handoff | **0** |
-| decision | 1 |
-| **B3 stale-handoff** | **23** |
+| Real repo sessions with prompts | 19 |
+| B1 handoff fires | **0** |
+| decision fires | 1 |
+| **B3 stale-handoff fires** | **24, in 11 sessions** |
+| … in 6 interactive operator sessions | 19 |
+| … in 5 single-prompt ADR-0052 review-gate sessions | 5 |
 
-B1 almost never arms here, because this repo commits its brain often. **B3 is the one the
-operator experiences as "fires all the time"**, and it fired on the first turn of the session
-that wrote this RFC, before any work had happened.
+B3 is the nudge the operator experiences as "fires all the time". It fired on the first turn
+of the session that wrote this RFC, before any work had happened.
 
-### Why the cooldown does not fix it
+### Why it fires: three causes, mixed together
 
-B3's trigger is a **fact** ("a commit landed after the pin"), not a **moment**. Once a PR
-merges, the fact stays true until a new handoff is written, so B3 re-arms every 10 turns for
-the rest of the session. The cooldown spaces the nags out. It cannot tell mid-session from
-wrap-up, because nothing in `StopContext` says which one it is.
+1. **A squash merge makes its own handoff stale.** This is a deterministic false positive,
+   found by the round-1 review and reproduced on 2026-10-20 (brain `68ea8f1db58d`).
+   `handoffIsStale` picks its anchor with `git rev-list -1 --before=<pin.updated> HEAD`, which
+   uses **committer date**. This repo squash-merges. A squash commit is dated **after** the
+   handoff it carries, and it also contains the PR's non-brain changes. So the very merge that
+   lands a correct, end-of-session handoff makes that handoff "stale".
+   - At squash merges `8114d76`, `cf6343a` and `480e5bc`, the only non-brain commit between
+     the anchor and the merge is the carrier merge itself, and `git diff --quiet` exits 1.
+   - The reviewer reproduced this at 5 merges and counted 12 of the last 60 `main` commits
+     with this shape. A rebase does the same, because it rewrites committer dates.
+2. **A topical `handoff` tag moves the pin.** `latestHandoff` (ADR-0049) pins the newest
+   injectable entry tagged `handoff` or `next`, whatever its type. An entry *about* handoffs
+   with that tag becomes the pin, and B3's anchor moves with it (brain `583374f75808`). It
+   happened on 2026-10-19, and was repaired in a brain-only PR on 2026-10-20.
+3. **Real staleness.** A commit genuinely landed after the handoff, so the pin really is
+   behind.
+
+**The split of the 24 fires across these causes is not measured.** Classifying them needs
+each session's HEAD at fire time, which the transcripts do not record. So the size of the
+problem that a decision model would address (cause 3, mid-session) is **unknown** until Part 0
+ships and B3 is measured again.
 
 ### What it costs
 
-- **It produces premature handoffs.** Of the 23 B3 fires, 18 were mid-session and 5 were on
-  the final turn. The agent complied in 14, writing a handoff before the next user prompt,
-  and declined in 9. Two of those handoffs say outright that they were written "because that
-  nudge has no end-of-session fallback" (turns 4/31 and 28/31 of one session).
-- **It feeds a loop.** A mid-session handoff goes stale at the next merge, which re-arms B3.
-  Sessions with 4–6 handoff writes each show it (`d5948d4c`: 5 fires, 5 writes; `edf377bb`:
-  4 fires, 6 writes). This links to PRD R7's count of 106 `handoff`-tagged entries, of which
-  only one is ever pinned.
-- **Declining it is safe only if the agent keeps its word.** Session `61f0e751` declined B3
-  mid-session ("I'm not wrapping up yet… I'll record a fresh handoff before the session
-  ends"). As of 2026-10-20 that session is still running, so whether it keeps the promise is
-  **not yet known**. Nothing in the code ensures it does.
+- **It produces premature handoffs.** The agent complied, writing a handoff before the next
+  user prompt, in **18 of the 24 fires**: all 5 in review-gate sessions, and 13 of 19 in
+  interactive ones. Only 1 interactive fire was on a session's final turn. In one session
+  (`d5948d4c`) the agent says 4 times that it wrote the handoff because "that nudge has no
+  end-of-session fallback". That clause is in B3's own reminder text.
+  *(Counts re-verified 2026-10-20 with a fixed probe script. The first run matched only
+  `--tags`, so it missed CLI writes using `--tag` and reported 14 acted, 10 declined.)*
+- **It makes reviewers write handoffs.** In all 5 review-gate sessions (one prompt each,
+  launched to review a PR), B3 fired and the reviewer wrote a `HANDOFF` fact. Being the newest
+  handoff-tagged entry, such a fact becomes the pin for the next session that reads that
+  brain, displacing the operator's own handoff.
+- **It feeds a loop.** A mid-session handoff goes stale at the next merge, or by cause 1, at
+  its own merge, which re-arms B3. Sessions with 4–6 handoff writes show it (`d5948d4c`:
+  5 fires, 5 writes; `edf377bb`: 4 fires, 6 writes).
 
-That is the constraint on any fix. **B3 has no floor** (a structural fact about the code, not
-an observed failure). B1 has ADR-0033's SessionEnd fallback underneath it, but a stale pin
-has nothing. So suppressing B3 — by a model or by anything else — rests entirely on the
-agent remembering to write a handoff later.
+### B3 has no floor
 
-### Why the existing SessionEnd fallback cannot be the floor
+B1 has ADR-0033's SessionEnd fallback underneath it. A *stale* pin has nothing. That is a
+structural fact about `stop-reminder.ts` and `session-end.ts`. So declining or suppressing B3
+rests entirely on the agent remembering to write a handoff later. Session `61f0e751` declined
+B3 ("I'll record a fresh handoff before the session ends"). It was still running at
+2026-10-20 08:52Z, so whether it keeps the promise was open when this was written.
+
+One partial exception: on a topic branch with uncommitted brain entries, ADR-0033's B2
+auto-handoff becomes the new pin and so clears staleness. It does nothing on a clean tree or
+on `main`.
+
+### Why a SessionEnd write cannot be the floor
 
 `runSessionEnd` (`src/session-end.ts`) returns early when the brain file is clean (step 2), and
 it never commits on the default branch (step 3). The defining B3 case is the opposite of a
 dirty topic branch: the PR has merged and the checkout is back on `main`, clean. Sessions do
-reach that state mid-session (`61f0e751`, turn 3: "Both repos are on `main` with nothing
-uncommitted"). A stale-pin fallback written at SessionEnd would miss exactly that case. If it
-wrote anyway, it would leave an uncommitted line in the main checkout's brain, the same
-collision two sessions hit on 2026-10-19.
+reach that state (`61f0e751`, turn 3: "Both repos are on `main` with nothing uncommitted").
+A fallback written at SessionEnd would miss exactly that case. If it wrote anyway, it would
+leave an uncommitted line in the main checkout's brain. Two concurrent sessions hit that
+collision on 2026-10-19: one session's `kb_add` writes landed in the other's working copy on
+`main`, and were carried over by hand.
 
 ## Decision (proposed)
 
-Two parts. **Part A** is deterministic, needs no model, and is worth building even if Part B
-never ships. **Part B** is the observer, opt-in and shadow-first.
+Four parts, in order. **Parts 0, 1 and A are deterministic and need no model.** Part B is
+contingent on what they leave behind.
 
-### Part A — the stale-pin floor: flag it at the next SessionStart
+### Part 0 — anchor staleness on the commit that carries the pin
 
-**Mechanism.** In the SessionStart hook shell (`cli.ts`, not the pure `renderContext`), compute
-whether the pin is stale, using the existing `handoffIsStale` logic. If it is, list the
-non-brain commits since the pin's anchor commit:
-`git log --format=%h %s <anchor>..HEAD -- <the same pathspec handoffIsStale uses>`, capped at
-10. Pass the result into the render. `renderContext` then appends a deterministic note under
-the `## Last handoff` section:
+**Change `handoffIsStale`'s anchor.** Today the anchor is the newest commit before the pin's
+`updated` time. Instead, anchor on **the first commit on HEAD's first-parent history whose
+`entries.jsonl` contains the pin's id**:
+`git log --first-parent --reverse --format=%H -S<pinId> HEAD -- <entries path>`, first result.
+
+- The pin is stale only if non-brain paths differ between **that commit** and HEAD, using the
+  same pathspec rules `handoffIsStale` already has for in-tree, root and outside-tree brains.
+- **A pin not yet in any commit** (written this session, uncommitted) is **not stale.** This
+  session wrote it, so it is current by construction.
+- **A squash merge that carries the pin is its own anchor,** so it cannot make the pin stale.
+  A rebase does not change which commit first contains the id, so it is handled too.
+- If `git log -S` fails or finds nothing, B3 **fires** as today. Failures go toward
+  reminding, matching the existing posture.
+- The lookup uses the pin's id, which is unique, so the search cannot match a different entry.
+
+**Cost.** One `git log -S` over the brain file's history in place of `rev-list --before`.
+`-S` scans diffs, so its cost grows with the brain's history. If that proves slow, the result
+can be cached per (pin id, HEAD) in the gitignored `.vfkb/.sessions/` record. That is a
+build-time choice.
+
+**Then re-measure.** After Part 0 ships, count B3 fires again over at least 10 interactive
+sessions. That number, not the 24 above, decides Part B (below).
+
+### Part 1 — stop B3's reminder from demanding an immediate handoff
+
+B3's reminder ends: *"unlike the other nudges, this one has no SessionEnd fallback for a
+STALE … pin, so a fresh handoff/next entry must be recorded before the session ends."* Agents
+quote that clause when they write a premature handoff. Once Part A exists, the clause is no
+longer true. **Reword it in the same change as Part A:** say what moved, say that the next
+session will see the same list, and ask for a handoff only if the agent is wrapping up. It is
+the cheapest experiment in this RFC, and the re-measurement after Part 0 will show its effect.
+
+### Part A — the stale-pin floor: annotate the pin where it is rendered
+
+**Where.** In the **shared** resume render, `renderContextBundle` (`src/engine.ts:544`), which
+renders `## Last handoff`. That function is behind `renderResume`, and so behind every face:
+the Claude Code SessionStart hook, `kb_resume` through `resumePayload` (`src/heal.ts:170`),
+and pi (`src/pi-extension.ts:85`). Computing it in one face only would recreate the #205
+divergence between faces.
+
+**What.** When Part 0 says the pin is stale, append a neutral line under the pinned handoff,
+listing the non-brain commits from the anchor to HEAD
+(`git log --format='%h %s' <anchor>..HEAD -- <pathspec>`):
 
 ```
-⚠ This handoff predates 3 commits on this branch — it may be out of date:
-  7d1429c docs: small fixes — CLAUDE.md --tag, ADR index backfill (#354)
-  be8be65 test: compaction re-injection is load-bearing (#352)
+Commits since this handoff was recorded (3):
+  b0afd71 fix: capture-fallback hint advertised --tags, which add rejects (#355)
   …
 ```
 
+- **Neutral wording, with no call to action.** The render also re-runs after every compaction
+  (ADR-0077). An imperative such as "may be out of date — write a handoff" would recreate the
+  premature-handoff trigger through a second channel.
+- **Bounded in characters, not lines.** Pin text plus annotation must stay within
+  `HANDOFF_PIN_CAP_CHARS` (2,000). The list is cut first, ending in "(+N more)".
+- **When the pin predates all history,** list from the root (`git log HEAD`), because
+  `<empty-tree>..HEAD` is not valid `git log` input.
+- **Any git failure → no annotation.** That makes the render no worse than today. Unlike
+  B3, the floor fails toward silence, because a wrong annotation would mislead, and B3
+  still covers the case.
+- **Git access goes through the backend seam,** like the other git-layer consumers
+  (`src/backend.ts`), so the engine's unit tests can stub it.
+
 **Why read-only beats a written fallback:**
-- It works on a **clean tree** and on **`main`**, which are both cases a SessionEnd write
-  cannot cover (Context, last section).
-- It writes nothing, so it cannot collide with another session's working copy, cannot
-  dirty `main`, and adds no handoff to R7's sprawl.
-- It is computed **fresh at read time**, so it also covers merges that land between sessions,
-  from another session or an autonomous merge, which a SessionEnd write could not know about.
-- It keeps ADR-0049 intact: the pin is still selected by filter, and the note is only an
-  annotation on it.
+- It works on a **clean tree** and on **`main`**.
+- It writes nothing, so it cannot collide with another session's working copy, dirty `main`,
+  or add to the handoff sprawl that PRD R7 counts.
+- It is computed **fresh at read time,** so it also covers merges that land between sessions.
+- It does not change pin selection under ADR-0049. It changes how the pinned section
+  renders, so **the accepting ADR amends ADR-0049** for that.
 
-**What it does not do.** It does not write a better handoff. It tells the next session that
-the pin is behind and what moved, which is the information a stale pin hides. The
-agent-authored handoff stays the higher-quality path, and B3 still asks for it at the right
-moment.
+**This departs from the ruled mechanism.** The ruling names "a SessionEnd fallback for a stale
+pin". Part A serves the same purpose by a different mechanism, for the reasons above. **That
+substitution is the operator's call (Q1).**
 
-**This departs from the ruled mechanism.** Ruling `e9c19cc5819e` names "a SessionEnd fallback
-for a stale pin". Part A serves the same purpose by a different mechanism, for the reasons
-above. **That substitution is the operator's call (Q1), not this RFC's.**
+**Cost.** Part 0's lookup plus one `git log` at session start when a pin exists. Today's
+`handoffIsStale` already makes three git calls on every Stop.
 
-**Cost.** Two extra git calls at session start (`rev-list` plus `log`) when a pin exists. The
-staleness check already runs on every Stop today, so this adds no new kind of work.
+### Part B — a decision-model observer, contingent
 
-### Part B — the observer: a decision model times B3
+Part B is kept as a design so its shape is reviewed now. **It is built only if both gates
+pass:**
 
-#### The question being asked
+1. **The B3 re-measurement after Parts 0, 1 and A** still shows B3 firing mid-session in a
+   meaningful share of interactive sessions. The proposed bar is at least one mid-session fire
+   per 3 interactive sessions, over at least 10. If Part 0 removes most fires, Part B is not
+   built.
+2. **Ruling 5's calibration spike** (survey §10): a throwaway script, no production code.
+   Label turns from the probe kit's corpus as wrap-up or not, call the candidate model on
+   each window, and show that its probabilities separate the two classes better than the
+   rule-only baseline below. **Shadow mode is production code** (a hook handler, prompt
+   storage, a Decider), so under Ruling 5 it must wait for this spike.
 
-The useful quantity is *"is it likely that no more substantive work happens in this session
-after this turn?"* A B3 nudge that fires too early produces the churn above. One that fires
-too late or never is covered by Part A.
+If either gate fails, this RFC's accepting ADR records Part B as **not built**, with the
+evidence.
 
-#### What the observer sees (the window)
+#### Design, if built
 
-**From rules, sent to no model:**
-- **Precondition:** B3's trigger holds (the pin is stale) and B3 is not cooling. **The model
-  is consulted only when B3 would already fire today.** It can delay or suppress a fire. It
-  can never create one.
-- **Hard suppress:** the Stop payload's `background_tasks` or `session_crons` is non-empty.
-  If something is still running, the session is not ending. (Both fields observed on CLI
-  2.1.292.)
+**The question:** "is it likely that no more substantive work happens in this session after
+this turn?"
 
-**Text sent to the model, about 2k tokens at most:**
-- **The last 3 user prompts,** newest last, each truncated to 600 characters. They are
-  recorded by a new `hook user-prompt-submit` handler into `SessionState`. That handler makes
-  no network call and injects nothing. The prompt arrives in the payload's `prompt` field
-  (observed; a docs summary says `user_input`, so accept both).
-- **The tail of the agent's final message,** from the Stop payload's `last_assistant_message`,
-  last 1,000 characters. That is where "want me to…?" and "I'll merge once CI settles"
-  appear.
+**Evaluation order at Stop, for B3 only.** Every branch that cannot complete leads to
+today's behaviour:
 
-**Excluded, deliberately:**
-- **Hook-injected text, including B3's own reminder.** It literally says "WRAPPING UP".
-- **System reminders and pasted blocks.**
-- **Turns Claude Code starts on its own** (task notifications, crons). The hooks reference
-  says `UserPromptSubmit` also fires for those (**UNVERIFIED**: docs only, not observed
-  here). Record only prompts whose source is the user either way.
-- **Tool output, diffs, file contents and brain entry text.** They do not predict wrap-up,
-  and they would send data off the machine.
-- **The transcript file.** Its format is internal and undocumented; the probe session alone
-  had more than 8 record types.
+```
+if stop_hook_active                         → allow stop             (unchanged)
+trigger = handoffIsStale()                  (Part 0 anchor)
+if !trigger                                 → no B3                  (unchanged)
+if mode == shadow:
+    consult model on every Stop where trigger holds, IGNORING the cooldown;
+    log probabilities + facts + what the policy would do + what B3 actually does;
+    then run today's decideStop unchanged   → act on nothing
+if mode == act:
+    if B3 cooling                           → no B3                  (unchanged)
+    if background_tasks or session_crons non-empty → defer B3 this turn
+    p = decider.decide(window)              (null on ANY error)
+    if p == null                            → fire B3                (today's behaviour)
+    if policy(p) == fire                    → fire B3, mark nudged
+    else                                    → defer, and mark "consulted" so the model
+                                              is asked at most once per N turns
+```
 
-All text is checked with `detectSecrets` (`src/secrets.ts`). A window that contains a
-detected secret is **not sent**, and the deterministic behaviour applies for that turn.
+- **Shadow mode consults outside the cooldown.** Otherwise it would log only the turns where
+  B3 fires today, about one per 10-turn window, and final turns inside a cooldown would never
+  be logged. That bias would make the switch-to-act gate impossible to measure.
+- **Act mode rate-limits consultations.** A deferred fire does not mark the nudge as fired.
+  Without its own "consulted" mark, the model would be called on every Stop for the rest of
+  the session.
+- **The background-task deferral applies only in act mode.** With no decider configured,
+  nothing changes.
+- **The cooldown check moves out of the pure `decideStop`** into the shell, so both modes
+  can share it. The build PR has to make that split, with unit tests.
 
-#### The questions
+**The window, about 2k tokens at most:**
+- **The last 3 user prompts,** newest last, each truncated to 600 characters, recorded by a
+  new `hook user-prompt-submit` handler that makes no network call and injects nothing.
+  **Recorded only when a decider is configured.** With no decider, no prompts are stored.
+  The prompt arrives in the payload's `prompt` field (observed on CLI 2.1.292).
+- **The tail of the agent's final message,** from the Stop payload's
+  `last_assistant_message`, last 1,000 characters (field observed on CLI 2.1.292).
+- **Excluded:** hook-injected text including B3's own reminder, system reminders, pasted
+  blocks, tool output, diffs, file contents, brain entry text, and the transcript file.
+- **Turns Claude Code starts on its own** (task notifications, crons) must be excluded. The
+  hooks reference says `UserPromptSubmit` fires for them too, and the observed payload has no
+  field saying who sent the prompt. **How to tell them apart is UNVERIFIED and is a question
+  for the spike.**
+- **Secrets:** a window in which `detectSecrets` (`src/secrets.ts`) finds anything is not
+  sent; that turn takes today's behaviour.
 
-Atomic yes/no questions, evaluated together in one call, each phrased positively because the
-candidate model handles negation inconsistently:
+**The questions,** atomic and phrased positively, because the candidate handles negation
+inconsistently:
 
 | Id | Question |
 |---|---|
-| `close` | In the most recent user message, the user indicates the work is finished or asks to finish up (for example: commit and push as a final step, thanks or that's all, wrap up, stop for today, write the handoff). |
+| `close` | In the most recent user message, the user indicates the work is finished or asks to finish up. |
 | `more` | The recent user messages ask for further work or name work to do next in this session. |
-| `ask` | The assistant's final message ends by asking the user a question or waiting for the user's decision. |
+| `ask` | The assistant's final message ends by asking the user a question or waiting for a decision. |
 | `done` | The assistant's final message reports that the requested work is complete. |
 
-**Policy, in code:** fire B3 if `close ≥ T1`, or if `done ≥ T2` and `ask < T3` and
-`more < T4`. Otherwise stay quiet this turn. The thresholds come from calibration (below),
-not from guesses. After the observer fires, the existing cooldown applies unchanged.
+**Policy:** fire if `close ≥ T1`, or if `done ≥ T2` and `ask < T3` and `more < T4`. The
+thresholds come from calibration, not from guesses.
 
-#### The seam
+**The seam:**
 
 ```ts
 interface Decider {
@@ -217,161 +327,139 @@ interface Decider {
 }
 ```
 
-- `TurnWindow` is harness-neutral. The Claude Code face fills it from hooks. pi has no Stop
-  nudge today, so pi wiring is out of scope, but nothing in the seam is Claude Code-specific.
-- **`NullDecider` is the default.** It returns `null`, which means "behave exactly as today".
-- **`JevDecider`:** a single `POST` to `https://api.typesafe.ai/v1/systemone` with `fetch`
-  (no SDK, per survey §9). The model is pinned to `jev-1.13.0`, because `jev-latest` changes
-  without notice and calibrated thresholds would silently drift. The key comes from
-  `TYPESAFE_API_KEY`. Timeout 1.5 s. Any 401, 422, 429, 529, timeout, network error, or
-  missing key returns `null`.
-- **`ReplayDecider`** reads recorded responses from a fixture file, for tests and the L4.
-- **Selection is opt-in per project:** `VFKB_DECIDER=jev` and `VFKB_DECIDER_MODE=shadow|act`.
-  With neither set, the engine never builds a window, never makes a network call, and
-  behaves as today.
+- `NullDecider` is the default and returns `null`.
+- `JevDecider` makes one `POST` to `https://api.typesafe.ai/v1/systemone` with `fetch` (no
+  SDK, survey §9). The model is pinned to `jev-1.13.0`, the key comes from
+  `TYPESAFE_API_KEY`, and the timeout is 1.5 s. Any failure returns `null`.
+- `ReplayDecider` reads recorded responses for tests and the L4.
+- **Enablement must be per project, not per shell.** An environment variable set in a shell
+  profile would enable it for every project. The build reads the setting from the project,
+  for example the project's `.claude/settings.json` `env` block, which ships with the repo.
+  This is a build-time detail with a binding requirement.
 
-#### Shadow mode first
+**The rule-only baseline.** A keyword classifier over the same window ("wrap up", "that's
+all", "handoff", "commit and push", a final message ending in a question mark) runs in the
+spike and in shadow mode. **If it performs as well as the model, ship the rules instead:** no
+egress, no key, fully deterministic.
 
-**The available labels are too few to fit thresholds.** The hand-labelled corpus is about 90
-interactive turns (brain `4f5077d1b89b`), under the 50–300 labelled decisions the independent
-reviews recommend. So the first build ships `VFKB_DECIDER_MODE=shadow`:
+**The gate for switching from shadow to act** (Q3): at least 100 consulted Stops; on the
+labelled log the policy suppresses at least half the mid-session B3 fires, misses at most
+1 in 10 final-turn opportunities, and beats the rule-only baseline. **Today's corpus has about
+1 genuine interactive final-turn B3 fire,** so this gate cannot be evaluated until shadow mode
+has collected data.
 
-- The observer builds the window, calls the model, and computes the policy's answer.
-- **It acts on nothing.** B3 behaves exactly as today.
-- It appends one record per consulted Stop to `.vfkb/.signals/decider.jsonl` (gitignored):
-  timestamp, session, turn, the four probabilities, the rule-based facts, what the policy
-  would have done, and what B3 actually did.
-- An offline script labels each record afterwards from what really happened (was this the
-  session's last substantive turn?) and fits T1–T4.
-
-**The rule-only baseline is evaluated on the same log.** A keyword classifier over the same
-window ("wrap up", "that's all", "handoff", "commit and push", ending in a question mark)
-runs alongside the model. **If it performs as well as the model, ship the rules instead:** no
-egress, no key, fully deterministic. That makes the model earn its place on vfkb's own data.
-
-**The proposed gate for switching to `act`** (Q3, operator's call):
-- at least 100 consulted Stops logged;
-- on the labelled log, the policy suppresses at least half of today's mid-session B3 fires;
-- and it misses at most 1 in 10 final-turn opportunities;
-- and it beats the rule-only baseline on the same log.
-
-#### Why Jev is the leading candidate, and what it is compared against
-
-The output the agent sees is vfkb's own fixed reminder, so the model only has to answer
-yes or no. That favours a discriminative model that returns a probability over a generative
-judge.
+**Why Jev is the leading candidate.** The text the agent sees is vfkb's own fixed reminder, so
+the model only answers yes or no. That favours a model that returns a probability over a
+generative judge.
 
 | | Jev | Native `type:"prompt"` Stop hook | Rules only |
 |---|---|---|---|
-| Returns | a probability per question, so thresholds can be tuned | ok/blocked plus a reason, no tunable threshold | yes/no |
+| Returns | a probability per question, so thresholds can be tuned | ok/blocked plus a reason, no threshold | yes/no |
 | Can see the user's prompt | yes, vfkb builds the window | **no.** `$ARGUMENTS` is the Stop payload only (observed, `fc07da198bfa`) | yes |
-| Loop guard | vfkb's `stop_hook_active` | **none unless the prompt handles it.** It re-blocked 10 times on "Say hi" (observed) | vfkb's |
-| Latency | vendor: 70–500 ms; one review measured about 105 ms server-side | 1,979 ms, one timed pass (observed) | about 0 |
-| Cost per consulted Stop | about $0.0001 (≈2k tokens at $0.042/M) | about 2.9k Haiku input tokens (observed) | 0 |
-| Replay in tests | yes, near-deterministic | hard, generative | yes |
+| Loop guard | vfkb's | **none unless its prompt handles one.** It re-blocked 10 times on "Say hi" (observed) | vfkb's |
+| Latency | survey: vendor 70–500 ms, p50 about 0.21 s on real traffic | 1,979 ms, one timed pass (observed) | about 0 |
+| Cost per consultation | about $0.0001 (≈2k tokens at $0.042/M) | about 2.9k Haiku input tokens (observed) | 0 |
 | Data egress | yes, to TypeSafe | stays with Anthropic | none |
 
-**Known limits of the leading candidate, each with its handling here:**
-- intent-style accuracy is mid-tier, about 72.5% in one independent study → calibration on
-  vfkb's own log, and the rule-only baseline as a bar it must clear;
-- yes/no answers tend to be underconfident → per-question thresholds, not 0.5;
-- about 1–2% of answers change between identical calls → it only times a nudge, and Part A
-  covers a miss;
-- it cannot explain itself → no explanation is needed, because the reminder text is fixed;
-- injectable by text in its input → the agent's final message is in the window, so the agent
-  could talk B3 quiet. The cost is one late handoff, which Part A covers. That is a relevance
-  cost, not a correctness one, which is the only kind of placement survey §4 allows.
+**Known limits of Jev, from the survey's §2.3, each with its handling here:**
+- **Accuracy:** about 72.5% multi-task, and 75.3–84% on Banking77 intent classification.
+  Handled by calibrating on vfkb's own data, with the rule-only baseline as a bar it must
+  clear.
+- **Confidence:** `noul` answers tend to be underconfident. Handled with per-question
+  thresholds, not 0.5.
+- **Not deterministic:** 15 distinct answer sets in 50 identical calls, with probability
+  shifts up to 0.13. It only times a nudge, and Part A covers a miss.
+- **Injectable by its input:** the agent's final message is in the window, so the agent
+  could talk B3 quiet. The cost is one late handoff, which Part A covers: a relevance cost,
+  not a correctness one, the only placement the survey's §4 allows.
+- **Not a Brake.** The deterministic trigger stays. Every Brake listed in `aa294b2708c4`
+  stays out of scope.
 
-**It is not a Brake.** The deterministic precondition stays the trigger, and the model only
-removes fires. Every Brake listed in `aa294b2708c4` stays permanently out of scope.
+### Follow-ons — listed, not built
 
-### Follow-on use cases — listed, not built
-
-The observer is shaped so further question sets can attach. Each needs its own evidence
-first. Measured 2026-10-19 (brain `4f5077d1b89b`):
-
-| Use case | Evidence so far | Status |
+| Item | Evidence | Status |
 |---|---|---|
-| Rulings stated in the user's prompt are captured as `decision` entries | 17 rulings: 11 recorded within 2 turns, 4 landed only in a fact, handoff or harness memory, 2 missed | **Follow-on.** The real gap is rulings stored in harness memory, which does not travel between config dirs |
-| Promises the agent makes ("I'll merge once CI settles") are followed through | About 6 promises: 3 times the operator had to poll; a 4th (`61f0e751`'s promised handoff) is still open because that session is still running | **Needs a better question first.** A background task was running in 2 of the poll cases, so "promised but nothing scheduled" would miss them |
-| The decision nudge (survey §6.3 as written) and B1 | B1 fired 0 times; decision once | Follow-on |
-| Tool-output capture (survey §6.2) | the feature is switched off for want of a filter | Follow-on |
-| Work mentioned in passing ("remember #321") | 2 instances, both captured | **Dropped.** Too rare to justify a build |
-
-At most **one** steering message per turn across all of them, chosen by a fixed priority in
-code, so adding consumers cannot recreate the nagging this RFC removes.
+| **Pin hygiene:** stop topical tags hijacking the pin, for example pin only `type: fact`, or require an explicit pin tag | happened on 2026-10-19 (`583374f75808`) | **Follow-on, high value.** It amends ADR-0049's selection, so it needs its own RFC |
+| **Reviewer sessions writing handoffs:** B3 in one-shot review sessions makes reviewers write handoffs that displace the operator's pin | 5 fires, 5 `HANDOFF` writes | Follow-on. The observed Stop payload has no field that identifies a headless session (UNVERIFIED whether one exists) |
+| Rulings stated in the user's prompt are captured as `decision` entries | 17 rulings: 11 recorded within 2 turns, 4 only in a fact, handoff or harness memory, 2 missed (`4f5077d1b89b`) | Follow-on to Part B |
+| Promises the agent makes are followed through | about 6 promises; the operator had to poll 3 times; a 4th is still open | Needs a better question first |
+| The decision nudge (survey §6.3 as written), B1, tool-output capture (§6.2) | B1 fired 0 times; decision once | Follow-on |
+| Work mentioned in passing | 2 instances, both captured | **Dropped** |
 
 ## Alternatives considered
 
-- **Lengthen the cooldown.** It changes how often B3 nags, not when. Rejected.
-- **Delete B3.** It would leave stale pins unannounced, which is the failure B3 exists for.
-  With Part A in place, deletion becomes a real option; the shadow log will show whether the
-  observer adds anything over Part A alone.
+- **Lengthen the cooldown.** It changes how often B3 nags, not why. Rejected.
+- **Delete B3.** With Parts 0 and A in place, this becomes a real option. The re-measurement
+  will show whether B3 still earns its place.
 - **A SessionEnd write for the stale-pin floor.** It misses clean trees and `main`, and it can
-  dirty another session's working copy (Context). Q1 asks the operator to choose.
+  dirty another session's working copy. Q1.
+- **Start with a decision model.** Rejected: cause 1 is a deterministic bug, and a model
+  would have learned to suppress a false positive that code can remove.
 - **The native `type:"prompt"` hook.** It cannot see the user's prompt. Rejected for this
   question.
-- **An agent hook (`type:"agent"`) that reads the transcript.** Experimental, 60 s default
-  timeout, a full model run per Stop. Rejected.
-- **Parse the transcript at Stop instead of recording prompts.** An internal, undocumented
-  format. Rejected.
-- **The `@typesafe-ai/sdk` package.** One `POST` does not need a dependency. Rejected per
-  survey §9.
+- **An agent hook (`type:"agent"`) that reads the transcript, or parsing the transcript at
+  Stop.** Experimental or undocumented surfaces. Rejected.
+- **The `@typesafe-ai/sdk` package.** One `POST` does not need a dependency (survey §9).
 
 ## Consequences
 
-- **Cross-repo.** The `UserPromptSubmit` hook entry lives in
+- **Parts 0 and 1 change behaviour for every consumer** at the next plugin release: B3 will
+  fire less, and its text changes. Release notes must say so. The plugin release flow
+  carries ADR-0051's delivery disclosure as usual.
+- **Part A changes the resume render for every face** (Claude Code, `kb_resume`, pi). It
+  costs git calls at session start when a pin exists.
+- **Part B, if built, is cross-repo.** The `UserPromptSubmit` hook entry lives in
   [vilosource/vfkb-claude-plugin](https://github.com/vilosource/vfkb-claude-plugin)'s
-  `hooks.json`. It must pass the R6 `claude plugin validate --strict` gate. v3 R1 also
-  plans a `UserPromptSubmit` hook; the two should share one entry and one handler.
-- **Latency.** The `UserPromptSubmit` handler adds one Node process start per prompt (about
-  60–110 ms, the same as today's Stop hook) and no network call. The Stop hook adds a model
-  call only when B3 would already fire and is not cooling, bounded at 1.5 s.
-- **Data egress (opt-in only).** With `VFKB_DECIDER=jev`, the last 3 user prompts and the
-  final-message tail go to TypeSafe, a new third-party processor, on the turns where B3 is
-  armed. vfkb is a substrate that other repos adopt, so this is off by default, per project,
-  and this paragraph must carry into the ADR and the plugin's README.
-- **Ruling 5 holds.** This is an opt-in seam with one consumer, not a v3 theme.
-- **B3 gains governance.** The accepting ADR becomes B3's first ADR. Its "built, NOT yet
-  verified" status ends only with the L4 below.
-- **Part A annotates without selecting.** ADR-0049's newest-wins pin is untouched.
+  `hooks.json` and must pass the R6 `claude plugin validate --strict` gate. v3 R1 also plans
+  a `UserPromptSubmit` hook; the two should share one entry and one handler.
+- **Part B's data egress (opt-in only):** with Jev enabled, the last 3 user prompts and the
+  final-message tail go to TypeSafe, a new third-party processor, on turns where B3's
+  trigger holds. Off by default and per project. This must carry into the ADR and the
+  plugin README.
+- **Ruling 5 holds.** No production decision-model code ships before the calibration spike.
+- **B3 gains governance.** The accepting ADR is B3's first ADR. Its "built, NOT yet verified"
+  status ends only with the Part 0 L4 below.
 
 ## Definition of Done
 
-Both parts are user-facing, so both need an agent-driven L4 under ADR-0050/0051: committed,
-reproducible, DEMONSTRATED at 2 of 3 or better, with an arm that can fail.
+Each part that changes agent-facing behaviour needs an agent-driven L4 under ADR-0050/0051:
+committed, reproducible, DEMONSTRATED at 2 of 3 or better, with an arm that can fail, and
+predicates that are content assertions, never exit codes or absences. In each scenario the
+vfkb plugin is disabled per sandbox and the scenario asserts that it stayed off, because it
+is enabled at user scope on this machine (brain `fb712c13f39e`).
 
-- **Part A — `scenarios/stale-pin-floor.mjs`.** Seed a sandbox brain with a pinned handoff,
-  then make a non-brain commit after it. Start a session and ask what the current state is
-  and what to do next. **Treatment:** the agent names the post-pin commit. **Contrast** (the
-  annotation disabled): the agent reports the pin's stale state. Predicate: a content
-  assertion over the agent's answer for the commit's sentinel subject.
-- **Part B — `scenarios/stale-handoff-timing.mjs`,** run with `ReplayDecider` on committed
-  fixtures, never a live API (survey §9: a live third-party arm is neither reproducible nor
-  sandboxed). Two arms, each a short scripted multi-turn session after a merge:
-  - **Mid-session arm:** the user keeps asking for more work. Treatment: B3 does not fire.
-    Contrast (`NullDecider`, today's behaviour): B3 fires. The contrast is the can-fail arm.
-  - **Wrap-up arm:** the user says "that's all for today". Treatment: B3 fires and the agent
-    writes a handoff.
-  - Predicates are content assertions over hook outputs and the sandbox brain, not exit codes
-    (ADR-0051 §3).
-- **Live calibration** is recorded separately as dated evidence from the shadow log, never as
-  a gate input.
-- **Unit tests (the inner gate):** the window builder (exclusions, truncation, the secret
-  skip), the policy (thresholds, the hard suppress, null leads to today's behaviour), the
-  Decider error paths (every failure returns null), and the Part A render annotation.
-- **Isolation:** the vfkb plugin is enabled at user scope on this machine (brain
-  `fb712c13f39e`), so both scenarios disable it per sandbox and assert that it stayed off.
+- **Part 0 — `scenarios/stale-handoff-anchor.mjs`.** A sandbox repo where a topic branch
+  carrying a handoff is squash-merged to `main`, then the agent runs a scripted turn.
+  - **Squash arm:** the transcript shows the Stop hook **ran** (a `hook_success` record for
+    the Stop command), and its output does not contain the B3 text.
+  - **Can-fail arm:** add a later non-brain commit. The same hook output contains the B3
+    text.
+  - Unit tests cover squash, rebase, an uncommitted pin, root and outside-tree brains, and the
+    `-S` failure leading to a fire.
+- **Part 1** rides Part 0's scenario: the can-fail arm also asserts the new reminder text.
+- **Part A — `scenarios/stale-pin-floor.mjs`.** Seed a pinned handoff, then a later non-brain
+  commit whose subject carries a sentinel. Run the agent **with no shell or git tools**
+  (`--tools` limited to the vfkb MCP tools), so it can learn the commit only from the render.
+  - **Treatment:** the SessionStart hook output contains the sentinel, and the agent names
+    it.
+  - **Contrast,** annotation disabled: the agent cannot name it.
+  - **Squash negative arm:** a squash-carried pin gets no annotation.
+- **Part B, only if built.** It ships in shadow mode first, so the first L4 proves shadow
+  mode. With `ReplayDecider` fixtures, a consulted Stop must produce a positive
+  `decider.jsonl` record with the four probabilities and the would-have action, while B3's
+  output is unchanged from `NullDecider`. Act mode stays "built, NOT yet verified" until
+  its own L4 exists. That L4 needs a wrap-up arm with a contrast, where `NullDecider` fires
+  mid-session and the decider does not, each asserted by a positive log record. Replay
+  fixtures prove the plumbing and the policy, **not** the model's judgment; that evidence
+  comes from the spike and the shadow log, recorded separately and never as a gate input.
 
 ## Open questions (operator)
 
-1. **The floor's mechanism.** Part A's read-only SessionStart annotation (recommended), or
-   the SessionEnd write the ruling names? The annotation covers clean trees, `main` and
-   merges between sessions; the write does not.
-2. **Where shadow mode runs.** Only in this repo, or shipped in the plugin to every consumer
-   (inactive without `VFKB_DECIDER`)?
-3. **The gate for switching to `act`.** Are the thresholds proposed above (at least 100
-   consulted Stops, at least half the mid-session fires suppressed, at most 1 in 10 final
-   turns missed, and better than the rules) the right bar?
-4. **Sequencing.** Build Part A first and on its own (recommended: it closes the stale-pin
-   gap with no model), then Part B?
+1. **The floor's mechanism.** Part A's read-only annotation in the shared render
+   (recommended), or the SessionEnd write the ruling names?
+2. **Part B's gate.** Is "at least one mid-session B3 fire per 3 interactive sessions, over at
+   least 10, after Part 0" the right bar for building Part B at all?
+3. **The gate for switching to act,** if Part B is built: the thresholds above?
+4. **Sequencing,** which departs from the ruling's emphasis: Parts 0, 1 and A first, then
+   re-measure, and Part B only if both gates pass. This puts the decision model behind a
+   deterministic fix that may make it unnecessary.
