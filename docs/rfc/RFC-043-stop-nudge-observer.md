@@ -201,7 +201,10 @@ and its saved output is `anchor-proto.out`, next to it. The table is in
      content, apart from the disclosed loss below;
    - **any commit that is an ancestor of `C` and whose *author* date is at or before `u`.**
      That is pre-pin work which a rebase re-dated: a rebase rewrites committer dates and keeps
-     author dates.
+     author dates. Dates are compared as **instants** (`%at` epoch seconds against `u`
+     parsed), never as strings: this operator's commits carry `+03:00` offsets.
+     The converse does not hold: an old author date does not prove pre-pin work (see the
+     amend/fixup disclosure below).
 6. **The pin is stale iff `S` is non-empty.** Part A lists exactly `S`.
 
 **What the carrier does, and does not do.** Rounds 1–2 used the carrier to **move** the anchor
@@ -233,10 +236,31 @@ re-dates pre-pin work, so A lists that work as new. It fires on a rebase that ch
 upstream, and it pads the list of one that did.
 
 What Part 0 still gets wrong, disclosed:
-- **Code inside the carrier.** A handoff written early in a PR, with more code in the same PR
-  and then a squash: the squash is the carrier, so that code is not flagged on `main`. Every
-  rule except today's makes this trade, and it is inherent to excluding the carrier. On the
-  topic branch, before the squash, the code **is** flagged (prototype case 7).
+- **Code inside the carrier.** Whatever commit carries the pin hides the non-brain work it
+  also carries. Every rule except today's makes this trade, and it is inherent to excluding
+  the carrier. That covers:
+  - a squash of a PR whose handoff was written early: the later code in the PR is not
+    flagged on `main`;
+  - **a single `git add -A` commit holding both post-handoff code and the brain**, on the
+    topic branch too (round 4, N1: quiet, where today's rule flags it). This happened in 0 of
+    64 topic-branch brain commits in this repo, because SessionEnd commits the brain alone,
+    but a consumer that commits everything together will hit it;
+  - a merge of `main` into the topic branch, or an octopus merge, that carries the pin: other
+    PRs' post-pin work inside that merge is not listed (round 4, N6 and N7).
+  When the brain is committed separately after the code, which is the SessionEnd default, the
+  code **is** flagged (prototype case 7).
+- **Amend, fixup and back-dated commits** (round 4, N2–N4). An amend or a `--fixup` that
+  autosquash folds into a pre-pin commit keeps the pre-pin author date while adding post-pin
+  content, and so does a commit back-dated with `--date`. Rule 5 drops such a commit when it
+  sits below the carrier, so that post-pin work goes unflagged (quiet, where today's rule
+  flags it). This is new with rule 5 and fails toward silence. It is the price of removing
+  the rebase false positive: no git field records "authored before the handoff was
+  written".
+- **No-carrier rebases still fire** (round 4, N5 and N5b). Rule 5 needs a carrier, so with an
+  uncommitted pin (a mid-session handoff, then a rebase before pushing) or an outside-tree
+  brain (which never has a carrier), a rebase lists the re-dated pre-pin work as new, and a
+  rebase that changed nothing upstream fires. This matches today's rule, so it is not a
+  regression. The variant that closes it is **Q5**.
 - **Rebase-merged pre-pin work from another PR** (prototype case 11). Another PR whose commits
   were authored before the pin lands by rebase-merge after the pin, below our carrier. After
   a rebase, git cannot distinguish "the handoff writer's own rebased work" from "someone
@@ -245,8 +269,10 @@ What Part 0 still gets wrong, disclosed:
   toward silence, which is B3's existing posture. A merge-commit landing of that other PR
   **is** flagged, because the merge carries the merge-time author date. A squash landing is
   flagged when the squash's author date is the merge time. That is git's own default for
-  `merge --squash`; GitHub's squash author date is UNVERIFIED and needs a Tier-0 probe
-  before the build relies on it.
+  `merge --squash`, and it is **observed for GitHub on this repo**: author date equals
+  committer date on 300 of 300 first-parent `main` commits (round 4, re-checked 2026-10-20).
+  Case 9 depends on this as well. Other hosts are UNVERIFIED and need a Tier-0 probe before
+  the build relies on them.
 - **Boolean semantics change slightly.** Today B3 asks "do the trees differ?" Part 0 asks
   "did any later first-parent commit touch non-brain paths?" These diverge only when later
   commits net to zero, for example a change and its revert. Part 0 flags that and today's rule
@@ -258,9 +284,14 @@ What Part 0 still gets wrong, disclosed:
 nag)", `src/stop-reminder.ts`); only the cooldown fails toward reminding. Each new step that
 fails degrades to a defined case. A failed carrier lookup means no carrier: rule 5 is
 skipped and the squash case is flagged exactly as today. That is today's false positive, not
-a new failure mode. A failed `log` for `S` means not stale. A failed `merge-base` keeps the
-commit in `S`. **Shallow clones** are benign: `T` is empty only when the pin predates every visible
-commit, and those commits really are later than the pin.
+a new failure mode. A failed `log` for `S` means not stale. A failed `merge-base` or an
+unreadable author date **drops** that commit from `S`, toward silence like the rest.
+**Shallow clones** are mostly benign. `T` is empty only when the pin predates every visible
+commit, and those commits really are later than the pin. **One exception:** at the shallow
+boundary, `-G` sees the grafted root as adding the whole file, so the boundary commit becomes
+the carrier even when the pin was added below it, and its own work is excluded (round 4,
+`--depth 2`: it lists only the second of two post-pin commits). This is rare in interactive
+checkouts and fails toward silence; it is disclosed and not specially handled.
 
 **Cost.** Up to one `git show`, one `git log -G` over the brain file's history (about 0.12 s on
 this repo, 188 first-parent brain commits, measured in round 2), one `git log` for `S`, and,
@@ -310,7 +341,7 @@ Commits since this handoff was recorded (3):
   none in most cases. It gets a fixed slice of at most 400 characters. The count line
   (`Commits since this handoff was recorded (N):`) always survives. Then come subjects, each
   **truncated to 100 characters plus "…"** (12 of the last 40 subjects on `main` exceed 100
-  characters, measured 2026-10-20, and this branch's `5d4c2e5` exceeds 300, so untruncated
+  characters, measured 2026-10-20, and this branch's `5d4c2e5` is about 300, so untruncated
   lines could leave room for none), as many as fit, then "(+N more)". When an annotation is present, the **pin text** is truncated to
   `HANDOFF_PIN_CAP_CHARS` minus the slice the annotation used, with the existing
   "(truncated — kb_get <id> for the rest)" marker, so the section stays within today's cap.
@@ -567,6 +598,10 @@ is enabled at user scope on this machine (brain `fb712c13f39e`).
     the id or `updated` is escaped; and **pin selection (R3-M3)**: an old `handoff`-tagged line
     plus a newer version of the same id without the tag must not be the pin, so B3 and
     `latestHandoff` pick the same entry.
+  - Plus round 4's cases (`rfc043-review/sandbox/r4/`) as fixtures, each with its disclosed
+    answer: a mixed code-and-brain commit (N1); amend, back-date and fixup (N2–N4);
+    no-carrier rebases (N5, N5b, whose answer depends on Q5); an octopus merge and a
+    merge into the topic branch that carry the pin (N6, N7); and the shallow boundary.
 - **Part 1** rides Part 0's scenario: the can-fail arm also asserts the new reminder text.
 - **Part A — `scenarios/stale-pin-floor.mjs`.** Seed a pinned handoff, then a later non-brain
   commit whose subject carries a sentinel. Run the agent **with no shell or git tools**
@@ -596,3 +631,9 @@ is enabled at user scope on this machine (brain `fb712c13f39e`).
 4. **Sequencing,** which departs from the ruling's emphasis: Parts 0, 1 and A first, then
    re-measure, and Part B only if both gates pass. This puts the decision model behind a
    deterministic fix that may make it unnecessary.
+5. **Rule 5 without a carrier (round 4's B′).** When there is no carrier (an uncommitted pin
+   or an outside-tree brain), should rule 5 also drop any commit whose author date is at or
+   before `u`? Round 4 ran it over all 33 cases. It changes no answer on the 18 prototype
+   cases, fixes both no-carrier rebase cases (N5, N5b), and extends the amend/fixup silence to
+   the no-carrier path. Recommended: adopt it, because a mid-session handoff followed by a
+   rebase is a normal workflow here. Disclosure alone is also acceptable.

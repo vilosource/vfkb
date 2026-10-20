@@ -1,0 +1,166 @@
+
+### 1 squash carries pin
+expected: quiet (code inside the carrier is the disclosed loss)
+  B    : quiet
+  B-prime: quiet
+
+### 1b squash, then another PR
+expected: STALE {squash other (#2)}
+  B    : STALE {squash other (#2)}
+  B-prime: STALE {squash other (#2)}
+
+### 2 no-ff merge carries pin
+expected: quiet
+  B    : quiet
+  B-prime: quiet
+
+### 3 retagged old entry
+expected: quiet
+  B    : quiet
+  B-prime: quiet
+
+### 3b retagged, then code
+expected: STALE {code3}
+  B    : STALE {code3}
+  B-prime: STALE {code3}
+
+### 4 uncommitted pin, nothing after
+expected: quiet
+  B    : quiet
+  B-prime: quiet
+
+### 4b uncommitted pin, code committed after
+expected: STALE {code after pin}
+  B    : STALE {code after pin}
+  B-prime: STALE {code after pin}
+
+### 5 committed pin, then true merge (R3-M1)
+expected: STALE {M merge feat (post-pin)}
+  B    : STALE {M merge feat (post-pin)}
+  B-prime: STALE {M merge feat (post-pin)}
+
+### 6 uncommitted pin, true merge after (R3-M2)
+expected: STALE {M merge feat (post-pin)}
+  B    : STALE {M merge feat (post-pin)}
+  B-prime: STALE {M merge feat (post-pin)}
+
+### 7 handoff -> code -> brain commit (R3-B1)
+expected: STALE {K code after the handoff}
+  B    : STALE {K code after the handoff}
+  B-prime: STALE {K code after the handoff}
+
+### 7b ...then squash-merged to main
+expected: quiet (K is inside the carrier: the disclosed loss)
+  B    : quiet
+  B-prime: quiet
+
+### 8 outside-tree brain, nothing after
+expected: quiet
+  B    : quiet
+  B-prime: quiet
+
+### 8b outside-tree brain, code after
+expected: STALE {code after pin}
+  B    : STALE {code after pin}
+  B-prime: STALE {code after pin}
+
+### 9 rebase onto main that moved after the pin
+expected: STALE {M1 main (post-pin)} only
+  B    : STALE {M1 main (post-pin)}
+  B-prime: STALE {M1 main (post-pin)}
+
+### 9b force-rebase, no upstream change
+expected: quiet
+  B    : quiet
+  B-prime: quiet
+
+### 10 root brain, committed pin
+expected: quiet
+  B    : quiet
+  B-prime: quiet
+
+### 10b root brain, code after
+expected: STALE {code after pin}
+  B    : STALE {code after pin}
+  B-prime: STALE {code after pin}
+
+### 11 pre-pin-authored PR rebase-merged after the pin, below carrier
+expected: STALE {O other PR} (it landed after the handoff)
+  B    : quiet
+  B-prime: quiet
+
+### N1 handoff -> code -> single mixed commit (topic)
+expected: STALE {K} (code written after the handoff)
+  B    : quiet
+  B-prime: quiet
+
+### N2 pre-pin commit amended with post-pin code, then brain commit
+expected: STALE {K} (amended after the handoff)
+  B    : quiet
+  B-prime: quiet
+
+### N3 post-pin code with back-dated author date, then brain commit
+expected: STALE {K}
+  B    : quiet
+  B-prime: quiet
+
+### N4 post-pin fixup squashed into pre-pin commit, then brain commit
+expected: STALE {A1} (it now holds post-pin work)
+  B    : quiet
+  B-prime: quiet
+
+### N5 uncommitted pin, then force-rebase (no upstream change)
+expected: quiet
+  B    : STALE {A1 code (pre-pin)}
+  B-prime: quiet
+
+### N5b uncommitted pin, rebase onto moved main
+expected: STALE {M1} only
+  B    : STALE {A1 code (pre-pin)|M1 main (post-pin)}
+  B-prime: STALE {M1 main (post-pin)}
+
+### N6 octopus merge carries pin + other arms' post-pin code
+expected: STALE {OCT}? (b2/b3 are not the pin's PR) - inherent: inside carrier
+  B    : quiet
+  B-prime: quiet
+
+### N7 merge main into topic (carrier = that merge)
+expected: STALE {T1, and S2 via MM}
+  B    : STALE {T1 topic code (post-pin)}
+  B-prime: STALE {T1 topic code (post-pin)}
+
+### N8 pin updated twice, v2 after code
+expected: quiet
+  B    : quiet
+  B-prime: quiet
+
+### N8b v3 uncommitted, HEAD holds v2
+expected: quiet
+  B    : quiet
+  B-prime: quiet
+
+### N9 orphan branch, pin predates history (empty T), code after
+expected: STALE {K}
+  B    : STALE {K code}
+  B-prime: STALE {K code}
+
+### N9b orphan branch, empty T, nothing after
+expected: quiet
+  B    : quiet
+  B-prime: quiet
+
+### N10 +03:00 author date before u (UTC), force-rebase
+expected: quiet
+  B    : quiet
+  B-prime: quiet
+   (string compare of %aI vs u would say: after u -> kept -> STALE)
+
+### N11 detached HEAD in a linked worktree (R3-B1 shape)
+expected: STALE {K}
+  B    : STALE {K code after the handoff}
+  B-prime: STALE {K code after the handoff}
+
+### N12 pull --rebase on main, local brain commit, upstream post-pin PR
+expected: STALE {O}
+  B    : STALE {O upstream PR (post-pin)}
+  B-prime: STALE {O upstream PR (post-pin)}

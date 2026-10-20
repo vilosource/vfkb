@@ -8,7 +8,7 @@ kept so the review state survives the session that ran them.
 | `rfc043-review-r1.md` | a399dd8/e66da5a | FIX-FIRST (squash self-staleness, topical-tag pin hijack found) |
 | `rfc043-review-r2.md` | 81733cb | FIX-FIRST, escalated (ADR-0070 §4: blockers came from round-1 fixes) |
 | `rfc043-review-r3.md` | 5d4c2e5 | FIX-FIRST at the 3-round ceiling, escalated to the operator |
-| `rfc043-review-r4.md` | after the prototype | confirming review (see below) |
+| `rfc043-review-r4.md` | ba8e430 (RFC change 6776dfc) | **MERGE**. No blockers; none introduced by this round (ADR-0070 §4). Three MAJOR and six MINOR findings, all disclosure-level, folded into the RFC; B′ became Q5. Cases are in `sandbox/r4/`. |
 
 **Open at pause (2026-10-20):** round 3's R3-B1. Part 0's "later of carrier and timestamp
 anchor" misses a handoff written mid-session, followed by code commits, with the brain
