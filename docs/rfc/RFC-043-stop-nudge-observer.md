@@ -88,21 +88,25 @@ wrap-up, because nothing in `StopContext` says which one it is.
   Sessions with 4–6 handoff writes each show it (`d5948d4c`: 5 fires, 5 writes; `edf377bb`:
   4 fires, 6 writes). This links to PRD R7's count of 106 `handoff`-tagged entries, of which
   only one is ever pinned.
-- **Declining it is not safe either.** Session `61f0e751` declined B3 mid-session ("I'm not
-  wrapping up yet… I'll record a fresh handoff before the session ends") and then ended
-  without writing one. The next session therefore started from a stale pin.
+- **Declining it is safe only if the agent keeps its word.** Session `61f0e751` declined B3
+  mid-session ("I'm not wrapping up yet… I'll record a fresh handoff before the session
+  ends"). As of 2026-10-20 that session is still running, so whether it keeps the promise is
+  **not yet known**. Nothing in the code ensures it does.
 
-That last case is the constraint on any fix. **B3 has no floor.** B1 has ADR-0033's
-SessionEnd fallback underneath it, but a stale pin has nothing, so suppressing B3 — by a
-model or by anything else — is unsafe today.
+That is the constraint on any fix. **B3 has no floor** (a structural fact about the code, not
+an observed failure). B1 has ADR-0033's SessionEnd fallback underneath it, but a stale pin
+has nothing. So suppressing B3 — by a model or by anything else — rests entirely on the
+agent remembering to write a handoff later.
 
 ### Why the existing SessionEnd fallback cannot be the floor
 
 `runSessionEnd` (`src/session-end.ts`) returns early when the brain file is clean (step 2), and
-it never commits on the default branch (step 3). Session `61f0e751` ended **clean, on `main`**,
-with everything merged. A stale-pin fallback written at SessionEnd would therefore miss the
-exact case that motivated it. If it wrote anyway, it would leave an uncommitted line in the
-main checkout's brain, the same collision two sessions hit on 2026-10-19.
+it never commits on the default branch (step 3). The defining B3 case is the opposite of a
+dirty topic branch: the PR has merged and the checkout is back on `main`, clean. Sessions do
+reach that state mid-session (`61f0e751`, turn 3: "Both repos are on `main` with nothing
+uncommitted"). A stale-pin fallback written at SessionEnd would miss exactly that case. If it
+wrote anyway, it would leave an uncommitted line in the main checkout's brain, the same
+collision two sessions hit on 2026-10-19.
 
 ## Decision (proposed)
 
@@ -177,8 +181,9 @@ too late or never is covered by Part A.
 **Excluded, deliberately:**
 - **Hook-injected text, including B3's own reminder.** It literally says "WRAPPING UP".
 - **System reminders and pasted blocks.**
-- **Turns Claude Code starts on its own.** `UserPromptSubmit` also fires for those (task
-  notifications, crons); record only prompts whose source is the user.
+- **Turns Claude Code starts on its own** (task notifications, crons). The hooks reference
+  says `UserPromptSubmit` also fires for those (**UNVERIFIED**: docs only, not observed
+  here). Record only prompts whose source is the user either way.
 - **Tool output, diffs, file contents and brain entry text.** They do not predict wrap-up,
   and they would send data off the machine.
 - **The transcript file.** Its format is internal and undocumented; the probe session alone
@@ -288,7 +293,7 @@ first. Measured 2026-10-19 (brain `4f5077d1b89b`):
 | Use case | Evidence so far | Status |
 |---|---|---|
 | Rulings stated in the user's prompt are captured as `decision` entries | 17 rulings: 11 recorded within 2 turns, 4 landed only in a fact, handoff or harness memory, 2 missed | **Follow-on.** The real gap is rulings stored in harness memory, which does not travel between config dirs |
-| Promises the agent makes ("I'll merge once CI settles") are followed through | About 6 promises, 4 ended badly: the operator had to poll 3 times, and 1 promised handoff was never written | **Needs a better question first.** A background task was running in 2 of the poll cases, so "promised but nothing scheduled" would miss them |
+| Promises the agent makes ("I'll merge once CI settles") are followed through | About 6 promises: 3 times the operator had to poll; a 4th (`61f0e751`'s promised handoff) is still open because that session is still running | **Needs a better question first.** A background task was running in 2 of the poll cases, so "promised but nothing scheduled" would miss them |
 | The decision nudge (survey §6.3 as written) and B1 | B1 fired 0 times; decision once | Follow-on |
 | Tool-output capture (survey §6.2) | the feature is switched off for want of a filter | Follow-on |
 | Work mentioned in passing ("remember #321") | 2 instances, both captured | **Dropped.** Too rare to justify a build |
@@ -368,5 +373,5 @@ reproducible, DEMONSTRATED at 2 of 3 or better, with an arm that can fail.
 3. **The gate for switching to `act`.** Are the thresholds proposed above (at least 100
    consulted Stops, at least half the mid-session fires suppressed, at most 1 in 10 final
    turns missed, and better than the rules) the right bar?
-4. **Sequencing.** Build Part A first and on its own (recommended: it fixes `61f0e751`'s
-   failure with no model), then Part B?
+4. **Sequencing.** Build Part A first and on its own (recommended: it closes the stale-pin
+   gap with no model), then Part B?
