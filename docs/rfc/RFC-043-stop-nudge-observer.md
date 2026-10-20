@@ -1,14 +1,15 @@
 ---
 type: RFC
 title: "RFC-043: The stale-handoff nudge fires on a fact, not a moment — fix its anchor, give it a floor, and gate any decision model on evidence"
-description: "B3, the stale-handoff Stop nudge, has no RFC, ADR or L4, and it is the nudge that fires 'all the time'. Adversarial review found that a large share of its fires are a deterministic false positive: a squash merge makes the handoff it carries look stale, because the staleness anchor uses committer date. So the first fix is deterministic (Part 0: anchor on the commit that contains the pin). It is followed by a reminder-text change (Part 1) and a read-only stale-pin floor in the shared resume render (Part A), which makes suppressing B3 safe. A decision-model observer such as TypeSafe Jev (Part B) is kept as a design, but it is built only if B3 still fires mid-session after Part 0 and a throwaway calibration spike shows the model beats a rule-only baseline."
+description: "B3, the stale-handoff Stop nudge, has no RFC, ADR or L4, and it is the nudge that fires 'all the time'. Adversarial review found that a large share of its fires are a deterministic false positive: a squash merge makes the handoff it carries look stale, because the staleness anchor uses committer date. So the first fix is deterministic (Part 0: count only first-parent commits after the pin, excluding the commit that carries it and rebased pre-pin work; chosen by a prototype over 18 sandbox cases). It is followed by a reminder-text change (Part 1) and a read-only stale-pin floor in the shared resume render (Part A), which makes suppressing B3 safe. A decision-model observer such as TypeSafe Jev (Part B) is kept as a design, but it is built only if B3 still fires mid-session after Part 0 and a throwaway calibration spike shows the model beats a rule-only baseline."
 status: "Proposed"
 timestamp: 2026-10-20
 ---
 
 # RFC-043: The stale-handoff nudge fires on a fact, not a moment
 
-- **Status:** Proposed (revised after adversarial review rounds 1 and 2, 2026-10-20)
+- **Status:** Proposed (revised after adversarial review rounds 1–3 and a Part 0 prototype,
+  2026-10-20; round 3 escalated at the ceiling, and the operator chose prototype-first)
 - **Date:** 2026-10-20
 - **Deciders:** operator + Claude
 - **Governs:** the **B3 stale-handoff nudge** in `src/stop-reminder.ts`. B3 shipped as a
@@ -157,58 +158,116 @@ collision on 2026-10-19: one session's `kb_add` writes landed in the other's wor
 Four parts, in order. **Parts 0, 1 and A are deterministic and need no model.** Part B is
 contingent on what they leave behind.
 
-### Part 0 — anchor staleness on the commit that carries the pin
+### Part 0 — count only the commits that came after the pin, never the one that carries it
 
-**Change `handoffIsStale`'s anchor, for committed pins only.** Today the anchor is the newest
-commit before the pin's `updated` time (the *timestamp anchor*). Part 0 adds a second
-candidate, the *carrier anchor*, and takes the later of the two. Only one case changes:
+**This text was rewritten from a prototype, not argued from first principles.** Three review
+rounds each found that the previous anchor rule broke a case the round before had fixed. So
+the rule below was chosen by running four candidates over 18 sandbox cases and keeping the one
+whose observed answers match. The script is
+[`anchor-proto.sh`](../research/probes/stop-nudge-2026-10-19/rfc043-review/sandbox/anchor-proto.sh)
+and its saved output is `anchor-proto.out`, next to it. The table is in
+[the review README](../research/probes/stop-nudge-2026-10-19/rfc043-review/README.md#part-0-prototype-2026-10-20).
 
-1. **The pin's current version is committed at HEAD.** The brain is in-tree or at the root,
-   and `git show HEAD:<entries path>` contains a line with the pin's id **and** its current
-   `updated` value. Then the carrier is the first commit on HEAD's first-parent history that
-   added that exact version:
-   `git log --first-parent --reverse --format=%H -G'"id":"<id>".*"updated":"<updated>"' HEAD -- <entries path>`,
-   first result. (Entries serialize `id` first and `updated` last, so one line matches both.)
-   The anchor is **the later of the carrier and the timestamp anchor.** On first-parent
-   history "later" is well defined: one is an ancestor of the other.
-2. **Every other case** keeps **today's timestamp anchor unchanged**:
-   - the pin is uncommitted (written this session, or on `main`, where SessionEnd never commits
-     the brain);
-   - the brain is outside the worktree, so `HEAD:<entries path>` cannot exist;
-   - HEAD's copy holds an older version of the pin (it was updated or retagged since);
-   - the lookup fails or finds nothing.
-
-The pin is stale only if non-brain paths differ between the anchor and HEAD, using
+**The rule.** Inputs are the pin `p` (selected as below), its `updated` time `u`, and
 `handoffIsStale`'s existing pathspec rules for in-tree, root and outside-tree brains.
 
-What this fixes, and what it does not:
-- **A squash merge that carries the pin becomes its own anchor,** so it no longer makes the pin
-  stale. A rebase does not change which first-parent commit first added that line.
-- **Matching the version, not just the id,** matters. An old entry that is updated or retagged
-  into the pin keeps its id. An id-only lookup would anchor it at the commit that first
-  introduced it, which predates its promotion to the pin. Matching `updated` anchors it at the
-  commit that carried the promotion.
-- **Taking the later anchor** means the carrier can only move the anchor forward, never behind
-  today's.
-- **Failure posture is unchanged.** `handoffIsStale` fails toward **silence** ("fail-open
-  (don't nag)", `src/stop-reminder.ts`). Only the cooldown fails toward reminding. Part 0 adds
-  no new failure path: anything it cannot decide falls back to the timestamp anchor, and
-  that anchor's own failures stay silent.
-- **Trade-off, disclosed.** Suppose a handoff is written early on a topic branch and more code
-  lands in the same PR before it squash-merges. After the merge the squash commit is the
-  carrier, so the pin is no longer flagged, although the handoff predates some of the work it
-  carries. On the topic branch itself B3 still flags it, because there the pin is either
-  uncommitted or carried by an earlier branch commit.
-- **Pickaxe on merges.** Under `--first-parent`, git 2.50.1 diffs a true merge against its
-  first parent, so a `--no-ff` merge is found as the carrier (checked by the round-2
-  reviewer). Older git versions are UNVERIFIED. The build pins this with a unit test.
-- **Shallow clones** are benign. The first result is the shallow boundary only when the pin
-  predates it, and then every visible commit really is later than the pin.
+1. **Select the pin with `latestHandoff`** (`src/engine.ts`, ADR-0049) over the materialized
+   (last-write-wins) entry set. B3's own `newestHandoffTimestamp` reads raw lines today, so an
+   old `handoff`-tagged version of an entry that has since been retagged can still win there,
+   while the engine pins a different entry (R3-M3). This was reproduced on a three-line brain:
+   B3's scan picks `HIJACK@10:00`, which has been retagged to `handoff-topic` since; the engine
+   pins `REALPIN@09:00`. After Part 0, B3, Part A and the rendered pin use **one selector**.
+2. **First-parent timestamp anchor:**
+   `T = git rev-list -1 --first-parent --before=<u> HEAD`. This may be empty, meaning the pin
+   predates all history. `--first-parent` keeps `T` on HEAD's own chain: without it, a
+   second-parent commit can be chosen. That commit is incomparable with everything on the
+   first-parent chain (R3-M1), and listing from it shows main commits made before the pin
+   (R3-M2).
+3. **Carrier `C`, if the pin's current version is committed at HEAD.** That requires
+   `git show HEAD:<entries path>` to contain a line with `p.id` **and** `p.updated`. Then `C` is
+   the first commit on first-parent history that added that version:
+   `git log --first-parent --reverse --format=%H -G'"id":"<id>".*"updated":"<updated>"' HEAD -- <entries path>`,
+   first result, with `<id>` and `<updated>` regex-escaped (`.` is a metacharacter in `-G`).
+   Entries serialize `id` first and `updated` last (534/534 lines checked), so one line
+   matches both. A writer with another key order gets no match, which means there is no
+   carrier. In every other case there is no carrier: the pin is uncommitted, the brain is
+   outside the tree, HEAD holds an older version, or the lookup fails.
+4. **Candidates:** `S = git log --first-parent --format=%H [T..]HEAD -- <pathspec>`. These are
+   the first-parent commits after `T` that touch non-brain paths. `--first-parent` with a
+   pathspec does list a `--no-ff` merge whose changes come from its second parent
+   (prototype cases 5 and 6).
+5. **Drop from `S`:**
+   - **the carrier itself.** It contains the pin, so the handoff was written knowing its
+     content, apart from the disclosed loss below;
+   - **any commit that is an ancestor of `C` and whose *author* date is at or before `u`.**
+     That is pre-pin work which a rebase re-dated: a rebase rewrites committer dates and keeps
+     author dates.
+6. **The pin is stale iff `S` is non-empty.** Part A lists exactly `S`.
 
-**Cost.** One `git show` plus one `git log -G` over the brain file's history, about 0.12 s on
-this repo (188 first-parent brain commits, measured by the round-2 reviewer). It runs on every
-Stop where a pin exists, so the build should cache the carrier per (pin id, `updated`, HEAD) in
-the gitignored `.vfkb/.sessions/` record.
+**What the carrier does, and does not do.** Rounds 1–2 used the carrier to **move** the anchor
+forward ("the later of carrier and timestamp"). That silences a pin whose own session went on
+to commit code before committing the brain, which is the SessionEnd default on topic branches
+(R3-B1; prototype case 7: r2 says quiet, the expected answer is stale). Here the carrier is
+only **excluded**. Commits between `T` and `C` still count unless rule 5 identifies them as
+rebased pre-pin work.
+
+**Observed (git 2.50.1), summarised; the full table is in the README:**
+
+| Case | Expected | today | r2 (RFC @5d4c2e5) | A (round-3 proposal) | **Part 0 (A + author-date rule)** |
+|---|---|---|---|---|---|
+| squash carries pin (cause 1) | quiet | STALE | quiet | quiet | **quiet** |
+| squash, then another PR | STALE {#2} | STALE | STALE | STALE | **STALE {#2}** |
+| committed pin, then a true merge (R3-M1) | STALE {M} | STALE | *undefined* | STALE {M} | **STALE {M}** |
+| uncommitted pin, true merge after (R3-M2) | STALE {M} | STALE | STALE {M, P (pre-pin)} | STALE {M} | **STALE {M}** |
+| handoff → code → brain commit (R3-B1) | STALE {K} | STALE | **quiet** | STALE {K} | **STALE {K}** |
+| rebase onto a main that moved after the pin | STALE {M1} | STALE | **quiet** | STALE {A1, M1} | **STALE {M1}** |
+| force-rebase, no upstream change | quiet | STALE | quiet | **STALE {A1}** | **quiet** |
+| pre-pin-authored PR rebase-merged after the pin, below `C` | STALE {O} | STALE | quiet | STALE {O} | **quiet — the residual miss** |
+
+The other 10 cases give the expected answer under all three new rules: no-ff carrier,
+retag before and after code, uncommitted pin with and without later code, outside-tree brain
+with and without later code, root brain with and without later code, and handoff → code →
+brain → squash. Today's rule gets 9 of them right; it flags the last one, which is cause 1.
+**Round 3's proposal (A) would have been the fourth rule in a row to break a case.** A rebase
+re-dates pre-pin work, so A lists that work as new. It fires on a rebase that changed nothing
+upstream, and it pads the list of one that did.
+
+What Part 0 still gets wrong, disclosed:
+- **Code inside the carrier.** A handoff written early in a PR, with more code in the same PR
+  and then a squash: the squash is the carrier, so that code is not flagged on `main`. Every
+  rule except today's makes this trade, and it is inherent to excluding the carrier. On the
+  topic branch, before the squash, the code **is** flagged (prototype case 7).
+- **Rebase-merged pre-pin work from another PR** (prototype case 11). Another PR whose commits
+  were authored before the pin lands by rebase-merge after the pin, below our carrier. After
+  a rebase, git cannot distinguish "the handoff writer's own rebased work" from "someone
+  else's older work that landed later". Part 0 chooses the reading that removes the frequent
+  false positive (rebasing your own branch) and accepts this rarer false negative. It fails
+  toward silence, which is B3's existing posture. A merge-commit landing of that other PR
+  **is** flagged, because the merge carries the merge-time author date. A squash landing is
+  flagged when the squash's author date is the merge time. That is git's own default for
+  `merge --squash`; GitHub's squash author date is UNVERIFIED and needs a Tier-0 probe
+  before the build relies on it.
+- **Boolean semantics change slightly.** Today B3 asks "do the trees differ?" Part 0 asks
+  "did any later first-parent commit touch non-brain paths?" These diverge only when later
+  commits net to zero, for example a change and its revert. Part 0 flags that and today's rule
+  does not. This is accepted: the handoff predates both commits.
+- **Clock skew** between the machine that wrote `updated` and the committer dates still
+  affects `T`, exactly as today.
+
+**Failure posture is unchanged.** `handoffIsStale` fails toward **silence** ("fail-open (don't
+nag)", `src/stop-reminder.ts`); only the cooldown fails toward reminding. Each new step that
+fails degrades to a defined case. A failed carrier lookup means no carrier: rule 5 is
+skipped and the squash case is flagged exactly as today. That is today's false positive, not
+a new failure mode. A failed `log` for `S` means not stale. A failed `merge-base` keeps the
+commit in `S`. **Shallow clones** are benign: `T` is empty only when the pin predates every visible
+commit, and those commits really are later than the pin.
+
+**Cost.** Up to one `git show`, one `git log -G` over the brain file's history (about 0.12 s on
+this repo, 188 first-parent brain commits, measured in round 2), one `git log` for `S`, and,
+only when there is a carrier, one `merge-base --is-ancestor` plus one author date per member of
+`S`. This runs on every Stop where a pin exists. **The build caches the result per (pin id,
+`updated`, HEAD)** in the gitignored `.vfkb/.sessions/` record. Part A shares that cache (see
+its Cost paragraph for pi).
 
 **Then re-measure.** After Part 0 ships, count B3 fires again over at least 10 interactive
 sessions. That number, not the 24 above, decides Part B (below).
@@ -231,8 +290,10 @@ and pi (`src/pi-extension.ts:85`). Computing it in one face only would recreate 
 divergence between faces.
 
 **What.** When Part 0 says the pin is stale, append a neutral line under the pinned handoff,
-listing the non-brain commits from the anchor to HEAD
-(`git log --format='%h %s' <anchor>..HEAD -- <pathspec>`):
+listing **exactly Part 0's set `S`** (first-parent, after the timestamp anchor, non-brain,
+minus the carrier and rebased pre-pin work), newest first, as `%h %s`. B3 and the annotation
+therefore cannot disagree: they come from one computation (prototype rows above, "Part 0"
+column).
 
 ```
 Commits since this handoff was recorded (3):
@@ -247,12 +308,15 @@ Commits since this handoff was recorded (3):
   20 handoff-tagged entries in this brain exceed 2,000 characters (range 1,630–7,750). So the
   annotation cannot share leftover room inside `HANDOFF_PIN_CAP_CHARS`, which would leave it
   none in most cases. It gets a fixed slice of at most 400 characters. The count line
-  (`Commits since this handoff was recorded (N):`) always survives, then as many subjects as
-  fit, then "(+N more)". When an annotation is present, the **pin text** is truncated to
+  (`Commits since this handoff was recorded (N):`) always survives. Then come subjects, each
+  **truncated to 100 characters plus "…"** (12 of the last 40 subjects on `main` exceed 100
+  characters, measured 2026-10-20, and this branch's `5d4c2e5` exceeds 300, so untruncated
+  lines could leave room for none), as many as fit, then "(+N more)". When an annotation is present, the **pin text** is truncated to
   `HANDOFF_PIN_CAP_CHARS` minus the slice the annotation used, with the existing
   "(truncated — kb_get <id> for the rest)" marker, so the section stays within today's cap.
-- **When the pin predates all history,** list from the root (`git log HEAD`), because
-  `<empty-tree>..HEAD` is not valid `git log` input.
+- **When the pin predates all history,** `T` is empty and Part 0's `[T..]HEAD` lists from
+  the root (prototype: the empty-`T` path is the same code). `<empty-tree>..HEAD` is not
+  valid `git log` input, so the empty-tree SHA that today's tree diff uses is not reused.
 - **Any git failure → no annotation.** That makes the render no worse than today. Like
   B3, the floor fails toward silence, because a wrong annotation would mislead. The two
   share Part 0's anchor code, so a git failure silences both together. That is today's
@@ -262,9 +326,11 @@ Commits since this handoff was recorded (3):
   (`src/backend.ts:11-13`). So `renderContextBundle` and `renderResume` take an optional,
   injected `pinStaleness` provider (pin → anchor and commit list, or nothing). It is
   implemented in the git layer next to `handoffIsStale`, sharing Part 0's anchor code, and
-  wired once at each shared entry point: `resumePayload`, the SessionStart hook and pi, so the
-  three faces stay in parity (#205). Without a provider, the render is exactly today's. A
-  non-file backend wires none, and engine unit tests, including the ADR-0077
+  wired once at each shared entry point: `resumePayload` (`src/heal.ts:176`), the
+  SessionStart hook (`src/cli.ts:626`), pi (`src/pi-extension.ts:85`) **and the
+  `context-block` CLI command** (`src/cli.ts:365`, which calls `renderContextBundle`
+  directly), so every face that renders `## Last handoff` stays in parity (#205). Without a
+  provider, the render is exactly today's. A non-file backend wires none, and engine unit tests, including the ADR-0077
   compaction-survival test, stay independent of the checkout's git state.
 
 **Why read-only beats a written fallback:**
@@ -279,8 +345,11 @@ Commits since this handoff was recorded (3):
 pin". Part A serves the same purpose by a different mechanism, for the reasons above. **That
 substitution is the operator's call (Q1).**
 
-**Cost.** Part 0's lookup plus one `git log` at session start when a pin exists. Today's
-`handoffIsStale` already makes three git calls on every Stop.
+**Cost.** Part 0's computation, at most once per render, when a pin exists. **pi renders on
+every prompt**, not once per session: `before_agent_start` calls `renderResume` each time
+(`src/pi-extension.ts:81-85`). So the (pin id, `updated`, HEAD) cache from Part 0 is
+**required**, not optional. With it, an unchanged HEAD costs one `git rev-parse HEAD` per pi
+prompt. Today's `handoffIsStale` already makes three git calls on every Stop.
 
 ### Part B — a decision-model observer, contingent
 
@@ -484,10 +553,20 @@ is enabled at user scope on this machine (brain `fb712c13f39e`).
     the Stop command), and its output does not contain the B3 text.
   - **Can-fail arm:** add a later non-brain commit. The same hook output contains the B3
     text.
-  - Unit tests cover: squash; rebase; a `--no-ff` merge; an uncommitted pin and an
-    outside-tree brain, each giving exactly today's timestamp-anchor answer; a pin updated or
-    retagged after its first commit (anchored on the commit that carried the new version); a
-    root brain; and a failed lookup falling back to the timestamp anchor.
+  - **Unit tests port every row of the prototype table** (`anchor-proto.sh`, 18 cases)
+    as fixtures with the same expected answers, including the expected **set** for Part A:
+    squash; squash then another PR; `--no-ff` carrier; retagged pin before and after code;
+    uncommitted pin with and without later code; committed pin then a true merge (R3-M1);
+    uncommitted pin then a true merge, listing only the merge (R3-M2); handoff → code → brain
+    commit, which must be stale (R3-B1); the same then squashed; outside-tree and root brains,
+    each with and without later code; rebase onto a moved main, listing only the upstream
+    commit; force-rebase with no upstream change, which must be quiet; and the rebase-merged
+    pre-pin PR, asserted **quiet** as the disclosed residual miss, so a future change to it is
+    a deliberate one.
+  - Plus: a failed lookup at each step degrades to its defined case; a regex metacharacter in
+    the id or `updated` is escaped; and **pin selection (R3-M3)**: an old `handoff`-tagged line
+    plus a newer version of the same id without the tag must not be the pin, so B3 and
+    `latestHandoff` pick the same entry.
 - **Part 1** rides Part 0's scenario: the can-fail arm also asserts the new reminder text.
 - **Part A — `scenarios/stale-pin-floor.mjs`.** Seed a pinned handoff, then a later non-brain
   commit whose subject carries a sentinel. Run the agent **with no shell or git tools**
