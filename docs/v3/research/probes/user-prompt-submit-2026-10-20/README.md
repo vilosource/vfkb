@@ -55,12 +55,15 @@ candidates and never reorders them, so it **cannot fix what reaches the top**.
 - "continue autonomously" matched only 13.
 - The top three hits were 4–7.7k-character handoffs for 7 of the 8 prompts.
 
-**(b) Rankers compared.** These are 1-based ranks of the entries each prompt is about,
-using a generic English stopword list (NLTK-style, not tuned to these prompts):
+**(b) Rankers compared.** These are 1-based ranks of the entries each prompt is about.
+The **current** row is the real index. It sorts by score, then by newest `updated`, and
+its scores tie heavily, so each rank is shown with its tie band. The other rows are
+prototypes over the same tokenizer and stemmer, with a generic English stopword list
+(NLTK-style, not tuned to these prompts), and they break ties by file order:
 
 | Scorer | "…use JEV as well…" (`aa294b2708c4`, `8b2aefd11171`, `7a1ffdd4e6f0`) | "what is in our roadmap?" (roadmap links) |
 |---|---|---|
-| current (occurrence count) | 86, 112, 348 | 263, 264 |
+| current (the real index) | 78, 102, 320 (bands 77–87, 100–114, 312–357) | 309, 310 (band 263–310) |
 | count + stopwords | 6, 7, 23 | 3, 8 |
 | BM25 (k1 1.2, b 0.75) | 6, 15, 17 | 21, 27 |
 | **BM25 + stopwords** | **4, 7, 11** | **1, 2** |

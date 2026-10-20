@@ -4,8 +4,9 @@
 # sentinel, no tools, haiku-4-5. Prints HIT/miss per run. Metered (cents).
 set -u
 here="$(cd "$(dirname "$0")" && pwd)"
-framing="$1"; trials="${2:-3}"
-work="$(mktemp -d)"; git -C "$work" init -q
+framing="${1:-}"; trials="${2:-3}"
+case "$framing" in knowledge|credential) ;; *) echo "usage: run-delivery.sh <knowledge|credential> [trials]" >&2; exit 2 ;; esac
+work="$(mktemp -d)"; trap 'rm -rf "$work"' EXIT; git -C "$work" init -q
 node -e 'const [h,w]=process.argv.slice(1);const fs=require("fs");
 for (const f of ["json","plain"]) fs.writeFileSync(`${w}/s-${f}.json`, JSON.stringify({enabledPlugins:{"vfkb@vfkb":false},
   hooks:{UserPromptSubmit:[{hooks:[{type:"command",command:`PROBE_FORM=${f} sh "${h}/ups-hook.sh"`}]}]}}));

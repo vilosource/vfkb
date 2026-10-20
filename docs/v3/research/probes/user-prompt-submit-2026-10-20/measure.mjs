@@ -5,17 +5,21 @@
 //   (b) 1-based ranks of the entries each prompt is ABOUT, under four stage-1 scorers:
 //       the current one (occurrence count), count + stopwords, BM25, BM25 + stopwords.
 // The stopword list is a generic English list (NLTK-style), NOT tuned to these prompts.
+// The three ALTERNATIVE scorers are prototypes over the same tokenizer/stemmer; only the
+// current scorer's row is the real index.
 //
 //   cd <vfkb checkout> && npm run build
 //   node docs/v3/research/probes/user-prompt-submit-2026-10-20/measure.mjs [BRAIN_SHA]
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const REPO = process.cwd();
 const SHA = process.argv[2] || '9095dc4';
-const brain = join(mkdtempSync(join(tmpdir(), 'r1-measure-')), '.vfkb');
+const tmp = mkdtempSync(join(tmpdir(), 'r1-measure-'));
+process.on('exit', () => rmSync(tmp, { recursive: true, force: true }));
+const brain = join(tmp, '.vfkb');
 mkdirSync(brain, { recursive: true });
 writeFileSync(join(brain, 'entries.jsonl'), execFileSync('git', ['show', `${SHA}:.vfkb/entries.jsonl`], { cwd: REPO, maxBuffer: 64 << 20 }));
 process.env.VFKB_DATA_DIR = brain;
@@ -78,7 +82,14 @@ const CASES = [
 console.log('\n(b) 1-based ranks of the relevant entries');
 for (const [q, rel] of CASES) {
   console.log(`  > ${q}`);
-  for (const [name, mode] of [['current (count)', {}], ['count + stopwords', { stop: 1 }], ['BM25', { bm25: 1 }], ['BM25 + stopwords', { bm25: 1, stop: 1 }]]) {
+  // The CURRENT scorer's row comes from the REAL index (InMemoryIndex.searchScored), not a
+  // reimplementation: its tie-break (newest `updated` first) decides ranks inside large
+  // score-tie bands, so a reimplementation reports different ranks (#362 review round 2).
+  const real = I.searchScored(q, 100000);
+  const realRanks = real.map((x, k) => [k + 1, x]).filter(([, x]) => rel(x.entry));
+  const band = (score) => { const b = real.map((y, j) => [j + 1, y.score]).filter(([, sc]) => sc === score).map(([j]) => j); return `${b[0]}-${b.at(-1)}`; };
+  console.log(`    ${'current (REAL idx)'.padEnd(18)} matched ${String(real.length).padStart(3)}  relevant ranks ${realRanks.map(([k, x]) => `${k} (tie band ${band(x.score)})`).join(', ')}`);
+  for (const [name, mode] of [['count + stopwords', { stop: 1 }], ['BM25', { bm25: 1 }], ['BM25 + stopwords', { bm25: 1, stop: 1 }]]) {
     const r = rank(q, mode);
     const ranks = r.map((x, k) => [k + 1, E[x.i]]).filter(([, e]) => rel(e)).map(([k]) => k);
     console.log(`    ${name.padEnd(18)} matched ${String(r.length).padStart(3)}  relevant ranks ${ranks.slice(0, 4).join(', ')}`);

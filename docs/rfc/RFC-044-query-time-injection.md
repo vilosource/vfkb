@@ -1,7 +1,7 @@
 ---
 type: RFC
 title: "RFC-044: Query-time injection needs a ranker that can rank — R1 rides on S1's BM25"
-description: "v3 theme R1. Probes on 2026-10-20 found the delivery half sound: a UserPromptSubmit hook's injected text reaches the agent (3/3 in both JSON and plain form, contrast 0/3) when it reads as project knowledge, not as a secret. The selection half is not: vfkb's stage-1 index counts token occurrences with no IDF, no length normalisation and no stopwords, so a chatty prompt matches nearly every entry, the long handoffs win, and the entries a prompt is about rank 86th-348th. On two labelled cases, BM25 alone still misses one; BM25 plus stopword pruning ranks them 1st-11th. This RFC proposes R1 in two steps: first S1's amended first resort (BM25 in InMemoryIndex) plus query-term pruning, behind an offline labelled eval; then the UserPromptSubmit injection with dedup, a budget, harness-turn skipping and knowledge framing. Un-gating S1 is put to the operator."
+description: "v3 theme R1. Probes on 2026-10-20 found the delivery half sound: a UserPromptSubmit hook's injected text reaches the agent (3/3 in both JSON and plain form, contrast 0/3) when it reads as project knowledge, not as a secret. The selection half is not: vfkb's stage-1 index counts token occurrences with no IDF, no length normalisation and no stopwords, so a chatty prompt matches nearly every entry, the long handoffs win, and the entries a prompt is about rank 78th-320th on the real index. On two labelled cases, BM25 alone still misses one; BM25 plus stopword pruning ranks them 1st-11th. This RFC proposes R1 in two steps: first S1's amended first resort (BM25 in InMemoryIndex) plus query-term pruning, behind an offline labelled eval; then the UserPromptSubmit injection with dedup, a budget, harness-turn skipping and knowledge framing. Un-gating S1 is put to the operator."
 status: "Proposed"
 timestamp: 2026-10-20
 ---
@@ -65,18 +65,22 @@ operator prompts:
 - **The RFC-001 floor fires but cannot help.** It drops 93–238 matches, but it never
   reorders, so it cannot change what reaches the top.
 - **The top three hits were 4–7.7k-character handoffs for 7 of 8 prompts.**
-- **The entries a prompt is about rank far down.** Ranks are 1-based:
-  - "we were going to use JEV as well were we not?": 86th, 112th and 348th;
-  - "what is in our roadmap?": 263rd and 264th.
+- **The entries a prompt is about rank far down.** These are 1-based ranks on the real
+  index, which sorts by score and then by newest `updated`. Scores tie heavily, so each rank
+  sits in a band:
+  - "we were going to use JEV as well were we not?": 78th, 102nd and 320th (bands 77–87,
+    100–114 and 312–357);
+  - "what is in our roadmap?": 309th and 310th (band 263–310).
 
   Anything past 200 never reaches `kb_search` at all.
 
-**Which fix?** The same two cases under alternative scorers, with a generic stopword list
-not tuned to these prompts:
+**Which fix?** The same two cases under alternative scorers. These are prototypes over the
+real tokenizer and stemmer, with a generic stopword list not tuned to these prompts, and
+they break ties by file order:
 
 | Scorer | Jev case | Roadmap case |
 |---|---|---|
-| current | 86, 112, 348 | 263, 264 |
+| current (the real index) | 78, 102, 320 | 309, 310 |
 | count + stopwords | 6, 7, 23 | 3, 8 |
 | BM25 | 6, 15, 17 | **21, 27** |
 | **BM25 + stopwords** | **4, 7, 11** | **1, 2** |
@@ -171,10 +175,24 @@ ADR-0078's validity discipline and ADR-0079's wording rule.
      *selection* matters. Without it, the proof shows only delivery, which the probe
      already showed.
   3. **delivery contrast:** the hook off. Must be 0 hits.
+- **The seed must be hard for both rankers.**
+  - The long common-word distractors exist so the *old* ranker loses.
+  - The brain also needs **hard negatives**: entries that share the prompt's *content* terms
+    but are not the target. Without them the new ranker faces no adversary, and the recall
+    arm could only fail on delivery or on the model.
+- **The ranker contrast is a content assertion, and partly deterministic** (ADR-0051 §3).
+  - It is red when the `hook_response` shows an injection happened **and** its injected
+    entry ids lack the target.
+  - A missing injection (hook error, fail-open, dedup, budget) makes the trial **invalid**,
+    not a pass.
+  - Because the ranking itself is deterministic, the ranker comparison also ships as a unit
+    test over the same seed. The LLM arm adds receipt, not selection.
+- **A green ranker contrast means the seed is too easy, not that the proof passed.** The
+  scenario marks the run invalid and the seed must be hardened.
 - **Validity:**
   - no tools;
   - the answer engages: it names the sentinel or says NONE;
-  - the injection is observed in the `hook_response`, as either present or absent;
+  - in the recall arm, the target's id is observed in the `hook_response`'s injected ids;
   - **anti-luck:** the entry is not in the session-start bundle. Otherwise the contrasts
     pass for the wrong reason.
 - **Wording:** knowledge framing, and scope rather than naming what to hide.
