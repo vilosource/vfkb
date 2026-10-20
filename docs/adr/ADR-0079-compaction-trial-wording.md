@@ -36,8 +36,9 @@ The plugin did its job, and the agent did not report what it had.
 
 Two diagnostic trials were kept for inspection. Both showed the re-injected Constitution and
 handoff present in the post-compaction context (`hook_additional_context`), yet one agent
-answered `NONE` and the other named one of the two sentinels. Two causes, both in the trial
-wording, not in the capability:
+answered `NONE` and the other named one of the two sentinels. Two **likely** causes, both in
+the trial wording, not the capability. They are inferred from the transcripts, not isolated by
+experiment:
 
 1. **The luck-closing instruction is read by the agent.** The `/compact` arguments are
    replayed **verbatim** into the post-compaction context, as
@@ -58,6 +59,12 @@ wording, not in the capability:
 
 No trial was invalid. In particular `noLeak` held every time, so the scope instruction keeps
 the summary clean without naming the sentinels. These are N=3 and N=2 observations, not rates.
+
+**The probe changed two things at once,** the instruction and the question, so it does not
+separate their contributions. It shows that the amended wording works, not which of the two
+inferred causes mattered more. Each change is independently justified, which is why both are
+adopted. The instruction is supported by the transcript evidence above; the question is
+supported by the claim being about *both* sentinels.
 
 ## Decision
 
