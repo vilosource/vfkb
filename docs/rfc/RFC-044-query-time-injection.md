@@ -192,7 +192,10 @@ ADR-0078's validity discipline and ADR-0079's wording rule.
 - **Validity:**
   - no tools;
   - the answer engages: it names the sentinel or says NONE;
-  - in the recall arm, the target's id is observed in the `hook_response`'s injected ids;
+  - an injection is observed in the `hook_response` in the hook-on arms; a missing
+    injection makes the trial invalid. In the **recall** arm, an injection that **lacks the
+    target's id is a red trial, not an invalid one**. That is what lets the recall arm fail
+    on selection;
   - **anti-luck:** the entry is not in the session-start bundle. Otherwise the contrasts
     pass for the wrong reason.
 - **Wording:** knowledge framing, and scope rather than naming what to hide.
@@ -221,7 +224,9 @@ ADR-0078's validity discipline and ADR-0079's wording rule.
 - **A decision model (Jev) as the selector.** Rejected for this RFC: Ruling 5 keeps decision
   models an optional R7 seam, not R1.
 - **Stopword pruning on the current scorer, without BM25.** This is not rejected outright:
-  it does nearly as well on the two measured cases (6, 7, 23 and 3, 8). But it keeps
+  it does nearly as well on the two measured cases. Its prototype ranks are 6, 7, 23 and 3, 8
+  with file-order tie-breaking, and 5, 6, 14 and 7, 15 with the real index's tie-break, so the
+  exact numbers move inside score ties. But it keeps
   rewarding long entries for repeated terms. BM25 plus stopwords is better on both cases,
   and the eval compares all of them before step 1 commits to one.
 
