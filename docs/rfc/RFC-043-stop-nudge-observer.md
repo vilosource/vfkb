@@ -8,14 +8,15 @@ timestamp: 2026-10-20
 
 # RFC-043: The stale-handoff nudge fires on a fact, not a moment
 
-- **Status:** Proposed (revised after adversarial review round 1, 2026-10-20)
+- **Status:** Proposed (revised after adversarial review rounds 1 and 2, 2026-10-20)
 - **Date:** 2026-10-20
 - **Deciders:** operator + Claude
 - **Governs:** the **B3 stale-handoff nudge** in `src/stop-reminder.ts`. B3 shipped as a
   "pragmatic patch, built NOT yet verified — no RFC/ADR/L4 yet" (its own code comment). This
   is its first governing proposal.
-- **Operator ruling it implements:** brain `4bbe73188958` (2026-10-19; it supersedes
-  `e9c19cc5819e`, whose only changes are a corrected *Why* and the `handoff` tag removed). The
+- **Operator ruling it implements:** brain `e68ad28f11b6` (2026-10-19; the live head of the
+  chain `e9c19cc5819e` → `4bbe73188958` → `e68ad28f11b6`, whose only changes are a corrected
+  *Why* and the `handoff` tag removed). The
   ruling: scope is B3; a decision model only times B3 and never creates a fire; a stale-pin
   fallback makes a wrong "stay quiet" safe; Jev is the leading candidate but not pre-chosen;
   the shape is an observer seam, opt-in, consistent with Ruling 5. **Where this revision
@@ -80,7 +81,7 @@ sessions" also matched about 85 sandbox and probe sessions,** whose directory na
 | decision fires | 1 |
 | **B3 stale-handoff fires** | **24, in 11 sessions** |
 | … in 6 interactive operator sessions | 19 |
-| … in 5 single-prompt ADR-0052 review-gate sessions | 5 |
+| … in 5 ADR-0052 review-gate sessions (4 single-prompt, 1 multi-round) | 5 |
 
 B3 is the nudge the operator experiences as "fires all the time". It fired on the first turn
 of the session that wrote this RFC, before any work had happened.
@@ -105,7 +106,9 @@ of the session that wrote this RFC, before any work had happened.
    behind.
 
 **The split of the 24 fires across these causes is not measured.** Classifying them needs
-each session's HEAD at fire time, which the transcripts do not record. So the size of the
+each session's HEAD at fire time, which the transcripts do not record directly. It could be
+reconstructed approximately from record timestamps, `gitBranch` and `main`'s commit dates;
+the re-measurement after Part 0 is the cheaper and more reliable answer. So the size of the
 problem that a decision model would address (cause 3, mid-session) is **unknown** until Part 0
 ships and B3 is measured again.
 
@@ -124,7 +127,7 @@ ships and B3 is measured again.
   brain, displacing the operator's own handoff.
 - **It feeds a loop.** A mid-session handoff goes stale at the next merge, or by cause 1, at
   its own merge, which re-arms B3. Sessions with 4–6 handoff writes show it (`d5948d4c`:
-  5 fires, 5 writes; `edf377bb`: 4 fires, 6 writes).
+  5 fires, 5 writes; `edf377bb`: 4 fires, 7 writes).
 
 ### B3 has no floor
 
@@ -156,25 +159,56 @@ contingent on what they leave behind.
 
 ### Part 0 — anchor staleness on the commit that carries the pin
 
-**Change `handoffIsStale`'s anchor.** Today the anchor is the newest commit before the pin's
-`updated` time. Instead, anchor on **the first commit on HEAD's first-parent history whose
-`entries.jsonl` contains the pin's id**:
-`git log --first-parent --reverse --format=%H -S<pinId> HEAD -- <entries path>`, first result.
+**Change `handoffIsStale`'s anchor, for committed pins only.** Today the anchor is the newest
+commit before the pin's `updated` time (the *timestamp anchor*). Part 0 adds a second
+candidate, the *carrier anchor*, and takes the later of the two. Only one case changes:
 
-- The pin is stale only if non-brain paths differ between **that commit** and HEAD, using the
-  same pathspec rules `handoffIsStale` already has for in-tree, root and outside-tree brains.
-- **A pin not yet in any commit** (written this session, uncommitted) is **not stale.** This
-  session wrote it, so it is current by construction.
-- **A squash merge that carries the pin is its own anchor,** so it cannot make the pin stale.
-  A rebase does not change which commit first contains the id, so it is handled too.
-- If `git log -S` fails or finds nothing, B3 **fires** as today. Failures go toward
-  reminding, matching the existing posture.
-- The lookup uses the pin's id, which is unique, so the search cannot match a different entry.
+1. **The pin's current version is committed at HEAD.** The brain is in-tree or at the root,
+   and `git show HEAD:<entries path>` contains a line with the pin's id **and** its current
+   `updated` value. Then the carrier is the first commit on HEAD's first-parent history that
+   added that exact version:
+   `git log --first-parent --reverse --format=%H -G'"id":"<id>".*"updated":"<updated>"' HEAD -- <entries path>`,
+   first result. (Entries serialize `id` first and `updated` last, so one line matches both.)
+   The anchor is **the later of the carrier and the timestamp anchor.** On first-parent
+   history "later" is well defined: one is an ancestor of the other.
+2. **Every other case** keeps **today's timestamp anchor unchanged**:
+   - the pin is uncommitted (written this session, or on `main`, where SessionEnd never commits
+     the brain);
+   - the brain is outside the worktree, so `HEAD:<entries path>` cannot exist;
+   - HEAD's copy holds an older version of the pin (it was updated or retagged since);
+   - the lookup fails or finds nothing.
 
-**Cost.** One `git log -S` over the brain file's history in place of `rev-list --before`.
-`-S` scans diffs, so its cost grows with the brain's history. If that proves slow, the result
-can be cached per (pin id, HEAD) in the gitignored `.vfkb/.sessions/` record. That is a
-build-time choice.
+The pin is stale only if non-brain paths differ between the anchor and HEAD, using
+`handoffIsStale`'s existing pathspec rules for in-tree, root and outside-tree brains.
+
+What this fixes, and what it does not:
+- **A squash merge that carries the pin becomes its own anchor,** so it no longer makes the pin
+  stale. A rebase does not change which first-parent commit first added that line.
+- **Matching the version, not just the id,** matters. An old entry that is updated or retagged
+  into the pin keeps its id. An id-only lookup would anchor it at the commit that first
+  introduced it, which predates its promotion to the pin. Matching `updated` anchors it at the
+  commit that carried the promotion.
+- **Taking the later anchor** means the carrier can only move the anchor forward, never behind
+  today's.
+- **Failure posture is unchanged.** `handoffIsStale` fails toward **silence** ("fail-open
+  (don't nag)", `src/stop-reminder.ts`). Only the cooldown fails toward reminding. Part 0 adds
+  no new failure path: anything it cannot decide falls back to the timestamp anchor, and
+  that anchor's own failures stay silent.
+- **Trade-off, disclosed.** Suppose a handoff is written early on a topic branch and more code
+  lands in the same PR before it squash-merges. After the merge the squash commit is the
+  carrier, so the pin is no longer flagged, although the handoff predates some of the work it
+  carries. On the topic branch itself B3 still flags it, because there the pin is either
+  uncommitted or carried by an earlier branch commit.
+- **Pickaxe on merges.** Under `--first-parent`, git 2.50.1 diffs a true merge against its
+  first parent, so a `--no-ff` merge is found as the carrier (checked by the round-2
+  reviewer). Older git versions are UNVERIFIED. The build pins this with a unit test.
+- **Shallow clones** are benign. The first result is the shallow boundary only when the pin
+  predates it, and then every visible commit really is later than the pin.
+
+**Cost.** One `git show` plus one `git log -G` over the brain file's history, about 0.12 s on
+this repo (188 first-parent brain commits, measured by the round-2 reviewer). It runs on every
+Stop where a pin exists, so the build should cache the carrier per (pin id, `updated`, HEAD) in
+the gitignored `.vfkb/.sessions/` record.
 
 **Then re-measure.** After Part 0 ships, count B3 fires again over at least 10 interactive
 sessions. That number, not the 24 above, decides Part B (below).
@@ -209,15 +243,29 @@ Commits since this handoff was recorded (3):
 - **Neutral wording, with no call to action.** The render also re-runs after every compaction
   (ADR-0077). An imperative such as "may be out of date — write a handoff" would recreate the
   premature-handoff trigger through a second channel.
-- **Bounded in characters, not lines.** Pin text plus annotation must stay within
-  `HANDOFF_PIN_CAP_CHARS` (2,000). The list is cut first, ending in "(+N more)".
+- **Bounded in characters, with its own reserved slice.** Real pins are long: 17 of the last
+  20 handoff-tagged entries in this brain exceed 2,000 characters (range 1,630–7,750). So the
+  annotation cannot share leftover room inside `HANDOFF_PIN_CAP_CHARS`, which would leave it
+  none in most cases. It gets a fixed slice of at most 400 characters. The count line
+  (`Commits since this handoff was recorded (N):`) always survives, then as many subjects as
+  fit, then "(+N more)". When an annotation is present, the **pin text** is truncated to
+  `HANDOFF_PIN_CAP_CHARS` minus the slice the annotation used, with the existing
+  "(truncated — kb_get <id> for the rest)" marker, so the section stays within today's cap.
 - **When the pin predates all history,** list from the root (`git log HEAD`), because
   `<empty-tree>..HEAD` is not valid `git log` input.
-- **Any git failure → no annotation.** That makes the render no worse than today. Unlike
-  B3, the floor fails toward silence, because a wrong annotation would mislead, and B3
-  still covers the case.
-- **Git access goes through the backend seam,** like the other git-layer consumers
-  (`src/backend.ts`), so the engine's unit tests can stub it.
+- **Any git failure → no annotation.** That makes the render no worse than today. Like
+  B3, the floor fails toward silence, because a wrong annotation would mislead. The two
+  share Part 0's anchor code, so a git failure silences both together. That is today's
+  posture, not a new gap.
+- **The engine never runs git.** The storage seam has no git surface: git-layer consumers
+  "stay file-based BY DESIGN … a backend without that property simply doesn't wire them"
+  (`src/backend.ts:11-13`). So `renderContextBundle` and `renderResume` take an optional,
+  injected `pinStaleness` provider (pin → anchor and commit list, or nothing). It is
+  implemented in the git layer next to `handoffIsStale`, sharing Part 0's anchor code, and
+  wired once at each shared entry point: `resumePayload`, the SessionStart hook and pi, so the
+  three faces stay in parity (#205). Without a provider, the render is exactly today's. A
+  non-file backend wires none, and engine unit tests, including the ADR-0077
+  compaction-survival test, stay independent of the checkout's git state.
 
 **Why read-only beats a written fallback:**
 - It works on a **clean tree** and on **`main`**.
@@ -280,7 +328,8 @@ if mode == act:
 
 - **Shadow mode consults outside the cooldown.** Otherwise it would log only the turns where
   B3 fires today, about one per 10-turn window, and final turns inside a cooldown would never
-  be logged. That bias would make the switch-to-act gate impossible to measure.
+  be logged. That bias would make the switch-to-act gate impossible to measure. **The cost:**
+  up to 1.5 s (the timeout) added to every Stop while the pin is stale, in shadow mode.
 - **Act mode rate-limits consultations.** A deferred fire does not mark the nudge as fired.
   Without its own "consulted" mark, the model would be called on every Stop for the rest of
   the session.
@@ -300,8 +349,9 @@ if mode == act:
   blocks, tool output, diffs, file contents, brain entry text, and the transcript file.
 - **Turns Claude Code starts on its own** (task notifications, crons) must be excluded. The
   hooks reference says `UserPromptSubmit` fires for them too, and the observed payload has no
-  field saying who sent the prompt. **How to tell them apart is UNVERIFIED and is a question
-  for the spike.**
+  field saying who sent the prompt. **How to tell them apart in the hook is UNVERIFIED.** The
+  transcript does mark them (`promptSource:"system"` on a task-notification turn in
+  `dbb5c056`), so the spike can label its corpus from that either way.
 - **Secrets:** a window in which `detectSecrets` (`src/secrets.ts`) finds anything is not
   sent; that turn takes today's behaviour.
 
@@ -434,8 +484,10 @@ is enabled at user scope on this machine (brain `fb712c13f39e`).
     the Stop command), and its output does not contain the B3 text.
   - **Can-fail arm:** add a later non-brain commit. The same hook output contains the B3
     text.
-  - Unit tests cover squash, rebase, an uncommitted pin, root and outside-tree brains, and the
-    `-S` failure leading to a fire.
+  - Unit tests cover: squash; rebase; a `--no-ff` merge; an uncommitted pin and an
+    outside-tree brain, each giving exactly today's timestamp-anchor answer; a pin updated or
+    retagged after its first commit (anchored on the commit that carried the new version); a
+    root brain; and a failed lookup falling back to the timestamp anchor.
 - **Part 1** rides Part 0's scenario: the can-fail arm also asserts the new reminder text.
 - **Part A — `scenarios/stale-pin-floor.mjs`.** Seed a pinned handoff, then a later non-brain
   commit whose subject carries a sentinel. Run the agent **with no shell or git tools**
@@ -443,7 +495,9 @@ is enabled at user scope on this machine (brain `fb712c13f39e`).
   - **Treatment:** the SessionStart hook output contains the sentinel, and the agent names
     it.
   - **Contrast,** annotation disabled: the agent cannot name it.
-  - **Squash negative arm:** a squash-carried pin gets no annotation.
+  - **Squash negative arm:** a squash-carried pin. The SessionStart hook output **contains**
+    `## Last handoff` and the pin's own sentinel (proving the render ran and pinned it), and
+    does not contain "Commits since this handoff".
 - **Part B, only if built.** It ships in shadow mode first, so the first L4 proves shadow
   mode. With `ReplayDecider` fixtures, a consulted Stop must produce a positive
   `decider.jsonl` record with the four probabilities and the would-have action, while B3's
