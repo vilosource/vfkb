@@ -20,12 +20,13 @@ Outputs: [`snapshot-9095dc4.txt`](snapshot-9095dc4.txt) is the pinned R1 eval sn
      a lower bound: some handoffs open "SESSION CLOSE …" or "CLOSED OUT …".
    - 115 [108] are handoff/next-tagged facts of any shape. That is the tag boundary, an
      upper bound: it includes `fba5f66fd3df`, a queued item that is a labelled right answer.
-   - 24 [18] entries name a predecessor in their text ("supersedes <12-hex id>"). All 4
+   - At least 40 [34] entries name a predecessor in their text ("supersedes <12-hex id>",
+     ignoring case; 24 [18] case-sensitive). All 4
      entries with `refs.supersedes` are decisions, because `supersede()` refuses facts
      (ADR-0004).
 2. **The pin is unstable.**
-   - `latestHandoff` orders by `updated`, and `updateEntry` bumps it. A zone edit of the
-     oldest handoff fact (`1488c66658c4`) made it the pin on both brains.
+   - `latestHandoff` orders by `updated`, and `updateEntry` bumps it. Archiving and then
+     restoring the oldest handoff fact (`1488c66658c4`) made it the pin on both brains.
    - Eligibility is any tagged type. 14 decisions and links carry the tag topically.
    - The one hijack observed live was a fact, `a91f82e76700` (brain `583374f75808`, repaired
      in PR #358).

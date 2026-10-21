@@ -72,7 +72,9 @@ console.log(`  shaped handoffs still injectable but NOT the pin (stale handoffs)
 const nonPinnedFacts = older.filter((e) => e.type === 'fact');
 console.log(`  UPPER bound - every handoff/next-tagged fact other than the pin: ${nonPinnedFacts.length}`);
 const proseSup = all.filter((e) => /supersedes\s+[0-9a-f]{12}\b/.test(e.text));
-console.log(`  entries whose TEXT says "supersedes <12-hex id>": ${proseSup.length} (${proseSup.filter(isHo).length} handoff/next-tagged); carrying refs.supersedes: ${all.filter((e) => e.refs?.supersedes).length}, all decisions: ${all.filter((e) => e.refs?.supersedes).every((e) => e.type === 'decision')}`);
+const proseSupI = all.filter((e) => /supersedes\s+[0-9a-f]{12}\b/i.test(e.text));
+// Both are LOWER bounds: prose also says "supersedes handoff <id>", "supersedes-in-practice <id>".
+console.log(`  entries whose TEXT says "supersedes <12-hex id>" (lower bounds): ${proseSup.length} case-sensitive, ${proseSupI.length} ignoring case (${proseSupI.filter(isHo).length} handoff/next-tagged); carrying refs.supersedes: ${all.filter((e) => e.refs?.supersedes).length}, all decisions: ${all.filter((e) => e.refs?.supersedes).every((e) => e.type === 'decision')}`);
 
 // --- 2. near-duplicates ---
 const tok = (s) =>
@@ -196,7 +198,9 @@ if (labelsPath) {
     .readAll()
     .filter((e) => e.type === 'fact' && (e.tags.includes('handoff') || e.tags.includes('next')) && e.id !== before)
     .sort((a, b) => a.created.localeCompare(b.created))[0];
-  engine.updateEntry(old.id, { zone: old.zone === 'archive' ? 'established' : 'incoming' });
+  const to = old.zone === 'archive' ? 'established' : 'incoming';
+  const what = old.zone === 'archive' ? 'UN-ARCHIVE (a restore; section 4 archived it)' : `zone edit ${old.zone} -> ${to}`;
+  engine.updateEntry(old.id, { zone: to });
   console.log(`\n## 5. pin ordering`);
-  console.log(`  zone edit of the OLDEST handoff fact ${old.id} (created ${old.created.slice(0, 10)}): pin ${before} -> ${engine.latestHandoff()?.id}`);
+  console.log(`  ${what} of the OLDEST handoff fact ${old.id} (created ${old.created.slice(0, 10)}): pin ${before} -> ${engine.latestHandoff()?.id}`);
 }

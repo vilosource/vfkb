@@ -1,7 +1,7 @@
 ---
 type: RFC
 title: "RFC-045: Propose-only curation — a stable pin, confirmed handoff retirement, a backlog report (v3 R7)"
-description: "v3 theme R7. A probe on 2026-10-21 found that handoffs never retire: 84 to 115 stale handoff facts are live beside the one pin (the range is the boundary between a shape rule and a tag rule), no handoff carries a supersession edge, and they hold 24 of the 90 top-5 slots in the R1 eval. It also found a latent pin defect: latestHandoff orders by `updated`, which every zone change bumps, so archiving, promoting or restoring an old handoff makes it the pin. The one observed pin hijack was a fact, so 'pin only facts' would not have stopped it. Semantic duplicates are rare: one true double write in 535 entries. This RFC proposes: order the pin by `created` and make it eligible by a writer-set marker (amends ADR-0049 selection, one selector for RFC-043); a `retires` field limited to handoff facts, named by id, that the handoff skill proposes and the user confirms; a read-only backlog report; and semantic dedup deferred on a named trigger. It does not move R1's gate: archiving cannot change the stage-1 metric the gate measures."
+description: "v3 theme R7. A probe on 2026-10-21 found that handoffs never retire: 84 to 115 stale handoff facts are live beside the one pin (the range is the boundary between a shape rule and a tag rule), no handoff carries a supersession edge, and they hold 24 of the 90 top-5 slots in the R1 eval. It also found a latent pin defect: latestHandoff orders by `updated`, which every zone change bumps, so archiving, promoting or restoring an old handoff makes it the pin. 14 decisions and links can also take the pin; the one observed hijack was a fact, which 'pin only facts' would not have stopped, and the RFC states that gap. Semantic duplicates are rare: one true double write in 535 entries. This RFC proposes: pin the newest-CREATED handoff/next-tagged fact (amends ADR-0049 selection; the second, raw-line selector in stop-reminder.ts must change in the same build); a `retires` field limited to handoff facts, named by id, that the handoff skill proposes and the user confirms; a read-only backlog report; and semantic dedup deferred on a named trigger. It does not move R1's gate: archiving cannot change the stage-1 metric the gate measures."
 status: "Proposed"
 timestamp: 2026-10-21
 ---
@@ -26,8 +26,9 @@ timestamp: 2026-10-21
   - [ADR-0049](../adr/ADR-0049-session-start-handoff-pinning.md): the pinned handoff, whose
     selection Part A amends.
   - [RFC-043](RFC-043-stop-nudge-observer.md) (Proposed): the stale-handoff nudge. Its
-    Part 0 rule 1 selects B3's anchor with `latestHandoff`, so it depends on Part A's
-    single selector. Its Part A amends the pin's *render*, as Part B here does.
+    Part 0 rule 1 would make `latestHandoff` B3's only selector. Until it is built,
+    `stop-reminder.ts` has a second one, which Part A must change too. Its Part A amends the
+    pin's *render*, as Part B here does.
   - [ADR-0080](../adr/ADR-0080-query-time-injection.md) and
     [ADR-0081](../adr/ADR-0081-r1-step1-lands-below-bar.md): R1. The 0.6 bar is ADR-0080 §2's
     step-1 bar, which ADR-0081 turned into the named gate on step 2.
@@ -56,8 +57,9 @@ snapshot in brackets:
    - **115 [108]** are handoff/next-tagged facts of any shape. That is an upper bound: it
      includes queued items such as `fba5f66fd3df`, which is a labelled right answer in the
      R1 eval.
-   - **No handoff carries a supersession edge.** 24 [18] entries name a predecessor in their
-     text ("supersedes <id>"). All 4 entries with `refs.supersedes` are decisions, because
+   - **No handoff carries a supersession edge.** At least 40 [34] entries name a
+     predecessor in their text ("supersedes <id>", ignoring case; 37 [31] of them carry the
+     handoff/next tag). This is a lower bound: prose also says "supersedes handoff <id>". All 4 entries with `refs.supersedes` are decisions, because
      `supersede()` refuses facts (ADR-0004). The handoff skill only tells its author to
      "note" a stale predecessor. Each new handoff adds one more live entry and retires none.
 2. **Stale handoffs crowd retrieval.** They hold **24 [20]** of the 90 top-5 slots across
@@ -66,9 +68,9 @@ snapshot in brackets:
    of those (`c6a53a88a8b0`) names two predecessors, and both are still live.
 3. **The pin is unstable, in two ways.**
    - **Ordering.** `latestHandoff` orders by `updated`, and every zone change bumps
-     `updated` (`updateEntry`, engine.ts:155). The probe edited the zone of the oldest
-     handoff fact (`1488c66658c4`, created 2026-06-30) and **it became the pin** on both
-     brains. So archiving, promoting or restoring any old handoff hijacks the pin. Across
+     `updated` (`updateEntry`, engine.ts:155). The probe archived the oldest handoff
+     fact (`1488c66658c4`, created 2026-06-30) and then restored it, and **it became the
+     pin** on both brains. So archiving, promoting or restoring any old handoff hijacks the pin. Across
      clones, merge=union plus newest-`updated`-wins makes that worse: any later edit to an old
      handoff in another clone moves the pin.
    - **Eligibility.** Any injectable entry tagged `handoff` or `next` can be pinned. 14
@@ -131,24 +133,37 @@ the filtered path can never return them. Q5 asks what, if anything, to do about 
   entry with the newest `created`, ties broken by append position as today. A zone change,
   a promotion, a restore or a cross-clone edit then cannot move the pin. This is a
   correctness fix, independent of Q1.
-- **A2. Eligibility** is Q1. The recommended form: the pin is the newest-created injectable
-  **fact carrying the reserved tag `pin`**, which only handoff writers set (the handoff skill
-  and the ADR-0033 SessionEnd fallback). **If no live fact carries `pin`** (every brain
-  today, and any brain written by an older plugin), selection falls back to newest-created
-  injectable **fact** tagged `handoff` or `next`. The marker is what stops the observed
-  hijack. The fallback keeps every existing brain pinned, and it still excludes the 14
-  decisions and links.
-- **One selector.** `latestHandoff` stays the only place a pin is chosen. RFC-043 Part 0
-  rule 1 depends on that, so B3's anchor follows Part A automatically, and **no second
-  selector may be added**. The accepting ADR names the invariant. A unit test asserts that
-  every pin surface (the resume digest, the context block, Part C's report) goes through the
-  function.
+- **A2. Facts only** (operator ruling at the round-2 escalation, brain `96b226ab8f0a`;
+  Q1 records it). The pin is the newest-created injectable **fact** tagged `handoff` or
+  `next`. It is a per-entry rule, and no writer changes. The 14 decisions and links that
+  carry the tag topically can no longer be pinned.
+  - **The gap, stated.** A topical *fact* tagged `handoff` can still win. That is what
+    happened in the one observed hijack (`a91f82e76700`). Part C's report lists every
+    handoff/next-tagged fact other than the pin, flagging those not shaped as handoffs, so
+    such a fact is visible to the operator. It is not prevented.
+  - **Rejected in review: a writer-set `pin` marker with a brain-wide fallback.**
+    - It froze the pin once any marked fact existed. Most handoffs are written by the
+      nudge-directed `kb_add` path (`src/stop-reminder.ts:80` and `:102`) and by hand, not by
+      the skill, and older plugins never set the marker.
+    - The `pin` tag is also already used topically (`583374f75808`).
+- **Two selectors today, one after.** `latestHandoff` is meant to be the only place a pin is
+  chosen. But `stop-reminder.ts:232` (`newestHandoffTimestamp`) is a second selector. It
+  scans raw lines and copies the `updated`-then-`created` order, so changing only
+  `latestHandoff` would split the rendered pin from B3's anchor.
+  - **So Part A changes both in the same build.** `newestHandoffTimestamp` gets the same
+    rule (facts only, newest `created`). B3's staleness input becomes the pin's `created`,
+    not its `updated`, because a zone edit to the pin does not change what it says.
+  - RFC-043 Part 0 rule 1, when built, then removes the second selector altogether. Its
+    accepting ADR should take `created` as its input `u`.
+  - A unit test asserts that the rendered pin and B3's anchor agree on brains with zone
+    edits, topical tags and decisions.
+  - On today's brain, 0 of 116 live handoff facts have `updated` ≠ `created`, so Part A
+    moves no current pin.
 - **Proof form:** structural, so deterministic unit tests, each observed red against today's
   selector:
   - a zone edit, promote or restore of an old handoff does not move the pin;
-  - a newer topical `handoff` fact does not displace a `pin` fact;
-  - a newer decision or link never pins, even under the fallback;
-  - an older `pin` fact beats a newer unmarked handoff fact.
+  - a newer decision or link tagged `handoff` never pins;
+  - `latestHandoff` and `newestHandoffTimestamp` select the same entry.
 
 ### Part B — Retiring a predecessor: proposed by the skill, confirmed by the user
 
@@ -175,7 +190,10 @@ the filtered path can never return them. Q5 asks what, if anything, to do about 
   - Retiring by default unless the user objects (Q2 b) is cheaper, but it is act-by-default
     curation decided by an LLM. That departs from the PRD's wording and needs an explicit
     ruling.
-  - A headless run with no user to ask never retires.
+  - **Confirmation is an explicit user reply in the same skill run.** The skill asks, and
+    passes `retires` only after a user turn that answers yes. vfkb does not detect headless
+    runs, since nothing observed identifies one. A run where no user answers never reaches
+    the yes, so it retires nothing.
   - It is a plugin change, so it ships with a plugin release whose notes state "delivery is
     unproven" (ADR-0051).
 - **No pin, nothing proposed.** On an empty brain, or one whose pin is not a handoff fact,
@@ -233,7 +251,7 @@ near-duplicate detection now would be a speculative build (the roadmap's evidenc
 - **Reviewer and headless sessions displacing the operator's pin** (an RFC-043 follow-on,
   handed to R7 by the RFC-043 session). That session reports that 5 B3 fires in reviewer
   sessions produced 5 handoff writes. This RFC has not re-measured that.
-  - Part A2's marker would cover it only if reviewer sessions did not run the handoff skill.
+  - Part A does not cover it, because those writes are facts.
   - Nothing observed in the Stop payload identifies a headless session, so this needs a
     probe first.
 - **`valid_until`** is never used. Expiring status facts by default would be a writer change
@@ -249,14 +267,19 @@ near-duplicate detection now would be a speculative build (the roadmap's evidenc
     newest-created of the two.
 - **Part B's skill side** is agent-facing, so it ships behind an agent-driven L4,
   `scenarios/handoff-retires.mjs`. A sandboxed agent runs `/vfkb:handoff`, through the
-  vendored plugin, on a brain whose pin is a sentinel handoff among older live handoffs.
-  - **Positive arm.** The user confirms. Afterwards the new handoff is the pin, the sentinel
+  vendored plugin, on a brain whose pin is a sentinel handoff among older live handoffs. The
+  scenario supplies the user's answer as a **second scripted turn** (a resumed session), after
+  the skill has asked. It is never pre-loaded into the first prompt, so an agent that retires
+  without asking fails.
+  - **Positive arm.** The user's second turn confirms. Afterwards the new handoff is the pin, the sentinel
     is archived with its text byte-identical, and the older handoffs are untouched.
-  - **Negative arm.** The user says the current handoff is still live. Nothing is archived.
+  - **Negative arm.** The user's second turn says the current handoff is still live.
+    Nothing is archived.
+  - **No-answer arm.** There is no second turn. Nothing is archived.
   - **Contrast arm.** Today's skill. The sentinel stays live.
   - **Scoring.** All three are content assertions over the brain, never exit codes (ADR-0051
-    §3). DEMONSTRATED needs ≥ 2/3 on both the positive and the negative arm, against a
-    contrast of 0/3.
+    §3). DEMONSTRATED needs ≥ 2/3 on each of the positive, negative and no-answer arms,
+    against a contrast of 0/3.
   - **Until then** its status is "built, NOT yet verified", and delivery through the
     marketplace stays unproven.
 - **The backlog** (84–115 entries here) is cleared only after the build. The operator edits
@@ -265,16 +288,18 @@ near-duplicate detection now would be a speculative build (the roadmap's evidenc
 
 ## Questions for the operator
 
-- **Q1. Pin eligibility** (A1's `created` ordering is a fix either way).
-  - (a) **A reserved `pin` tag set by handoff writers, falling back to "facts tagged
-    handoff/next" when no live fact carries it** (recommended: it stops the observed hijack
-    and keeps today's brains pinned).
-  - (b) Facts only, no marker: no writer change, but it would not have stopped the one
-    hijack seen live.
+- **Q1. Pin eligibility. Ruled at the round-2 escalation (brain `96b226ab8f0a`): facts only,
+  with the gap stated** (A2). A1's `created` ordering is a fix either way. Recorded for
+  acceptance:
+  - (a) **Facts only** (ruled): a per-entry rule with no writer changes. A topical fact can
+    still win, and Part C surfaces it.
+  - (b) An engine-enforced marker set by every writer (the skill, the SessionEnd fallback,
+    both nudge texts, CLAUDE.md). It stops the observed hijack class, but it touches many
+    surfaces, and mixed plugin versions or hand-writes still risk freezing the pin.
   - (c) Leave eligibility as it is.
 - **Q2. Retirement.**
-  - (a) **The skill proposes the predecessor by id and the user confirms; headless runs
-    never retire** (recommended: inside the PRD's "propose-only").
+  - (a) **The skill proposes the predecessor by id, and retires it only on the user's
+    explicit yes** (recommended: inside the PRD's "propose-only").
   - (b) The skill retires the predecessor by default unless the user objects. This departs
     from the PRD's wording.
   - (c) The Part C report only, with every retirement done by hand.
@@ -291,7 +316,8 @@ near-duplicate detection now would be a speculative build (the roadmap's evidenc
     report is for the operator, `retires` is for the agent).
   - (b) Also expose Part C as an MCP tool.
 - **Q5. R1's gate.** It measures stage 1, which archiving cannot change. Step 2 would inject
-  from the filtered path, which scores **0.42–0.46**, not 0.57–0.60. Two of the labelled
+  from the filtered path, which scores **0.41–0.46**. Stage 1 today scores 0.52 (main) and
+  0.56 (the snapshot). Two of the labelled
   ids have since been superseded, so the filtered path can never return them.
   - (a) **Leave the gate as it is, and raise the question again when step 2 is next
     considered** (recommended). Measuring the filtered path would make the gate harder to
@@ -300,13 +326,14 @@ near-duplicate detection now would be a speculative build (the roadmap's evidenc
 - **Q6. Order.** The ruling that put R7 ahead of R1 rested on R7 unblocking R1. The probe
   shows it does not move R1's gate.
   - (a) **Keep R7 next** (recommended). On its own merits it fixes a latent pin defect (A1)
-    and the observed hijack class (A2), and it stops the filtered path's decay.
+    and the 14 decision/link hijackers (A2), and it stops the filtered path's decay.
   - (b) Return to Ruling 4's order: R3 next, R7 after it.
 
 ## Consequences
 
-- The pin stays put under curation, promotion and cross-clone edits, and topical tags cannot
-  take it. RFC-043's anchor follows, because it uses the same selector.
+- The pin stays put under curation, promotion and cross-clone edits, and topically tagged
+  decisions and links cannot take it. A topically tagged fact still can (the stated gap).
+  B3's anchor moves with the pin, because both selectors change in the same build.
 - A confirmed handoff retires its predecessor, so the live handoff count stops growing by one
   per session.
 - Archiving the backlog raises the filtered path's recall@5 (measured: 0.41 → 0.46 on main).

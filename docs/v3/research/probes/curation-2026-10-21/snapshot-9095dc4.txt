@@ -10,7 +10,7 @@ injectable handoff/next-tagged: 123 (pin: aa28c85cd53b)
   handoffs that supersede a predecessor (any state): 0
   shaped handoffs still injectable but NOT the pin (stale handoffs): 77
   UPPER bound - every handoff/next-tagged fact other than the pin: 108
-  entries whose TEXT says "supersedes <12-hex id>": 18 (18 handoff/next-tagged); carrying refs.supersedes: 4, all decisions: true
+  entries whose TEXT says "supersedes <12-hex id>" (lower bounds): 18 case-sensitive, 34 ignoring case (31 handoff/next-tagged); carrying refs.supersedes: 4, all decisions: true
 
 ## 2. near-duplicates (word-set Jaccard over injectable entries)
   pairs >= 0.4: 23
@@ -58,4 +58,4 @@ injectable handoff/next-tagged: 123 (pin: aa28c85cd53b)
   labelled-relevant entries that are themselves retire candidates: 0 
 
 ## 5. pin ordering
-  zone edit of the OLDEST handoff fact 1488c66658c4 (created 2026-06-30): pin aa28c85cd53b -> 1488c66658c4
+  UN-ARCHIVE (a restore; section 4 archived it) of the OLDEST handoff fact 1488c66658c4 (created 2026-06-30): pin aa28c85cd53b -> 1488c66658c4
