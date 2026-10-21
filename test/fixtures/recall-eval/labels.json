@@ -1,0 +1,585 @@
+{
+  "snapshot": "9095dc4",
+  "labelledAt": "2026-10-21",
+  "method": "grep + judgement; no ranker was run (ADR-0080)",
+  "topical": [
+    {
+      "prompt": "i want you to research JEV from typesafe and Decision Models specially the new one from openai and then ultrathink on how this could be used for vfkb. What/how it can help us with various features of vfkb",
+      "date": "2026-10-03",
+      "relevant": [
+        "131ef3c6def5",
+        "aa294b2708c4",
+        "b6cb27787edf"
+      ],
+      "why": "131ef3c6def5 = the decision-models (Jev + OpenAI Decisions API) reference survey for vfkb; aa294b2708c4 = its governing finding (what Jev is, why the class can never be a Brake); b6cb27787edf = the measured injection-selection gap that is the survey's main vfkb use.",
+      "flags": [
+        "prompt-predates-its-entries"
+      ]
+    },
+    {
+      "prompt": "document all of your findings regarding decision model use with vfkb so we hav a reference. There should be a document in the vfkb repo that outlines the use of decision models and how it fits and improves vfkb",
+      "date": "2026-10-05",
+      "relevant": [
+        "131ef3c6def5",
+        "aa294b2708c4",
+        "b6cb27787edf"
+      ],
+      "why": "Asks for the decision-models-in-vfkb reference doc: 131ef3c6def5 is the link to exactly that doc; aa294b2708c4 and b6cb27787edf are its recorded findings.",
+      "flags": [
+        "prompt-predates-its-entries"
+      ]
+    },
+    {
+      "prompt": "tell me about RFC-041",
+      "date": "2026-10-05",
+      "relevant": [
+        "7106057fa0ea",
+        "760ad017aea7",
+        "32ad9ef5bb64",
+        "a01b84569d79"
+      ],
+      "why": "7106057fa0ea = RFC-041 link (tamper-detector skip predicate, parked); 760ad017aea7 = the parking ruling; 32ad9ef5bb64 = sixth defeated design (admissibility reframing, RFC-041 round 3); a01b84569d79 = the five defeated designs RFC-041 characterises.",
+      "flags": []
+    },
+    {
+      "prompt": "lets talk about the decision model, give me a list of features",
+      "date": "2026-10-06",
+      "relevant": [
+        "131ef3c6def5",
+        "aa294b2708c4",
+        "b6cb27787edf"
+      ],
+      "why": "Which vfkb features a decision model could serve: the survey link (§6 four ranked adoption candidates, §7 rejected list), the can-never-be-a-Brake constraint that bounds the list, and the injection-selection finding that is candidate #1.",
+      "flags": []
+    },
+    {
+      "prompt": "lets create a new doc prd for vfkb version 2, technology has moved since the current version of vfkb , claude code harness for example now has new features that we can take advantage of, so we should create a new directory specific to our research and planning for vfkb version 2",
+      "date": "2026-10-07",
+      "relevant": [
+        "788765ca3367",
+        "9455cfca5555",
+        "8ff8f6d806c8"
+      ],
+      "why": "New-version research/PRD directory driven by new Claude Code harness features: 788765ca3367 = the v3 research & planning dir + harness survey; 9455cfca5555 = harness findings that change vfkb conclusions; 8ff8f6d806c8 = harness probes of those themes.",
+      "flags": [
+        "prompt-predates-its-entries"
+      ]
+    },
+    {
+      "prompt": "ok I made a mistake, since 2 is already completed, lets do v3",
+      "date": "2026-10-07",
+      "relevant": [
+        "788765ca3367",
+        "1de4e8fa9182"
+      ],
+      "why": "788765ca3367 records the v3 dir and why it is v3 (v2 is a completed cycle); 1de4e8fa9182 = v2 SHIPPED fact.",
+      "flags": [
+        "borderline-topical"
+      ]
+    },
+    {
+      "prompt": "V3 can be a full rewrite - what does this mean for the question",
+      "date": "2026-10-08",
+      "relevant": [
+        "4940db65375a",
+        "6315e15f49ba"
+      ],
+      "why": "\"The question\" is brain compatibility under a v3 rewrite: 4940db65375a = operator rulings (full rewrite allowed; records must not be lost); 6315e15f49ba = the brain-durability traps a migration would hit.",
+      "flags": []
+    },
+    {
+      "prompt": "lanuch a fable agent to analyze the brain compatibility issues, the only requirement I have regarding this is that the current records should not be lost when moving to v3 - so either compatiblity or migration",
+      "date": "2026-10-08",
+      "relevant": [
+        "4940db65375a",
+        "6315e15f49ba",
+        "694b4690e16e"
+      ],
+      "why": "Brain compatibility/migration for v3 with no record loss: the no-loss ruling, the migration-traps analysis, and the M2 no-record-loss metric ruling.",
+      "flags": []
+    },
+    {
+      "prompt": "what is in our roadmap?",
+      "date": "2026-10-16",
+      "relevant": [
+        "b9b9a2e5adba",
+        "6776205821d8",
+        "ef3500b68252",
+        "9eb330f21996"
+      ],
+      "why": "b9b9a2e5adba = H4 Development Roadmap link (the execution authority); 6776205821d8 = STATUS-AND-ROADMAP link; ef3500b68252 = H4 §4 re-ratification (v3 supersedes P12); 9eb330f21996 = v3 R1-R8 priority order.",
+      "flags": [
+        "prototype-ranked"
+      ]
+    },
+    {
+      "prompt": "we were going to use JEV as well were we not?",
+      "date": "2026-10-16",
+      "relevant": [
+        "8b2aefd11171",
+        "aa294b2708c4",
+        "131ef3c6def5"
+      ],
+      "why": "8b2aefd11171 = ruling that Jev stays optional (PRD R7); aa294b2708c4 = what Jev is and its Brake constraint; 131ef3c6def5 = the survey link. Probe id 7a1ffdd4e6f0 is ARCHIVED in this snapshot (latest version zone=archive), so it is excluded; 131ef3c6def5 is its live successor.",
+      "flags": [
+        "prototype-ranked"
+      ]
+    },
+    {
+      "prompt": "resume it RFC-043 but make sure you work in the separate worktree",
+      "date": "2026-10-20",
+      "relevant": [
+        "cffec4e4d9ef",
+        "e9c19cc5819e",
+        "4bbe73188958",
+        "e68ad28f11b6",
+        "a91f82e76700"
+      ],
+      "why": "cffec4e4d9ef = RFC-043 link; the three near-identical live operator-ruling entries are its governing scope ruling; a91f82e76700 = the B3 measurement RFC-043 rests on.",
+      "flags": [
+        "near-duplicate-entries"
+      ]
+    },
+    {
+      "prompt": "lets work on a worktree branch, currently we have a nudge to remind the agent to do the handoff , this is done after a number of turns and fires all the time, I am thinkinf of improving this by using a decision model like JEV to decide whether it should prompt the agent or not. JEV would decide this by getting the context from the prompts limited to the turns that is being analyzed. Do research on this and let's discuss this feature.",
+      "date": "2026-10-19",
+      "relevant": [
+        "a91f82e76700",
+        "ba74ec9a44e5",
+        "e9c19cc5819e",
+        "4bbe73188958",
+        "e68ad28f11b6",
+        "cffec4e4d9ef"
+      ],
+      "why": "Handoff nudge that fires all the time, gated by a decision model like Jev: a91f82e76700 = which nudge fires (B3) and how often; ba74ec9a44e5 = the per-type turn cooldown (the \"after a number of turns\" behaviour); the three duplicate rulings + cffec4e4d9ef (RFC-043) = the decision-model-gated B3 design.",
+      "flags": [
+        "over-400-chars-but-clearly-a-request",
+        "near-duplicate-entries"
+      ]
+    },
+    {
+      "prompt": "1. scope - agreed\n2. I don't know - please ultrathink this \n3. I will proide the JEV API key\n4. JEV is not the chosen tool but my previous research indicated that JEV is good and fast at making decisions and if I am correct we only need to make decisions here, no need for output. Research this well",
+      "date": "2026-10-19",
+      "relevant": [
+        "e9c19cc5819e",
+        "4bbe73188958",
+        "e68ad28f11b6",
+        "aa294b2708c4",
+        "fc07da198bfa",
+        "131ef3c6def5"
+      ],
+      "why": "Scope, Jev not pre-chosen, decision-only task: the rulings record exactly these answers; aa294b2708c4 = Jev is decision-only (typed values, no prose); fc07da198bfa = the native prompt-hook alternative it must be compared against; 131ef3c6def5 = the survey.",
+      "flags": [
+        "near-duplicate-entries"
+      ]
+    },
+    {
+      "prompt": "yes I agree but before we proceed, lets think of other uses cases where a JEV implementation could help vfkb managed the \"work in progress\" capture of information. We need something running outside of the agent, helping to steer the agent.",
+      "date": "2026-10-19",
+      "relevant": [
+        "4f5077d1b89b",
+        "e9c19cc5819e",
+        "4bbe73188958",
+        "e68ad28f11b6",
+        "131ef3c6def5"
+      ],
+      "why": "Other observer (outside-the-agent) use cases for Jev: 4f5077d1b89b = the observer use-case measurement (UC1-UC5); the rulings frame the observer seam with other use cases as follow-ons; 131ef3c6def5 §6 = ranked candidates.",
+      "flags": [
+        "near-duplicate-prompt-kept-longer",
+        "near-duplicate-entries"
+      ]
+    },
+    {
+      "prompt": "can you launch a fable agent to understand why #317 is not converging?",
+      "date": "2026-09-25",
+      "relevant": [
+        "ff28f023bf4c",
+        "db880fe8eaca",
+        "dd0711ae5a3b",
+        "cface5291391",
+        "f0c9a966545b"
+      ],
+      "why": "#317 non-convergence: ff28f023bf4c = escalation at the ADR-0070 §4 ceiling; db880fe8eaca = the process diagnosis (referent never enumerated); dd0711ae5a3b = resulting redesign ruling; cface5291391 = the find-the-authority pattern; f0c9a966545b = closed by splitting, not iterating.",
+      "flags": []
+    },
+    {
+      "prompt": "the next round will probably also still find issues, launch a fable agent to review and undrestand why things are not converging",
+      "date": "2026-09-28",
+      "relevant": [
+        "ff28f023bf4c",
+        "db880fe8eaca",
+        "cface5291391",
+        "f0c9a966545b",
+        "dd0711ae5a3b"
+      ],
+      "why": "Same subject (why #317 review rounds do not converge); f0c9a966545b is the ruling from this second process analysis.",
+      "flags": []
+    },
+    {
+      "prompt": "what is P2 ?",
+      "date": "2026-09-29",
+      "relevant": [
+        "1652256406c1",
+        "10d34dcce4c7",
+        "fa9ade4752b0",
+        "766ff0d575b0"
+      ],
+      "why": "P2 = RFC-039 §5 agent-driven L4 for D2 (admission gate): 1652256406c1 defines/re-scopes P2's arms; 10d34dcce4c7 P2 DEMONSTRATED; fa9ade4752b0 its correction; 766ff0d575b0 its can-fail arm.",
+      "flags": []
+    },
+    {
+      "prompt": "btw, when we are done with this, remember that we should work on  https://github.com/vilosource/vfkb/issues/321",
+      "date": "2026-09-29",
+      "relevant": [
+        "fba5f66fd3df"
+      ],
+      "why": "fba5f66fd3df is the dedicated entry for vfkb#321 (the /vfkb:brief fresh-project bug), queued by the operator.",
+      "flags": [
+        "instruction-not-question",
+        "prompt-predates-its-entries"
+      ]
+    }
+  ],
+  "noRecall": [
+    {
+      "prompt": "ok what should be done next ?",
+      "date": "2026-09-24",
+      "why": "status/control"
+    },
+    {
+      "prompt": "I want you to look at the remaining work that should be done next, analyze it and come up with a work plan",
+      "date": "2026-09-24",
+      "why": "status/planning request; no subject"
+    },
+    {
+      "prompt": "ok I want you to be as autonomous as possible, when lauching sub agents and loops use the herdr features to show the console of subagents. Do you undrestand my intent, lets discuss this.",
+      "date": "2026-09-25",
+      "why": "about herdr pane usage for subagents; brain holds no dedicated herdr knowledge (only handoff mentions and an aside in 4f5077d1b89b)"
+    },
+    {
+      "prompt": "ok try it now , launch a subagent to check the weather",
+      "date": "2026-09-25",
+      "why": "off-topic/test"
+    },
+    {
+      "prompt": "try it again and ask for the weather in espoo today",
+      "date": "2026-09-25",
+      "why": "off-topic/test"
+    },
+    {
+      "prompt": "ok I closed the window, do it again now",
+      "date": "2026-09-25",
+      "why": "control"
+    },
+    {
+      "prompt": "could you make herdr agent start --kind claude start using the cldp ?",
+      "date": "2026-09-25",
+      "why": "herdr launching with cldp: brain has cldp/CLAUDE_CONFIG_DIR entries about the ADR-0059 guard, nothing on herdr agent launch"
+    },
+    {
+      "prompt": "do what is best",
+      "date": "2026-09-25",
+      "why": "control"
+    },
+    {
+      "prompt": "ok summarize the issue for me",
+      "date": "2026-09-25",
+      "why": "control, anaphoric"
+    },
+    {
+      "prompt": "run he 3's review now",
+      "date": "2026-09-25",
+      "why": "control"
+    },
+    {
+      "prompt": "commit and push",
+      "date": "2026-09-25",
+      "why": "control"
+    },
+    {
+      "prompt": "yes go ahead",
+      "date": "2026-09-25",
+      "why": "control"
+    },
+    {
+      "prompt": "yes authorized",
+      "date": "2026-09-28",
+      "why": "control"
+    },
+    {
+      "prompt": "yes authorized, but there are panes that you previously opened, can those be closed?",
+      "date": "2026-09-28",
+      "why": "control; herdr panes, no dedicated knowledge"
+    },
+    {
+      "prompt": "ok I need to undrestand wht work remains , start again with what is being worked on right now, what is the main problem being tackled , and then what are the tasks, I want to understand it from an epic point of view and then what are the tasks",
+      "date": "2026-09-28",
+      "why": "status (what work remains)"
+    },
+    {
+      "prompt": "ok do A1-A5 , lets get this done",
+      "date": "2026-09-28",
+      "why": "control"
+    },
+    {
+      "prompt": "so what are we waiting for now?",
+      "date": "2026-09-28",
+      "why": "status"
+    },
+    {
+      "prompt": "you may use https for git operations with gh",
+      "date": "2026-09-28",
+      "why": "operator instruction; brain holds no dedicated entry (only an aside in 4f5077d1b89b)"
+    },
+    {
+      "prompt": "https://oneio.atlassian.net/browse/SRE-37666",
+      "date": "2026-09-28",
+      "why": "off-topic (external ticket URL)"
+    },
+    {
+      "prompt": "ok tell me what is going on now",
+      "date": "2026-09-28",
+      "why": "status"
+    },
+    {
+      "prompt": "are we still waiting? it has been a long time has it not?",
+      "date": "2026-09-28",
+      "why": "status poll"
+    },
+    {
+      "prompt": "what is that 1 shell still running, I want us to do a complete handoff and i will exit and start a new session",
+      "date": "2026-09-29",
+      "why": "status/control + handoff request"
+    },
+    {
+      "prompt": "hello",
+      "date": "2026-09-25",
+      "why": "off-topic"
+    },
+    {
+      "prompt": "What is the current weather? Work out this machine's location first (timezone or an IP geolocation lookup), then report today's conditions and temperature there. Answer in three lines and name the location you used.",
+      "date": "2026-09-25",
+      "why": "off-topic"
+    },
+    {
+      "prompt": "What is the current weather? Determine this machine's location first (its timezone or an IP geolocation lookup), then report today's conditions and temperature for that place. Keep the answer to three lines and name the location you used.",
+      "date": "2026-09-25",
+      "why": "off-topic"
+    },
+    {
+      "prompt": "Reply with exactly: shim-ok, and the name of the model you are running as.",
+      "date": "2026-09-25",
+      "why": "off-topic/harness test"
+    },
+    {
+      "prompt": "explain this to me in simple english ELI5",
+      "date": "2026-09-29",
+      "why": "control, anaphoric"
+    },
+    {
+      "prompt": "ok do P2",
+      "date": "2026-09-29",
+      "why": "control (go-ahead for P2)"
+    },
+    {
+      "prompt": "let me know when the final run is done",
+      "date": "2026-09-29",
+      "why": "status"
+    },
+    {
+      "prompt": "can you launcha fable sub agent to review the issue and advice you how to proceed",
+      "date": "2026-09-30",
+      "why": "control, anaphoric"
+    },
+    {
+      "prompt": "ok did the check settle, and how would you have been alerted? what measures did you put in place if any to ensure that you will continue once its checks have settled?",
+      "date": "2026-09-30",
+      "why": "status poll about follow-through; no dedicated brain knowledge (cited only as evidence in 4f5077d1b89b)"
+    },
+    {
+      "prompt": "are the agents trying to store something to my mac keychain?",
+      "date": "2026-09-30",
+      "why": "topical but no dedicated knowledge: only a secondary clause in fb712c13f39e (Keychain scopes OAuth per config-dir hash); that entry is primarily about user-scope plugin leakage"
+    },
+    {
+      "prompt": "how will you know wehn the re-pin chain is finished",
+      "date": "2026-09-30",
+      "why": "status poll"
+    },
+    {
+      "prompt": "ok proceed and merge",
+      "date": "2026-09-30",
+      "why": "control"
+    },
+    {
+      "prompt": "handoff, we continue in a new session",
+      "date": "2026-09-30",
+      "why": "control (handoff request)"
+    },
+    {
+      "prompt": "so how can we make this be a trigger?",
+      "date": "2026-09-30",
+      "why": "anaphoric (gain-based escalation signal, issue #319 §5); brain has only handoff mentions"
+    },
+    {
+      "prompt": "does it have a github issue ?",
+      "date": "2026-09-30",
+      "why": "control"
+    },
+    {
+      "prompt": "so the best thing to do is to  get those PR's merge",
+      "date": "2026-10-01",
+      "why": "control"
+    },
+    {
+      "prompt": "ok so what should be done?",
+      "date": "2026-10-01",
+      "why": "status"
+    },
+    {
+      "prompt": "what was being done last, I had to restart this session",
+      "date": "2026-10-01",
+      "why": "status/continuity (handoff request)"
+    },
+    {
+      "prompt": "go stratight",
+      "date": "2026-10-01",
+      "why": "control"
+    },
+    {
+      "prompt": "tell me about my options here",
+      "date": "2026-10-01",
+      "why": "control, anaphoric"
+    },
+    {
+      "prompt": "ok proceed",
+      "date": "2026-10-02",
+      "why": "control"
+    },
+    {
+      "prompt": "ok proceed with this recommendations",
+      "date": "2026-10-02",
+      "why": "control"
+    },
+    {
+      "prompt": "lunch are vi codexp ro help and plan out the sequence of work that hsould be done on these three options",
+      "date": "2026-10-03",
+      "why": "control (launch an agent to plan)"
+    },
+    {
+      "prompt": "/vfkb:brief",
+      "date": "2026-10-03",
+      "why": "slash command"
+    },
+    {
+      "prompt": "document all of your findings so we hav a reference",
+      "date": "2026-10-05",
+      "why": "anaphoric; superseded by the specific re-ask labelled topical"
+    },
+    {
+      "prompt": "ok launch a fable agent to review",
+      "date": "2026-10-05",
+      "why": "control"
+    },
+    {
+      "prompt": "ok lets go with your read , but lets make sure this is not forgotten",
+      "date": "2026-10-05",
+      "why": "control, anaphoric"
+    },
+    {
+      "prompt": "try it again , i was way from computer",
+      "date": "2026-10-05",
+      "why": "control"
+    },
+    {
+      "prompt": "merge the pr",
+      "date": "2026-10-05",
+      "why": "control"
+    },
+    {
+      "prompt": "ok ELI5 what's waiting for me - we will tackle them one at a time",
+      "date": "2026-10-08",
+      "why": "status"
+    },
+    {
+      "prompt": "write it up",
+      "date": "2026-10-08",
+      "why": "control"
+    },
+    {
+      "prompt": "yes to both",
+      "date": "2026-10-09",
+      "why": "control"
+    },
+    {
+      "prompt": "go",
+      "date": "2026-10-13",
+      "why": "control"
+    },
+    {
+      "prompt": "ok we keep it optional as it is now, lets get to work",
+      "date": "2026-10-16",
+      "why": "operator ruling (Jev optional) stated anaphorically, not a question; its content became 8b2aefd11171"
+    },
+    {
+      "prompt": "why is it on the merged branch? do what is best",
+      "date": "2026-10-16",
+      "why": "control"
+    },
+    {
+      "prompt": "continue",
+      "date": "2026-10-19",
+      "why": "control"
+    },
+    {
+      "prompt": "has the review settled?",
+      "date": "2026-10-19",
+      "why": "status"
+    },
+    {
+      "prompt": "ok I acceept as recommended",
+      "date": "2026-10-19",
+      "why": "control (acceptance of RFC-042)"
+    },
+    {
+      "prompt": "proceed but lets fix the smaller things first",
+      "date": "2026-10-19",
+      "why": "control"
+    },
+    {
+      "prompt": "we need to restart, so handoff at first opportunity and pause",
+      "date": "2026-10-20",
+      "why": "control"
+    },
+    {
+      "prompt": "continue autonomously",
+      "date": "2026-10-20",
+      "why": "control"
+    },
+    {
+      "prompt": "read /tmp/rfc043.txt",
+      "date": "2026-10-20",
+      "why": "control (file read)"
+    },
+    {
+      "prompt": "yes",
+      "date": "2026-10-19",
+      "why": "control"
+    },
+    {
+      "prompt": "proceed",
+      "date": "2026-10-20",
+      "why": "control"
+    },
+    {
+      "prompt": "update the handoff, we will pause now and continue this later , make sure we don't loose any work",
+      "date": "2026-10-20",
+      "why": "control"
+    },
+    {
+      "prompt": "put a /tmp/rfc043.txt with all the context , so I can just start off in vfkb and you will then know what to do",
+      "date": "2026-10-20",
+      "why": "control"
+    }
+  ]
+}
