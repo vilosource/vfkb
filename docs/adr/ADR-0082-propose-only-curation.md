@@ -73,8 +73,9 @@ The pin is the injectable **`type: fact`** entry tagged `handoff` or `next` with
 - **Rejected:** a writer-set `pin` marker. Its brain-wide fallback froze the pin once any
   marked fact existed. Most handoffs come from the nudge-directed `kb_add` path and by hand,
   and the tag is already used topically (`583374f75808`).
-- **No pin moves today.** None of the 116 live handoff facts on `main` has `updated` ≠
-  `created` (probe §1).
+- **No pin moves today.** None of the 116 live handoff facts on `main` at `c224878` has
+  `updated` ≠ `created` (probe §1). The reviewer re-checked on later `main` (117, still 0,
+  same pin under both rules).
 
 ### 2. One selector, built in the same change
 
@@ -90,9 +91,18 @@ The pin is the injectable **`type: fact`** entry tagged `handoff` or `next` with
   - It must re-run `anchor-proto.sh` with `created` keys, switching **both** the
     `pin_in_head` match (line 18) and the carrier `-G` pattern (line 20). It must also
     change `lib.sh`'s `entry()` so that `created` defaults to `updated`.
-  - It must state the result: case 3 ("retagged old entry") flips from quiet to STALE, and
-    3b widens. The reviewer's re-run left the other 16 of 18 rows unchanged.
+  - It must state the result. The committed re-run
+    ([`rerun-created-keys.sh`](../v3/research/probes/curation-2026-10-21/rerun-created-keys.sh),
+    output [`rerun-created-keys.txt`](../v3/research/probes/curation-2026-10-21/rerun-created-keys.txt))
+    shows only two cases change. Case 3 ("retagged old entry") flips from quiet to `STALE
+    {code2|code1}`, and case 3b widens from `{code3}` to `{code3|code2|code1}`. The other 16
+    of 18 cases are unchanged.
   - Rule 5 still compares as instants, but its cut-off moves with `u`.
+- **This build owns that flip, not only RFC-043.** Case 3 also flips under today's tree-diff
+  rule (`today: quiet → STALE (tree diff)` in the re-run), and that is the B3 rule this
+  build ships. So after this build, an old handoff fact retagged into the pin reads as stale
+  if code landed after it was first written. Under §1 such an entry wins the pin only when it
+  is the newest-created handoff fact, which is rare. The trade is accepted.
 - **A unit test** asserts that the rendered pin and B3's anchor select the same entry on
   brains with zone edits, topical tags, decisions and archived lines.
 
@@ -103,17 +113,22 @@ alongside RFC-043 Part A's render annotation, if and when that is accepted.
 
 ### 4. `retires` and `curate retire`
 
-- **`retires: [ids]` on `vfkb add` and `kb_add`** (Q4) is for atomic, scripted use.
-  - Each id must be a live **fact tagged `handoff` or `next`**, other than the entry being
-    written. Otherwise (missing, another type, already archived) the engine refuses the
-    whole write and appends nothing.
-  - In the same locked write, the named facts are archived (zone `archive`, the existing
-    curator delta) and tagged `retired-by:<new id>`. The new entry records `refs.retires`.
-- **`vfkb curate retire <old> --by <new>`** is the same operation after the fact, with the
-  same scope checks. `<new>` must be a live handoff fact, not `<old>`. This is what the skill
+- **Scope, for every retirement path.** `<old>` must be a **live** (`isInjectable`) fact
+  tagged `handoff` or `next`. `<new>` must be a live handoff/next-tagged fact other than
+  `<old>`, with `created` no earlier than `<old>`'s. That last check refuses `curate retire
+  <pin> --by <older>`, which would move the pin back. Any failure refuses the whole operation
+  and appends nothing.
+- **The edge is a tag** (this ADR's choice, mirroring curator `mergeDuplicate`'s
+  `merged-into:`). `<old>` is archived (zone `archive`, the existing curator delta) and tagged
+  `retired-by:<new id>`. No `Refs` field is added, because `curate retire` works through
+  `updateEntry`, which patches only `text`, `tags` and `zone`, so both paths record the edge
+  the same way.
+- **`retires: [ids]` on `vfkb add` and `kb_add`** (Q4) applies that to each id in the same
+  locked write as the new entry, for atomic, scripted use.
+- **`vfkb curate retire <old> --by <new>`** applies it after the fact. This is what the skill
   uses.
-- **`vfkb curate restore <id>`** moves an archived entry back to `established`. Under §1 it
-  cannot move the pin.
+- **`vfkb curate restore <id>`** moves an archived entry back to `established` and removes
+  its `retired-by:` tag. Under §1 it cannot move the pin.
 - **Text is never touched**, so ADR-0021's never-rewrite Brake holds.
 - **Named hazard, not fixed:** under merge=union plus newest-`updated`-wins, a later edit to
   the same entry in another clone silently un-archives it. Handoff facts are rarely edited
@@ -123,16 +138,18 @@ alongside RFC-043 Part A's render annotation, if and when that is accepted.
 ### 5. The handoff skill: write first, propose, retire only on yes (Q2 and the write order)
 
 `/vfkb:handoff` (vfkb-claude-plugin) works in this order:
-1. It writes the new handoff exactly as today, with no `retires`.
-2. If a previous pin exists and is a handoff fact, it names that pin's id and first line in
-   plain text, asks whether the new handoff replaces it, and **ends its turn**. It uses no
+1. It reads the current pin's id from its step-2 `resume` (§3), **before** writing, because
+   once the new handoff is written it is the pin.
+2. It writes the new handoff exactly as today, with no `retires`.
+3. If that previous pin exists and is a handoff fact, it names its id and first line in plain
+   text, asks whether the new handoff replaces it, and **ends its turn**. It uses no
    blocking question tool, which may be unavailable under `claude -p`.
-3. **Only on an explicit yes in a later user turn** does it run `vfkb curate retire <old> --by
+4. **Only on an explicit yes in a later user turn** does it run `vfkb curate retire <old> --by
    <new>`.
 
 A run where nobody answers keeps its new handoff and retires nothing. vfkb does no headless
 detection. This is a plugin change. It ships with the next plugin release, batched as the
-operator ruled, and that release's notes state "delivery is unproven" (ADR-0051).
+operator ruled (brain `9746fb8556ef`), and that release's notes state "delivery is unproven" (ADR-0051).
 
 ### 6. The reports, CLI-only and read-only (Q3, Q4)
 
@@ -173,8 +190,11 @@ operator ruled, and that release's notes state "delivery is unproven" (ADR-0051)
   - §1: a zone edit, promote or restore of an old handoff does not move the pin; a newer
     decision or link tagged `handoff` never pins.
   - §2: the rendered pin and B3's anchor agree on every fixture brain.
-  - §4: the scope refusals append nothing; a concurrent handoff not named stays live, and the
-    pin is the newest-created of the two.
+  - §4, for both `retires` and `curate retire`: each scope refusal (non-fact, archived,
+    `<new>` = `<old>`, `<new>` older than `<old>`) appends nothing. A success archives
+    `<old>`, tags `retired-by:<new>` and leaves its text byte-identical. `curate restore`
+    removes the tag. A concurrent handoff not named stays live, and the pin is the
+    newest-created of the two.
   - §6: neither report writes.
 - **Agent-facing** (§5): the L4 `scenarios/handoff-retires.mjs` (vfkb-claude-plugin) runs
   `/vfkb:handoff` through the vendored plugin, on a brain whose pin is a sentinel handoff
@@ -183,15 +203,18 @@ operator ruled, and that release's notes state "delivery is unproven" (ADR-0051)
   - **Positive arm:** the second turn says yes. The new handoff exists and is the pin, the
     sentinel is archived with its text byte-identical, and the older handoffs are untouched.
   - **Negative arm:** the second turn says the current handoff is still live. The new
-    handoff exists and is the pin, and the sentinel stays live.
+    handoff exists and is the pin, and **no handoff is archived**.
   - **No-answer arm:** there is no second turn. The new handoff exists and is the pin, and
-    the sentinel stays live.
-  - **Contrast arm:** today's skill. The sentinel stays live.
+    **no handoff is archived**.
+  - **Contrast arm:** today's skill, given the same "yes" second turn as the positive arm.
+    The sentinel stays live.
   - **Scoring:** every predicate is a content assertion over the brain, never an exit code
     (ADR-0051 §3). DEMONSTRATED needs ≥ 2/3 on each of the positive, negative and no-answer
     arms, with the contrast at 0/3 on retirement.
   - **The two-turn `--resume` mechanism is unrun.** Building the scenario starts by proving
-    it can carry a skill's question and an answer.
+    it can carry a skill's question and an answer. If it cannot, the L4 cannot be built as
+    specified, and the design goes back to the operator. The answer is never pre-loaded into
+    the first prompt as a workaround.
 - **Until that record exists**, §5's status is "built, NOT yet verified", and delivery
   through the marketplace stays unproven.
 

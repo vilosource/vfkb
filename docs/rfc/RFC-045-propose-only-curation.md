@@ -8,7 +8,7 @@ timestamp: 2026-10-21
 
 # RFC-045: Propose-only curation — a stable pin, confirmed handoff retirement, a backlog report
 
-- **Status:** **Accepted 2026-10-21 → [ADR-0082](../adr/ADR-0082-propose-only-curation.md).** Q1 facts only, gap stated; Q2 skill proposes, user confirms; Q3 operator-edited backlog in one brain PR; Q4 reports CLI-only; Q5 leave R1's gate; Q6 keep R7 next. Open item 1: write first, retire on yes.
+- **Status:** **Accepted 2026-10-21 → [ADR-0082](../adr/ADR-0082-propose-only-curation.md).** Q1 facts only, gap stated; Q2 skill proposes, user confirms; Q3 operator-edited backlog in one brain PR; Q4 `retires` on the CLI and `kb_add`, the reports CLI-only; Q5 leave R1's gate; Q6 keep R7 next. Open item 1: write first, retire on yes.
 - **Date:** 2026-10-21
 - **Deciders:** operator + Claude
 - **Theme:** v3 PRD §6 **R7**. Taken ahead of finishing R1 by operator ruling (brain

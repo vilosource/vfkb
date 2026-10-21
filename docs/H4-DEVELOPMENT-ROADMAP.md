@@ -11,6 +11,8 @@
 > thing*. Also carries P11-b's residual forward rather than leaving it stranded.)
 > **Re-ratified:** 2026-10-19 (the **v3 cycle** supersedes P12 as the ▶ Current action, in
 > [v3 PRD](v3/PRD.md) Ruling 4's order; **P12 is paused, not abandoned**. Brain `ef3500b68252`.)
+> **Re-ratified:** 2026-10-21 (R7 taken ahead of R3 while R1 step 2 is gated, on its own merits;
+> [ADR-0082](adr/ADR-0082-propose-only-curation.md) §8, brains `9746fb8556ef` and `680d9cf54e7c`.)
 > Sits under [STATUS-AND-ROADMAP](STATUS-AND-ROADMAP.md) §4 H4 (the broad north-star) and above
 > the decisions ([docs/adr/](adr/)) + proposals ([docs/rfc/](rfc/)) it sequences. ADRs ratify the
 > *decisions* (what to build); **this roadmap ratifies the *order* and is the standing authority to
@@ -474,8 +476,8 @@ section only sequences it. One RFC per theme, ADRs decide (ADR-0007); the DoD do
 | 2 | **R2** — survive compaction | ✅ **verified 2026-10-20, manual compaction only.** Probe → RFC-042 → [ADR-0077](adr/ADR-0077-compaction-survival-guard.md), amended by [ADR-0078](adr/ADR-0078-compaction-trial-validity.md) and [ADR-0079](adr/ADR-0079-compaction-trial-wording.md). Clauses 1–2 (plugin#63, vfkb#352); clause 3 L4 DEMONSTRATED and gate-required (plugin#64): compacted 3/3, contrast 0/3. Auto-compaction and the CI evidence leg are not yet exercised |
 | 3 | **R1** — query-time injection (`UserPromptSubmit`) | **step 1 landed; step 2 GATED.** RFC-044 → [ADR-0080](adr/ADR-0080-query-time-injection.md). Step 1 (vfkb#364): stage-1 BM25 plus stopword pruning. On the labelled eval, recall@5 0.014 → 0.565 and MRR 0.043 → 0.639. That misses ADR-0080's step-1 bar (≥ 0.6), which now gates step 2 ([ADR-0081](adr/ADR-0081-r1-step1-lands-below-bar.md)). Operator ruling: keep step 2 gated, and no tuning against the 18. Step 2 also still needs the Q4 harness-turn probe. R7 does not move this gate (stage 1 ranks archived entries; RFC-045). Revisit which path the gate measures when step 2 is next considered (ADR-0082 §8) |
 | 4 | **R7** — curation | **accepted, next to build.** RFC-045 → [ADR-0082](adr/ADR-0082-propose-only-curation.md): stable pin + one selector (engine), write-first confirmed retirement (skill + L4 `handoff-retires`, plugin repo), read-only reports, then the operator-edited backlog PR |
-| 4b | **R3** — failure capture | proposed; its dependency (`PostToolUseFailure`) observed |
-| 5 | **R4**, **R8** — `mcp_tool` hooks; Projects position | proposed; R4's dependency unobserved |
+| 5 | **R3** — failure capture | proposed; its dependency (`PostToolUseFailure`) observed |
+| 6 | **R4**, **R8** — `mcp_tool` hooks; Projects position | proposed; R4's dependency unobserved |
 
 **P12 is paused, not abandoned.** Its section below is kept intact: the ratified sequence, the
 carried P11-b residual and the build tracker #297. ADR-0076 has since ruled its two owed
