@@ -392,6 +392,7 @@ operator request. When it fires: schedule the existing deterministic `distill` +
 (a SessionEnd step or repo hook) — scheduling only, no new engine capability.
 
 **Gated-ledger amendments (decided at this ratification):**
+- **S1 first resort UN-GATED 2026-10-21 for R1** ([ADR-0080](adr/ADR-0080-query-time-injection.md), operator request): BM25 plus query-term pruning in `InMemoryIndex` is being built as R1's step 1. The embedding second resort stays gated, and stays forbidden on the injection path.
 - **S1 gate AMENDED — BM25 first, embeddings second.** When the S1 trigger fires (a 2nd live phrasing miss
   / an explicit ask), the **first resort is now BM25 scoring inside `InMemoryIndex`** (stdlib,
   deterministic, zero-dep; evidence above) — RFC-003 embeddings become the *second* resort, built only if
@@ -468,7 +469,7 @@ section only sequences it. One RFC per theme, ADRs decide (ADR-0007); the DoD do
 | 1 | **R5** — close "delivery is unproven" | ✅ already delivered before v3 opened (install-path L4 proven since 2026-07-16) |
 | 1 | **R6** — wiring Brake for the plugin | ✅ plugin v0.20.1 (plugin#62): `claude plugin validate --strict` on every PR |
 | 2 | **R2** — survive compaction | ✅ **verified 2026-10-20, manual compaction only.** Probe → RFC-042 → [ADR-0077](adr/ADR-0077-compaction-survival-guard.md), amended by [ADR-0078](adr/ADR-0078-compaction-trial-validity.md) and [ADR-0079](adr/ADR-0079-compaction-trial-wording.md). Clauses 1–2 (plugin#63, vfkb#352); clause 3 L4 DEMONSTRATED and gate-required (plugin#64): compacted 3/3, contrast 0/3. Auto-compaction and the CI evidence leg are not yet exercised |
-| 3 | **R1** — query-time injection (`UserPromptSubmit`) | **next.** Proposed; dependency observed |
+| 3 | **R1** — query-time injection (`UserPromptSubmit`) | **in progress.** RFC-044 → [ADR-0080](adr/ADR-0080-query-time-injection.md) (2026-10-21). Next: step 1, BM25 plus pruning behind the labelled eval. Opt-in (`VFKB_RECALL=1`) |
 | 4 | **R3**, **R7** — failure capture; curation | proposed; R3's dependency (`PostToolUseFailure`) observed |
 | 5 | **R4**, **R8** — `mcp_tool` hooks; Projects position | proposed; R4's dependency unobserved |
 

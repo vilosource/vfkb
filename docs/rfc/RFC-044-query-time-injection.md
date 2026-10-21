@@ -2,13 +2,13 @@
 type: RFC
 title: "RFC-044: Query-time injection needs a ranker that can rank — R1 rides on S1's BM25"
 description: "v3 theme R1. Probes on 2026-10-20 found the delivery half sound: a UserPromptSubmit hook's injected text reaches the agent (3/3 in both JSON and plain form, contrast 0/3) when it reads as project knowledge, not as a secret. The selection half is not: vfkb's stage-1 index counts token occurrences with no IDF, no length normalisation and no stopwords, so a chatty prompt matches nearly every entry, the long handoffs win, and the entries a prompt is about rank 78th-320th on the real index. On two labelled cases, BM25 alone still misses one; BM25 plus stopword pruning ranks them 1st-11th. This RFC proposes R1 in two steps: first S1's amended first resort (BM25 in InMemoryIndex) plus query-term pruning, behind an offline labelled eval; then the UserPromptSubmit injection with dedup, a budget, harness-turn skipping and knowledge framing. Un-gating S1 is put to the operator."
-status: "Proposed"
+status: "Accepted → ADR-0080 (2026-10-21)"
 timestamp: 2026-10-20
 ---
 
 # RFC-044: Query-time injection needs a ranker that can rank
 
-- **Status:** Proposed
+- **Status:** **Accepted 2026-10-21 → [ADR-0080](../adr/ADR-0080-query-time-injection.md).** Q1 un-gate BM25; Q2 recall@5 ≥ 0.6 and beat current on MRR; Q3 opt-in; Q4 probe first.
 - **Date:** 2026-10-20
 - **Deciders:** operator + Claude
 - **Theme:** v3 PRD §6 **R1**, next in Ruling 4's order now that R2 is verified.
