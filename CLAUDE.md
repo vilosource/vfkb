@@ -290,9 +290,9 @@ not `main`. Full rationale: [ADR-0036](docs/adr/ADR-0036-v2-two-branch-strategy.
   **RFC-012 ACCEPTED → ADR-0037** (build scenario-first, RED first, on operator request/evidence);
   **RFC-013 ACCEPTED → ADR-0038** (same); Q2 use-feedback + Q3 AGENTS.md export queued (RFC numbers
   at draft time); Q4 sleep-time distillation gated.
-- **Gated (do NOT build on spec):** **S1** search-robustness upgrade (trigger unchanged: 2nd live
-  phrasing-robustness miss *or* an explicit request; **amended 2026-07-06: first resort = BM25 in
-  `InMemoryIndex`, RFC-003 embeddings second**); **P1** Claude-Code per-turn push (ADR-0015
+- **Gated (do NOT build on spec):** **S1**'s *embedding* second resort (RFC-003; still forbidden on the
+  injection path). **S1's first resort, BM25 plus query-term pruning in `InMemoryIndex`, was UN-GATED on
+  2026-10-21 for v3 R1 by operator request (ADR-0080)** and is being built behind a labelled eval. Also gated: **P1** Claude-Code per-turn push (ADR-0015
   Tier C — external-blocked upstream); Track-9 **Q4** + bi-temporal consumption (named triggers).
   **Parked:** H2 fleet wiring, H3 global tier.
 - **Open findings:** (1) Claude Code's PostToolUse hook does **not fire on a FAILED tool call** →

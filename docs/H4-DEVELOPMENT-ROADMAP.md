@@ -159,6 +159,10 @@ embedder optional/auto-detected/graceful-degrade (ADR-0013); **forbidden on the 
 - *Build trigger (unchanged):* a **2nd** observed live phrasing-robustness miss **or** an explicit
   operator request. The design (shape) is already locked in RFC-003 — only the build is gated.
 - *Do not build on spec.* Keep the `selectIndex()` seam warm; nothing else until the trigger fires.
+- **2026-10-21: the FIRST RESORT IS UN-GATED for R1** ([ADR-0080](adr/ADR-0080-query-time-injection.md),
+  by explicit operator request under this trigger). BM25 plus query-term pruning in `InMemoryIndex` is
+  being built as R1's step 1. **The embedding second resort stays gated**, and stays forbidden on the
+  injection path. The "do not build on spec" line above now binds the embeddings only.
 
 ### Track 3 — Cross-harness parity  *(watch, not build)*
 
@@ -468,7 +472,7 @@ section only sequences it. One RFC per theme, ADRs decide (ADR-0007); the DoD do
 | 1 | **R5** — close "delivery is unproven" | ✅ already delivered before v3 opened (install-path L4 proven since 2026-07-16) |
 | 1 | **R6** — wiring Brake for the plugin | ✅ plugin v0.20.1 (plugin#62): `claude plugin validate --strict` on every PR |
 | 2 | **R2** — survive compaction | ✅ **verified 2026-10-20, manual compaction only.** Probe → RFC-042 → [ADR-0077](adr/ADR-0077-compaction-survival-guard.md), amended by [ADR-0078](adr/ADR-0078-compaction-trial-validity.md) and [ADR-0079](adr/ADR-0079-compaction-trial-wording.md). Clauses 1–2 (plugin#63, vfkb#352); clause 3 L4 DEMONSTRATED and gate-required (plugin#64): compacted 3/3, contrast 0/3. Auto-compaction and the CI evidence leg are not yet exercised |
-| 3 | **R1** — query-time injection (`UserPromptSubmit`) | **next.** Proposed; dependency observed |
+| 3 | **R1** — query-time injection (`UserPromptSubmit`) | **in progress.** RFC-044 → [ADR-0080](adr/ADR-0080-query-time-injection.md) (2026-10-21). Next: step 1, BM25 plus pruning behind the labelled eval. Opt-in (`VFKB_RECALL=1`) |
 | 4 | **R3**, **R7** — failure capture; curation | proposed; R3's dependency (`PostToolUseFailure`) observed |
 | 5 | **R4**, **R8** — `mcp_tool` hooks; Projects position | proposed; R4's dependency unobserved |
 
