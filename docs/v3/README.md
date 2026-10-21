@@ -115,8 +115,8 @@ R5, R6 → R2 → R1 → R3, R7, R4, R8. R2 is the only theme with an RFC so far
   `compaction-survival` L4 (plugin#64, compacted 3/3, contrast 0/3, gate-required).
 - **R4 — dependency still unobserved.** That is the `mcp_tool` hook, whose probe has
   not been run. Per §9, it gets probed before anything is built.
-- **R7 — in RFC.** Taken ahead of finishing R1 by operator ruling (2026-10-21). The probe (`research/probes/curation-2026-10-21/`) found the problem is handoff lifecycle, not similarity: 84–115 stale handoff facts live, none retired, and a pin that moves when an old handoff is edited. [RFC-045](../rfc/RFC-045-propose-only-curation.md) is Proposed.
+- **R7 — accepted, next to build.** Taken ahead of finishing R1 by operator ruling (2026-10-21). The probe (`research/probes/curation-2026-10-21/`) found the problem is handoff lifecycle, not similarity: 84–115 stale handoff facts live, none retired, and a pin that moves when an old handoff is edited. [RFC-045](../rfc/RFC-045-propose-only-curation.md) is accepted as [ADR-0082](../adr/ADR-0082-propose-only-curation.md) (2026-10-21), and R7 is next to build.
 - **R8 — proposed.** It depends on Claude Code Projects being available, which has
   not been checked.
 
-**R2 is VERIFIED (2026-10-20) for manual compaction:** RFC-042 → ADR-0077 (amended by ADR-0078/0079); all three clauses landed (plugin#63, vfkb#352, plugin#64), and the compaction-survival L4 is DEMONSTRATED, compacted 3/3 against contrast 0/3, and required by the release gate. Auto-compaction is still unobserved. **Next is R1, query-time injection.**
+**R2 is VERIFIED (2026-10-20) for manual compaction:** RFC-042 → ADR-0077 (amended by ADR-0078/0079); all three clauses landed (plugin#63, vfkb#352, plugin#64), and the compaction-survival L4 is DEMONSTRATED, compacted 3/3 against contrast 0/3, and required by the release gate. Auto-compaction is still unobserved. R1 step 1 then landed and step 2 is gated (ADR-0081). **Next is R7, curation** ([ADR-0082](../adr/ADR-0082-propose-only-curation.md)), re-ratified 2026-10-21.

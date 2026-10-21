@@ -2,13 +2,13 @@
 type: RFC
 title: "RFC-045: Propose-only curation — a stable pin, confirmed handoff retirement, a backlog report (v3 R7)"
 description: "v3 theme R7. A probe on 2026-10-21 found that handoffs never retire: 84 to 115 stale handoff facts are live beside the one pin (the range is the boundary between a shape rule and a tag rule), no handoff carries a supersession edge, and they hold 24 of the 90 top-5 slots in the R1 eval. It also found a latent pin defect: latestHandoff orders by `updated`, which every zone change bumps, so archiving, promoting or restoring an old handoff makes it the pin. 14 decisions and links can also take the pin; the one observed hijack was a fact, which 'pin only facts' would not have stopped, and the RFC states that gap. Semantic duplicates are rare: one true double write in 535 entries. This RFC proposes: pin the newest-CREATED handoff/next-tagged fact (amends ADR-0049 selection; the second, raw-line selector in stop-reminder.ts must change in the same build); a `retires` field limited to handoff facts, named by id, that the handoff skill proposes and the user confirms; a read-only backlog report; and semantic dedup deferred on a named trigger. It does not move R1's gate: archiving cannot change the stage-1 metric the gate measures."
-status: "Proposed"
+status: "Accepted → ADR-0082 (2026-10-21)"
 timestamp: 2026-10-21
 ---
 
 # RFC-045: Propose-only curation — a stable pin, confirmed handoff retirement, a backlog report
 
-- **Status:** **Proposed.** Operator questions Q1–Q6 below.
+- **Status:** **Accepted 2026-10-21 → [ADR-0082](../adr/ADR-0082-propose-only-curation.md).** Q1 facts only, gap stated; Q2 skill proposes, user confirms; Q3 operator-edited backlog in one brain PR; Q4 `retires` on the CLI and `kb_add`, the reports CLI-only; Q5 leave R1's gate; Q6 keep R7 next. Open item 1: write first, retire on yes.
 - **Date:** 2026-10-21
 - **Deciders:** operator + Claude
 - **Theme:** v3 PRD §6 **R7**. Taken ahead of finishing R1 by operator ruling (brain

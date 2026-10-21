@@ -1,0 +1,41 @@
+## script edits
+18c18
+< pin_in_head(){ [ -n "$ENT" ] && git show "HEAD:$ENT" 2>/dev/null | grep -F "\"id\":\"$ID\"" | grep -qF "\"updated\":\"$U\""; }
+---
+> pin_in_head(){ [ -n "$ENT" ] && git show "HEAD:$ENT" 2>/dev/null | grep -F "\"id\":\"$ID\"" | grep -qF "\"created\":\"$U\""; }
+20c20
+<   git log --first-parent --reverse --format=%H -G"\"id\":\"$(esc "$ID")\".*\"updated\":\"$(esc "$U")\"" HEAD -- "$ENT" | head -1; }
+---
+>   git log --first-parent --reverse --format=%H -G"\"id\":\"$(esc "$ID")\".*\"created\":\"$(esc "$U")\"" HEAD -- "$ENT" | head -1; }
+67,68c67,68
+< entry P3 2026-01-09T00:00:00.000Z handoff; git add -A; c 2026-01-09T01:00:00Z "retag P3"
+< ID=P3 U=2026-01-09T00:00:00.000Z; report "3 retagged old entry" "quiet"
+---
+> entry P3 2026-01-09T00:00:00.000Z handoff 2026-01-02T00:00:00.000Z; git add -A; c 2026-01-09T01:00:00Z "retag P3"
+> ID=P3 U=2026-01-02T00:00:00.000Z; report "3 retagged old entry" "quiet"
+4,5c4,5
+< entry(){ # entry id updated tag
+<   printf '{"id":"%s","type":"fact","text":"t","tags":["%s"],"created":"2026-01-01T00:00:00.000Z","updated":"%s"}\n' "$1" "$3" "$2" >> .vfkb/entries.jsonl; }
+---
+> entry(){ # entry id updated tag [created]
+>   printf '{"id":"%s","type":"fact","text":"t","tags":["%s"],"created":"%s","updated":"%s"}\n' "$1" "$3" "${4:-$2}" "$2" >> .vfkb/entries.jsonl; }
+## output lines (not cases): orig 112, created 112
+## output diff (orig < > created)
+26,29c26,29
+<   today: quiet
+<   r2   : quiet
+<   A    : quiet
+<   B    : quiet
+---
+>   today: STALE (tree diff)
+>   r2   : STALE {code2|code1}
+>   A    : STALE {code2|code1}
+>   B    : STALE {code2|code1}
+34,36c34,36
+<   r2   : STALE {code3}
+<   A    : STALE {code3}
+<   B    : STALE {code3}
+---
+>   r2   : STALE {code3|code2|code1}
+>   A    : STALE {code3|code2|code1}
+>   B    : STALE {code3|code2|code1}
