@@ -19,8 +19,12 @@ sed -i.bak -e '18s/\\"updated\\":\\"\$U\\"/\\"created\\":\\"$U\\"/' \
 sed -i.bak -e 's/^entry(){ # entry id updated tag$/entry(){ # entry id updated tag [created]/' \
   -e 's/"created":"2026-01-01T00:00:00.000Z","updated":"%s"}\\n'"'"' "\$1" "\$3" "\$2"/"created":"%s","updated":"%s"}\\n'"'"' "$1" "$3" "${4:-$2}" "$2"/' \
   "$C/lib.sh"
+# Guard: a missed sed match still yields a believable diff (it happened once), so fail loudly.
+n=$(grep -c '\\"created\\":' "$C/anchor-proto.sh" || true)
+{ [ "$n" -eq 2 ] && grep -qF '${4:-$2}' "$C/lib.sh" && grep -qF 'U=2026-01-02T00:00:00.000Z; report "3 retagged' "$C/anchor-proto.sh"; } \
+  || { echo "edit guard FAILED: created-key edits did not all apply (anchor-proto created matches: $n)" >&2; rm -rf "$T"; exit 1; }
 echo "## script edits"; diff "$T/orig/anchor-proto.sh" "$C/anchor-proto.sh" || true; diff "$T/orig/lib.sh" "$C/lib.sh" || true
 for v in orig created; do (cd "$T/$v/p" && bash ../anchor-proto.sh > "$T/$v.out" 2>&1); done
-echo "## rows: orig $(grep -c . "$T/orig.out"), created $(grep -c . "$T/created.out")"
+echo "## output lines (not cases): orig $(grep -c . "$T/orig.out"), created $(grep -c . "$T/created.out")"
 echo "## output diff (orig < > created)"; diff "$T/orig.out" "$T/created.out" || true
 rm -rf "$T"
