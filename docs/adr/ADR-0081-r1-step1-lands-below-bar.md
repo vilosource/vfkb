@@ -47,7 +47,8 @@ None clears the bar. The remaining misses are structural:
    - **a regression guard:** stage 1 must beat the pre-BM25 baseline and must not fall
      below the landed level (recall@5 floor 0.56, MRR floor 0.63);
    - **a named gate,** `STEP2_GATE_MET`, in `test/recall-eval.test.ts`, asserted equal
-     to (recall@5 ≥ 0.6). It is `false` at landing.
+     to (recall@5 ≥ 0.6). It is `false` at landing. The MRR half of ADR-0080's bar is
+     enforced by the regression guard, which requires MRR to beat the pre-BM25 baseline.
 3. **Step 2 starts only when two things are true:**
    - `STEP2_GATE_MET` has been flipped to `true` deliberately, with the re-measurement
      recorded;
@@ -56,7 +57,8 @@ None clears the bar. The remaining misses are structural:
    overfit the set meant to judge it. The routes to the bar are:
    - R7 curation of stale handoffs;
    - more real labelled prompts as the history grows;
-   - a ranking change justified independently of this set.
+   - *(an addition of this ADR, not of the ruling)* a ranking change justified
+     independently of this set.
 
 ## Consequences
 
