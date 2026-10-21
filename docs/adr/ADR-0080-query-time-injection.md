@@ -1,7 +1,7 @@
 ---
 type: Decision
 title: "ADR-0080: Query-time injection rides on BM25 — S1's first resort is un-gated for R1 (accepts RFC-044)"
-description: "Accepts RFC-044 (v3 theme R1) with the operator's answers to its four questions. Q1: S1's first resort (BM25 plus query-term pruning in InMemoryIndex) is UN-GATED now, by explicit operator request, as R1's precondition; embeddings stay forbidden on the injection path. Q2: step 2 starts only when the new ranker reaches recall@5 >= 0.6 and beats the current index on MRR, on a labelled eval of every real topical prompt in the history (about 22; at least 20) plus a no-recall set, against a pinned brain snapshot, observed failing on the current index first. Q3: query-time injection ships OPT-IN (VFKB_RECALL=1). Q4: the harness-turn discriminator is probed before step 2 is designed."
+description: "Accepts RFC-044 (v3 theme R1) with the operator's answers to its four questions. Q1: S1's first resort (BM25 plus query-term pruning in InMemoryIndex) is UN-GATED now, by explicit operator request, as R1's precondition; embeddings stay forbidden on the injection path. Q2: step 2 starts only when the new ranker reaches recall@5 >= 0.6 and beats the current index on MRR, on a labelled eval of every real topical prompt in the history (18 at labelling time, no minimum) plus a no-recall set, against a pinned brain snapshot, observed failing on the current index first. Q3: query-time injection ships OPT-IN (VFKB_RECALL=1). Q4: the harness-turn discriminator is probed before step 2 is designed."
 status: "Accepted"
 timestamp: 2026-10-21
 ---
@@ -59,11 +59,17 @@ one of the two cases.
      same eval.
    - **This changes `kb_search` and CLI `search` for everyone,** and that is intended.
 2. **The step-1 bar (Q2), as a committed deterministic test:**
-   - **The topical set** is every real topical operator prompt in the session history, about
-     22 and at least 20, each labelled with the entry ids it is about. The operator ruled
-     this on 2026-10-21, replacing the "at least 25" RFC-044 proposed: the real history does
-     not contain 25 topical prompts, and inventing prompts would bias the set. The set grows
-     as real prompts accumulate.
+   - **The topical set** is every real topical operator prompt in the session history, each
+     labelled with the entry ids it is about, **with no minimum count**. Strict labelling found
+     **18**. The operator ruled this on 2026-10-21 in two steps:
+     - first, replacing RFC-044's proposed "at least 25" with "at least 20", because the real
+       history has fewer than 25 topical prompts;
+     - then, when strict labelling found 18, dropping the minimum entirely rather than
+       inventing prompts or re-admitting borderline ones.
+
+     The set grows as real prompts accumulate. **N=18 is a stated limit** of the eval: it can
+     show a ranker failing, and it can show one clearing the bar, but it does not establish a
+     rate.
    - **The no-recall set** is the real non-topical prompts ("continue", "commit and push"…).
      For these, the right behaviour is to inject nothing above the floor, and the floor is
      calibrated against them. The no-recall set **gates nothing**: it is calibration data,
