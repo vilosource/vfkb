@@ -1,0 +1,49 @@
+brain test/fixtures/recall-eval/brain-9095dc4.jsonl: 524 materialized, 514 injectable, as of 2026-10-20
+
+## 1. handoff lifecycle
+injectable handoff/next-tagged: 123 (pin: aa28c85cd53b)
+  shaped as a handoff (a fact opening HANDOFF / SESSION HANDOFF / RESUME): 78
+  NOT shaped as a handoff (topical tag use): 45
+  not type fact: 14 (decision, link)
+  SessionEnd auto fallbacks (tag auto): 0
+  non-pinned, by age (<=1d, <=7d, <=30d, <=90d, older): 3 / 2 / 24 / 38 / 55
+  handoffs that supersede a predecessor (any state): 0
+  shaped handoffs still injectable but NOT the pin (stale handoffs): 77
+
+## 2. near-duplicates (word-set Jaccard over injectable entries)
+  pairs >= 0.4: 23
+  pairs >= 0.5: 13
+  pairs >= 0.6: 5
+  pairs >= 0.7: 3
+  pairs >= 0.8: 1
+  of pairs >= 0.5, both handoff-tagged: 0
+  of pairs >= 0.5, same type: 13
+  of pairs >= 0.5, an RFC link + its ADR link (related, not duplicate): 11
+  of pairs >= 0.5, otherwise (duplicate candidates): 2
+  top 15:
+   0.98 753e0647990c(gotcha) ~ dcfbe6a08613(gotcha) | Claude Code FREEZES the shell environment at session start a
+   0.78 28955f022662(link) ~ bd23de2d1ae6(link) | RFC-004 — vfkb self-hosts its own design-brain (commit `.vfk
+   0.72 cca762c38f5e(fact) ~ 6f48c16787cf(fact) | ADR-0078's final form goes beyond the enumerated (a)-(c) in 
+   0.65 4bb4c0ecc59e(link) ~ 088d4006f941(link) | RFC-021: vfkb as a Claude Code plugin — primary distribution
+   0.61 52b5e616ab75(link) ~ 347defb18a0a(link) | RFC-006 — Auto-distill + ACE curator (incoming-only distill;
+   0.56 578d278194c8(link) ~ 3ca6d3bb16fe(link) | ADR-0020 — Session continuity = derived, append-only knowled
+   0.56 edb11bbc36bd(link) ~ dff4213d97a1(link) | docs/rfc/RFC-010-consumer-integration-and-distribution.md
+   0.56 1af703b2fc25(link) ~ 2ec8f4499af6(link) | RFC-026-pre-public-disclosure-gate docs/rfc/RFC-026-pre-publ
+   0.56 46221fa3be6c(link) ~ 4165b1a83491(link) | RFC-027-public-ci-and-community-hygiene docs/rfc/RFC-027-pub
+   0.56 ec65d92fc9d0(link) ~ 7459a76adf58(link) | RFC-028-versioning-and-release-automation docs/rfc/RFC-028-v
+   0.54 564b291e2365(link) ~ 6c852206ea34(link) | ADR-0017 — Explicit search applies a relative relevance floo
+   0.53 f62e5f988d35(link) ~ ec66290e5995(link) | ADR-0018 — Search reports a cause-distinguished, honest no-m
+   0.50 b3ee96c15cb3(link) ~ 258e01819c62(link) | RFC-029-npm-delivery-channel docs/rfc/RFC-029-npm-delivery-c
+   0.49 afcc24bdbbf6(link) ~ 4a5e8ad8cb64(fact,ho) | RFC-013 (proposed) — cross-project brain query: read-only, p
+   0.47 0184d1970e05(gotcha) ~ a3e063ec511c(gotcha) | GITHUB'S `POST /markdown` HTML IS NOT "WHAT A READER SEES" —
+
+## 3. staleness
+  injectable status-tagged: 119; older than 7d: 110; older than 30d: 92
+  proposed decisions: 38; older than 30d: 29
+  incoming zone: 66; older than 30d: 66
+  injectable entries carrying valid_until: 0
+
+## 4. R1 link (18 topical prompts, top-5 slots 90)
+  slots held by stale handoffs: 20; by older near-duplicates (>=0.5): 0
+  recall@5 now 0.5648; counterfactual with those dropped 0.5926
+  labelled-relevant entries that are themselves retire candidates: 0 

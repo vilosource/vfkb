@@ -115,7 +115,7 @@ R5, R6 → R2 → R1 → R3, R7, R4, R8. R2 is the only theme with an RFC so far
   `compaction-survival` L4 (plugin#64, compacted 3/3, contrast 0/3, gate-required).
 - **R4 — dependency still unobserved.** That is the `mcp_tool` hook, whose probe has
   not been run. Per §9, it gets probed before anything is built.
-- **R7 — proposed**, with no harness dependency to probe.
+- **R7 — in RFC.** Taken ahead of finishing R1 by operator ruling (2026-10-21). The probe (`research/probes/curation-2026-10-21/`) found the problem is handoff lifecycle, not similarity: 84 stale handoffs live, none retired. [RFC-045](../rfc/RFC-045-propose-only-curation.md) is Proposed.
 - **R8 — proposed.** It depends on Claude Code Projects being available, which has
   not been checked.
 
