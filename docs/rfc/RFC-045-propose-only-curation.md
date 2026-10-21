@@ -157,8 +157,8 @@ the filtered path can never return them. Q5 asks what, if anything, to do about 
     accepting ADR should take `created` as its input `u`.
   - A unit test asserts that the rendered pin and B3's anchor agree on brains with zone
     edits, topical tags and decisions.
-  - On today's brain, 0 of 116 live handoff facts have `updated` ≠ `created`, so Part A
-    moves no current pin.
+  - On today's brain, 0 of 116 live handoff facts have `updated` ≠ `created` (probe §1), so
+    Part A moves no current pin.
 - **Proof form:** structural, so deterministic unit tests, each observed red against today's
   selector:
   - a zone edit, promote or restore of an old handoff does not move the pin;
@@ -285,6 +285,28 @@ near-duplicate detection now would be a speculative build (the roadmap's evidenc
 - **The backlog** (84–115 entries here) is cleared only after the build. The operator edits
   `curate handoffs`' list and the result lands as one brain PR (Q3). It is a brain-data
   change, not code.
+
+## Open for the accepting ADR (from the final review round)
+
+These two items do not change this RFC's account of today's code. The accepting ADR must
+settle them before the build.
+
+1. **Confirm-before-write loses the handoff when no one answers.** `retires` rides on the
+   `kb_add` of the new entry, so the skill would have to wait for the yes before writing at
+   all. Then the no-answer arm would pass with nothing written, which is the ADR-0051 §3
+   quiet-success trap.
+   - The ADR must choose: write the handoff first and retire on the yes, through a separate
+     retire step with the same scope checks; or keep confirm-first, in which case every arm
+     must also assert that the new handoff exists and is the pin.
+   - The skill must ask in plain text and end its turn, since a blocking question tool is
+     likely unavailable under `claude -p`. The two-turn `--resume` design is unrun.
+2. **"The same rule" is not enough for the raw-line selector.** `newestHandoffTimestamp`
+   applies `isInjectable` per *raw line*, so an archived entry's pre-archive line still
+   passes. Ordering by `created` keeps that defect.
+   - The same build must therefore also materialize, which is RFC-043 Part 0 rule 1. RFC-045
+     absorbs that rule.
+   - RFC-043's carrier lookup must key on `created` as well as `u`. Otherwise a zone edit
+     reopens the squash-merge false positive that Part 0 exists to fix.
 
 ## Questions for the operator
 

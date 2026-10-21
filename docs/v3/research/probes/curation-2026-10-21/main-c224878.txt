@@ -9,6 +9,7 @@ injectable handoff/next-tagged: 130 (pin: 09e77b61404b)
   non-pinned, by age (<=1d, <=7d, <=30d, <=90d, older): 9 / 2 / 25 / 38 / 55
   handoffs that supersede a predecessor (any state): 0
   shaped handoffs still injectable but NOT the pin (stale handoffs): 84
+  live handoff/next-tagged facts (incl. the pin): 116; with updated != created: 0
   UPPER bound - every handoff/next-tagged fact other than the pin: 115
   entries whose TEXT says "supersedes <12-hex id>" (lower bounds): 24 case-sensitive, 40 ignoring case (37 handoff/next-tagged); carrying refs.supersedes: 4, all decisions: true
 

@@ -70,6 +70,8 @@ console.log(`  shaped handoffs still injectable but NOT the pin (stale handoffs)
 // "CLOSED OUT ..". The tag-and-type boundary (every handoff/next-tagged fact but the pin) is
 // the UPPER bound. Where the line falls changes the R1 counterfactual below.
 const nonPinnedFacts = older.filter((e) => e.type === 'fact');
+const hoFacts = ho.filter((e) => e.type === 'fact');
+console.log(`  live handoff/next-tagged facts (incl. the pin): ${hoFacts.length}; with updated != created: ${hoFacts.filter((e) => e.updated !== e.created).length}`);
 console.log(`  UPPER bound - every handoff/next-tagged fact other than the pin: ${nonPinnedFacts.length}`);
 const proseSup = all.filter((e) => /supersedes\s+[0-9a-f]{12}\b/.test(e.text));
 const proseSupI = all.filter((e) => /supersedes\s+[0-9a-f]{12}\b/i.test(e.text));
