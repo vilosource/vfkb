@@ -159,6 +159,10 @@ embedder optional/auto-detected/graceful-degrade (ADR-0013); **forbidden on the 
 - *Build trigger (unchanged):* a **2nd** observed live phrasing-robustness miss **or** an explicit
   operator request. The design (shape) is already locked in RFC-003 — only the build is gated.
 - *Do not build on spec.* Keep the `selectIndex()` seam warm; nothing else until the trigger fires.
+- **2026-10-21: the FIRST RESORT IS UN-GATED for R1** ([ADR-0080](adr/ADR-0080-query-time-injection.md),
+  by explicit operator request under this trigger). BM25 plus query-term pruning in `InMemoryIndex` is
+  being built as R1's step 1. **The embedding second resort stays gated**, and stays forbidden on the
+  injection path. The "do not build on spec" line above now binds the embeddings only.
 
 ### Track 3 — Cross-harness parity  *(watch, not build)*
 
@@ -392,7 +396,6 @@ operator request. When it fires: schedule the existing deterministic `distill` +
 (a SessionEnd step or repo hook) — scheduling only, no new engine capability.
 
 **Gated-ledger amendments (decided at this ratification):**
-- **S1 first resort UN-GATED 2026-10-21 for R1** ([ADR-0080](adr/ADR-0080-query-time-injection.md), operator request): BM25 plus query-term pruning in `InMemoryIndex` is being built as R1's step 1. The embedding second resort stays gated, and stays forbidden on the injection path.
 - **S1 gate AMENDED — BM25 first, embeddings second.** When the S1 trigger fires (a 2nd live phrasing miss
   / an explicit ask), the **first resort is now BM25 scoring inside `InMemoryIndex`** (stdlib,
   deterministic, zero-dep; evidence above) — RFC-003 embeddings become the *second* resort, built only if

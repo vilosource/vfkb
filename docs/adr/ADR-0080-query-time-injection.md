@@ -1,7 +1,7 @@
 ---
 type: Decision
 title: "ADR-0080: Query-time injection rides on BM25 — S1's first resort is un-gated for R1 (accepts RFC-044)"
-description: "Accepts RFC-044 (v3 theme R1) with the operator's answers to its four questions. Q1: S1's first resort (BM25 plus query-term pruning in InMemoryIndex) is UN-GATED now, by explicit operator request, as R1's precondition; embeddings stay forbidden on the injection path. Q2: step 2 starts only when the new ranker reaches recall@5 >= 0.6 and beats the current index on MRR, on a labelled eval of at least 25 real prompts against a pinned brain snapshot, observed failing on the current index first. Q3: query-time injection ships OPT-IN (VFKB_RECALL=1). Q4: the harness-turn discriminator is probed before step 2 is designed."
+description: "Accepts RFC-044 (v3 theme R1) with the operator's answers to its four questions. Q1: S1's first resort (BM25 plus query-term pruning in InMemoryIndex) is UN-GATED now, by explicit operator request, as R1's precondition; embeddings stay forbidden on the injection path. Q2: step 2 starts only when the new ranker reaches recall@5 >= 0.6 and beats the current index on MRR, on a labelled eval of every real topical prompt in the history (about 22; at least 20) plus a no-recall set, against a pinned brain snapshot, observed failing on the current index first. Q3: query-time injection ships OPT-IN (VFKB_RECALL=1). Q4: the harness-turn discriminator is probed before step 2 is designed."
 status: "Accepted"
 timestamp: 2026-10-21
 ---
@@ -15,8 +15,8 @@ timestamp: 2026-10-21
 - **Accepts:** [RFC-044](../rfc/RFC-044-query-time-injection.md), as written at `b179e39`.
   The RFC holds the probe evidence, the two-step design, the L4 and the alternatives. This
   ADR records the decision and the operator's four answers.
-- **Changes the roadmap gate on S1:** see H4 §3 Track 2. Its first resort is un-gated by
-  explicit operator request. The second resort, RFC-003 embeddings, stays gated and stays
+- **Changes the roadmap gate on S1:** H4 §3 Track 2's S1 entry. Its first resort is un-gated
+  by explicit operator request. The second resort, RFC-003 embeddings, stays gated and stays
   forbidden on the injection path.
 - **Relates:**
   - [RFC-001](../rfc/RFC-001-search-relevance-floor.md): the floor, to be revisited.
@@ -35,8 +35,8 @@ The R1 probes (RFC-044; `docs/v3/research/probes/user-prompt-submit-2026-10-20/`
 two things.
 
 **Delivery works.** `UserPromptSubmit` injection reaches the agent 3/3 when the text is
-framed as project knowledge. Framed as a credential, the agent refuses it as a prompt
-injection.
+framed as project knowledge. Framed as a credential, the agent usually refuses it as a
+prompt injection (2 of 3 times).
 
 **Selection does not work on the current index.** Stage 1 counts token occurrences, with
 no IDF, no length normalisation and no stopwords. For real operator prompts on the brain
@@ -46,19 +46,35 @@ one of the two cases.
 
 ## Decision
 
-1. **Step 1: replace stage 1 with BM25 plus query-term pruning** in `InMemoryIndex`.
+1. **Step 1: replace stage 1 with BM25 plus query-term pruning** in `InMemoryIndex`. The eval
+   still compares the alternatives RFC-044 named (stopwords alone, plain BM25) and records
+   them; BM25 plus pruning is the decided default unless the eval shows another clears the
+   bar and BM25 plus pruning does not.
    - BM25 uses per-term IDF and length normalisation with standard `k1`/`b`, stdlib only.
    - Pruning is a generic stopword list on the query, optionally with an IDF cutoff.
-   - Stage 2, the heuristic reranker, is unchanged. The RFC-001 floor is replaced by a
-     score-based floor calibrated on the eval.
+   - Stage 2, the heuristic reranker, is unchanged. The RFC-001 floor is revisited: a
+     score-based floor, calibrated on the eval, replaces it on the R1 path if the eval
+     supports one.
    - **This changes `kb_search` and CLI `search` for everyone,** and that is intended.
 2. **The step-1 bar (Q2), as a committed deterministic test:**
-   - The eval uses at least 25 real prompts, each labelled with the entry ids it is about.
-   - **Labels are written before the new ranker is run on them,** so the labelling cannot
-     follow the ranker.
-   - It runs against a pinned brain snapshot that predates any entry quoting the prompts.
+   - **The topical set** is every real topical operator prompt in the session history, about
+     22 and at least 20, each labelled with the entry ids it is about. The operator ruled
+     this on 2026-10-21, replacing the "at least 25" RFC-044 proposed: the real history does
+     not contain 25 topical prompts, and inventing prompts would bias the set. The set grows
+     as real prompts accumulate.
+   - **The no-recall set** is the real non-topical prompts ("continue", "commit and push"…).
+     For these, the right behaviour is to inject nothing above the floor, and the floor is
+     calibrated against them.
+   - **An addition of this ADR, not of RFC-044:** labels are written before the new ranker is
+     run on the set, so the labelling cannot follow the ranker. Two cases were already
+     ranked by a BM25 *prototype* during the probes: the Jev and roadmap prompts. Their
+     relevance definitions were fixed before that run (ids picked by grep; roadmap links by
+     type), so they stay in the set, flagged as such.
+   - It runs against a pinned brain snapshot that predates any entry quoting the prompts,
+     or excludes such entries.
    - It must be **observed failing on the current index** first.
-   - It passes at **recall@5 ≥ 0.6, and beating the current index on MRR.**
+   - It passes at **recall@5 ≥ 0.6 on the topical set, and beating the current index on
+     MRR.**
    - Step 2 does not start until this passes.
 3. **Step 2: inject at `UserPromptSubmit`,** as RFC-044 specifies:
    - a ≤1,500-char and ≤3-entry budget, with long entries truncated;
@@ -77,6 +93,9 @@ one of the two cases.
    - The ranker contrast is a content assertion on injected ids, and a missing injection is
      invalid.
    - A recall-arm injection that lacks the target is a red trial.
+   - A green ranker contrast means the seed is too easy, and the run is invalid.
+   - Per-prompt recall never re-injects or displaces the pinned Constitution and handoff
+     (RFC-044 item 8; ADR-0008/0049).
    - Until the L4 is DEMONSTRATED, R1's status is *built, NOT yet verified*.
 
 ## Consequences
