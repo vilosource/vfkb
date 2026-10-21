@@ -203,9 +203,9 @@ operator ruled (brain `9746fb8556ef`), and that release's notes state "delivery 
   - **Positive arm:** the second turn says yes. The new handoff exists and is the pin, the
     sentinel is archived with its text byte-identical, and the older handoffs are untouched.
   - **Negative arm:** the second turn says the current handoff is still live. The new
-    handoff exists and is the pin, and **no handoff is archived**.
+    handoff exists and is the pin, and **no handoff's zone has changed from the fixture**.
   - **No-answer arm:** there is no second turn. The new handoff exists and is the pin, and
-    **no handoff is archived**.
+    **no handoff's zone has changed from the fixture**.
   - **Contrast arm:** today's skill, given the same "yes" second turn as the positive arm.
     The sentinel stays live.
   - **Scoring:** every predicate is a content assertion over the brain, never an exit code
