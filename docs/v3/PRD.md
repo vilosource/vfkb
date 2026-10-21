@@ -519,6 +519,12 @@ as a Brake that tolerates its defect class is worse than none, per this repo's o
 
 ### R7 — Curation that keeps the budget clean
 
+> **2026-10-21: [RFC-045](../rfc/RFC-045-propose-only-curation.md) ACCEPTED as [ADR-0082](../adr/ADR-0082-propose-only-curation.md).** The probe found
+> the problem is handoff lifecycle, not similarity: 84–115 stale handoff facts live, none retired, a pin that moves when an
+> old handoff is edited, and one true duplicate in 535 entries. Decided: the pin is the newest-created handoff fact (one
+> selector, shared with B3); the skill writes first, proposes the predecessor by id and retires it only on yes; read-only
+> reports; the backlog from an operator-edited list. It does not move R1's gate, and goes next on its own merits.
+
 **Problem.** 458 live entries; **106** carry `handoff`, of which exactly one is ever
 pinned, so 105 compete for budget as dead weight. `findLexicalDuplicates` is
 exact-match-after-normalisation only, deferring semantic dedup to gated RFC-003.
