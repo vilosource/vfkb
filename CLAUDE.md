@@ -292,7 +292,7 @@ not `main`. Full rationale: [ADR-0036](docs/adr/ADR-0036-v2-two-branch-strategy.
   at draft time); Q4 sleep-time distillation gated.
 - **Gated (do NOT build on spec):** **S1**'s *embedding* second resort (RFC-003; still forbidden on the
   injection path). **S1's first resort, BM25 plus query-term pruning in `InMemoryIndex`, was UN-GATED on
-  2026-10-21 for v3 R1 by operator request (ADR-0080)** and is being built behind a labelled eval; **P1** Claude-Code per-turn push (ADR-0015
+  2026-10-21 for v3 R1 by operator request (ADR-0080)** and is being built behind a labelled eval. Also gated: **P1** Claude-Code per-turn push (ADR-0015
   Tier C — external-blocked upstream); Track-9 **Q4** + bi-temporal consumption (named triggers).
   **Parked:** H2 fleet wiring, H3 global tier.
 - **Open findings:** (1) Claude Code's PostToolUse hook does **not fire on a FAILED tool call** →

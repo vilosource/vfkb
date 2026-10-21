@@ -54,7 +54,9 @@ one of the two cases.
    - Pruning is a generic stopword list on the query, optionally with an IDF cutoff.
    - Stage 2, the heuristic reranker, is unchanged. The RFC-001 floor is revisited: a
      score-based floor, calibrated on the eval, replaces it on the R1 path if the eval
-     supports one.
+     supports one. **On the explicit-search path (`kb_search`, CLI `search`) the RFC-001
+     floor stays as it is in step 1.** Any change there is a separate decision, made on the
+     same eval.
    - **This changes `kb_search` and CLI `search` for everyone,** and that is intended.
 2. **The step-1 bar (Q2), as a committed deterministic test:**
    - **The topical set** is every real topical operator prompt in the session history, about
@@ -64,7 +66,8 @@ one of the two cases.
      as real prompts accumulate.
    - **The no-recall set** is the real non-topical prompts ("continue", "commit and push"…).
      For these, the right behaviour is to inject nothing above the floor, and the floor is
-     calibrated against them.
+     calibrated against them. The no-recall set **gates nothing**: it is calibration data,
+     and its pass rate is reported, not required.
    - **An addition of this ADR, not of RFC-044:** labels are written before the new ranker is
      run on the set, so the labelling cannot follow the ranker. Two cases were already
      ranked by a BM25 *prototype* during the probes: the Jev and roadmap prompts. Their
