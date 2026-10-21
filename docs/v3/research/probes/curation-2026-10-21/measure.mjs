@@ -29,6 +29,8 @@ delete process.env.VFKB_DIR;
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../../../..');
 const engine = await import(join(root, 'dist/engine.js'));
 const { InMemoryIndex } = await import(join(root, 'dist/index-store.js'));
+const read = await import(join(root, 'dist/read.js'));
+const curator = await import(join(root, 'dist/curator.js'));
 
 const all = engine.readAll();
 const sup = engine.supersededIds(all);
@@ -64,6 +66,13 @@ const handoffSupers = all.filter((e) => isHo(e) && e.refs?.supersedes).length;
 console.log(`  handoffs that supersede a predecessor (any state): ${handoffSupers}`);
 const nonPinnedShaped = older.filter(shaped);
 console.log(`  shaped handoffs still injectable but NOT the pin (stale handoffs): ${nonPinnedShaped.length}`);
+// The shape regex is a LOWER bound: handoffs also open "SESSION CLOSE", "SESSION 2026-..",
+// "CLOSED OUT ..". The tag-and-type boundary (every handoff/next-tagged fact but the pin) is
+// the UPPER bound. Where the line falls changes the R1 counterfactual below.
+const nonPinnedFacts = older.filter((e) => e.type === 'fact');
+console.log(`  UPPER bound - every handoff/next-tagged fact other than the pin: ${nonPinnedFacts.length}`);
+const proseSup = all.filter((e) => /supersedes\s+[0-9a-f]{12}\b/.test(e.text));
+console.log(`  entries whose TEXT says "supersedes <12-hex id>": ${proseSup.length} (${proseSup.filter(isHo).length} handoff/next-tagged); carrying refs.supersedes: ${all.filter((e) => e.refs?.supersedes).length}, all decisions: ${all.filter((e) => e.refs?.supersedes).every((e) => e.type === 'decision')}`);
 
 // --- 2. near-duplicates ---
 const tok = (s) =>
@@ -111,8 +120,8 @@ const proposed = live.filter((e) => e.type === 'decision' && e.status === 'propo
 console.log(`  proposed decisions: ${proposed.length}; older than 30d: ${proposed.filter((e) => days(e) > 30).length}`);
 const incoming = live.filter((e) => e.zone === 'incoming');
 console.log(`  incoming zone: ${incoming.length}; older than 30d: ${incoming.filter((e) => days(e) > 30).length}`);
-const withValidity = live.filter((e) => e.validity?.valid_until).length;
-console.log(`  injectable entries carrying valid_until: ${withValidity}`);
+const withValidity = all.filter((e) => e.validity?.valid_until).length;
+console.log(`  entries (any state) carrying valid_until: ${withValidity}`);
 
 // --- 4. R1 link ---
 if (labelsPath) {
@@ -143,6 +152,51 @@ if (labelsPath) {
   console.log(`\n## 4. R1 link (${n} topical prompts, top-5 slots ${slots})`);
   console.log(`  slots held by stale handoffs: ${stale}; by older near-duplicates (>=0.5): ${dup}`);
   console.log(`  recall@5 now ${(hits / n).toFixed(4)}; counterfactual with those dropped ${(hitsAfter / n).toFixed(4)}`);
+  // Same counterfactual at the UPPER boundary (every non-pin handoff/next-tagged fact).
+  const upper = new Set(nonPinnedFacts.map((e) => e.id));
+  let hitsUpper = 0;
+  for (const t of labels.topical) {
+    const rel = new Set(t.relevant);
+    const after = index.searchScored(t.prompt).map((r) => r.entry.id).filter((id) => !upper.has(id)).slice(0, 5);
+    hitsUpper += after.filter((id) => rel.has(id)).length / Math.min(5, rel.size);
+  }
+  console.log(`  counterfactual at the UPPER boundary (${upper.size} dropped): ${(hitsUpper / n).toFixed(4)}`);
+  // The FILTERED path (read.query, what kb_search serves), measured by actually archiving
+  // in this probe's temp copy of the brain.
+  const filtered = () => {
+    let h = 0;
+    for (const t of labels.topical) {
+      const rel = new Set(t.relevant);
+      const top = read.query({ text: t.prompt, limit: 5 }).map((e) => e.id);
+      h += top.filter((id) => rel.has(id)).length / Math.min(5, rel.size);
+    }
+    return (h / n).toFixed(4);
+  };
+  const supRel = labels.topical.filter((t) => t.relevant.some((id) => sup.has(id)));
+  const supIds = [...new Set(supRel.flatMap((t) => t.relevant.filter((id) => sup.has(id))))];
+  console.log(`  labelled-relevant ids that are superseded (the filtered path can never return them): ${supIds.join(' ')} (in ${supRel.length} prompts' labels)`);
+  const relUpper = [...new Set(labels.topical.flatMap((t) => t.relevant).filter((id) => upper.has(id)))];
+  console.log(`  labelled-relevant ids inside the UPPER boundary (archiving them would hide a right answer): ${relUpper.length} ${relUpper.join(' ')}`);
+  console.log(`  FILTERED path (read.query, limit 5) recall@5 before archiving: ${filtered()}`);
+  for (const id of staleHo) curator.archive(id);
+  console.log(`  FILTERED path after archiving the ${staleHo.size} shaped stale handoffs: ${filtered()}`);
+  for (const id of upper) if (!staleHo.has(id)) curator.archive(id);
+  console.log(`  FILTERED path after archiving all ${upper.size} (upper boundary): ${filtered()}`);
+  console.log(`  pin after archiving: ${engine.latestHandoff()?.id} (was ${pin?.id})`);
   const lost = labels.topical.flatMap((t) => t.relevant).filter((id) => staleHo.has(id) || dupLoser.has(id));
   console.log(`  labelled-relevant entries that are themselves retire candidates: ${lost.length} ${lost.join(' ')}`);
+}
+
+// --- 5. pin ordering hazard (run last: it mutates this probe's temp brain) ---
+// latestHandoff orders by `updated`, and every zone change (promote, archive, an un-archive)
+// bumps `updated`. So any curation write to an old handoff can make it the pin.
+{
+  const before = engine.latestHandoff()?.id;
+  const old = engine
+    .readAll()
+    .filter((e) => e.type === 'fact' && (e.tags.includes('handoff') || e.tags.includes('next')) && e.id !== before)
+    .sort((a, b) => a.created.localeCompare(b.created))[0];
+  engine.updateEntry(old.id, { zone: old.zone === 'archive' ? 'established' : 'incoming' });
+  console.log(`\n## 5. pin ordering`);
+  console.log(`  zone edit of the OLDEST handoff fact ${old.id} (created ${old.created.slice(0, 10)}): pin ${before} -> ${engine.latestHandoff()?.id}`);
 }

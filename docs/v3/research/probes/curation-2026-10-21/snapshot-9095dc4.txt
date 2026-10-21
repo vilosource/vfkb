@@ -9,6 +9,8 @@ injectable handoff/next-tagged: 123 (pin: aa28c85cd53b)
   non-pinned, by age (<=1d, <=7d, <=30d, <=90d, older): 3 / 2 / 24 / 38 / 55
   handoffs that supersede a predecessor (any state): 0
   shaped handoffs still injectable but NOT the pin (stale handoffs): 77
+  UPPER bound - every handoff/next-tagged fact other than the pin: 108
+  entries whose TEXT says "supersedes <12-hex id>": 18 (18 handoff/next-tagged); carrying refs.supersedes: 4, all decisions: true
 
 ## 2. near-duplicates (word-set Jaccard over injectable entries)
   pairs >= 0.4: 23
@@ -41,9 +43,19 @@ injectable handoff/next-tagged: 123 (pin: aa28c85cd53b)
   injectable status-tagged: 119; older than 7d: 110; older than 30d: 92
   proposed decisions: 38; older than 30d: 29
   incoming zone: 66; older than 30d: 66
-  injectable entries carrying valid_until: 0
+  entries (any state) carrying valid_until: 0
 
 ## 4. R1 link (18 topical prompts, top-5 slots 90)
   slots held by stale handoffs: 20; by older near-duplicates (>=0.5): 0
   recall@5 now 0.5648; counterfactual with those dropped 0.5926
+  counterfactual at the UPPER boundary (108 dropped): 0.6037
+  labelled-relevant ids that are superseded (the filtered path can never return them): e9c19cc5819e 4bbe73188958 (in 4 prompts' labels)
+  labelled-relevant ids inside the UPPER boundary (archiving them would hide a right answer): 1 fba5f66fd3df
+  FILTERED path (read.query, limit 5) recall@5 before archiving: 0.4167
+  FILTERED path after archiving the 77 shaped stale handoffs: 0.4556
+  FILTERED path after archiving all 108 (upper boundary): 0.4556
+  pin after archiving: aa28c85cd53b (was aa28c85cd53b)
   labelled-relevant entries that are themselves retire candidates: 0 
+
+## 5. pin ordering
+  zone edit of the OLDEST handoff fact 1488c66658c4 (created 2026-06-30): pin aa28c85cd53b -> 1488c66658c4

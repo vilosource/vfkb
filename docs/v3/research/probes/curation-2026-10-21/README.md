@@ -14,39 +14,50 @@ Outputs: [`snapshot-9095dc4.txt`](snapshot-9095dc4.txt) is the pinned R1 eval sn
 
 ## What it found (main at c224878; snapshot figures in brackets)
 
-1. **Handoffs never retire.** 130 [123] injectable entries carry `handoff` or `next`. 85 [78]
-   of them are handoff-shaped facts (opening `HANDOFF`, `SESSION HANDOFF` or `RESUME`), and
-   only one is pinned, so **84 [77] stale handoffs are live**. Of all the non-pinned
-   handoff/next-tagged entries, 55 are more than 90 days old. **No handoff carries a supersession edge.** 24 entries say "supersedes X" in their
-   text, but `supersede()` refuses facts (ADR-0004), so the prose is the only record. The
-   handoff skill asks the author to "note" a stale predecessor, and it gets noted in prose.
-2. **The pin can be hijacked.** 14 injectable handoff/next-tagged entries are not facts:
-   decisions and links that carry the tag topically. `latestHandoff` would pin any of them if
-   it were the newest. 45 handoff/next-tagged entries are not handoff-shaped (queued items,
-   rulings, links). Brain `583374f75808` and PR #358 repaired one live case by hand.
-3. **Semantic duplicates are rare.** Word-set Jaccard ≥ 0.5 finds 14 [13] pairs. 11 of them
-   are an RFC link and the link to the ADR that accepted it, which are related but not
-   duplicates. The other 3 [2] are one double write (`753e0647990c` ~ `dcfbe6a08613`, 0.98,
-   written the same day), one correction pair (`cca762c38f5e` ~ `6f48c16787cf`), and, on
-   main only, one pair of successive handoffs (`7eb9683fb412` ~ `09e77b61404b`). The near-duplicate triplet the R1 work worried about
-   (`e9c19cc5819e`/`4bbe73188958`/`e68ad28f11b6`) had already been resolved by supersession,
-   and only `e68ad28f11b6` is live. No two links share a target.
-4. **Staleness is mostly the handoff backlog.** 125 status-tagged entries are injectable,
-   and 92 of them are more than 30 days old. 29 of 38 proposed decisions are more than 30
-   days old. 66 of the 70 incoming entries are more than 30 days old and were never promoted. **No entry
-   uses `valid_until`**, so the expiry gate in `isInjectable` has never fired.
-5. **The link to R1.** Of the 90 top-5 slots across the 18 R1 eval prompts, stale handoffs
-   hold **24 [20]**. In one day the live brain's stage-1 recall@5 fell from 0.565 (the
-   snapshot) to **0.517**. Of the 5 slots taken by entries written after the snapshot, 4 went
-   to handoffs: `0836d40055dd` (3 slots), and `c6a53a88a8b0`, which says it supersedes two
-   handoffs that both stay live. The fifth is `8f21f98df86a`, a probe gotcha that quotes the
-   eval prompts, which is the trap the pinned snapshot exists for.
-6. **Counterfactual, not a built feature.** Dropping the stale handoffs from the ranking,
-   without re-scoring, gives recall@5 0.5926 on the snapshot (0.5741 on main). **That is
-   still below the 0.6 step-2 bar**, so R7 alone does not unblock R1 on this evidence. Also,
-   `InMemoryIndex.searchScored` ranks every materialized entry, archived ones included (the
-   injectable filter runs after stage 1, in `query()`), so archiving does not move the
-   stage-1 metric that ADR-0081's gate measures. It moves only the filtered path.
+1. **Handoffs never retire.**
+   - 130 [123] injectable entries carry `handoff` or `next`.
+   - Besides the pin, 84 [77] are facts that open as a handoff. That is the shape boundary,
+     a lower bound: some handoffs open "SESSION CLOSE …" or "CLOSED OUT …".
+   - 115 [108] are handoff/next-tagged facts of any shape. That is the tag boundary, an
+     upper bound: it includes `fba5f66fd3df`, a queued item that is a labelled right answer.
+   - 24 [18] entries name a predecessor in their text ("supersedes <12-hex id>"). All 4
+     entries with `refs.supersedes` are decisions, because `supersede()` refuses facts
+     (ADR-0004).
+2. **The pin is unstable.**
+   - `latestHandoff` orders by `updated`, and `updateEntry` bumps it. A zone edit of the
+     oldest handoff fact (`1488c66658c4`) made it the pin on both brains.
+   - Eligibility is any tagged type. 14 decisions and links carry the tag topically.
+   - The one hijack observed live was a fact, `a91f82e76700` (brain `583374f75808`, repaired
+     in PR #358).
+3. **Semantic duplicates are rare.** Word-set Jaccard ≥ 0.5 gives 14 [13] pairs.
+   - 11 are an RFC link plus the link to the ADR that accepted it.
+   - That leaves 3 [2]: one double write (`753e0647990c` ~ `dcfbe6a08613`, 0.98), one
+     correction pair (`cca762c38f5e` ~ `6f48c16787cf`), and, on main only, two successive
+     handoffs.
+   - The triplet `e9c19cc5819e`/`4bbe73188958`/`e68ad28f11b6` was already resolved by
+     supersession.
+4. **Staleness is mostly the handoff backlog.**
+   - 92 of 125 status-tagged injectable entries are more than 30 days old.
+   - 29 of 38 proposed decisions are more than 30 days old.
+   - 66 of 70 incoming entries are more than 30 days old.
+   - No entry in the log has ever carried `valid_until`.
+5. **The link to R1.**
+   - Stale handoffs hold 24 [20] of the 90 top-5 slots on the 18 eval prompts.
+   - Live stage-1 recall@5 fell from 0.565 (the snapshot) to 0.517 in one day. 4 of the 5
+     slots won by post-snapshot entries went to handoffs (`0836d40055dd` ×3,
+     `c6a53a88a8b0`). The fifth went to `8f21f98df86a`, a gotcha that quotes the eval
+     prompts.
+6. **Stage-1 counterfactuals** (dropping entries from the ranking without re-scoring): 0.5926
+   at the shape boundary and 0.6037 at the tag boundary on the snapshot; 0.5741 and 0.5852 on
+   main.
+   - `searchScored` ranks archived entries too, so archiving cannot move this metric, and it
+     is the one ADR-0081's gate measures.
+   - Picking the boundary that crosses 0.6 (ADR-0080 §2's step-1 bar, now the named gate on
+     step 2) would be tuning against the 18.
+7. **The filtered path** (`read.query`, limit 5, measured by archiving in the temp copy):
+   - 0.4167 → 0.4556 on the snapshot, and 0.4056 → 0.4556 on main, at either boundary.
+   - Two labelled-relevant ids (`e9c19cc5819e`, `4bbe73188958`, in 4 prompts' labels) have
+     since been superseded, so this path can never return them.
 
 ## Limits
 
