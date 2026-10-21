@@ -34,6 +34,11 @@ const BASELINE_RECALL_AT_5 = 0.0139;
 const LANDED_RECALL_AT_5_FLOOR = 0.56;
 const LANDED_MRR_FLOOR = 0.63;
 const RECALL_AT_5_BAR = 0.6; // the step-2 gate (ADR-0080 Q2)
+// The step-2 decision, named. It is false: 0.5648 < 0.6 (operator ruling 2026-10-21, land
+// step 1 and keep step 2 gated). Crossing the bar makes the gate test fail until this is
+// flipped DELIBERATELY: re-measure, record the result in the brain and ADR-0080's status,
+// then set true. Step 2 may start only once it is true.
+const STEP2_GATE_MET = false;
 
 type Index = { searchScored(q: string, k?: number): { entry: { id: string } }[] };
 let index: Index;
@@ -79,9 +84,15 @@ describe('R1 recall eval (ADR-0080 step-1 bar)', () => {
     expect(mrr).toBeGreaterThanOrEqual(LANDED_MRR_FLOOR);
   });
 
-  it(`the step-2 gate (recall@5 >= ${RECALL_AT_5_BAR}) is recorded as UNMET — a tripwire, not a goal`, () => {
-    // When this fails, recall has crossed the bar. Do not just delete the assertion:
-    // re-measure, record the result (brain + ADR-0080 status), then let step 2 start.
-    expect(score().recall5).toBeLessThan(RECALL_AT_5_BAR);
+  it(`STEP2_GATE_MET (${STEP2_GATE_MET}) agrees with the measurement (recall@5 >= ${RECALL_AT_5_BAR})`, () => {
+    // A named decision, not a goal: if the measurement and the recorded decision disagree
+    // in either direction, someone must flip STEP2_GATE_MET on purpose, with the record.
+    expect(score().recall5 >= RECALL_AT_5_BAR).toBe(STEP2_GATE_MET);
+  });
+
+  it('reports the no-recall set (calibration only; gates nothing per ADR-0080)', () => {
+    const empty = labels.noRecall.filter((t) => index.searchScored(t.prompt, 1).length === 0).length;
+    console.log(`no-recall: ${empty}/${labels.noRecall.length} return no stage-1 candidate (a floor is calibrated against these; not asserted)`);
+    expect(labels.noRecall.length).toBeGreaterThan(0);
   });
 });

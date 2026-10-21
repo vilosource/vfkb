@@ -75,7 +75,7 @@ function queryTerms(query: string): Set<string> {
 const BM25_K1 = 1.2;
 const BM25_B = 0.75;
 
-// Distinct stemmed terms in a query — the denominator for RFC-001's relevance
+// Distinct stemmed CONTENT terms in a query (stopwords pruned) — the denominator for RFC-001's relevance
 // floor (matched / queryTermCount). Shares the tokenizer/stemmer with searchScored
 // so the floor and the search agree on what a "term" is.
 export function queryTermCount(query: string): number {
