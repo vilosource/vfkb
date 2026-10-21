@@ -283,6 +283,12 @@ separately RFC-able. Priority is the operator's call (§7 Q1).
 
 ### R1 — Query-time injection
 
+> **2026-10-21: STEP 1 LANDED, STEP 2 GATED** ([vfkb#364](https://github.com/vilosource/vfkb/pull/364)). Stage-1 is now BM25 plus
+> stopword pruning. On the R1 labelled eval (18 real topical prompts, labels committed first), recall@5 went
+> 0.014 → 0.565 and MRR 0.043 → 0.639. That is short of ADR-0080's 0.6 bar for starting prompt-time injection, and
+> the operator ruled to keep step 2 gated. The remaining misses are stale live handoffs (R7) and a prompt with no
+> lexical link to its subject.
+>
 > **2026-10-20: probed; [RFC-044](../rfc/RFC-044-query-time-injection.md) is ACCEPTED as [ADR-0080](../adr/ADR-0080-query-time-injection.md) (2026-10-21). BM25 is un-gated, the eval bar is recall@5 ≥ 0.6 on every real topical prompt (18 at labelling, no minimum) plus a no-recall set, injection is opt-in, and the harness-turn probe comes first.** Delivery works:
 > `UserPromptSubmit` injection reaches the agent, 3/3, when framed as project knowledge. But the
 > "existing lexical index" this section relies on cannot select. It has no IDF and no length
