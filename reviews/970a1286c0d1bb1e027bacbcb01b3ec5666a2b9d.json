@@ -1,0 +1,114 @@
+{
+  "recordVersion": 1,
+  "sha": "970a1286c0d1bb1e027bacbcb01b3ec5666a2b9d",
+  "governing": [
+    "docs/adr/ADR-0080-query-time-injection.md",
+    "docs/rfc/RFC-044-query-time-injection.md"
+  ],
+  "reviewer": {
+    "agent": "general-purpose",
+    "model": "opus",
+    "rounds": 2
+  },
+  "generated": "2026-10-21T08:56:35.985Z",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "three behaviour claims had no test: newest-updated tie-break, queryTermCount pruning, stopword-only query returns nothing (mutations e/f/j survived the suite); now pinned in test/index-store-bm25.test.ts, each observed red",
+      "acceptedBy": null
+    },
+    {
+      "id": "F2",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "Stage-2 heuristic tie-break effectively dead under float BM25 scores (exact top-10 ties 27/162 -> 1/162) and undisclosed; now disclosed in the PR and flagged as a follow-up for R1 step 2 (score bucketing)",
+      "acceptedBy": null
+    },
+    {
+      "id": "F3",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "alternatives numbers came from an uncommitted prototype; now committed as compare-alternatives.mjs and labelled a prototype",
+      "acceptedBy": null
+    },
+    {
+      "id": "F4",
+      "severity": "minor",
+      "status": "open",
+      "summary": "near-identical triplet e9c19cc5819e/4bbe73188958/e68ad28f11b6 inflates recall@5 slightly (0.5648 vs 0.5509 collapsed); the 0.56 floor passes only with the duplicates; R7 curation",
+      "acceptedBy": null
+    },
+    {
+      "id": "F5",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "tripwire was an assertion to delete; now a named STEP2_GATE_MET decision asserted equal to the measurement",
+      "acceptedBy": null
+    },
+    {
+      "id": "F6",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "no-recall set not reported; now reported (calibration only)",
+      "acceptedBy": null
+    },
+    {
+      "id": "F7",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "stale queryTermCount comment",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 7,
+  "ruledOut": [
+    "code depending on score magnitude: only read.ts comparisons; MCP shows matched only",
+    "performance: rebuild 21ms/524 entries, search 4.8ms/query, faster than re-tokenising per search",
+    "stale BM25 stats: derived only in rebuild() driven by ensureFresh",
+    "tag-only and numeric queries (317, #317, RFC-041, P2, v3) rank sensibly",
+    "tagless entries safe (tags ?? [])",
+    "AI attribution in commits: none",
+    "labels unchanged since 92f2c69"
+  ],
+  "mutations": [
+    {
+      "guard": "test/recall-eval.test.ts > R1 recall eval (ADR-0080 step-1 bar) > stage-1 beats the pre-BM25 index and does not regress below the landed level",
+      "mutation": "(a) old scorer restored from e1b23dc",
+      "observedRed": true
+    },
+    {
+      "guard": "test/recall-eval.test.ts > R1 recall eval (ADR-0080 step-1 bar) > stage-1 beats the pre-BM25 index and does not regress below the landed level",
+      "mutation": "(b) no stopword pruning; (k) b=1; (h) tags dropped; (m) avgLen forced 1",
+      "observedRed": true
+    },
+    {
+      "guard": "test/index-store-bm25.test.ts > BM25 stage-1 contracts (ADR-0080) > equal scores keep the existing tie-break: newest `updated` first",
+      "mutation": "(e) tie-break oldest-first",
+      "observedRed": true
+    },
+    {
+      "guard": "test/index-store-bm25.test.ts > BM25 stage-1 contracts (ADR-0080) > the floor denominator counts the same pruned terms the scorer matches",
+      "mutation": "(f) queryTermCount unpruned",
+      "observedRed": true
+    },
+    {
+      "guard": "test/index-store-bm25.test.ts > BM25 stage-1 contracts (ADR-0080) > a query made only of stopwords returns nothing (never every entry)",
+      "mutation": "(j) unpruned fallback for stopword-only queries",
+      "observedRed": true
+    },
+    {
+      "guard": "test/index-store-bm25.test.ts > BM25 stage-1 contracts (ADR-0080) > IDF: one rare term outranks a common term repeated, at equal length",
+      "mutation": "(d) idf constant 1",
+      "observedRed": true
+    },
+    {
+      "guard": "test/index-store-bm25.test.ts > BM25 stage-1 contracts (ADR-0080) > length normalisation: a short entry outranks a long one with the same term count",
+      "mutation": "(c) b=0",
+      "observedRed": true
+    }
+  ],
+  "mutationsNote": null,
+  "verdict": "MERGE"
+}
