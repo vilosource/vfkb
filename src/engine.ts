@@ -85,6 +85,10 @@ export interface AddOpts {
   // ADR-0039 (v2): the writing session's id. Explicit value wins; falls back to
   // $KB_SESSION_ID; omitted (not stamped) when neither is known.
   sessionId?: string;
+  /** ADR-0082 §4: ids of live handoff/next facts this new handoff fact replaces. Each is
+   *  archived and tagged `retired-by:<new id>` in the same locked write; any scope
+   *  failure refuses the whole add and appends nothing. */
+  retires?: string[];
 }
 
 // Fold a `--why`/`why=` rationale into the entry text (gotcha 91338268: the envelope
@@ -98,6 +102,33 @@ export function foldWhy(text: string, why?: string): string {
 }
 
 export function addEntry(type: EntryType, text: string, opts: AddOpts = {}): KnowledgeEntry {
+  const retires = [...new Set(opts.retires ?? [])];
+  if (retires.length === 0) {
+    const entry = buildEntry(type, text, opts);
+    appendRecord(entry);
+    return entry;
+  }
+  // Read-decide-append under the brain lock (ADR-0040): every retirement is checked
+  // against the same snapshot before anything is written, so a refusal appends nothing.
+  return withExclusive(() => {
+    const entry = buildEntry(type, text, opts);
+    const all = readAll();
+    const superseded = supersededIds(all);
+    const today = nowIso().slice(0, 10);
+    const olds = retires.map((id) => {
+      const old = all.find((e) => e.id === id);
+      if (!old) throw new Error(`no such entry: ${id}`);
+      const refusal = retirementRefusal(old, entry, today, superseded);
+      if (refusal) throw new Error(refusal);
+      return old;
+    });
+    appendRecord(entry);
+    for (const old of olds) appendRecord(retiredVersion(old, entry.id));
+    return entry;
+  });
+}
+
+function buildEntry(type: EntryType, text: string, opts: AddOpts): KnowledgeEntry {
   text = foldWhy(text, opts.why);
   assertNoSecrets(text); // no-secrets write-time lint (D6e) — throws on a planted secret
   const role: AuthorRole = opts.role ?? 'executor';
@@ -130,7 +161,6 @@ export function addEntry(type: EntryType, text: string, opts: AddOpts = {}): Kno
     created: ts,
     updated: ts,
   };
-  appendRecord(entry);
   return entry;
 }
 
@@ -156,6 +186,36 @@ export function updateEntry(
     appendRecord(next);
     return next;
   });
+}
+
+// --- Handoff retirement (ADR-0082 §4). The edge is a tag, mirroring the curator's
+// `merged-into:`: the old handoff is archived and tagged `retired-by:<new id>`; its
+// text is never touched (ADR-0021's never-rewrite Brake). No Refs field, because the
+// after-the-fact path (`curate retire`) works through updateEntry, which patches only
+// text/tags/zone — both paths must record the edge the same way.
+export const RETIRED_BY = 'retired-by:';
+
+/** Why `old` may not be retired by `by`, or null when the scope check passes. */
+export function retirementRefusal(
+  old: KnowledgeEntry,
+  by: KnowledgeEntry,
+  today = nowIso().slice(0, 10),
+  superseded?: Set<string>,
+): string | null {
+  if (!isPinCandidate(old)) return `cannot retire ${old.id}: it is not a fact tagged handoff or next`;
+  if (!isInjectable(old, today, superseded)) return `cannot retire ${old.id}: it is not live (archived, stale or expired)`;
+  if (by.id === old.id) return `cannot retire ${old.id} by itself`;
+  if (!isPinCandidate(by)) return `cannot retire ${old.id} by ${by.id}: ${by.id} is not a fact tagged handoff or next`;
+  if (!isInjectable(by, today, superseded)) return `cannot retire ${old.id} by ${by.id}: ${by.id} is not live`;
+  if (by.created < old.created) {
+    return `cannot retire ${old.id} by ${by.id}: ${by.id} is older (created ${by.created} < ${old.created}) — that would move the pin back`;
+  }
+  return null;
+}
+
+function retiredVersion(old: KnowledgeEntry, byId: string): KnowledgeEntry {
+  const tags = [...new Set([...old.tags, `${RETIRED_BY}${byId}`])];
+  return { ...old, zone: 'archive', tags, updated: nowIso() };
 }
 
 // Non-destructive provenance re-stamp (D-iii / ADR-0024). Flips the trust label
@@ -440,10 +500,19 @@ function trustGlyph(e: KnowledgeEntry): string {
   return `${v}${t}`;
 }
 
-// --- Last-handoff pin (ADR-0049): the read side of Track 8 (ADR-0033). Selection is a
-// filter, not an inference: newest-by-`updated` among injectable entries tagged
-// handoff/next. A superseded/archived/expired handoff ages out via isInjectable.
+// --- Last-handoff pin (ADR-0049, selection and render amended by ADR-0082 §1/§3): the
+// read side of Track 8 (ADR-0033). Selection is a filter, not an inference: the
+// injectable FACT tagged handoff/next with the newest `created`. Ordering by `created`
+// (not `updated`) means a zone edit, promotion, restore or cross-clone edit of an old
+// handoff cannot move the pin; restricting to facts means topically tagged decisions
+// and links never pin. The stated gap: a topical FACT tagged handoff can still win —
+// `vfkb curate handoffs` surfaces it, nothing prevents it. A superseded/archived/
+// expired handoff ages out via isInjectable. This is the ONLY pin selector: B3
+// (stop-reminder.ts) materializes and calls it (ADR-0082 §2).
 const HANDOFF_PIN_CAP_CHARS = 2000; // bound the pinned section; the live 07-08 handoff ≈ 1.5k
+export function isPinCandidate(e: KnowledgeEntry): boolean {
+  return e.type === 'fact' && (e.tags.includes('handoff') || e.tags.includes('next'));
+}
 export function latestHandoff(
   all: KnowledgeEntry[] = readAll(),
   today = nowIso().slice(0, 10),
@@ -451,19 +520,12 @@ export function latestHandoff(
 ): KnowledgeEntry | null {
   let latest: KnowledgeEntry | null = null;
   for (const e of all) {
-    if (!(e.tags.includes('handoff') || e.tags.includes('next'))) continue;
+    if (!isPinCandidate(e)) continue;
     if (!isInjectable(e, today, superseded)) continue;
-    if (!latest) {
-      latest = e;
-      continue;
-    }
-    // Total order (adversarial-review finding): updated, then created, then append
-    // position — `>= 0` keeps the LATER entry on a full timestamp tie, which in an
-    // append-only log is the newest write. A strict `>` here silently favored the
-    // oldest entry on same-millisecond stamps (bulk adds, imports).
-    const cmp =
-      e.updated.localeCompare(latest.updated) || e.created.localeCompare(latest.created);
-    if (cmp >= 0) latest = e;
+    // `>=` keeps the LATER entry on a `created` tie, which in an append-only log is the
+    // newer write (adversarial-review finding: a strict `>` favored the oldest entry on
+    // same-millisecond stamps — bulk adds, imports).
+    if (!latest || e.created >= latest.created) latest = e;
   }
   return latest;
 }
@@ -577,7 +639,9 @@ export function renderContextBundle(project = defaultProject(), budget = SESSION
       handoff.text.length > HANDOFF_PIN_CAP_CHARS
         ? `${handoff.text.slice(0, HANDOFF_PIN_CAP_CHARS)}… (truncated — kb_get ${handoff.id} for the rest)`
         : handoff.text;
-    body += `## Last handoff\n- [${handoff.type} ${trustGlyph(handoff)}] ${text}\n\n`;
+    // The id rides in the label (ADR-0082 §3) so /vfkb:handoff can name the pin it
+    // proposes to retire.
+    body += `## Last handoff\n- [${handoff.type} ${trustGlyph(handoff)} · ${handoff.id}] ${text}\n\n`;
   }
 
   // Cross-repo operations (ADR-0063 §2): pinned after the handoff, never

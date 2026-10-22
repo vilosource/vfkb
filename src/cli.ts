@@ -28,6 +28,11 @@ import {
   findLexicalDuplicates,
   promoteIfCorroborated,
   eligibleForPromotion,
+  retire,
+  restore,
+  handoffReport,
+  staleReport,
+  type ReportRow,
 } from './curator.js';
 import { distill } from './distiller.js';
 import { recordSignal, tally } from './counters.js';
@@ -169,6 +174,7 @@ async function dispatch() {
       'valid-until': 'value',
       zone: 'value',
       constitutional: 'boolean',
+      retires: 'value',
     });
     const type = entryType('add', p.positionals[0]);
     const textArg = p.positionals.slice(1).join(' ').trim();
@@ -185,6 +191,7 @@ async function dispatch() {
         validUntil: flagValue(p, 'valid-until'),
         zone: flagValue(p, 'zone') as any,
         constitutional: p.flags.get('constitutional') === true,
+        retires: flagList(p, 'retires'),
       });
       process.stdout.write(`${e.id}\t[${e.type} ${deriveTrust(e.author.role)}]\t${e.text}\n`);
     } catch (err) {
@@ -406,8 +413,12 @@ async function dispatch() {
   //   curate merge <loserId> <winnerId> archive the loser, keep the winner
   //   curate signal <id> <helpful|harmful>  record an append-only corroboration signal
   //   curate promote-auto <id>          promote ONLY if corroborated (>=N signals)
+  //   curate retire <old> --by <new>    archive a handoff fact, tagged retired-by:<new> (ADR-0082 §4)
+  //   curate restore <id>               un-archive, dropping any retired-by: tag
+  //   curate handoffs                   READ-ONLY: non-pin live handoff facts + archive lines (§6)
+  //   curate stale [--days N]           READ-ONLY: old proposed/incoming/status entries (§6)
   if (cmd === 'curate') {
-    const p = parseArgs('curate', argsOf(sub, rest), {});
+    const p = parseArgs('curate', argsOf(sub, rest), { by: 'value', days: 'value' });
     const [action, id1, id2] = p.positionals;
     const need = (n: number, usage: string) => {
       if (p.positionals.length - 1 !== n) throw new UsageError(`usage: vfkb curate ${usage}`);
@@ -446,9 +457,46 @@ async function dispatch() {
         need(2, 'merge <loser> <winner>');
         mergeDuplicate(id1, id2);
         process.stdout.write(`merged ${id1} -> ${id2} (loser archived)\n`);
+      } else if (action === 'retire') {
+        need(1, 'retire <old> --by <new>');
+        const by = flagValue(p, 'by');
+        if (!by) throw new UsageError('usage: vfkb curate retire <old> --by <new>');
+        retire(id1, by);
+        process.stdout.write(`retired ${id1} (archived, retired-by:${by})\n`);
+      } else if (action === 'restore') {
+        need(1, 'restore <id>');
+        const e = restore(id1);
+        process.stdout.write(`restored ${e.id} -> ${e.zone}\n`);
+      } else if (action === 'handoffs') {
+        need(0, 'handoffs');
+        const r = handoffReport();
+        const fmt = (x: ReportRow) => `${x.id}\t${x.ageDays}d\t${x.firstLine}`;
+        process.stdout.write(r.pin ? `pin\t${fmt(r.pin)}\n` : 'pin\t(none)\n');
+        process.stdout.write(`\n${r.candidates.length} other live handoff/next fact(s), oldest first (shaped = opens as a handoff):\n`);
+        for (const c of r.candidates) process.stdout.write(`${c.shaped ? 'shaped' : 'topical'}\t${fmt(c)}\n`);
+        if (r.unpinnable.length) {
+          process.stdout.write(`\n${r.unpinnable.length} non-fact entr(ies) tagged handoff/next — never pinned (ADR-0082 §1), listed only:\n`);
+          for (const u of r.unpinnable) process.stdout.write(`${u.type}\t${fmt(u)}\n`);
+        }
+        if (r.candidates.length) {
+          process.stdout.write('\n# proposals only — edit this list, then run the lines you keep:\n');
+          for (const c of r.candidates) process.stdout.write(`vfkb curate archive ${c.id}\n`);
+        }
+      } else if (action === 'stale') {
+        need(0, 'stale [--days N]');
+        const days = flagInt(p, 'days') ?? 30;
+        const r = staleReport(days);
+        const section = (title: string, rows: ReportRow[]) => {
+          process.stdout.write(`${title} older than ${days}d: ${rows.length}\n`);
+          for (const x of rows) process.stdout.write(`${x.id}\t${x.type}\t${x.ageDays}d\t${x.firstLine}\n`);
+        };
+        section('proposed decisions', r.proposed);
+        section('unpromoted incoming entries', r.incoming);
+        section('non-handoff status facts', r.status);
       } else {
         process.stderr.write(
-          'usage: vfkb curate <dups|promote <id>|promote-auto <id>|archive <id>|merge <loser> <winner>|signal <id> <helpful|harmful>>\n',
+          'usage: vfkb curate <dups|promote <id>|promote-auto <id>|archive <id>|merge <loser> <winner>|signal <id> <helpful|harmful>|' +
+            'retire <old> --by <new>|restore <id>|handoffs|stale [--days N]>\n',
         );
         process.exit(1);
       }
