@@ -70,4 +70,50 @@ node docs/v3/research/probes/jev-spike-2026-10-22/spike.mjs /tmp/turns.jsonl /tm
 
 ## Result
 
-*(Filled in after the run. The pre-registration above is not edited.)*
+Run 2026-10-22 against `jev-1.14.0` (the API reported that model; the survey described
+1.13.0). 111 calls plus 40 repeats, 103,184 input tokens, **$0.0043**. Aggregates are in
+[`results.json`](results.json).
+
+**Gate 2: FAIL.**
+
+| Clause | Measured | Bar | Met |
+|---|---|---|---|
+| AUROC(`s`), all 111 turns | **0.610** | ≥ 0.549 (baseline 0.499 + 0.05) | yes |
+| AUROC(`s`), the 23 hard cases | **0.450** | ≥ 0.70 | **no** |
+
+- **Corpus:** 19 sessions, 111 turns, 19 of them wrap-up. Exactly one per session: every
+  session's last turn was its only turn with no later tool use. No window was skipped for
+  secrets.
+- **The keyword baseline is no better than chance** (AUROC 0.499). It caught 1 of the 19
+  wrap-ups and fired on 5 turns that were not wrap-ups. So the hard set is 18 wrap-ups the
+  rules missed plus 5 false fires.
+- **On the hard cases Jev is worse than chance** (0.450). Where the rules fail, the model's
+  score does not separate the classes either. This is exactly the failure the survey's §10
+  bolded: the easy cases carry the overall number.
+- **Per question** (AUROC against wrap-up; below 0.5 means the question points the other
+  way, as `more` and `ask` should):
+
+  | Question | AUROC | Reading |
+  |---|---|---|
+  | `close` | 0.477 | No signal. Sessions here rarely end with the user saying so; they stop. |
+  | `more` | 0.350 | Inverse signal, as intended; 0.650 inverted. |
+  | `ask` | 0.319 | Inverse signal; 0.681 inverted. |
+  | `done` | 0.740 | The strongest single signal. |
+
+- **Calibration and stability:** ECE of `s` is 0.115. Across 10 windows called 5 times
+  each, the largest change in `s` was 0.08.
+
+**What this does not license.** `done` alone (0.740) beats the pre-registered score. Picking
+it now, after seeing the results, would be tuning on the same 111 turns. It is a hypothesis
+for a new, separately pre-registered run on fresh turns, not a result.
+
+**Limits.**
+- The label is structural. "No later tool use" also marks sessions that ended
+  for reasons other than finishing (a restart, a context limit, the operator walking away).
+  That probably explains `close`'s lack of signal, and it makes "wrap-up" noisier than the
+  question asked.
+- 19 positives is small, as the pre-registration stated.
+
+**Consequence (RFC-043):** gate 2 is not met, so under RFC-043 Part B its accepting ADR
+records Part B as **not built**, with this evidence, unless a new pre-registered spike
+passes. Ruling 5's optional seam stays unbuilt.

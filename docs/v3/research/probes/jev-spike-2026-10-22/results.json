@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-22",
+  "model": "jev-1.14.0",
+  "sessions": 19,
+  "turns": 111,
+  "wrapUp": 19,
+  "secretSkipped": 0,
+  "inputTokens": 103184,
+  "costUsd": 0.0043,
+  "baselineAuroc": 0.4991,
+  "modelAuroc": 0.6098,
+  "perQuestionAuroc": {
+    "close": 0.4774,
+    "more": 0.3504,
+    "ask": 0.3192,
+    "done": 0.74
+  },
+  "hardCases": 23,
+  "hardWrapUp": 18,
+  "modelAurocHard": 0.45,
+  "ece": 0.1152,
+  "repeatMaxDeltaS": 0.08,
+  "gate2": "FAIL"
+}
