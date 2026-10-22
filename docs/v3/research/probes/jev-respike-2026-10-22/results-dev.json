@@ -1,0 +1,42 @@
+{
+  "phase": "dev",
+  "date": "2026-10-22",
+  "counts": {
+    "turns": 1316,
+    "sessions": 51,
+    "pos": 40,
+    "hardPos": 34,
+    "hardNeg": 288
+  },
+  "variants": {
+    "V0": {
+      "all": 0.7173,
+      "hard": 0.6185
+    },
+    "V1": {
+      "all": 0.7796,
+      "hard": 0.7586
+    },
+    "V2": {
+      "all": 0.7162,
+      "hard": 0.6168
+    },
+    "V3": {
+      "all": 0.8925,
+      "hard": 0.8441
+    },
+    "V4": {
+      "all": 0.7243,
+      "hard": 0.6153
+    }
+  },
+  "baselines": {
+    "b1": 0.5754,
+    "b2": 0.6305
+  },
+  "chosen": "V3",
+  "jevModels": [
+    "jev-1.14.0"
+  ],
+  "inputTokens": 4489056
+}
