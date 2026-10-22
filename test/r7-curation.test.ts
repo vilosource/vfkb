@@ -173,6 +173,18 @@ describe('§4 retirement scope checks — refusals append nothing', () => {
     expect(brainBytes()).toBe(before);
   });
 
+  it('add --retires refuses an archived <old>, <old> = untagged, and unknown ids, appending nothing', () => {
+    rec({ id: 'gone', zone: 'archive', created: '2026-01-01T00:00:00.000Z' });
+    rec({ id: 'plain', tags: ['status'], created: '2026-01-01T00:00:00.000Z' });
+    const before = brainBytes();
+    const add = (retires: string[]) => () =>
+      addEntry('fact', 'HANDOFF: new', { role: 'human', tags: ['handoff'], retires });
+    expect(add(['gone'])).toThrow(/live/);
+    expect(add(['plain'])).toThrow(/handoff/);
+    expect(add(['nope'])).toThrow(/no such entry/);
+    expect(brainBytes()).toBe(before);
+  });
+
   it('add --retires refuses when the NEW entry is not a handoff fact', () => {
     rec({ id: 'old', created: '2026-01-01T00:00:00.000Z' });
     const before = brainBytes();
@@ -214,6 +226,16 @@ describe('§4 retirement success — the edge is a tag, text is byte-identical',
     expect(byId('old2').zone).toBe('archive');
     expect(byId('old1').tags).toContain(`retired-by:${n.id}`);
     expect(byId('old2').tags).toContain(`retired-by:${n.id}`);
+    expect(latestHandoff()?.id).toBe(n.id);
+  });
+
+  it('add --retires leaves the old text byte-identical and a concurrent unnamed handoff live', () => {
+    rec({ id: 'old', text: 'HANDOFF: old  words\n\nexactly  ', created: '2026-01-01T00:00:00.000Z' });
+    rec({ id: 'peer', created: '2026-02-01T00:00:00.000Z' });
+    const n = addEntry('fact', 'HANDOFF: mine', { role: 'human', tags: ['handoff'], retires: ['old'] });
+    expect(byId('old').text).toBe('HANDOFF: old  words\n\nexactly  ');
+    expect(byId('old').refs).toBeUndefined();
+    expect(byId('peer').zone).toBe('established');
     expect(latestHandoff()?.id).toBe(n.id);
   });
 
