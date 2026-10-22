@@ -111,8 +111,8 @@ for a new, separately pre-registered run on fresh turns, not a result.
 **Limits.**
 - The label is structural. "No later tool use" also marks sessions that ended
   for reasons other than finishing (a restart, a context limit, the operator walking away).
-  That probably explains `close`'s lack of signal, and it makes "wrap-up" noisier than the
-  question asked.
+  Together with the scripted single-turn sessions (post-hoc §1), it explains `close`'s lack
+  of signal on the full corpus, and it makes "wrap-up" noisier than the question asked.
 - 19 positives is small, as the pre-registration stated.
 - The pre-registration did not apply two exclusions that RFC-043's window section names:
   turns Claude Code starts on its own (`promptSource`) and pasted blocks.
@@ -123,13 +123,13 @@ These numbers were computed after the result, from the cached responses, with no
 call. They describe how far the verdict can be trusted. They are not a re-run of the gate.
 
 1. **Most positives are not interactive sessions.** 11 of the 19 sessions are single-turn:
-   - 7 are scripted one-shot agent runs (ADR-0052 review gates and a process analyst);
-   - 4 are smoke tests ("hello", a weather question, "Reply with exactly: …").
+   - 7 are scripted one-shot agent runs (ADR-0052 review gates and process analysts);
+   - 4 are smoke tests (a greeting, a weather question, fixed-reply checks).
 
    Their only turn counts as wrap-up because it is their only turn. That gives 11 of the 19
    positives, and 11 of the 18 hard positives. Some multi-turn positives are restarts, not
    wrap-ups. For example, one session ends and another begins 11 minutes later with
-   `/vfkb:brief`, and another opens with "I had to restart…".
+   a session briefing, and another opens by saying it is resuming after a restart.
 2. **Restricted to the 8 multi-turn sessions** (100 turns, 8 positives):
 
    | Measure | AUROC |
@@ -140,7 +140,8 @@ call. They describe how far the verdict can be trusted. They are not a re-run of
    | `done` | 0.672 |
 
    So `close`'s "no signal" was an artifact of the scripted sessions. `done`'s 0.740 was
-   inflated by scripted runs, which end with a "work complete" report.
+   likely inflated by scripted runs: it averages 0.54 on single-turn positives against 0.33 on
+   multi-turn ones.
 3. **Bootstrap 95% intervals** (5,000 resamples, stratified by class):
 
    | Measure | Point | 95% interval |
