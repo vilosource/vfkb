@@ -8,7 +8,21 @@
 // M2a ships the curator ops + the Brake + the retrieval-quality regression. The
 // distiller (write side) and the counter/signal stream that DRIVES promotion are M2b.
 
-import { readAll, updateEntry, setProvenanceStatus, transitionDecision, isDecisionFamily } from './engine.js';
+import {
+  readAll,
+  updateEntry,
+  setProvenanceStatus,
+  transitionDecision,
+  isDecisionFamily,
+  isInjectable,
+  isPinCandidate,
+  latestHandoff,
+  retirementRefusal,
+  supersededIds,
+  effectiveStatus,
+  RETIRED_BY,
+} from './engine.js';
+import { withExclusive } from './storage.js';
 import { tally } from './counters.js';
 import type { KnowledgeEntry } from './types.js';
 
@@ -98,4 +112,93 @@ export function findLexicalDuplicates(entries: KnowledgeEntry[] = readAll()): Du
     else seen.set(key, e.id);
   }
   return out;
+}
+
+// retire (ADR-0082 §4): the after-the-fact form of `retires` — what /vfkb:handoff runs
+// on the user's explicit yes. `old` must be a live handoff/next fact; `by` a live
+// handoff/next fact other than `old`, created no earlier (so `retire <pin> --by <older>`
+// cannot move the pin back). A refusal appends nothing. Text is never touched.
+export function retire(oldId: string, byId: string): KnowledgeEntry {
+  return withExclusive(() => {
+    const all = readAll();
+    const old = all.find((e) => e.id === oldId);
+    if (!old) throw new Error(`no such entry: ${oldId}`);
+    const by = all.find((e) => e.id === byId);
+    if (!by) throw new Error(`no such entry: ${byId}`);
+    const refusal = retirementRefusal(old, by, undefined, supersededIds(all));
+    if (refusal) throw new Error(refusal);
+    const tags = [...new Set([...old.tags, `${RETIRED_BY}${byId}`])];
+    return updateEntry(oldId, { zone: 'archive', tags });
+  });
+}
+
+// restore (ADR-0082 §4): an archived fluid entry back to `established`, minus its
+// `retired-by:` edge. Under the created-ordered pin (§1) a restore cannot move the pin.
+export function restore(id: string): KnowledgeEntry {
+  return withExclusive(() => {
+    const e = get(id);
+    if (isDecisionFamily(e.type)) {
+      throw new Error(`restore() is for fluid types; a decision's standing is its status (use transitionDecision)`);
+    }
+    if (e.zone !== 'archive') throw new Error(`entry ${id} is not archived (zone ${e.zone}) — nothing to restore`);
+    return updateEntry(id, { zone: 'established', tags: e.tags.filter((t) => !t.startsWith(RETIRED_BY)) });
+  });
+}
+
+// --- Read-only reports (ADR-0082 §6, CLI-only). PROPOSE, never act: each returns
+// data; the CLI prints `curate archive <id>` lines for the operator to edit and run.
+export interface ReportRow {
+  id: string;
+  type: KnowledgeEntry['type'];
+  created: string;
+  ageDays: number;
+  firstLine: string;
+}
+export interface HandoffRow extends ReportRow {
+  /** opens as a handoff ("HANDOFF", "SESSION HANDOFF", "RESUME") — the probe's shape rule */
+  shaped: boolean;
+}
+
+const HANDOFF_SHAPE = /^\W*(SESSION\s+)?(HANDOFF|RESUME)\b/i;
+const DAY_MS = 86_400_000;
+const todayIso = () => new Date().toISOString().slice(0, 10);
+
+function row(e: KnowledgeEntry, today: string): ReportRow {
+  const ageDays = Math.floor((Date.parse(today) - Date.parse(e.created.slice(0, 10))) / DAY_MS);
+  return { id: e.id, type: e.type, created: e.created, ageDays, firstLine: e.text.split('\n')[0].slice(0, 100) };
+}
+const oldestFirst = (a: KnowledgeEntry, b: KnowledgeEntry) => a.created.localeCompare(b.created);
+const tagged = (e: KnowledgeEntry) => e.tags.includes('handoff') || e.tags.includes('next');
+
+export function handoffReport(
+  today = todayIso(),
+  entries: KnowledgeEntry[] = readAll(),
+): { pin: HandoffRow | null; candidates: HandoffRow[]; unpinnable: ReportRow[] } {
+  const superseded = supersededIds(entries);
+  const live = entries.filter((e) => isInjectable(e, today, superseded)).sort(oldestFirst);
+  const pin = latestHandoff(entries, today, superseded);
+  const shapedRow = (e: KnowledgeEntry): HandoffRow => ({ ...row(e, today), shaped: HANDOFF_SHAPE.test(e.text) });
+  return {
+    pin: pin ? shapedRow(pin) : null,
+    candidates: live.filter((e) => isPinCandidate(e) && e.id !== pin?.id).map(shapedRow),
+    // tagged handoff/next but not a fact: §1 stops these pinning (listed, not proposed)
+    unpinnable: live.filter((e) => tagged(e) && e.type !== 'fact').map((e) => row(e, today)),
+  };
+}
+
+export function staleReport(
+  days = 30,
+  today = todayIso(),
+  entries: KnowledgeEntry[] = readAll(),
+): { proposed: ReportRow[]; incoming: ReportRow[]; status: ReportRow[] } {
+  const superseded = supersededIds(entries);
+  const old = entries
+    .filter((e) => isInjectable(e, today, superseded))
+    .filter((e) => row(e, today).ageDays > days)
+    .sort(oldestFirst);
+  return {
+    proposed: old.filter((e) => isDecisionFamily(e.type) && effectiveStatus(e, superseded) === 'proposed').map((e) => row(e, today)),
+    incoming: old.filter((e) => e.zone === 'incoming' && !isDecisionFamily(e.type)).map((e) => row(e, today)),
+    status: old.filter((e) => e.type === 'fact' && e.tags.includes('status') && !tagged(e)).map((e) => row(e, today)),
+  };
 }
