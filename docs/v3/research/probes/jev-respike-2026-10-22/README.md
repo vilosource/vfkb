@@ -279,16 +279,18 @@ calls.
    | either says so | 59 | 0.731 | 0.656–0.800 |
    | no filter (the secondary analysis) | 93 | 0.675 | 0.612–0.739 |
 
-   - With any looser rule the gate would read NOT DECIDED; with no filter it would FAIL.
+   - Every looser rule, including no filter, gives **NOT DECIDED**, not FAIL. The all-turns
+     clause still holds under each (with no filter: 0.748 against a bar of 0.592), but the
+     hard-case interval straddles 0.70.
    - **Part of the filter overlaps with the task.** Over the 78 test sessions' final turns,
      V3's score predicts the labellers' verdict with AUROC 0.762. So the filter tends to keep
      endings that already look closed in the window.
    - **The filter is not all of it.** Within natural-close sessions alone, V3 separates the
      wrap-up turn from the session's earlier turns with AUROC 0.874 (1,503 turns, 38
      positives).
-   - A deployed Stop hook cannot apply this filter. In use, the relevant number is nearer the
-     secondary 0.675 for every session ending, or the 0.874 within sessions that do end
-     naturally.
+   - A deployed Stop hook cannot apply this filter. Comparing like with like on all turns, the
+     figure in use is nearer 0.748 when every session ending is counted (hard cases: 0.675),
+     and 0.874 within sessions that do end naturally.
 3. **Dev and test share windows.**
    - One dev session and one test session in the same project share 46 identical windows,
      which looks like a resumed or forked transcript. Splitting by session id does not catch
@@ -308,7 +310,8 @@ calls.
 5. **What the hard set measures.**
    - 490 of the 504 hard negatives are turns where `b2` fired: the assistant said done or
      complete, and work continued.
-   - `b1` misses 34 of the 38 positives.
+   - Of the 38 positives, `b1` misses 29 and `b2` misses 21. The 34 hard positives are those
+     that either rule misses.
    - So 0.812 mostly measures telling "reported done, more work followed" apart from a real
      close.
 6. **Robustness that does hold:**
