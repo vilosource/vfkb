@@ -1,0 +1,37 @@
+{
+  "recordVersion": 1,
+  "sha": "e61217d11fad74d4063fc2da21256c9c55e32f6e",
+  "governing": ["docs/adr/ADR-0082-propose-only-curation.md"],
+  "reviewer": { "agent": "general-purpose", "model": "opus", "rounds": 2 },
+  "generated": "2026-10-22T11:04:01Z",
+  "note": "Round 1 read 8588084, round 2 read a402cf8 (test-only). The tip e61217d adds only .vfkb/entries.jsonl lines (the review fact and the handoff), with no code change after the review.",
+  "findings": [
+    { "id": "m1", "severity": "minor", "status": "open", "summary": "B1/B2 'a handoff was written' checks still count decisions/links tagged handoff, which section 1 never pins; follow-up", "acceptedBy": null },
+    { "id": "m2", "severity": "minor", "status": "open", "summary": "ISO timestamps compared as strings; a non-millisecond imported created mis-orders the pin and the older-new refusal (pre-existing)", "acceptedBy": null },
+    { "id": "m3", "severity": "minor", "status": "fixed", "summary": "add --retires path lacked live-old and byte-identical-text tests; added in a402cf8, both observed red under mutation", "acceptedBy": null },
+    { "id": "m4", "severity": "minor", "status": "open", "summary": "curate restore lifts an archived incoming agent entry to established without corroboration (matches ADR text; operator-only CLI)", "acceptedBy": null },
+    { "id": "m5", "severity": "minor", "status": "open", "summary": "report nits: incoming handoff facts listed in both reports; NaNd age for an empty created", "acceptedBy": null }
+  ],
+  "findingsCount": 5,
+  "ruledOut": [],
+  "mutations": [
+    { "guard": "test/r7-curation.test.ts > §1 pin selection (zone edit / promote / restore)", "mutation": "pin ordered by updated", "observedRed": true },
+    { "guard": "test/r7-curation.test.ts > a NEWER decision or link tagged handoff never pins", "mutation": "pin not restricted to facts", "observedRed": true },
+    { "guard": "test/r7-curation.test.ts > refuses a <new> older than <old>", "mutation": "older-new check removed", "observedRed": true },
+    { "guard": "test/r7-curation.test.ts > refuses <new> = <old>", "mutation": "self check removed", "observedRed": true },
+    { "guard": "test/r7-pin-b3.test.ts > B3 staleness input is the pin created", "mutation": "B3 input = updated", "observedRed": true },
+    { "guard": "test/r7-pin-b3.test.ts > archived line fixture", "mutation": "B3 reads raw lines without materialize", "observedRed": true },
+    { "guard": "test/r7-curation.test.ts > a created tie goes to the later write", "mutation": "strict > on created tie", "observedRed": true },
+    { "guard": "test/r7-curation.test.ts > the Last handoff line names the pinned entry id", "mutation": "render without the id", "observedRed": true },
+    { "guard": "test/r7-curation.test.ts > curate restore removes the retired-by tag", "mutation": "restore keeps the tag", "observedRed": true },
+    { "guard": "test/r7-curation.test.ts > add --retires writes the new entry and retires each named old", "mutation": "retiredVersion appends skipped", "observedRed": true },
+    { "guard": "test/r7-curation.test.ts > add --retires refuses an archived <old>…", "mutation": "add path passes old with zone forced established", "observedRed": true },
+    { "guard": "test/r7-curation.test.ts > add --retires leaves the old text byte-identical…", "mutation": "retiredVersion trims text", "observedRed": true },
+    { "guard": "test/r7-curation-cli.test.ts > kb_add with retires archives the named handoff", "mutation": "MCP retires dropped (rebuilt dist)", "observedRed": true },
+    { "guard": "test/r7-curation-cli.test.ts > vfkb add --retires", "mutation": "CLI --retires dropped (rebuilt dist)", "observedRed": true },
+    { "guard": "test/r7-curation-cli.test.ts > curate stale --days N honours N", "mutation": "stale ignores --days", "observedRed": true },
+    { "guard": "test/r7-curation.test.ts > neither report writes / curate handoffs lists non-pin", "mutation": "handoff report includes the pin", "observedRed": true }
+  ],
+  "mutationsNote": null,
+  "verdict": "MERGE"
+}

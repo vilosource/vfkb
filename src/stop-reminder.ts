@@ -17,8 +17,8 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { isAbsolute, join, relative } from 'node:path';
 import { relativeReal } from './realpath.js';
-import { brainDir, COMMITTED_BRAIN_PATHS } from './storage.js';
-import { isInjectable, supersededIds } from './engine.js';
+import { brainDir, COMMITTED_BRAIN_PATHS, materialize, type StoredRecord } from './storage.js';
+import { latestHandoff, supersededIds } from './engine.js';
 import type { KnowledgeEntry } from './types.js';
 
 export interface StopHookInput {
@@ -216,62 +216,43 @@ export function uncommittedDecisionCount(brain: string = brainDir(), cwd: string
 const isHandoff = (e: BrainLine): boolean => (e.tags ?? []).some((t) => t === 'handoff' || t === 'next');
 
 /**
- * ISO timestamp of the currently PINNED handoff/next entry — the same selection engine.ts's
- * `latestHandoff()` uses for `resume`/`/vfkb:brief` (newest-by-`updated`-then-`created` among
- * INJECTABLE entries: not archived, not superseded, not deprecated, provenance not
- * stale/expired, not past `valid_until`). Reuses the engine's own `isInjectable`/
- * `supersededIds` rather than re-simplifying that logic — an earlier version of this function
- * used bare newest-by-timestamp with no injectability filtering, which review found produces
- * a real false negative: a later archived/superseded handoff entry can mask an earlier,
- * actually-pinned one, making a genuinely stale handoff read as fresh.
+ * The currently PINNED handoff (ADR-0082 §2): the brain MATERIALIZED, then the engine's
+ * own `latestHandoff()` — the one pin selector, so the rendered pin and B3's anchor can
+ * never disagree. An earlier version scanned raw lines, so an archived entry's
+ * pre-archive line still passed `isInjectable` and could mask the real pin, and it kept
+ * its own copy of the ordering rule.
  *
- * Reads the WHOLE brain (committed + uncommitted) directly from the file rather than via
- * `readAll()`/`materialize()`, so it works with an explicit `brain` path for testability
- * instead of env-var-based `brainDir()` resolution.
+ * Reads the brain file at an explicit `brain` path (testability, rather than env-based
+ * `brainDir()` resolution). `materialize` normalizes every record at the read boundary
+ * (ADR-0042 §2), so a malformed line is excluded rather than crashing classification.
  */
-function newestHandoffTimestamp(brain: string): string | undefined {
-  const file = join(brain, 'entries.jsonl');
+export function pinnedHandoff(brain: string): KnowledgeEntry | undefined {
   let lines: string[];
   try {
-    lines = readFileSync(file, 'utf8').split('\n').filter(Boolean);
+    lines = readFileSync(join(brain, 'entries.jsonl'), 'utf8').split('\n').filter(Boolean);
   } catch {
     return undefined; // no brain file yet
   }
-  const all: KnowledgeEntry[] = [];
+  const records: StoredRecord[] = [];
   for (const l of lines) {
     try {
-      all.push(JSON.parse(l) as KnowledgeEntry);
+      records.push(JSON.parse(l) as StoredRecord);
     } catch {
       continue;
     }
   }
-  const superseded = supersededIds(all);
-  const today = new Date().toISOString().slice(0, 10);
-  let newest: KnowledgeEntry | undefined;
-  for (const e of all) {
-    if (!isHandoff(e)) continue;
-    // Defensive: a malformed/partial entry (missing provenance/validity — should not exist
-    // in a real engine-written brain, but this reads the raw file directly, not through
-    // addEntry's guarantees) must not crash classification of every OTHER entry. Treat it
-    // as non-injectable — the safe default this file already uses elsewhere (skip, don't
-    // nag) when something is unexpected.
-    let injectable: boolean;
-    try {
-      injectable = isInjectable(e, today, superseded);
-    } catch {
-      continue;
-    }
-    if (!injectable) continue;
-    if (!newest) {
-      newest = e;
-      continue;
-    }
-    // Same total order as latestHandoff (engine.ts): updated, then created, `>=` keeps the
-    // later entry on a full-timestamp tie (the newest write in an append-only log).
-    const cmp = e.updated.localeCompare(newest.updated) || e.created.localeCompare(newest.created);
-    if (cmp >= 0) newest = e;
-  }
-  return newest?.updated;
+  const all = materialize(records);
+  return latestHandoff(all, new Date().toISOString().slice(0, 10), supersededIds(all)) ?? undefined;
+}
+
+/**
+ * B3's staleness input (ADR-0082 §2): the pin's `created`, not its `updated` — a zone
+ * edit to the pin does not change what it says. Consequence, owned by this build: an
+ * old fact retagged into the pin reads stale if code landed after it was first written
+ * (RFC-043 prototype case 3, quiet → STALE).
+ */
+function pinnedHandoffCreated(brain: string): string | undefined {
+  return pinnedHandoff(brain)?.created;
 }
 
 const EMPTY_TREE_SHA = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'; // git's well-known empty-tree object
@@ -306,7 +287,7 @@ export function handoffIsStale(cwd: string = process.cwd(), brain: string = brai
   // top-level catch) would otherwise crash `cli.ts hook stop` entirely — zero stdout, not
   // fail-open — instead of just skipping this one nudge.
   try {
-    const since = newestHandoffTimestamp(brain);
+    const since = pinnedHandoffCreated(brain);
     if (!since) return false; // no handoff pinned yet — B1/B2 own that gap, not this trigger
     const root = execFileSync('git', ['rev-parse', '--show-toplevel'], {
       cwd,

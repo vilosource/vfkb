@@ -227,6 +227,13 @@ server.registerTool(
       role: ROLE.optional().describe('author role; defaults to executor (agent)'),
       status: STATUS.optional().describe('decision family only'),
       constitutional: z.boolean().optional().describe('decision family only (ADR-0008)'),
+      retires: z
+        .string()
+        .optional()
+        .describe(
+          'comma-separated ids of live handoff/next facts this new handoff fact replaces; each is archived and ' +
+            'tagged retired-by:<new id> in the same write, and any scope failure refuses the whole add (ADR-0082 §4)',
+        ),
     },
   },
   async (a) => {
@@ -246,6 +253,7 @@ server.registerTool(
       contradicts: tags(a.contradicts, 'contradicts'),
       status: a.status,
       constitutional: a.constitutional,
+      retires: tags(a.retires, 'retires'),
     });
     return text(`added ${line(e)}`);
   },
