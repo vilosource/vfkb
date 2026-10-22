@@ -205,7 +205,9 @@ the sha256 of the `rows.jsonl` every phase ran on, and each kept session's id an
 
 ## Result (test split, scored once with the locked V3)
 
-**Gate 2: PASS** on the pre-registered bar. Aggregates are in [`results.json`](results.json).
+**Gate 2: PASS on the pre-registered bar, and fragile.** The PASS depends on the strict
+labeller filter, and on the test split the labellers agree less than the validity floor
+(see "Review findings" below). Aggregates are in [`results.json`](results.json).
 The Jev model was `jev-1.14.0`, and 6.1M input tokens were used across the dev and test
 phases.
 
@@ -213,7 +215,7 @@ phases.
 |---|---|---|---|
 | AUROC(V3), all 2,728 primary turns | **0.878** | ≥ 0.663 (`b1` 0.613 + 0.05) | yes |
 | AUROC(V3), the 538 hard cases (34 positive, 504 negative) | **0.812**, 95% interval **0.742–0.873** | lower end ≥ 0.70 | yes |
-| Labeller κ | 0.672 | ≥ 0.6 | yes |
+| Labeller κ, pooled over both splits as part A specifies | 0.672 | ≥ 0.6 | yes (test split alone: 0.571, below the floor) |
 
 - **Corpus:** 79 test sessions from the frozen build.
 - **Gain over `b1`:** the cluster-bootstrap interval for V3 minus `b1` on all turns is
@@ -223,8 +225,9 @@ phases.
   - Jev is ahead on both point estimates, but the hard-case intervals overlap, so this does
     not show Jev beats a Claude model;
   - median latency 12.6 s per call against Jev's 0.20 s (p95 18.6 s against 0.26 s).
-    `claude -p` includes CLI start-up, so this overstates Haiku's model latency; even
-    allowing for that, Haiku is not usable inside the 1.5 s Stop budget RFC-043 sets.
+    The Haiku figure is `claude -p` from end to end, CLI start-up included. **Haiku's model
+    latency was not measured**, so this does not decide whether Haiku fits RFC-043's 1.5 s
+    Stop timeout.
 - **Calibration is poor:** ECE is 0.522. V3's scores are compressed:
   - positives average 0.71 (p10–p90: 0.56–0.86);
   - negatives average 0.53 (0.40–0.68), against a base rate of 1.4%.
@@ -253,4 +256,69 @@ phases.
   - **Generalising.** Everything here comes from one operator's sessions.
 - **Spike 1 is not overturned,** and this is not a re-run of it. Spike 1 asked a different
   question, its four-question score, on a corpus that could not decide. Here that score (V0)
-  had a dev hard-case AUROC of 0.619, which would have failed again.
+  had a dev hard-case AUROC of 0.619. It was never scored on test, so it would not have
+  passed, but whether it would have been FAIL or NOT DECIDED is unknown.
+
+## Review findings (post-hoc; they do not change the gate)
+
+Found by the adversarial review of PR #372, and recomputed from the local cache with no new
+calls.
+
+1. **The test split's labels fall below the validity floor.**
+   - Part A pooled κ over all 130 sessions (0.672), and `label.mjs` pools the same way.
+   - By split: dev 0.850 (51 sessions), **test 0.571** (79 sessions).
+   - The gate was applied as written, but the labels that define the test positives are below
+     the 0.6 floor that part A set.
+2. **The PASS depends on the strictest labeller rule.** Test, V3:
+
+   | Positives kept when | Positives | Hard-case AUROC | 95% interval |
+   |---|---|---|---|
+   | both labellers say `natural_close` (pre-registered) | 38 | 0.812 | 0.742–0.873 |
+   | Opus alone says so | 56 | 0.754 | 0.694–0.812 |
+   | Sonnet alone says so | 41 | 0.773 | 0.675–0.859 |
+   | either says so | 59 | 0.731 | 0.656–0.800 |
+   | no filter (the secondary analysis) | 93 | 0.675 | 0.612–0.739 |
+
+   - With any looser rule the gate would read NOT DECIDED; with no filter it would FAIL.
+   - **Part of the filter overlaps with the task.** Over the 78 test sessions' final turns,
+     V3's score predicts the labellers' verdict with AUROC 0.762. So the filter tends to keep
+     endings that already look closed in the window.
+   - **The filter is not all of it.** Within natural-close sessions alone, V3 separates the
+     wrap-up turn from the session's earlier turns with AUROC 0.874 (1,503 turns, 38
+     positives).
+   - A deployed Stop hook cannot apply this filter. In use, the relevant number is nearer the
+     secondary 0.675 for every session ending, or the 0.874 within sessions that do end
+     naturally.
+3. **Dev and test share windows.**
+   - One dev session and one test session in the same project share 46 identical windows,
+     which looks like a resumed or forked transcript. Splitting by session id does not catch
+     that.
+   - Those 46 test rows (all negative, 10 of them hard) were sent to Jev in the dev phase,
+     before the lock, and were part of the dev data that chose V3.
+   - Without them: all turns 0.877, hard cases 0.811 (interval 0.740–0.872).
+   - Two test sessions also share windows. Treating them as one cluster gives 0.742–0.873.
+4. **The lock guard is weaker than part A says.** It checks only that `locked.json` is tracked
+   and unmodified. It does not check:
+   - that the lock commit came before the test calls;
+   - that the lock matches `results-dev.json`;
+   - that the scripts are unchanged.
+
+   The order was right in practice. The lock was committed at 13:59:35, and the first
+   test-only Jev call was at 13:59:48. Part A's scripts are unchanged at the result commit.
+5. **What the hard set measures.**
+   - 490 of the 504 hard negatives are turns where `b2` fired: the assistant said done or
+     complete, and work continued.
+   - `b1` misses 34 of the 38 positives.
+   - So 0.812 mostly measures telling "reported done, more work followed" apart from a real
+     close.
+6. **Robustness that does hold:**
+   - Clustering by project instead of by session gives a hard-case interval of 0.733–0.869.
+   - No project dominates: the 38 test positives come from 37 sessions in 17 projects, at
+     most 5 per project.
+   - The V3 question had not been tried before part A. Spike 1's cache holds only the
+     four-question set.
+
+**Reading for RFC-043.** Gate 2 is met on its pre-registered terms, but by a narrow and
+labeller-dependent margin. Any build would still have to show, in shadow mode and on fresh
+sessions, that the score separates real closes. The shadow-to-act gate exists for that. This
+spike does not show it.
