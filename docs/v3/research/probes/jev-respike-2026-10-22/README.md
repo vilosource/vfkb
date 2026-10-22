@@ -202,3 +202,55 @@ the sha256 of the `rows.jsonl` every phase ran on, and each kept session's id an
 
 - **Locked: V3**, by the part A rule. These dev numbers are not the result. The test split
   is scored once, with V3, under part A's gate.
+
+## Result (test split, scored once with the locked V3)
+
+**Gate 2: PASS** on the pre-registered bar. Aggregates are in [`results.json`](results.json).
+The Jev model was `jev-1.14.0`, and 6.1M input tokens were used across the dev and test
+phases.
+
+| Clause | Measured | Bar | Met |
+|---|---|---|---|
+| AUROC(V3), all 2,728 primary turns | **0.878** | ≥ 0.663 (`b1` 0.613 + 0.05) | yes |
+| AUROC(V3), the 538 hard cases (34 positive, 504 negative) | **0.812**, 95% interval **0.742–0.873** | lower end ≥ 0.70 | yes |
+| Labeller κ | 0.672 | ≥ 0.6 | yes |
+
+- **Corpus:** 79 test sessions from the frozen build.
+- **Gain over `b1`:** the cluster-bootstrap interval for V3 minus `b1` on all turns is
+  0.199–0.330, so the margin does not rest on the point estimate.
+- **The Claude arm** (`claude-haiku-4-5`, run once, never tuned):
+  - AUROC 0.835 on all turns, and 0.730 on hard cases (interval 0.635–0.813);
+  - Jev is ahead on both point estimates, but the hard-case intervals overlap, so this does
+    not show Jev beats a Claude model;
+  - median latency 12.6 s per call against Jev's 0.20 s (p95 18.6 s against 0.26 s).
+    `claude -p` includes CLI start-up, so this overstates Haiku's model latency; even
+    allowing for that, Haiku is not usable inside the 1.5 s Stop budget RFC-043 sets.
+- **Calibration is poor:** ECE is 0.522. V3's scores are compressed:
+  - positives average 0.71 (p10–p90: 0.56–0.86);
+  - negatives average 0.53 (0.40–0.68), against a base rate of 1.4%.
+
+  The ranking separates the classes, but the raw number is not a probability. Any policy
+  needs a threshold calibrated on data, as RFC-043 already says ("the thresholds come from
+  calibration, not from guesses").
+- **Secondary analysis,** with every structural positive including restarts and abandoned
+  sessions: AUROC 0.748 on all turns and 0.675 on hard cases. As expected, endings the
+  labellers called restart or abandoned cannot be predicted from the window. The PASS covers
+  natural closes only.
+
+### What this licenses and what it does not
+
+- **Gate 2 of RFC-043 Part B is met.** Part B can now be built only if gate 1 also passes:
+  the B3 re-measurement after Parts 0, 1 and A must still show mid-session fires in at least
+  one interactive session in 3, over at least 10. That has not been measured.
+- **The question changed from the RFC's design.** The winning score is the RFC's own
+  question asked directly. It was the V3 variant fixed in part A, not the four-question
+  policy. Part B's design should ask that one question, or its accepting ADR should say why
+  not.
+- **Not licensed:**
+  - **Acting on the score.** Shadow mode comes first, then the shadow-to-act gate.
+  - **Fixed thresholds.** With ECE 0.52, no threshold such as 0.5 can be read off the raw
+    score.
+  - **Generalising.** Everything here comes from one operator's sessions.
+- **Spike 1 is not overturned,** and this is not a re-run of it. Spike 1 asked a different
+  question, its four-question score, on a corpus that could not decide. Here that score (V0)
+  had a dev hard-case AUROC of 0.619, which would have failed again.

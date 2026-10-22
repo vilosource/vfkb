@@ -1,0 +1,65 @@
+{
+  "phase": "test",
+  "date": "2026-10-22",
+  "variant": "V3",
+  "jevModels": [
+    "jev-1.14.0"
+  ],
+  "armModel": "claude-haiku-4-5",
+  "counts": {
+    "turns": 2728,
+    "sessions": 79,
+    "pos": 38,
+    "hardPos": 34,
+    "hardNeg": 504
+  },
+  "labellerKappa": 0.6721,
+  "jev": {
+    "all": 0.8778,
+    "hard": 0.812,
+    "hardCI": [
+      0.7417,
+      0.8725
+    ],
+    "diffVsB1CI": [
+      0.1987,
+      0.3304
+    ],
+    "ece": 0.5216,
+    "latencyMs": {
+      "p50": 201,
+      "p95": 260,
+      "n": 2728
+    }
+  },
+  "baselines": {
+    "b1": 0.6125,
+    "b2": 0.6326,
+    "bar": 0.6625
+  },
+  "claudeArm": {
+    "all": 0.8351,
+    "hard": 0.7299,
+    "hardCI": [
+      0.6346,
+      0.8131
+    ],
+    "latencyMs": {
+      "p50": 12618,
+      "p95": 18558
+    }
+  },
+  "secondary": {
+    "counts": {
+      "turns": 2783,
+      "sessions": 79,
+      "pos": 93,
+      "hardPos": 89,
+      "hardNeg": 504
+    },
+    "jevAll": 0.7482,
+    "jevHard": 0.675
+  },
+  "inputTokens": 1590345,
+  "gate2": "PASS"
+}
