@@ -1,0 +1,6 @@
+{
+  "variant": "V3",
+  "rule": "highest dev hard-case AUROC (README part A); tie to lower id",
+  "devHardAuroc": 0.8441,
+  "lockedBefore": "any test-split Jev or comparator call"
+}

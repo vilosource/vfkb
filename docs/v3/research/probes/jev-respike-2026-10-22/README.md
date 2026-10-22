@@ -184,3 +184,21 @@ Rebuilding the corpus later gives different counts, because transcripts keep acc
 and the 2-hour live cut-off moves. **The corpus is frozen:** `corpus-manifest.json` records
 the sha256 of the `rows.jsonl` every phase ran on, and each kept session's id and split
 (ids only, no text). Every phase runs on that one build.
+
+## Pre-registration, part B: the lock (committed before any test-split call)
+
+- **The dev phase** (`results-dev.json`): 51 sessions, 1,316 turns, 40 positives; 34 hard
+  positives and 288 hard negatives. Labeller κ was 0.672 over 130 sessions, with 73 both
+  `natural_close`.
+
+  | Variant | Dev AUROC, all | Dev AUROC, hard |
+  |---|---|---|
+  | V0 (spike 1's score) | 0.717 | 0.619 |
+  | V1 (`done`) | 0.780 | 0.759 |
+  | V2 (V0, 3-call mean) | 0.716 | 0.617 |
+  | V3 (one question) | **0.893** | **0.844** |
+  | V4 (long window) | 0.724 | 0.615 |
+  | `b1` / `b2` | 0.575 / 0.631 | — |
+
+- **Locked: V3**, by the part A rule. These dev numbers are not the result. The test split
+  is scored once, with V3, under part A's gate.
