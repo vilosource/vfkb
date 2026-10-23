@@ -1,7 +1,7 @@
 ---
 type: RFC
 title: "RFC-046: Background curation — a deterministic rule archives clear-cut old handoffs, an agent proposes the rest, one briefing line alerts the operator (amends ADR-0082 §6)"
-description: "Operator direction 2026-10-23 (brain f119b9942af4): curation should run in the background, by rules, with clear-cut cases archived automatically and only uncertain cases surfaced. A probe on main found 122 live handoff/next facts beside the pin. Most say 'supersedes X', but often with qualifiers ('on the #330 question only', 'X's NEXT stands'), so the text cannot drive a rule without judgment. This RFC proposes: (1) one deterministic rule, keyed on structure not prose — a handoff-shaped fact at least 14 days older than the pin, with at least 3 newer live handoff-shaped facts, and, if it carries a topic tag, at least one newer handoff sharing that tag — archived at SessionEnd on topic branches, after the fallback-handoff decision; 61 of the 122 today; (2) a sticky `curation-kept` exemption that survives cross-branch merges; (3) everything else goes to a curator agent that proposes, never archives; (4) one line in the session-start briefing reports what was archived and what awaits the operator; (5) declined proposals are never re-raised. It replaces ADR-0082 §6's operator-edited list, and relaxes ADR-0082's propose-only rule for the rule's cases only."
+description: "Operator direction 2026-10-23 (brain f119b9942af4): curation should run in the background, by rules, with clear-cut cases archived automatically and only uncertain cases surfaced. A probe on main found 122 live handoff/next facts beside the pin. Most say 'supersedes X', but often with qualifiers ('on the #330 question only', 'X's NEXT stands'), so the text cannot drive a rule without judgment. This RFC proposes: (1) one deterministic rule, keyed on structure not prose — a handoff-shaped fact at least 14 days older than the pin, with at least 3 newer live handoff-shaped facts, and, if it carries a topic tag, at least one newer handoff sharing that tag — archived at SessionEnd on topic branches, only when the session is committing its own brain changes anyway, after the fallback-handoff decision; 54 of the 122 today; (2) a sticky `curation-kept` exemption that survives cross-branch merges; (3) everything else goes to a curator agent that proposes, never archives; (4) one line in the session-start briefing reports what was archived and what awaits the operator; (5) declined proposals are never re-raised. It replaces ADR-0082 §6's operator-edited list, and relaxes ADR-0082's propose-only rule for the rule's cases only."
 status: "Proposed"
 timestamp: 2026-10-23
 ---
@@ -72,10 +72,12 @@ The probe found:
 4. **Age and count separate most of the pile, and topic tags hold back the rest.**
    - 72 of the 91 shaped handoffs are at least 14 days older than the pin, and each has at
      least 3 newer live shaped handoffs.
-   - Of those 72, 11 carry a topic tag that no newer handoff shares, such as `track-7`, `p12`
-     or `rfc-041`. The same-stream guard (§2) holds those back.
-   - That leaves **61**.
-   - 18 of the 61 carry no topic tag at all, so the guard cannot see their stream.
+   - Of those 72, 18 carry a topic tag that no newer handoff shares, such as `track-7`, `p12`
+     or `rfc-041`. The same-stream guard (§2) holds those back. Broad kind-of-work tags such
+     as `rfc`, `review` or `plugin` do not count as a stream (round-2 review: matching on them
+     cleared entries from unrelated streams).
+   - That leaves **54**.
+   - 25 of the 54 carry no topic tag at all, so the guard cannot see their stream.
    - Qualified handoffs (item 2) occur at every age. The 14-day window does not avoid them.
      It relies on the newer handoffs that carried their content forward.
    - A 7-day window would add one entry, `d5667ac2c52c`, then 9.4 days old. The difference is
@@ -101,14 +103,22 @@ A live fact X is archived by the rule when **all** of these hold:
 3. X's `created` is **at least 14 days** before the pin's `created`.
 4. **At least 3 live, handoff-shaped pin candidates were created after X.** The pin counts
    only if it is itself shaped, and archived entries never count.
-5. **The same-stream guard:** if X carries any topic tag, meaning any tag outside the generic
-   set (`handoff`, `next`, `status`, `auto`, `verified`, `v2`, `v3`), then at least one of
-   those newer shaped handoffs shares one of X's topic tags.
+5. **The same-stream guard:** if X carries any topic tag, then at least one of those newer
+   shaped handoffs shares one of X's topic tags. A topic tag is any tag outside the generic
+   set, which has two parts:
+   - lifecycle words: `handoff`, `next`, `status`, `auto`, `verified`, `v2`, `v3`;
+   - kind-of-work words that span streams: `review`, `escalation`, `rfc`, `adr`, `plugin`,
+     `l4`, `guard`, `release`, `tooling`, `cross-repo`, `distribution`, `roadmap`, `public`.
 6. **No line of X's id**, archived or not, carries `curation-kept`. See "Sticky exemption"
    below.
 
 The rule reads `created`, tags and the shape test. It never reads what the text says about
 other entries, for the reason in Context item 2.
+
+**One snapshot per run.** All six conditions are evaluated against the live set as it stood
+**before** the run. An entry the run archives still counts as live for the rest of that
+run. Without this, condition 5's result could depend on the order entries are checked in,
+since an earlier archive could remove the newer handoff that clears a later one.
 
 **What it writes.** The existing archive delta (zone `archive`), plus the tag
 `auto-archived:old-handoff@<YYYY-MM-DD>`. Text is untouched (ADR-0021).
@@ -129,34 +139,62 @@ auto-archive the entry later, from its own copy without `curation-kept`, and tha
 wins the merge. So:
 - the rule checks **every raw line** of an id for `curation-kept`, not just the materialized
   one (condition 6);
-- when the rule finds an id whose newest line is an `auto-archived:` archive, while an
-  earlier line carries `curation-kept`, it **restores the entry and re-adds
-  `curation-kept`**.
+- **the repair:** the rule looks at the id's materialized line and at its newest line that
+  the rule did not write. If the materialized line is a rule-written archive, and that newest
+  other line is live and carries `curation-kept`, the rule restores the entry and re-adds
+  `curation-kept`;
+- **the operator's own later archive wins.** If the newest line the rule did not write is an
+  archive, for example a later `curate archive` by the operator, the rule leaves it alone.
 
-Between the merge and the next SessionEnd on a topic branch, the entry is hidden. That window
-is stated, not closed.
+Each stale branch can cause at most one re-archive and one repair, so this cannot loop.
+Between the merge and the next qualifying SessionEnd, the entry is hidden. That window is
+stated, not closed.
 
 **Accepted risks, stated:**
-- **A handoff a later one called "still valid"** (e.g. `064a17d755b2`, 39 days old) is
-  archived once it is old enough. After 14 days and 3 newer handoffs on the same stream, what
-  still matters has usually been carried forward or written as its own entry.
+- **A handoff that a later one only partly superseded** is archived once it is old enough.
+  For example, `023309109476` was superseded "on the #330 question only", and the rule
+  archives it. After 14 days and 3 newer handoffs, what still matters has usually been
+  carried forward or written as its own entry.
 - **A paused stream with no topic tag** cannot be told apart from the main stream. After 14
-  days and 3 newer handoffs elsewhere, its last handoff is archived. 18 of today's 61 have no
-  topic tag. The §5 line reports every archive with its undo. Tagging handoffs by stream (the
-  handoff skill could suggest it) is the cheap mitigation, and it is left to the build.
+  days and 3 newer handoffs elsewhere, its last handoff is archived. 25 of today's 54 have no
+  topic tag. Context item 3's own example is like this: the Jev handoffs `d00e40d78b33` and
+  `bfec144852c2` carry only `handoff,next`, so once they are old enough the guard cannot
+  protect them. The §5 line reports every archive with its undo. The cheap mitigation is
+  tagging handoffs by stream, which the handoff skill could suggest; it is left to the
+  build.
+- **The guard's protection is one shared topic tag, not proof of the same stream.** A
+  handoff tagged `r7,jev` is cleared by any later `r7` handoff.
 
 **Rejected rules:**
 - **"Superseded by text":** fails Context item 2.
 - **"Older than the pin":** fails Context item 3.
-- **No same-stream guard:** it would archive the 11 entries above, including the last
-  handoffs of streams no later handoff mentions by tag.
+- **No same-stream guard:** it would archive the 18 entries above, including the last
+  handoffs of streams no later handoff shares a topic tag with.
+- **A guard over every non-lifecycle tag:** broad tags such as `rfc` and `review` cleared
+  entries from unrelated streams (round-2 review).
 
 ### 3. Where the rule runs
 
 `vfkb curate auto` is a new CLI subcommand. The SessionEnd hook calls it as follows:
+- **Only when the session's own brain changes are being committed anyway** (operator ruling
+  2026-10-23, brain `ca519225196e`, option A). The test is the same one the hook already
+  uses: there are new ids since HEAD. A session that wrote nothing archives nothing and
+  commits nothing. So curation never adds a commit of its own to any branch.
+  - **Why:** a curation-only commit after a PR's reviewed sha would fail the review gate,
+    which strips only review-record commits from the tip (`scripts/review-gate.mjs:89`,
+    `candidateShas` at `:281`). It would also add brain commits to code PRs in other
+    projects.
+  - **Rejected:** committing anyway and teaching the review gate to skip brain-only commits
+    (an exception that lets unreviewed brain changes through). Also rejected: archiving at
+    session start and leaving the result uncommitted (a dirty brain in every session).
+  - **The cost:** curation happens a little less often. Read-only sessions, such as reviews
+    and briefings, never curate.
 - **On a topic branch only.** On the default branch the hook already refuses to commit. A rule
   that archived there would leave `entries.jsonl` dirty after most sessions and could block a
   `git pull`, so on the default branch the rule does not run.
+  - **Consequence, stated:** a project whose sessions all run on its default branch never
+    gets Tier 1. Its backlog is never auto-archived, and with ADR-0082 §6's list retired,
+    only Tier 2's proposals and the existing manual `curate archive` reach it.
 - **After the B2 fallback decision, before the commit.** Today the fallback test reads every
   line added since HEAD (`fresh.some(isHandoff)`, `src/session-end.ts:205`). An archive
   appends a full copy of the entry with its `handoff` tag. If the rule ran first, any
@@ -166,16 +204,16 @@ is stated, not closed.
 - **"New entries" means new ids.** The fallback's `fresh` set and the commit message's count
   are computed over ids absent at HEAD, not over added lines. Then an archive line is never
   counted as a new entry wherever the rule runs.
-- **Even when the session wrote nothing.** If the brain was clean and the rule archives
-  something, the hook commits with `chore(brain): curation (<n> archived)`.
+- **One commit.** The archives ride the session's own brain-only commit, whose message adds
+  `, <n> curated`.
 - It is fail-open, like the rest of SessionEnd.
 
 ### 4. Tier 2: the curator agent
 
 A plugin subagent, `vfkb:curator`, beside the existing `vfkb:briefer` and `vfkb:updater`
 (vfkb-claude-plugin `plugin/agents/`). Its job is fixed by a checklist, not open judgment:
-- **Scope:** live pin candidates that the rule does not archive (today 30 shaped, among them
-  the 11 held back by the stream guard, plus 31 topical), and `vfkb curate stale`'s report.
+- **Scope:** live pin candidates that the rule does not archive (today 37 shaped, among them
+  the 18 held back by the stream guard, plus 31 topical), and `vfkb curate stale`'s report.
 - **For each, it either proposes archiving with one checkable reason, or says nothing.**
   Admissible reasons:
   - a newer live entry names this one and the agent reads that as full supersession, quoted;
@@ -218,7 +256,7 @@ there is something to say**:
 ### 6. The existing backlog
 
 There is no special backlog pass. The first topic-branch SessionEnd after the build runs §2
-and archives the qualifying set (61 at `97e796e`). The next session's line reports it. The
+and archives the qualifying set (54 at `97e796e`). The next session's line reports it. The
 curator then proposes from what remains.
 
 ADR-0082 §6's operator-edited list is retired, along with its file
@@ -241,6 +279,12 @@ ADR-0082 §6's operator-edited list is retired, along with its file
     message's count excludes archive lines.
   - **Sticky exemption.** On a fixture with a restored, `curation-kept` line followed by a
     newer `auto-archived:` line (a simulated cross-branch merge), the rule restores the entry.
+    On the same fixture with an operator `curate archive` line between them, it does not.
+  - **One snapshot.** A fixture where checking entries newest-first would hold one back
+    (X[p12], Y[p12,q], Z[q], W[q], all qualifying by age and count) gives the same archived
+    set as checking them oldest-first.
+  - **Only with the session's own writes.** On a clean brain, SessionEnd archives nothing and
+    makes no commit. With one new entry it archives, and the archives ride that one commit.
   - **Text and restore.**
     - Text is byte-identical after the archive.
     - `curate restore` adds `curation-kept` only to `auto-archived:` entries.
@@ -250,7 +294,11 @@ ADR-0082 §6's operator-edited list is retired, along with its file
     write.
   - **Silence.** The briefing renders no curation line when the counts are zero.
 - **Agent-facing (L4, Tier 1 and §5).** The scenario runs the vendored plugin on a fixture
-  brain on a topic branch. The brain holds old handoffs and three planted traps:
+  brain on a topic branch. Fixture dates are relative to the run's date, so the rule's
+  windows hold whatever entry ends up as the pin. Before session 1 the harness appends one
+  uncommitted non-handoff entry through the CLI. That way the rule's precondition (§3) does
+  not depend on what the agent chooses to write. The brain holds old handoffs and three
+  planted traps:
   - (a) a recent handoff named "still stands" by the pin;
   - (b) an old topical status fact;
   - (c) **an old, shaped, still-live handoff of a paused stream**. It is more than 14 days
@@ -261,14 +309,19 @@ ADR-0082 §6's operator-edited list is retired, along with its file
   changed in curation?".
   - **Positive arm.** After session 1:
     - exactly the qualifying set is archived and tagged;
-    - all three traps are live;
-    - a B2 fallback handoff exists, because session 1 left no handoff of its own.
+    - all three traps are live.
+
+    The B2-fallback interaction is a unit test (above), not an L4 predicate, because whether
+    session 1's agent writes its own handoff is the agent's choice.
 
     Session 2's injection carries the line. The agent's answer names the archived count and
     the undo command, a content assertion over its output (ADR-0051 §3).
-  - **Guard-removed arm, can-fail.** The same fixture with the build's stream guard switched
-    off. Trap (c) is archived. This shows the trap can detect the failure it is planted for,
-    and the scenario must see it happen.
+  - **Guard-removed arm, can-fail.** The same fixture, run against a pinned, sha-checked
+    engine bundle with the stream guard removed. This mirrors `handoff-retires.mjs`'s pinned
+    contrast fixture; the shipped engine has no switch that turns a safety guard off. Trap
+    (c) is archived. This shows the trap can detect the failure it is planted for, and the
+    scenario must see it happen. Tier 1 involves no model, so one trial is enough for this
+    arm.
   - **Contrast arm.** The same fixture under today's plugin. Nothing is archived and there is
     no line.
   - DEMONSTRATED needs ≥ 2/3 on the positive arm, with the guard-removed arm archiving trap

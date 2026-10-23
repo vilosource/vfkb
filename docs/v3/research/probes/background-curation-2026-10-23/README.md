@@ -9,8 +9,9 @@ link a built `dist/` into `<dir>`, then run `node probe.mjs <dir>` and `node str
 
 - `probe.mjs` → `output.txt`: the split of the 122 live handoff/next facts, the id mentions
   with their surrounding wording, and the age-and-count rule (72).
-- `stream.mjs` → `output-stream.txt`: the same rule plus the same-stream tag guard (61, with
-  the 11 it holds back).
+- `stream.mjs` → `output-stream.txt`: the same rule plus the same-stream tag guard (54, with
+  the 18 it holds back, and the shared tag that cleared each archived entry). The generic tag
+  set was widened in review round 2; with lifecycle tags only, it was 61 and 11.
 
 Re-running on a later brain gives different numbers. For example, this PR's own handoff
 `33b4b1aa0a34` becomes the pin, which makes `e622618cba19` a candidate.
