@@ -173,6 +173,29 @@ describe('ADR-0083 §2 — the Tier-1 rule', () => {
     expect(byId('bad').zone).toBe('established');
   });
 
+  it('an unparseable created cannot scramble the newest-first order of the others', () => {
+    // A NaN in the sort comparator misorders the valid entries; newest-first then
+    // archives X, which Y (archived first) should have held back. File order matters.
+    rec({ id: 'X', tags: ['handoff', 'next', 'p12'], created: day(0) });
+    rec({ id: 'bad', tags: ['handoff', 'next', 'zz'], created: '' });
+    rec({ id: 'Y', tags: ['handoff', 'next', 'p12', 'q'], created: day(1) });
+    rec({ id: 'Z', tags: ['handoff', 'next', 'q'], created: day(2) });
+    rec({ id: 'n1', created: day(30) });
+    rec({ id: 'W', tags: ['handoff', 'next', 'q'], created: day(3) });
+    rec({ id: 'n2', created: day(35) });
+    rec({ id: 'pin', created: day(40) });
+    expect(autoCurate(TODAY).archived.sort()).toEqual(['Y', 'Z']);
+  });
+
+  it('reports, rather than silently skips, a pin whose created does not parse', () => {
+    rec({ id: 'old', created: day(0) });
+    chain();
+    rec({ id: 'odd', text: 'a topical fact', created: 'unknown' }); // string-max: becomes the pin
+    const r = autoCurate(TODAY);
+    expect(r.archived).toEqual([]);
+    expect(r.skipped).toMatch(/pin odd has an unparseable created/);
+  });
+
   it('compares created as instants: a timezone offset cannot make an older entry "newer"', () => {
     rec({ id: 'X', created: '2026-01-01T00:00:00.000Z' });
     // later as a string, but 2025-12-31T20:00Z as an instant — older than X

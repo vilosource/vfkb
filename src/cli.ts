@@ -492,6 +492,7 @@ async function dispatch() {
         const r = autoCurate(undefined, { dryRun: dry });
         const verb = dry ? 'would archive' : 'archived';
         process.stdout.write(`${verb} ${r.archived.length} old handoff(s)${r.archived.length ? `: ${r.archived.join(' ')}` : ''}\n`);
+        if (r.skipped) process.stdout.write(`skipped: ${r.skipped}\n`);
         if (r.repaired.length) process.stdout.write(`${dry ? 'would restore' : 'restored'} ${r.repaired.length} kept entr(ies) a branch re-archived: ${r.repaired.join(' ')}\n`);
       } else if (action === 'log') {
         need(0, 'log');

@@ -233,6 +233,8 @@ const createdMs = (e: KnowledgeEntry) => Date.parse(e.created);
 export interface AutoCurateResult {
   archived: string[];
   repaired: string[];
+  /** set when the rule could not run at all, e.g. the pin's `created` does not parse */
+  skipped?: string;
 }
 
 /**
@@ -276,7 +278,11 @@ export function autoCurate(today = todayIso(), opts: { dryRun?: boolean } = {}):
     // An unparseable `created` (normalizeEntry accepts any string) would make every age
     // and order test NaN — and NaN passes "< 14 days" as false. Skip such entries, and
     // run nothing when the pin itself has one.
-    if (!pin || !Number.isFinite(createdMs(pin))) return result;
+    if (!pin) return result;
+    if (!Number.isFinite(createdMs(pin))) {
+      result.skipped = `pin ${pin.id} has an unparseable created (${JSON.stringify(pin.created)}); nothing archived`;
+      return result;
+    }
     const kept = new Set<string>();
     for (const [id, lines] of linesById) if (lines.some((l) => l.tags.includes(CURATION_KEPT))) kept.add(id);
     const repaired = new Set(result.repaired);

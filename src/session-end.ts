@@ -108,7 +108,8 @@ function newEntriesSinceHead(
     const prev = fresh.get(e.id);
     if (!prev || String(e.updated ?? '') >= String(prev.updated ?? '')) fresh.set(e.id, e);
   }
-  return [...fresh.values()];
+  // An id the session added and then deleted ends on a tombstone: not a new entry.
+  return [...fresh.values()].filter((e) => (e as { deleted?: boolean }).deleted !== true);
 }
 
 const isHandoff = (e: BrainEntry): boolean =>

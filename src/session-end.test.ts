@@ -252,7 +252,11 @@ describe('SessionEnd background curation (ADR-0083 §3)', () => {
     expect(readEntries().some((e) => (e.tags ?? []).includes('auto'))).toBe(false);
   });
 
-  it('measures age from the last real handoff, not from the fallback written this run', () => {
+  // ADR-0083 §2 measures age from the PIN, and ADR-0082 §1's pin includes a committed
+  // auto-fallback. Writing this run's fallback after curation keeps it out of THIS run's
+  // measurement; a later idle session then measures from that committed fallback, as the
+  // ADR says. The "3 newer handoffs" condition is what protects a stream's last handoff.
+  it('does not measure from the fallback this run writes (the fallback is written after curation)', () => {
     // X, Y1, Y2, P on consecutive days a month ago; then an idle month; then a session
     // that writes one gotcha. X is only 3 days older than P, the last real handoff.
     const ago = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString();
@@ -276,6 +280,15 @@ describe('SessionEnd background curation (ADR-0083 §3)', () => {
     const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb' });
     expect(r.reason).toBe('on-default-branch');
     expect(r.systemMessage).toMatch(/^vfkb: brain changes on `main` left uncommitted/);
+  });
+
+  it('an id the session added then deleted is not a new entry', () => {
+    git(['checkout', '-q', '-b', 'feat/work']);
+    addEntry(HANDOFF_ENTRY);
+    addEntry('{"id":"gone","type":"fact","text":"t","updated":"2026-01-01T00:00:00.000Z"}');
+    addEntry('{"id":"gone","deleted":true,"updated":"2026-01-02T00:00:00.000Z"}');
+    const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb' });
+    expect(r.added).toBe(1); // only the handoff
   });
 
   it('never curates on the default branch', () => {
