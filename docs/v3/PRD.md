@@ -527,6 +527,12 @@ as a Brake that tolerates its defect class is worse than none, per this repo's o
 >
 > **2026-10-22: built and VERIFIED.** The engine half is vfkb#371. The skill shipped in plugin v0.21.0 (plugin#65). The L4
 > `handoff-retires` is DEMONSTRATED (yes 3/3, no 3/3, no answer 3/3, contrast 0/3). Only the operator-edited backlog PR is left.
+>
+> **2026-10-23: the backlog becomes background curation.** The operator would not hand-edit a list, and asked for
+> curation in the background. [RFC-046](../rfc/RFC-046-background-curation.md) was ACCEPTED as
+> [ADR-0083](../adr/ADR-0083-background-curation.md), amending ADR-0082 §6's backlog bullet. Tier 1 is a deterministic
+> SessionEnd rule that archives clear-cut old handoffs (50 of 122 at `97e796e`). Tier 2 is a propose-only curator agent.
+> One session-start line reports both. Tier 1 and the line come next, scenario-first.
 
 **Problem.** 458 live entries; **106** carry `handoff`, of which exactly one is ever
 pinned, so 105 compete for budget as dead weight. `findLexicalDuplicates` is

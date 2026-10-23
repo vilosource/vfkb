@@ -14,12 +14,13 @@ timestamp: 2026-10-23
   without answering its two open items, so the RFC's own recommendations are taken (§7). The
   operator can override either.
 - **Amends:** [ADR-0082](ADR-0082-propose-only-curation.md).
-  - §6: the backlog is no longer archived from an operator-edited list; §6 below replaces
-    that.
+  - §6, its last bullet only: the backlog is no longer archived from an operator-edited
+    list; §6 below replaces that bullet. §6's read-only reports (`curate handoffs`,
+    `curate stale`) stand, and §4 below uses `curate stale`.
   - The propose-only rule: relaxed **for the §2 rule's cases only**, by the operator's
     direction (brain `f119b9942af4`).
-  - ADR-0082 §1–§5 stand: the pin rule, `retires`, `curate retire` / `curate restore`, and
-    the handoff skill's yes-flow.
+  - The rest of ADR-0082 stands: §1–§5 (the pin rule, `retires`, `curate retire` /
+    `curate restore`, the handoff skill's yes-flow), §6's reports, §7 and §8.
 - **Relates:**
   - [ADR-0021](ADR-0021-auto-distill-and-curator.md): archiving is a zone-and-tag delta, and
     text is never rewritten.
@@ -66,8 +67,8 @@ A live fact X is archived when **all** of these hold:
 3. X's `created` is at least **14 days** before the pin's `created`.
 4. At least **3** live, handoff-shaped pin candidates were created after X. The pin counts
    only if it is shaped, and archived entries never count.
-5. **Same-stream guard.** If X carries a topic tag, at least one of those newer shaped
-   handoffs shares it. A topic tag is any tag outside the generic set:
+5. **Same-stream guard.** If X carries any topic tag, at least one of those newer shaped
+   handoffs shares one of X's topic tags. A topic tag is any tag outside the generic set:
    - lifecycle tags: `handoff`, `next`, `status`, `auto`, `verified`, `v2`, `v3`;
    - kind-of-work tags: `review`, `escalation`, `rfc`, `adr`, `plugin`, `l4`, `guard`,
      `release`, `tooling`, `cross-repo`, `distribution`, `roadmap`, `public`.
@@ -79,13 +80,16 @@ Further terms:
 - **What it writes:** zone `archive` plus the tag `auto-archived:old-handoff@<YYYY-MM-DD>`.
   Text is untouched.
 - **Effect:** the entry leaves injection, and leaves search and query results unless the
-  caller passes `includeStale`.
+  caller passes `includeStale`. It stays in `entries.jsonl`, and `vfkb curate log` lists
+  it.
 - **Restore:** `vfkb curate restore` on an `auto-archived:` entry removes that tag and adds
   `curation-kept`. Restore of any other archive is unchanged from ADR-0082 §4.
-- **The repair:** if an id's materialized line is a rule-written archive, and its newest line
-  not written by the rule (newest by `updated`) is live with `curation-kept`, the rule
-  restores it. If that newest non-rule line is an archive, such as an operator's own
-  `curate archive`, it stands.
+- **The repair:** a line the rule wrote is one carrying an `auto-archived:` tag. If an id's
+  materialized line is a rule-written archive, and its newest line not written by the rule
+  (newest by `updated`, never by file position) is live with `curation-kept`, the rule
+  restores the entry and re-adds `curation-kept`. The repair's own restore line carries no
+  `auto-archived:` tag, so later runs treat it as an ordinary line. If that newest non-rule
+  line is an archive, such as an operator's own `curate archive`, it stands.
 
 **Accepted risks** (RFC-046 §2):
 - partially superseded handoffs are archived once old enough;
@@ -101,7 +105,7 @@ Further terms:
   Tier 1;
 - **after the B2 fallback decision.** Both the fallback's "new entries" and the commit
   message's count are computed over new ids, not added lines;
-- in the session's single brain-only commit, fail-open.
+- in the session's single brain-only commit, whose message adds `, <n> curated`, fail-open.
 
 ### 4. Tier 2: the curator agent
 
@@ -112,7 +116,8 @@ A plugin subagent, `vfkb:curator`.
   admissible reasons are listed in RFC-046 §4.
 - **A proposal is a tag,** `curation-proposed:<reason-code>@<date>`.
 - **Answering it:** "yes" runs `curate archive`. "No" runs `curate keep`, which adds
-  `curation-kept`, and the entry is never proposed again.
+  `curation-kept` **and clears the proposal tag**, so the entry leaves §5's count and is
+  never proposed again.
 
 ### 5. The alert
 
@@ -133,7 +138,10 @@ operator-edited list is retired.
 ### 7. The open items, settled by the RFC's recommendations
 
 - **Where the curator runs** (session-dispatched, or scheduled CI opening a brain-only PR)
-  is decided when Tier 2 starts, using a week of real Tier-1 and proposal volume.
+  is decided when Tier 2 starts. RFC-046 says to use "real proposal volume from the first
+  week". Proposals cannot exist before Tier 2 runs, so this ADR reads that as the first
+  week of Tier-1 results plus the remaining candidate count (brain `fe2a8f4e7919` words it
+  as "Tier-1/proposal volume"). The operator can rule otherwise when Tier 2 starts.
 - **The thresholds** (14 days, 3 newer handoffs, the generic-tag set) are **constants**,
   changed only by RFC.
 
@@ -144,23 +152,29 @@ its start.
 
 ## Definition of Done (ADR-0029/0050/0051)
 
-As specified in RFC-046's Definition of Done.
+RFC-046's Definition of Done governs. This is a summary.
 - **Structural unit tests,** each observed red under a mutation:
-  - the six conditions and newest-first order;
-  - the fallback still firing when the rule archives;
+  - the six conditions, and newest-first order on the X/Y/Z/W fixture;
+  - the fallback still firing when the rule archives, and the commit count excluding archive
+    lines;
+  - text byte-identical after an archive (the ADR-0021 Brake); restore adding
+    `curation-kept` only to `auto-archived:` entries; the rule then leaving them alone;
   - the sticky repair, and the operator's archive winning over it;
-  - no curation on a clean brain or the default branch;
+  - no curation and no commit on a clean brain or the default branch; with one new entry,
+    the archives ride that one commit;
   - read-only reports;
   - no line when the counts are zero.
 - **A Tier-1 L4, scenario-first and RED first:**
   - a fixture on a topic branch with dates relative to the run, a harness-appended entry, and
     three planted traps (a recent "still stands" handoff, an old topical fact, an old live
     handoff of a paused tagged stream);
-  - a positive arm (≥ 2/3): the exact set is archived, all traps stay live, and the next
-    session's agent relays the line;
+  - a positive arm (≥ 2/3): the exact set is archived and all traps stay live. The next
+    session's agent's answer names the archived count and the undo command, a content
+    assertion over its output (ADR-0051 §3);
   - a guard-removed arm on a pinned, sha-checked bundle, which must archive trap (c);
   - a contrast arm under today's plugin, which archives nothing.
-- **A Tier-2 L4** at Tier 2's build.
+- **A Tier-2 L4** at Tier 2's build. An entry with no admissible reason must draw no
+  proposal, and a declined proposal must not reappear.
 - **Status until those records exist:** "built, NOT yet verified". Delivery stays unproven
   per ADR-0051 until the plugin release's install-path record is re-pinned.
 
