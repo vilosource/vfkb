@@ -173,3 +173,80 @@ describe('SessionEnd auto-commit (GAP 2)', () => {
     expect(readEntries().some((e) => (e.tags ?? []).includes('auto'))).toBe(false);
   });
 });
+
+// ADR-0083 §3: the Tier-1 curation rule runs at SessionEnd only on a topic branch, only
+// when the session added at least one new id since HEAD (option A), and after the B2
+// fallback decision, so its archive lines can neither switch the fallback off nor make
+// a commit of their own. "New entries" are new ids, not added lines.
+describe('SessionEnd background curation (ADR-0083 §3)', () => {
+  const full = (id: string, created: string, extra: Record<string, unknown> = {}) =>
+    JSON.stringify({
+      id,
+      type: 'fact',
+      text: `HANDOFF ${id}: what happened, what is next`,
+      tags: ['handoff', 'next'],
+      zone: 'established',
+      author: { role: 'human' },
+      provenance: { status: 'verified', date: created },
+      validity: { valid_from: created },
+      created,
+      updated: created,
+      ...extra,
+    });
+  // Committed at HEAD: one qualifying old handoff and three newer shaped handoffs.
+  function committedBacklog() {
+    addEntry(full('old', '2026-01-01T00:00:00.000Z'));
+    addEntry(full('n1', '2026-02-01T00:00:00.000Z'));
+    addEntry(full('n2', '2026-02-05T00:00:00.000Z'));
+    addEntry(full('n3', '2026-02-10T00:00:00.000Z'));
+    git(['add', '-A']);
+    git(['commit', '-q', '-m', 'backlog']);
+  }
+  const zoneOf = (id: string) => readEntries().filter((e) => e.id === id).map((e) => (e as { zone?: string }).zone).pop();
+
+  it('archives in the same commit as the session\'s own writes, and the B2 fallback still fires', () => {
+    committedBacklog();
+    git(['checkout', '-q', '-b', 'feat/work']);
+    addEntry(full('k1', new Date().toISOString(), { type: 'gotcha', text: 'watch out for Z', tags: ['git'] }));
+
+    const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb' });
+    expect(r.committed).toBe(true);
+    expect(r.autoHandoff).toBe(true); // an archive line must not read as "the session left a handoff"
+    expect(r.curated).toBe(1);
+    expect(zoneOf('old')).toBe('archive');
+    expect(r.added).toBe(2); // k1 + the fallback; the archive line is not a new entry
+    expect(r.message).toContain('2 new entries, 1 curated');
+    expect(git(['status', '--porcelain', '--', ENTRIES])).toBe('');
+    expect(git(['rev-list', '--count', 'HEAD'])).toBe('3'); // init, backlog, ONE session commit
+  });
+
+  it('a session that wrote nothing archives nothing and commits nothing', () => {
+    committedBacklog();
+    git(['checkout', '-q', '-b', 'feat/work']);
+    const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb' });
+    expect(r.reason).toBe('brain-clean');
+    expect(zoneOf('old')).toBe('established');
+    expect(git(['status', '--porcelain', '--', ENTRIES])).toBe('');
+  });
+
+  it('a session that only edited existing entries commits them but does not curate', () => {
+    committedBacklog();
+    git(['checkout', '-q', '-b', 'feat/work']);
+    addEntry(full('n1', '2026-02-01T00:00:00.000Z', { updated: '2026-03-01T00:00:00.000Z', tags: ['handoff', 'next', 'x'] }));
+    const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb' });
+    expect(r.committed).toBe(true);
+    expect(r.curated ?? 0).toBe(0);
+    expect(r.autoHandoff).toBe(false); // no new id → no fallback
+    expect(r.added).toBe(0);
+    expect(zoneOf('old')).toBe('established');
+  });
+
+  it('never curates on the default branch', () => {
+    committedBacklog();
+    addEntry(full('k1', new Date().toISOString(), { type: 'gotcha', text: 'watch out', tags: ['git'] }));
+    const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb' });
+    expect(r.reason).toBe('on-default-branch');
+    expect(zoneOf('old')).toBe('established');
+    expect(r.added).toBe(1);
+  });
+});

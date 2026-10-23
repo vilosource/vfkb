@@ -21,8 +21,11 @@ import {
   supersededIds,
   effectiveStatus,
   RETIRED_BY,
+  AUTO_ARCHIVED,
+  CURATION_KEPT,
 } from './engine.js';
-import { withExclusive } from './storage.js';
+import { withExclusive, readRecords, materialize, isTombstone } from './storage.js';
+import { normalizeEntry } from './validate.js';
 import { tally } from './counters.js';
 import type { KnowledgeEntry } from './types.js';
 
@@ -141,7 +144,10 @@ export function restore(id: string): KnowledgeEntry {
       throw new Error(`restore() is for fluid types; a decision's standing is its status (use transitionDecision)`);
     }
     if (e.zone !== 'archive') throw new Error(`entry ${id} is not archived (zone ${e.zone}) — nothing to restore`);
-    return updateEntry(id, { zone: 'established', tags: e.tags.filter((t) => !t.startsWith(RETIRED_BY)) });
+    // ADR-0083 §2: undoing the Tier-1 rule also exempts the entry from it for good.
+    const ruleArchived = e.tags.some((t) => t.startsWith(AUTO_ARCHIVED));
+    const tags = e.tags.filter((t) => !t.startsWith(RETIRED_BY) && !t.startsWith(AUTO_ARCHIVED));
+    return updateEntry(id, { zone: 'established', tags: ruleArchived ? [...new Set([...tags, CURATION_KEPT])] : tags });
   });
 }
 
@@ -201,4 +207,113 @@ export function staleReport(
     incoming: old.filter((e) => e.zone === 'incoming' && !isDecisionFamily(e.type)).map((e) => row(e, today)),
     status: old.filter((e) => e.type === 'fact' && e.tags.includes('status') && !tagged(e)).map((e) => row(e, today)),
   };
+}
+
+// --- Background curation, Tier 1 (ADR-0083, accepts RFC-046). A deterministic rule —
+// no model — that archives a clear-cut old handoff. It reads only `created`, tags and
+// the shape test, never what the text says about other entries: "supersedes X" is too
+// often partial to drive a rule (RFC-046 Context item 2). Archiving is the existing
+// zone delta plus a dated rule tag; text is never touched (ADR-0021).
+export { AUTO_ARCHIVED, CURATION_KEPT };
+const AUTO_RULE = 'old-handoff';
+// Constants, changed only by RFC (ADR-0083 §7).
+const MIN_AGE_DAYS = 14;
+const MIN_NEWER = 3;
+// Tags that do not name a stream (ADR-0083 §2 condition 5): lifecycle words, then
+// kind-of-work words that span streams.
+const GENERIC_TAGS = new Set([
+  'handoff', 'next', 'status', 'auto', 'verified', 'v2', 'v3',
+  'review', 'escalation', 'rfc', 'adr', 'plugin', 'l4', 'guard', 'release', 'tooling',
+  'cross-repo', 'distribution', 'roadmap', 'public',
+]);
+const topicTags = (e: KnowledgeEntry) => e.tags.filter((t) => !GENERIC_TAGS.has(t));
+const isRuleLine = (e: KnowledgeEntry) => e.tags.some((t) => t.startsWith(AUTO_ARCHIVED));
+const createdMs = (e: KnowledgeEntry) => Date.parse(e.created);
+
+export interface AutoCurateResult {
+  archived: string[];
+  repaired: string[];
+}
+
+/**
+ * Run the Tier-1 rule once. `today` dates the rule tag; the age test is measured
+ * against the pin's `created`, not the wall clock. `dryRun` reports without writing.
+ */
+export function autoCurate(today = todayIso(), opts: { dryRun?: boolean } = {}): AutoCurateResult {
+  return withExclusive(() => {
+    const records = readRecords();
+    const all = materialize(records);
+    const linesById = new Map<string, KnowledgeEntry[]>();
+    // Every raw line of each id, normalized the way materialize normalizes the newest.
+    for (const r of records) {
+      if (!r || typeof r.id !== 'string' || isTombstone(r)) continue;
+      const n = normalizeEntry(r);
+      if (!n.ok) continue;
+      const list = linesById.get(r.id) ?? [];
+      list.push(n.entry);
+      linesById.set(r.id, list);
+    }
+    const result: AutoCurateResult = { archived: [], repaired: [] };
+
+    // The sticky repair: an entry the operator restored (curation-kept) that a branch
+    // forked before the restore re-archived. Judged by the newest line the rule did not
+    // write, newest by `updated` as materialize orders them, never by file position.
+    for (const e of all) {
+      if (e.zone !== 'archive' || !isRuleLine(e)) continue;
+      const others = (linesById.get(e.id) ?? []).filter((l) => !isRuleLine(l));
+      let newest: KnowledgeEntry | undefined;
+      for (const l of others) if (!newest || l.updated >= newest.updated) newest = l;
+      if (!newest || newest.zone === 'archive' || !newest.tags.includes(CURATION_KEPT)) continue;
+      result.repaired.push(e.id);
+      if (!opts.dryRun) {
+        const tags = [...new Set([...newest.tags.filter((t) => !t.startsWith(AUTO_ARCHIVED)), CURATION_KEPT])];
+        updateEntry(e.id, { zone: newest.zone, tags });
+      }
+    }
+
+    const superseded = supersededIds(all);
+    const pin = latestHandoff(all, today, superseded);
+    if (!pin) return result;
+    const kept = new Set<string>();
+    for (const [id, lines] of linesById) if (lines.some((l) => l.tags.includes(CURATION_KEPT))) kept.add(id);
+    const repaired = new Set(result.repaired);
+    const shaped = all.filter(
+      (e) => !repaired.has(e.id) && isInjectable(e, today, superseded) && isPinCandidate(e) && HANDOFF_SHAPE.test(e.text),
+    );
+    const live = new Set(shaped.map((e) => e.id));
+    // Newest-first, so a handoff this run archives never clears an older one.
+    const candidates = shaped.filter((e) => e.id !== pin.id).sort((a, b) => b.created.localeCompare(a.created));
+    for (const e of candidates) {
+      if (kept.has(e.id)) continue;
+      if (createdMs(pin) - createdMs(e) < MIN_AGE_DAYS * DAY_MS) continue;
+      const newer = shaped.filter((o) => live.has(o.id) && o.created > e.created);
+      if (newer.length < MIN_NEWER) continue;
+      const topics = topicTags(e);
+      if (topics.length && !newer.some((o) => topicTags(o).some((t) => topics.includes(t)))) continue;
+      live.delete(e.id);
+      result.archived.push(e.id);
+      if (!opts.dryRun) {
+        updateEntry(e.id, { zone: 'archive', tags: [...new Set([...e.tags, `${AUTO_ARCHIVED}${AUTO_RULE}@${today}`])] });
+      }
+    }
+    return result;
+  });
+}
+
+export interface AutoArchiveRow extends ReportRow {
+  rule: string;
+  date: string;
+}
+
+/** READ-ONLY (ADR-0083 §5): entries archived by the Tier-1 rule, newest archive first. */
+export function autoArchiveLog(entries: KnowledgeEntry[] = readAll(), today = todayIso()): AutoArchiveRow[] {
+  const out: AutoArchiveRow[] = [];
+  for (const e of entries) {
+    if (e.zone !== 'archive') continue;
+    const tag = e.tags.find((t) => t.startsWith(AUTO_ARCHIVED));
+    if (!tag) continue;
+    const [rule, date = ''] = tag.slice(AUTO_ARCHIVED.length).split('@');
+    out.push({ ...row(e, today), rule, date });
+  }
+  return out.sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id));
 }
