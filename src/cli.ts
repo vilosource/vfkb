@@ -32,6 +32,8 @@ import {
   restore,
   handoffReport,
   staleReport,
+  autoCurate,
+  autoArchiveLog,
   type ReportRow,
 } from './curator.js';
 import { distill } from './distiller.js';
@@ -417,8 +419,10 @@ async function dispatch() {
   //   curate restore <id>               un-archive, dropping any retired-by: tag
   //   curate handoffs                   READ-ONLY: non-pin live handoff facts + archive lines (§6)
   //   curate stale [--days N]           READ-ONLY: old proposed/incoming/status entries (§6)
+  //   curate auto [--dry-run]           run the Tier-1 background-curation rule once (ADR-0083 §2)
+  //   curate log                        READ-ONLY: entries the Tier-1 rule archived (ADR-0083 §5)
   if (cmd === 'curate') {
-    const p = parseArgs('curate', argsOf(sub, rest), { by: 'value', days: 'value' });
+    const p = parseArgs('curate', argsOf(sub, rest), { by: 'value', days: 'value', 'dry-run': 'boolean' });
     const [action, id1, id2] = p.positionals;
     const need = (n: number, usage: string) => {
       if (p.positionals.length - 1 !== n) throw new UsageError(`usage: vfkb curate ${usage}`);
@@ -482,6 +486,19 @@ async function dispatch() {
           process.stdout.write('\n# proposals only — edit this list, then run the lines you keep:\n');
           for (const c of r.candidates) process.stdout.write(`vfkb curate archive ${c.id}\n`);
         }
+      } else if (action === 'auto') {
+        need(0, 'auto [--dry-run]');
+        const dry = p.flags.get('dry-run') === true;
+        const r = autoCurate(undefined, { dryRun: dry });
+        const verb = dry ? 'would archive' : 'archived';
+        process.stdout.write(`${verb} ${r.archived.length} old handoff(s)${r.archived.length ? `: ${r.archived.join(' ')}` : ''}\n`);
+        if (r.skipped) process.stdout.write(`skipped: ${r.skipped}\n`);
+        if (r.repaired.length) process.stdout.write(`${dry ? 'would restore' : 'restored'} ${r.repaired.length} kept entr(ies) a branch re-archived: ${r.repaired.join(' ')}\n`);
+      } else if (action === 'log') {
+        need(0, 'log');
+        const rows = autoArchiveLog();
+        process.stdout.write(`${rows.length} entr(ies) archived by the background-curation rule (undo: vfkb curate restore <id>):\n`);
+        for (const x of rows) process.stdout.write(`${x.date}\t${x.rule}\t${x.id}\t${x.firstLine}\n`);
       } else if (action === 'stale') {
         need(0, 'stale [--days N]');
         const days = flagInt(p, 'days') ?? 30;
@@ -496,7 +513,7 @@ async function dispatch() {
       } else {
         process.stderr.write(
           'usage: vfkb curate <dups|promote <id>|promote-auto <id>|archive <id>|merge <loser> <winner>|signal <id> <helpful|harmful>|' +
-            'retire <old> --by <new>|restore <id>|handoffs|stale [--days N]>\n',
+            'retire <old> --by <new>|restore <id>|handoffs|stale [--days N]|auto [--dry-run]|log>\n',
         );
         process.exit(1);
       }

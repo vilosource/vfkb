@@ -195,6 +195,29 @@ export function updateEntry(
 // text/tags/zone — both paths must record the edge the same way.
 export const RETIRED_BY = 'retired-by:';
 
+// Background curation tags (ADR-0083). Defined here, not in curator.ts, because the
+// session-start render reads them and engine.ts cannot import the curator.
+export const AUTO_ARCHIVED = 'auto-archived:';
+export const CURATION_KEPT = 'curation-kept';
+const CURATION_LINE_DAYS = 7;
+
+/** ADR-0083 §5: the briefing's curation line, or '' when there is nothing to report. */
+export function curationLine(all: KnowledgeEntry[], today = nowIso().slice(0, 10)): string {
+  const since = new Date(Date.parse(today) - (CURATION_LINE_DAYS - 1) * 86_400_000).toISOString().slice(0, 10);
+  let n = 0;
+  for (const e of all) {
+    if (e.zone !== 'archive') continue;
+    const tag = e.tags.find((t) => t.startsWith(AUTO_ARCHIVED));
+    const date = tag?.split('@')[1] ?? '';
+    if (date >= since && date <= today) n++;
+  }
+  if (n === 0) return '';
+  return (
+    `Curation: auto-archived ${n} old handoff${n === 1 ? '' : 's'} in the last ${CURATION_LINE_DAYS} days ` +
+    '(`vfkb curate log` names them; undo with `vfkb curate restore <id>`).'
+  );
+}
+
 /** Why `old` may not be retired by `by`, or null when the scope check passes. */
 export function retirementRefusal(
   old: KnowledgeEntry,
@@ -643,6 +666,12 @@ export function renderContextBundle(project = defaultProject(), budget = SESSION
     // proposes to retire.
     body += `## Last handoff\n- [${handoff.type} ${trustGlyph(handoff)} · ${handoff.id}] ${text}\n\n`;
   }
+
+  // Background curation (ADR-0083 §5): one line after the pin, only when the Tier-1
+  // rule archived something recently. Derived from committed tags, so every clone
+  // renders the same line. Never budget-dropped (it is one short line).
+  const curation = curationLine(all, today);
+  if (curation) body += `${curation}\n\n`;
 
   // Cross-repo operations (ADR-0063 §2): pinned after the handoff, never
   // budget-dropped — resident continuity and visitor records each get one

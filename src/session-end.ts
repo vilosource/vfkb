@@ -12,6 +12,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join, isAbsolute } from 'node:path';
 import { addEntry } from './engine.js';
+import { autoCurate } from './curator.js';
 
 export type GitRunner = (args: string[], cwd: string) => string;
 
@@ -39,10 +40,12 @@ export interface SessionEndResult {
   message?: string; // the commit message used (when committed)
   systemMessage?: string; // surfaced to the user at exit (the main-branch warning)
   autoHandoff?: boolean; // GAP 1 (B2): a fallback handoff entry was written this run
+  curated?: number; // ADR-0083 §3: entries the Tier-1 rule archived or repaired this run
 }
 
 interface BrainEntry {
   id?: string;
+  updated?: string;
   type?: string;
   text?: string;
   tags?: string[];
@@ -64,40 +67,15 @@ function tryGit(git: GitRunner, args: string[], cwd: string): string | null {
   }
 }
 
-// Count added lines (≈ new JSONL entries) for the brain file, working tree + index.
-function countAdded(git: GitRunner, cwd: string, path: string): number {
-  let added = 0;
-  for (const base of [['diff'], ['diff', '--cached']]) {
-    const out = tryGit(git, [...base, '--numstat', '--', path], cwd);
-    if (!out) continue;
-    for (const line of out.split('\n')) {
-      const n = Number(line.split('\t')[0]);
-      if (Number.isFinite(n)) added += n;
-    }
-  }
-  return added;
-}
-
-// Entries appended to the brain since HEAD (append-only, ADR-0019): the lines beyond
-// the committed line count — the same git-HEAD-delta signal stop-reminder.ts uses, so
-// it needs NO session state (KB_SESSION_ID is unset in the live wiring — gotcha e8f324dc).
-function newEntriesSinceHead(
-  git: GitRunner,
-  cwd: string,
-  repoRelEntries: string,
-  absEntries: string,
-): BrainEntry[] {
-  let lines: string[];
-  try {
-    lines = readFileSync(absEntries, 'utf8').split('\n').filter(Boolean);
-  } catch {
-    return [];
-  }
-  let headCount = 0;
-  const head = tryGit(git, ['show', `HEAD:${repoRelEntries}`], cwd);
-  if (head !== null) headCount = head.split('\n').filter(Boolean).length;
-  return lines
-    .slice(headCount)
+// Entries NEW since HEAD (ADR-0083 §3): records whose id is absent from the committed
+// brain, one per id. Counting ids, not added lines, keeps an edit of an existing entry —
+// including a curation archive, which appends a full copy with its `handoff` tag — from
+// reading as a new entry. Uses the same git-HEAD signal stop-reminder.ts uses, so it
+// needs NO session state (KB_SESSION_ID is unset in the live wiring — gotcha e8f324dc).
+function parseLines(text: string): BrainEntry[] {
+  return text
+    .split('\n')
+    .filter(Boolean)
     .map((l) => {
       try {
         return JSON.parse(l) as BrainEntry;
@@ -106,6 +84,32 @@ function newEntriesSinceHead(
       }
     })
     .filter((e): e is BrainEntry => e !== null);
+}
+
+function newEntriesSinceHead(
+  git: GitRunner,
+  cwd: string,
+  repoRelEntries: string,
+  absEntries: string,
+): BrainEntry[] {
+  let current: BrainEntry[];
+  try {
+    current = parseLines(readFileSync(absEntries, 'utf8'));
+  } catch {
+    return [];
+  }
+  const head = tryGit(git, ['show', `HEAD:${repoRelEntries}`], cwd);
+  const known = new Set(parseLines(head ?? '').map((e) => e.id));
+  // Each new id judged by its NEWEST line (by `updated`, a tie to the later line), as the
+  // engine materializes it: an entry written then retagged `handoff` is a handoff.
+  const fresh = new Map<string, BrainEntry>();
+  for (const e of current) {
+    if (!e.id || known.has(e.id)) continue;
+    const prev = fresh.get(e.id);
+    if (!prev || String(e.updated ?? '') >= String(prev.updated ?? '')) fresh.set(e.id, e);
+  }
+  // An id the session added and then deleted ends on a tombstone: not a new entry.
+  return [...fresh.values()].filter((e) => (e as { deleted?: boolean }).deleted !== true);
 }
 
 const isHandoff = (e: BrainEntry): boolean =>
@@ -171,37 +175,60 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
     if (!status) return { committed: false, reason: 'brain-clean' };
 
     const tag = sessionId ? `, session ${sessionId.slice(0, 8)}` : '';
+    const absBrain = isAbsolute(dataDir) ? dataDir : join(cwd, dataDir);
+    const newSinceHead = () => newEntriesSinceHead(git, cwd, entries, join(absBrain, 'entries.jsonl'));
 
     // 3) Branch guard — never commit on a detached HEAD or the default branch.
     const branch = tryGit(git, ['symbolic-ref', '--short', '-q', 'HEAD'], cwd) || '';
     const def = defaultBranch(git, cwd);
     if (!branch) {
-      const added = countAdded(git, cwd, entries);
+      const added = newSinceHead().length;
       return {
         committed: false,
         reason: 'detached-head',
         added,
-        systemMessage: `vfkb: ${added} new brain entr${added === 1 ? 'y' : 'ies'} uncommitted (detached HEAD) — check out a branch and commit to preserve continuity.`,
+        systemMessage: `vfkb: brain changes uncommitted (${added} new entr${added === 1 ? 'y' : 'ies'}, detached HEAD) — check out a branch and commit to preserve continuity.`,
       };
     }
     if (branch === def || branch === 'main' || branch === 'master') {
-      const added = countAdded(git, cwd, entries);
+      const added = newSinceHead().length;
       return {
         committed: false,
         reason: 'on-default-branch',
         branch,
         added,
-        systemMessage: `vfkb: ${added} new brain entr${added === 1 ? 'y' : 'ies'} on \`${branch}\` left uncommitted — branch + commit to preserve continuity (vfkb never auto-commits the default branch).`,
+        systemMessage: `vfkb: brain changes on \`${branch}\` left uncommitted (${added} new entr${added === 1 ? 'y' : 'ies'}) — branch + commit to preserve continuity (vfkb never auto-commits the default branch).`,
       };
     }
 
-    // 4) GAP 1 (B2 floor): guarantee a committed handoff exists. If the session left no
-    //    handoff/next entry among its new-since-HEAD entries, write a fallback that
-    //    enumerates them — BEFORE the commit, so it ships in the same commit.
-    const absBrain = isAbsolute(dataDir) ? dataDir : join(cwd, dataDir);
-    const fresh = newEntriesSinceHead(git, cwd, entries, join(absBrain, 'entries.jsonl'));
+    // 4) GAP 1 (B2 floor): guarantee a committed handoff exists. DECIDE here, from the
+    //    session's new-since-HEAD entries, whether a fallback is needed; WRITE it in 6),
+    //    after curation and before the commit, so it ships in the same commit.
+    const fresh = newSinceHead();
+    const needFallback = fresh.length > 0 && !fresh.some(isHandoff);
+
+    // 5) ADR-0083 §3: Tier-1 background curation. Only when the session added a new id
+    //    (option A, brain ca519225196e), so curation never makes a commit of its own. It
+    //    runs AFTER the fallback decision, so its archive lines cannot read as "the
+    //    session left a handoff", and BEFORE the fallback is written, so the rule measures
+    //    from the last real handoff, not from an auto-handoff stamped "now". Fail-open.
+    let curated = 0;
+    if (fresh.length > 0) {
+      const prev = process.env.VFKB_DATA_DIR;
+      process.env.VFKB_DATA_DIR = absBrain;
+      try {
+        const c = autoCurate();
+        curated = c.archived.length + c.repaired.length;
+      } catch {
+        /* best-effort */
+      } finally {
+        if (prev === undefined) delete process.env.VFKB_DATA_DIR;
+        else process.env.VFKB_DATA_DIR = prev;
+      }
+    }
+
     let autoHandoff = false;
-    if (fresh.length > 0 && !fresh.some(isHandoff)) {
+    if (needFallback) {
       try {
         writeAutoHandoff(absBrain, fresh, sessionId);
         autoHandoff = true;
@@ -210,15 +237,16 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
       }
     }
 
-    // 5) Pathspec-scoped commit. Stage ONLY the brain file (leaves any other staged
+    // 7) Pathspec-scoped commit. Stage ONLY the brain file (leaves any other staged
     //    files alone), then commit with `--only` so even pre-staged files are NOT
     //    swept into this auto-commit.
-    const added = countAdded(git, cwd, entries);
-    const message = `chore(brain): session-end auto-commit (${added} new entr${added === 1 ? 'y' : 'ies'}${tag})`;
+    const added = newSinceHead().length;
+    const extra = curated ? `, ${curated} curated` : '';
+    const message = `chore(brain): session-end auto-commit (${added} new entr${added === 1 ? 'y' : 'ies'}${extra}${tag})`;
     git(['add', '--', entries], cwd);
     // `-m` MUST precede `--`; everything after `--` is treated as a pathspec.
     git(['commit', '-o', '-m', message, '--', entries], cwd);
-    return { committed: true, reason: 'committed', branch, added, message, autoHandoff };
+    return { committed: true, reason: 'committed', branch, added, message, autoHandoff, curated };
   } catch {
     // Any git failure (no identity, hook rejection, …) → fail-open, never block exit.
     return { committed: false, reason: 'error' };
