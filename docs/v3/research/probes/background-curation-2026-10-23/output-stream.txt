@@ -1,0 +1,18 @@
+{
+  pin: 'e622618cba19',
+  base: 72,
+  guarded: 61,
+  noSpecificTags: 18,
+  heldBack: 11
+}
+  held 5a38a113f412 [consumer-onboarding,track-7,roadmap]
+  held a6b738fc053c [track-8,continuity,eod]
+  held 86ab89138abe [fork-complete]
+  held 144aead6fa73 [public]
+  held b0ba2217061a [queue-push]
+  held eee4c555c817 [session-close,p10]
+  held 064a17d755b2 [realpath,guard,claude-config-dir,cross-repo]
+  held 2371d7d7cfce [adr-0074,rfc-038]
+  held 7aeeac2284de [p12,factory]
+  held 78bbdd0ef2a7 [p2,plugin,brief,l4]
+  held be601e467329 [rfc-041,escalation,hitl,adr-0070]
