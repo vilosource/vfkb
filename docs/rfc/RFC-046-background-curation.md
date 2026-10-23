@@ -1,7 +1,7 @@
 ---
 type: RFC
 title: "RFC-046: Background curation — a deterministic rule archives clear-cut old handoffs, an agent proposes the rest, one briefing line alerts the operator (amends ADR-0082 §6)"
-description: "Operator direction 2026-10-23 (brain f119b9942af4): curation should run in the background, by rules, with clear-cut cases archived automatically and only uncertain cases surfaced. A probe on main found 122 live handoff/next facts beside the pin. Most say 'supersedes X', but often with qualifiers ('on the #330 question only', 'X's NEXT stands'), so the text cannot drive a rule without judgment. This RFC proposes: (1) one deterministic rule, keyed on structure not prose — a handoff-shaped fact at least 14 days older than the pin, with at least 3 newer live handoff-shaped facts, and, if it carries a topic tag, at least one newer handoff sharing that tag — archived at SessionEnd on topic branches, only when the session is committing its own brain changes anyway, after the fallback-handoff decision; 54 of the 122 today; (2) a sticky `curation-kept` exemption that survives cross-branch merges; (3) everything else goes to a curator agent that proposes, never archives; (4) one line in the session-start briefing reports what was archived and what awaits the operator; (5) declined proposals are never re-raised. It replaces ADR-0082 §6's operator-edited list, and relaxes ADR-0082's propose-only rule for the rule's cases only."
+description: "Operator direction 2026-10-23 (brain f119b9942af4): curation should run in the background, by rules, with clear-cut cases archived automatically and only uncertain cases surfaced. A probe on main found 122 live handoff/next facts beside the pin. Most say 'supersedes X', but often with qualifiers ('on the #330 question only', 'X's NEXT stands'), so the text cannot drive a rule without judgment. This RFC proposes: (1) one deterministic rule, keyed on structure not prose — a handoff-shaped fact at least 14 days older than the pin, with at least 3 newer live handoff-shaped facts, and, if it carries a topic tag, at least one newer handoff sharing that tag — archived at SessionEnd on topic branches, only when the session is committing its own brain changes anyway, after the fallback-handoff decision; 50 of the 122 today; (2) a sticky `curation-kept` exemption that survives cross-branch merges; (3) everything else goes to a curator agent that proposes, never archives; (4) one line in the session-start briefing reports what was archived and what awaits the operator; (5) declined proposals are never re-raised. It replaces ADR-0082 §6's operator-edited list, and relaxes ADR-0082's propose-only rule for the rule's cases only."
 status: "Proposed"
 timestamp: 2026-10-23
 ---
@@ -76,8 +76,15 @@ The probe found:
      or `rfc-041`. The same-stream guard (§2) holds those back. Broad kind-of-work tags such
      as `rfc`, `review` or `plugin` do not count as a stream (round-2 review: matching on them
      cleared entries from unrelated streams).
-   - That leaves **54**.
-   - 25 of the 54 carry no topic tag at all, so the guard cannot see their stream.
+   - That leaves 54. Checking newest-first (§2, "Evaluation order") holds back 4 more,
+     because a handoff archived in the same run no longer clears an older one. That leaves
+     **50**.
+   - 25 of the 50 carry no topic tag at all, so the guard cannot see their stream.
+   - The generic set was drawn from this brain's own tags. It is not purely conservative:
+     an entry whose only extra tag is now generic (e.g. `144aead6fa73 [public]`, genuinely
+     superseded by `5af9df8be1a0`) counts as untagged and loses the guard. Cross-cutting ADR
+     tags (`adr-0070`) still clear entries from other streams. A consumer project's own broad
+     tags (`frontend`, `docs`, `bug`) are not in the set.
    - Qualified handoffs (item 2) occur at every age. The 14-day window does not avoid them.
      It relies on the newer handoffs that carried their content forward.
    - A 7-day window would add one entry, `d5667ac2c52c`, then 9.4 days old. The difference is
@@ -115,10 +122,15 @@ A live fact X is archived by the rule when **all** of these hold:
 The rule reads `created`, tags and the shape test. It never reads what the text says about
 other entries, for the reason in Context item 2.
 
-**One snapshot per run.** All six conditions are evaluated against the live set as it stood
-**before** the run. An entry the run archives still counts as live for the rest of that
-run. Without this, condition 5's result could depend on the order entries are checked in,
-since an earlier archive could remove the newer handoff that clears a later one.
+**Evaluation order: newest first.** The rule checks candidates from newest to oldest
+`created`, and an entry it archives stops counting as live for the older entries checked
+after it. So a handoff archived in this run never clears an older one under conditions 4
+and 5. The order is fixed, so the result is deterministic.
+- **Rejected: one snapshot taken before the run.** It archives 54 rather than 50. The 4 extra
+  (`6ad082a76acf`, `fe25618937e4`, `7be0d80841de`, `023309109476`) were cleared only by a
+  handoff that the same run archived.
+- After a snapshot run, 10 archived tagged entries would have no live newer handoff sharing a
+  tag, which breaks the guard's premise. Newest-first can only hold back more.
 
 **What it writes.** The existing archive delta (zone `archive`), plus the tag
 `auto-archived:old-handoff@<YYYY-MM-DD>`. Text is untouched (ADR-0021).
@@ -140,7 +152,10 @@ wins the merge. So:
 - the rule checks **every raw line** of an id for `curation-kept`, not just the materialized
   one (condition 6);
 - **the repair:** the rule looks at the id's materialized line and at its newest line that
-  the rule did not write. If the materialized line is a rule-written archive, and that newest
+  the rule did not write. "Newest" means by `updated`, as `materialize` orders them, never by
+  file position, because a union merge orders lines arbitrarily. A line the rule wrote is one
+  carrying an `auto-archived:` tag. The repair's own restore line carries none, so a later
+  run treats it as an ordinary line. If the materialized line is a rule-written archive, and that newest
   other line is live and carries `curation-kept`, the rule restores the entry and re-adds
   `curation-kept`;
 - **the operator's own later archive wins.** If the newest line the rule did not write is an
@@ -152,11 +167,11 @@ stated, not closed.
 
 **Accepted risks, stated:**
 - **A handoff that a later one only partly superseded** is archived once it is old enough.
-  For example, `023309109476` was superseded "on the #330 question only", and the rule
-  archives it. After 14 days and 3 newer handoffs, what still matters has usually been
+  For example, `e5f8db235235` superseded `6d04b01e15e9` only "on the #330 question", and
+  the rule archives `6d04b01e15e9`. After 14 days and 3 newer handoffs, what still matters has usually been
   carried forward or written as its own entry.
 - **A paused stream with no topic tag** cannot be told apart from the main stream. After 14
-  days and 3 newer handoffs elsewhere, its last handoff is archived. 25 of today's 54 have no
+  days and 3 newer handoffs elsewhere, its last handoff is archived. 25 of today's 50 have no
   topic tag. Context item 3's own example is like this: the Jev handoffs `d00e40d78b33` and
   `bfec144852c2` carry only `handoff,next`, so once they are old enough the guard cannot
   protect them. The §5 line reports every archive with its undo. The cheap mitigation is
@@ -177,12 +192,15 @@ stated, not closed.
 
 `vfkb curate auto` is a new CLI subcommand. The SessionEnd hook calls it as follows:
 - **Only when the session's own brain changes are being committed anyway** (operator ruling
-  2026-10-23, brain `ca519225196e`, option A). The test is the same one the hook already
-  uses: there are new ids since HEAD. A session that wrote nothing archives nothing and
-  commits nothing. So curation never adds a commit of its own to any branch.
+  2026-10-23, brain `ca519225196e`, option A). The test is that the session added at least
+  one new id since HEAD. That is the same set the B2 fallback reads once it counts by id
+  (below); today's hook counts added lines (`newEntriesSinceHead`, `src/session-end.ts`). A
+  session that wrote nothing archives nothing and commits nothing. A session that only
+  edited existing entries still commits them, as today, but does not curate. That is
+  narrower than "whenever the brain is committed", and it errs safe. So curation never adds a commit of its own to any branch.
   - **Why:** a curation-only commit after a PR's reviewed sha would fail the review gate,
     which strips only review-record commits from the tip (`scripts/review-gate.mjs:89`,
-    `candidateShas` at `:281`). It would also add brain commits to code PRs in other
+    `candidateShas` at `:274`). It would also add brain commits to code PRs in other
     projects.
   - **Rejected:** committing anyway and teaching the review gate to skip brain-only commits
     (an exception that lets unreviewed brain changes through). Also rejected: archiving at
@@ -212,8 +230,8 @@ stated, not closed.
 
 A plugin subagent, `vfkb:curator`, beside the existing `vfkb:briefer` and `vfkb:updater`
 (vfkb-claude-plugin `plugin/agents/`). Its job is fixed by a checklist, not open judgment:
-- **Scope:** live pin candidates that the rule does not archive (today 37 shaped, among them
-  the 18 held back by the stream guard, plus 31 topical), and `vfkb curate stale`'s report.
+- **Scope:** live pin candidates that the rule does not archive (today 41 shaped, among them
+  the 22 held back by the stream guard and the evaluation order, plus 31 topical), and `vfkb curate stale`'s report.
 - **For each, it either proposes archiving with one checkable reason, or says nothing.**
   Admissible reasons:
   - a newer live entry names this one and the agent reads that as full supersession, quoted;
@@ -256,7 +274,7 @@ there is something to say**:
 ### 6. The existing backlog
 
 There is no special backlog pass. The first topic-branch SessionEnd after the build runs §2
-and archives the qualifying set (54 at `97e796e`). The next session's line reports it. The
+and archives the qualifying set (50 at `97e796e`). The next session's line reports it. The
 curator then proposes from what remains.
 
 ADR-0082 §6's operator-edited list is retired, along with its file
@@ -280,9 +298,9 @@ ADR-0082 §6's operator-edited list is retired, along with its file
   - **Sticky exemption.** On a fixture with a restored, `curation-kept` line followed by a
     newer `auto-archived:` line (a simulated cross-branch merge), the rule restores the entry.
     On the same fixture with an operator `curate archive` line between them, it does not.
-  - **One snapshot.** A fixture where checking entries newest-first would hold one back
-    (X[p12], Y[p12,q], Z[q], W[q], all qualifying by age and count) gives the same archived
-    set as checking them oldest-first.
+  - **Newest first.** On the fixture X[p12], Y[p12,q], Z[q], W[q] (oldest to newest, all
+    qualifying by age and count), Y is archived and X is then held back. A mutation to
+    snapshot or oldest-first evaluation archives X, and the test must go red.
   - **Only with the session's own writes.** On a clean brain, SessionEnd archives nothing and
     makes no commit. With one new entry it archives, and the archives ride that one commit.
   - **Text and restore.**

@@ -11,7 +11,9 @@ link a built `dist/` into `<dir>`, then run `node probe.mjs <dir>` and `node str
   with their surrounding wording, and the age-and-count rule (72).
 - `stream.mjs` → `output-stream.txt`: the same rule plus the same-stream tag guard (54, with
   the 18 it holds back, and the shared tag that cleared each archived entry). The generic tag
-  set was widened in review round 2; with lifecycle tags only, it was 61 and 11.
+  set was widened in review round 2; with lifecycle tags only, it was 61 and 11. Its last
+  line is the newest-first evaluation RFC-046 adopts (round 3): 50, with the 4 that only the
+  snapshot order would archive.
 
 Re-running on a later brain gives different numbers. For example, this PR's own handoff
 `33b4b1aa0a34` becomes the pin, which makes `e622618cba19` a candidate.

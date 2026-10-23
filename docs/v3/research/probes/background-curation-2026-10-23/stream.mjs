@@ -22,3 +22,22 @@ for (const e of live.filter(e => SHAPE.test(e.text))) {
   if (sameStream.length >= 1) { guarded++; cleared.push(`${e.id} via ${[...new Set(sameStream.flatMap(o => spec(o).filter(t => s.includes(t))))].join(',')}`); } else lost.push(`${e.id} [${s.join(',')}]`);
 }
 console.log({ pin: pin.id, base, guarded, noSpecificTags: noSpec, heldBack: lost.length }); lost.forEach(l => console.log('  held', l)); cleared.forEach(l => console.log('  cleared', l));
+
+// Round 3: newest-first evaluation (RFC-046 §2 "Evaluation order"). Each archive is applied
+// before older entries are checked, so a handoff archived in this run never clears an older
+// one. Conservative: it can only hold back more than the snapshot rule above.
+{
+  const liveSet = new Set(shaped.map(e => e.id));
+  const order = live.filter(e => SHAPE.test(e.text)).sort((a, b) => (a.created < b.created ? 1 : -1));
+  const archived = [];
+  for (const e of order) {
+    const newer = shaped.filter(o => liveSet.has(o.id) && o.created > e.created);
+    if ((pinT - Date.parse(e.created)) / day < 14 || newer.length < 3) continue;
+    const s = spec(e);
+    if (s.length && !newer.some(o => spec(o).some(t => s.includes(t)))) continue;
+    archived.push(e.id); liveSet.delete(e.id);
+  }
+  const snapshot = new Set(cleared.map(l => l.split(' ')[0]));
+  const fewer = [...snapshot].filter(id => !archived.includes(id));
+  console.log('newest-first archives', archived.length, '(snapshot', base - lost.length + ')', 'held only by newest-first:', fewer.join(' '));
+}
