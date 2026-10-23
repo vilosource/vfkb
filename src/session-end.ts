@@ -45,6 +45,7 @@ export interface SessionEndResult {
 
 interface BrainEntry {
   id?: string;
+  updated?: string;
   type?: string;
   text?: string;
   tags?: string[];
@@ -99,13 +100,15 @@ function newEntriesSinceHead(
   }
   const head = tryGit(git, ['show', `HEAD:${repoRelEntries}`], cwd);
   const known = new Set(parseLines(head ?? '').map((e) => e.id));
-  const fresh: BrainEntry[] = [];
+  // Each new id judged by its NEWEST line (by `updated`, a tie to the later line), as the
+  // engine materializes it: an entry written then retagged `handoff` is a handoff.
+  const fresh = new Map<string, BrainEntry>();
   for (const e of current) {
     if (!e.id || known.has(e.id)) continue;
-    known.add(e.id);
-    fresh.push(e);
+    const prev = fresh.get(e.id);
+    if (!prev || String(e.updated ?? '') >= String(prev.updated ?? '')) fresh.set(e.id, e);
   }
-  return fresh;
+  return [...fresh.values()];
 }
 
 const isHandoff = (e: BrainEntry): boolean =>
@@ -183,7 +186,7 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
         committed: false,
         reason: 'detached-head',
         added,
-        systemMessage: `vfkb: ${added} new brain entr${added === 1 ? 'y' : 'ies'} uncommitted (detached HEAD) — check out a branch and commit to preserve continuity.`,
+        systemMessage: `vfkb: brain changes uncommitted (${added} new entr${added === 1 ? 'y' : 'ies'}, detached HEAD) — check out a branch and commit to preserve continuity.`,
       };
     }
     if (branch === def || branch === 'main' || branch === 'master') {
@@ -193,28 +196,21 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
         reason: 'on-default-branch',
         branch,
         added,
-        systemMessage: `vfkb: ${added} new brain entr${added === 1 ? 'y' : 'ies'} on \`${branch}\` left uncommitted — branch + commit to preserve continuity (vfkb never auto-commits the default branch).`,
+        systemMessage: `vfkb: brain changes on \`${branch}\` left uncommitted (${added} new entr${added === 1 ? 'y' : 'ies'}) — branch + commit to preserve continuity (vfkb never auto-commits the default branch).`,
       };
     }
 
-    // 4) GAP 1 (B2 floor): guarantee a committed handoff exists. If the session left no
-    //    handoff/next entry among its new-since-HEAD entries, write a fallback that
-    //    enumerates them — BEFORE the commit, so it ships in the same commit.
+    // 4) GAP 1 (B2 floor): guarantee a committed handoff exists. DECIDE here, from the
+    //    session's new-since-HEAD entries, whether a fallback is needed; WRITE it in 6),
+    //    after curation and before the commit, so it ships in the same commit.
     const fresh = newSinceHead();
-    let autoHandoff = false;
-    if (fresh.length > 0 && !fresh.some(isHandoff)) {
-      try {
-        writeAutoHandoff(absBrain, fresh, sessionId);
-        autoHandoff = true;
-      } catch {
-        /* handoff is best-effort; never let it block the commit */
-      }
-    }
+    const needFallback = fresh.length > 0 && !fresh.some(isHandoff);
 
     // 5) ADR-0083 §3: Tier-1 background curation. Only when the session added a new id
-    //    (option A, brain ca519225196e) — so curation never makes a commit of its own —
-    //    and only AFTER the B2 decision above, so its archive lines cannot read as "the
-    //    session left a handoff". Fail-open: curation must never block the commit.
+    //    (option A, brain ca519225196e), so curation never makes a commit of its own. It
+    //    runs AFTER the fallback decision, so its archive lines cannot read as "the
+    //    session left a handoff", and BEFORE the fallback is written, so the rule measures
+    //    from the last real handoff, not from an auto-handoff stamped "now". Fail-open.
     let curated = 0;
     if (fresh.length > 0) {
       const prev = process.env.VFKB_DATA_DIR;
@@ -230,7 +226,17 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
       }
     }
 
-    // 6) Pathspec-scoped commit. Stage ONLY the brain file (leaves any other staged
+    let autoHandoff = false;
+    if (needFallback) {
+      try {
+        writeAutoHandoff(absBrain, fresh, sessionId);
+        autoHandoff = true;
+      } catch {
+        /* handoff is best-effort; never let it block the commit */
+      }
+    }
+
+    // 7) Pathspec-scoped commit. Stage ONLY the brain file (leaves any other staged
     //    files alone), then commit with `--only` so even pre-staged files are NOT
     //    swept into this auto-commit.
     const added = newSinceHead().length;

@@ -273,20 +273,26 @@ export function autoCurate(today = todayIso(), opts: { dryRun?: boolean } = {}):
 
     const superseded = supersededIds(all);
     const pin = latestHandoff(all, today, superseded);
-    if (!pin) return result;
+    // An unparseable `created` (normalizeEntry accepts any string) would make every age
+    // and order test NaN — and NaN passes "< 14 days" as false. Skip such entries, and
+    // run nothing when the pin itself has one.
+    if (!pin || !Number.isFinite(createdMs(pin))) return result;
     const kept = new Set<string>();
     for (const [id, lines] of linesById) if (lines.some((l) => l.tags.includes(CURATION_KEPT))) kept.add(id);
     const repaired = new Set(result.repaired);
     const shaped = all.filter(
-      (e) => !repaired.has(e.id) && isInjectable(e, today, superseded) && isPinCandidate(e) && HANDOFF_SHAPE.test(e.text),
+      (e) =>
+        !repaired.has(e.id) && isInjectable(e, today, superseded) && isPinCandidate(e) &&
+        HANDOFF_SHAPE.test(e.text) && Number.isFinite(createdMs(e)),
     );
     const live = new Set(shaped.map((e) => e.id));
     // Newest-first, so a handoff this run archives never clears an older one.
-    const candidates = shaped.filter((e) => e.id !== pin.id).sort((a, b) => b.created.localeCompare(a.created));
+    const candidates = shaped.filter((e) => e.id !== pin.id).sort((a, b) => createdMs(b) - createdMs(a));
     for (const e of candidates) {
       if (kept.has(e.id)) continue;
       if (createdMs(pin) - createdMs(e) < MIN_AGE_DAYS * DAY_MS) continue;
-      const newer = shaped.filter((o) => live.has(o.id) && o.created > e.created);
+      // Compared as instants, not strings: `created` may carry a timezone offset.
+      const newer = shaped.filter((o) => live.has(o.id) && createdMs(o) > createdMs(e));
       if (newer.length < MIN_NEWER) continue;
       const topics = topicTags(e);
       if (topics.length && !newer.some((o) => topicTags(o).some((t) => topics.includes(t)))) continue;

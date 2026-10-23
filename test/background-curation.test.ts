@@ -165,6 +165,24 @@ describe('ADR-0083 §2 — the Tier-1 rule', () => {
     expect(brainBytes()).toBe(bytes);
   });
 
+  it('skips a candidate whose created does not parse', () => {
+    rec({ id: 'bad', created: '' });
+    rec({ id: 'old', created: day(0) });
+    chain();
+    expect(autoCurate(TODAY).archived).toEqual(['old']);
+    expect(byId('bad').zone).toBe('established');
+  });
+
+  it('compares created as instants: a timezone offset cannot make an older entry "newer"', () => {
+    rec({ id: 'X', created: '2026-01-01T00:00:00.000Z' });
+    // later as a string, but 2025-12-31T20:00Z as an instant — older than X
+    rec({ id: 'A', created: '2026-01-01T01:00:00.000+05:00' });
+    rec({ id: 'B', created: day(30) });
+    rec({ id: 'pin', created: day(40) });
+    autoCurate(TODAY);
+    expect(byId('X').zone).toBe('established'); // only B and the pin are newer
+  });
+
   it('a dry run writes nothing', () => {
     rec({ id: 'old', created: day(0) });
     chain();
@@ -255,6 +273,12 @@ describe('ADR-0083 §5 — the log and the briefing line (read-only)', () => {
     expect(out).toContain('vfkb curate restore <id>');
     expect(out.indexOf('Curation:')).toBeGreaterThan(out.indexOf('## Last handoff'));
     expect(brainBytes()).toBe(bytes);
+  });
+
+  it('auto-archives dated after today are not counted', () => {
+    rec({ id: 'old', zone: 'archive', tags: ['handoff', 'next', `${AUTO_ARCHIVED}old-handoff@2999-01-01`], created: day(0) });
+    chain();
+    expect(renderContextBundle('p')).not.toContain('Curation:');
   });
 
   it('auto-archives dated more than 7 days ago are not counted', () => {

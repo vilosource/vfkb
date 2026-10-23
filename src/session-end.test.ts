@@ -241,6 +241,43 @@ describe('SessionEnd background curation (ADR-0083 §3)', () => {
     expect(zoneOf('old')).toBe('established');
   });
 
+  it('judges a new id by its newest line: written, then retagged handoff, is a handoff (no fallback)', () => {
+    committedBacklog();
+    git(['checkout', '-q', '-b', 'feat/work']);
+    const t = new Date().toISOString();
+    addEntry(full('real', t, { text: 'HANDOFF real: the work is done', tags: ['x'] }));
+    addEntry(full('real', t, { text: 'HANDOFF real: the work is done', tags: ['handoff', 'next'], updated: new Date(Date.now() + 1000).toISOString() }));
+    const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb' });
+    expect(r.autoHandoff).toBe(false);
+    expect(readEntries().some((e) => (e.tags ?? []).includes('auto'))).toBe(false);
+  });
+
+  it('measures age from the last real handoff, not from the fallback written this run', () => {
+    // X, Y1, Y2, P on consecutive days a month ago; then an idle month; then a session
+    // that writes one gotcha. X is only 3 days older than P, the last real handoff.
+    const ago = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString();
+    addEntry(full('X', ago(33)));
+    addEntry(full('Y1', ago(32)));
+    addEntry(full('Y2', ago(31)));
+    addEntry(full('P', ago(30)));
+    git(['add', '-A']);
+    git(['commit', '-q', '-m', 'brain']);
+    git(['checkout', '-q', '-b', 'feat/work']);
+    addEntry(full('k1', new Date().toISOString(), { type: 'gotcha', text: 'watch out', tags: ['git'] }));
+    const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb' });
+    expect(r.autoHandoff).toBe(true);
+    expect(zoneOf('X')).toBe('established');
+    expect(r.curated ?? 0).toBe(0);
+  });
+
+  it('an edit-only session on the default branch is warned about brain changes, not "0 new entries"', () => {
+    committedBacklog();
+    addEntry(full('n1', '2026-02-01T00:00:00.000Z', { updated: '2026-03-01T00:00:00.000Z', tags: ['handoff', 'next', 'x'] }));
+    const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb' });
+    expect(r.reason).toBe('on-default-branch');
+    expect(r.systemMessage).toMatch(/^vfkb: brain changes on `main` left uncommitted/);
+  });
+
   it('never curates on the default branch', () => {
     committedBacklog();
     addEntry(full('k1', new Date().toISOString(), { type: 'gotcha', text: 'watch out', tags: ['git'] }));
