@@ -524,6 +524,9 @@ as a Brake that tolerates its defect class is worse than none, per this repo's o
 > old handoff is edited, and one true duplicate in 535 entries. Decided: the pin is the newest-created handoff fact (one
 > selector, shared with B3); the skill writes first, proposes the predecessor by id and retires it only on yes; read-only
 > reports; the backlog from an operator-edited list. It does not move R1's gate, and goes next on its own merits.
+>
+> **2026-10-22: built and VERIFIED.** The engine half is vfkb#371. The skill shipped in plugin v0.21.0 (plugin#65). The L4
+> `handoff-retires` is DEMONSTRATED (yes 3/3, no 3/3, no answer 3/3, contrast 0/3). Only the operator-edited backlog PR is left.
 
 **Problem.** 458 live entries; **106** carry `handoff`, of which exactly one is ever
 pinned, so 105 compete for budget as dead weight. `findLexicalDuplicates` is
