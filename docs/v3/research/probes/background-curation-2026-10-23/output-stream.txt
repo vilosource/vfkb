@@ -1,0 +1,55 @@
+{
+  pin: 'e622618cba19',
+  base: 72,
+  guarded: 54,
+  noSpecificTags: 25,
+  heldBack: 18
+}
+  held 5a38a113f412 [consumer-onboarding,track-7]
+  held a6b738fc053c [track-8,continuity,eod]
+  held 4a5e8ad8cb64 [cross-project,track-9]
+  held 86ab89138abe [fork-complete]
+  held f97ad4cd94bf [delivery]
+  held b71ade53a138 [npm]
+  held b0ba2217061a [queue-push]
+  held eee4c555c817 [session-close,p10]
+  held 31bda7e168d2 [graphify]
+  held e18b368ee431 [testing]
+  held bed378c35c89 [adr-0059]
+  held 064a17d755b2 [realpath,claude-config-dir]
+  held fce51b4e0399 [adr-0062]
+  held 2371d7d7cfce [adr-0074,rfc-038]
+  held 7aeeac2284de [p12,factory]
+  held b4d6456fedba [adr-0052]
+  held 78bbdd0ef2a7 [p2,brief]
+  held be601e467329 [rfc-041,hitl,adr-0070]
+  cleared 1488c66658c4 via consumer-onboarding,track-7
+  cleared df0326526f98 via track-8,continuity
+  cleared e133f731e9aa via track-8,continuity
+  cleared 5af9df8be1a0 via npm
+  cleared fd74e01b17d4 via npm
+  cleared 4463439c35ef via realpath,adr-0070
+  cleared 6ad082a76acf via review-gate
+  cleared 02d058d1ef2d via adr-0062
+  cleared fe25618937e4 via asdlc
+  cleared 981bc2d1e45b via factory
+  cleared 1447782a60ff via adr-0070
+  cleared 5c29e9e8970a via p12,factory
+  cleared 75303b9c9d33 via admission-gate,p12a
+  cleared 5de5f80cc5dc via admission-gate,p12a
+  cleared 286f7ec35514 via admission-gate,p12a,pr-317,adr-0052
+  cleared e048c2848fea via admission-gate,p12a,adr-0052,adr-0070
+  cleared 8590acdd70ce via admission-gate,p12a
+  cleared 85eb3a71d412 via admission-gate
+  cleared 4ae15daf33c1 via p12a,admission-gate
+  cleared eae097c41b42 via adr-0052
+  cleared b5ffd33ced26 via p12a,admission-gate
+  cleared 7be0d80841de via p12a,admission-gate
+  cleared 7cb2570eeb51 via p2,p12a,admission-gate
+  cleared 67f1dde15f79 via p2
+  cleared 431c5be42b21 via p2,brief
+  cleared 059dd50b710a via adr-0070
+  cleared 023309109476 via tamper-check,vitest
+  cleared 6d04b01e15e9 via tamper-check,vitest,hitl,adr-0070
+  cleared e5f8db235235 via rfc-041
+newest-first archives 50 (snapshot 54) held only by newest-first: 6ad082a76acf fe25618937e4 7be0d80841de 023309109476
