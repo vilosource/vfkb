@@ -1,0 +1,238 @@
+{
+  "recordVersion": 1,
+  "sha": "30876584acc1c7d9bbc2fab1565e4b914575e103",
+  "governing": [
+    "docs/adr/ADR-0083-background-curation.md",
+    "docs/rfc/RFC-046-background-curation.md"
+  ],
+  "reviewer": {
+    "agent": "general-purpose",
+    "model": "opus",
+    "rounds": 3
+  },
+  "generated": "2026-10-26T00:00:00Z",
+  "findings": [
+    {
+      "id": "R1-F1",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "SessionEnd judged a new id by its first line, so an entry written then retagged handoff drew a B2 fallback that displaced the real pin",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-F2",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "the ADR-0083 \u00a73 order had no guard and the fallback written before curation made the rule measure from an auto-handoff stamped now; the fallback is now decided before and written after curation, with the month-idle fixture as a guard",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-F3",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "an unparseable created passed the age gate, and offset timestamps compared as strings; now compared as instants and skipped when unparseable",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-F4",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "default-branch and detached-HEAD warnings said '0 new entries' for edit-only sessions; they now name brain changes",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-F5",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "the briefing window's upper bound was unguarded; test added",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-F6",
+      "severity": "minor",
+      "status": "accepted",
+      "summary": "edit-only sessions no longer get the ADR-0033 fallback (decided by ADR-0083 \u00a73); to be stated in the release notes",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-1",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "the NaN skip was not equivalent: a NaN in the sort comparator misorders valid entries; the reviewer's concrete fixture is now a test",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-2",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "age is measured from the pin including a committed auto-fallback, so the month-idle protection holds for one session only; resolved as Option 1 (ADR-0083 \u00a72 as written), test renamed to claim only what it proves, optional amendment offered to the operator",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-3",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "a pin with an unparseable created silently disabled Tier 1; autoCurate now returns skipped with the reason and curate auto prints it",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-4",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "an id added then deleted was listed by the fallback as '[?]'; tombstoned new ids are excluded",
+      "acceptedBy": null
+    },
+    {
+      "id": "R3-1",
+      "severity": "minor",
+      "status": "open",
+      "summary": "the curate auto print of skipped is untested (verified: deleting it keeps 904/904 green); issue #380",
+      "acceptedBy": null
+    },
+    {
+      "id": "R3-2",
+      "severity": "minor",
+      "status": "open",
+      "summary": "SessionEnd ignores autoCurate's skipped, so Tier 1 can be silently off; fails safe; issue #380",
+      "acceptedBy": null
+    },
+    {
+      "id": "R3-3",
+      "severity": "minor",
+      "status": "open",
+      "summary": "the NaN-ordering test depends on V8 sort internals; issue #380",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 13,
+  "ruledOut": [],
+  "mutations": [
+    {
+      "guard": "test/background-curation.test.ts > the 14-day window",
+      "mutation": "MIN_AGE_DAYS 14 -> 13",
+      "observedRed": true
+    },
+    {
+      "guard": "test/background-curation.test.ts > needs 3 newer LIVE shaped handoffs",
+      "mutation": "MIN_NEWER 3 -> 2",
+      "observedRed": true
+    },
+    {
+      "guard": "test/background-curation.test.ts > same-stream guard",
+      "mutation": "removed the topic-tag guard",
+      "observedRed": true
+    },
+    {
+      "guard": "test/background-curation.test.ts > curation-kept on ANY line",
+      "mutation": "removed the kept check",
+      "observedRed": true
+    },
+    {
+      "guard": "test/background-curation.test.ts > checks newest-first",
+      "mutation": "sorted oldest-first",
+      "observedRed": true
+    },
+    {
+      "guard": "test/background-curation.test.ts > checks newest-first",
+      "mutation": "snapshot evaluation (no live.delete)",
+      "observedRed": true
+    },
+    {
+      "guard": "test/background-curation.test.ts > never archives a topical fact",
+      "mutation": "removed the HANDOFF_SHAPE test",
+      "observedRed": true
+    },
+    {
+      "guard": "test/background-curation.test.ts > instants",
+      "mutation": "compared created as strings",
+      "observedRed": true
+    },
+    {
+      "guard": "test/background-curation.test.ts > unparseable created cannot scramble",
+      "mutation": "removed the NaN skip",
+      "observedRed": true
+    },
+    {
+      "guard": "test/background-curation.test.ts > newest means by updated",
+      "mutation": "repair by file position",
+      "observedRed": true
+    },
+    {
+      "guard": "test/background-curation.test.ts > operator's own later archive",
+      "mutation": "repair ignores the operator archive",
+      "observedRed": true
+    },
+    {
+      "guard": "test/background-curation.test.ts > restoring an auto-archived entry",
+      "mutation": "restore without curation-kept",
+      "observedRed": true
+    },
+    {
+      "guard": "test/background-curation.test.ts > restoring a hand-archived entry",
+      "mutation": "restore always adds curation-kept",
+      "observedRed": true
+    },
+    {
+      "guard": "test/background-curation.test.ts > never touches text",
+      "mutation": "archive edits text",
+      "observedRed": true
+    },
+    {
+      "guard": "test/background-curation.test.ts > a dry run writes nothing",
+      "mutation": "dry run writes",
+      "observedRed": true
+    },
+    {
+      "guard": "test/background-curation.test.ts > no curation line",
+      "mutation": "line renders at zero",
+      "observedRed": true
+    },
+    {
+      "guard": "test/background-curation.test.ts > more than 7 days ago",
+      "mutation": "no lower window bound",
+      "observedRed": true
+    },
+    {
+      "guard": "test/background-curation.test.ts > dated after today",
+      "mutation": "no upper window bound",
+      "observedRed": true
+    },
+    {
+      "guard": "test/background-curation.test.ts > reports a pin whose created does not parse",
+      "mutation": "silenced result.skipped",
+      "observedRed": true
+    },
+    {
+      "guard": "src/session-end.test.ts > B2 fallback still fires",
+      "mutation": "new entries counted by line",
+      "observedRed": true
+    },
+    {
+      "guard": "src/session-end.test.ts > retagged handoff",
+      "mutation": "first line per id",
+      "observedRed": true
+    },
+    {
+      "guard": "src/session-end.test.ts > does not measure from the fallback this run writes",
+      "mutation": "fallback written before curation",
+      "observedRed": true
+    },
+    {
+      "guard": "src/session-end.test.ts > edit-only session does not curate",
+      "mutation": "curate on edit-only sessions",
+      "observedRed": true
+    },
+    {
+      "guard": "src/session-end.test.ts > warned about brain changes",
+      "mutation": "old warning text",
+      "observedRed": true
+    },
+    {
+      "guard": "src/session-end.test.ts > added then deleted",
+      "mutation": "tombstones counted as new",
+      "observedRed": true
+    }
+  ],
+  "mutationsNote": "Equivalent survivor: removing the pin exclusion (the pin's age against itself is 0 and nothing is newer). Observed red by the author's mutate.py/mutate2.py/mutate3.py and independently re-run by the reviewer at 3087658.",
+  "verdict": "MERGE"
+}
