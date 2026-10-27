@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import {
@@ -11,6 +11,8 @@ import {
   HANDOFF_MIN_ENTRIES,
   STALE_HANDOFF_REMINDER,
   NUDGE_COOLDOWN_TURNS,
+  STALE_HANDOFF_MIN_TURN,
+  isPausedStop,
 } from '../src/stop-reminder.js';
 
 const CLI = resolve(__dirname, '../dist/cli.js');
@@ -249,6 +251,132 @@ describe('decideStop — per-nudge cooldown', () => {
   });
 });
 
+// ── ADR-0084 §1.1 (1a): B3 is quiet before turn 3 ────────────────────────────
+describe('decideStop — B3 not before turn 3 (ADR-0084 §1.1)', () => {
+  const stale = { uncommittedWork: false, newDecisions: 1, handoffStale: true };
+  const all = {
+    uncommittedWork: true,
+    newDecisions: 0,
+    newEntries: HANDOFF_MIN_ENTRIES,
+    newHandoffs: 0,
+    handoffStale: true,
+  };
+
+  it('pins the threshold: B3 first eligible at turn 3', () => {
+    expect(STALE_HANDOFF_MIN_TURN).toBe(3);
+  });
+
+  it('B3 is quiet at turn 1 and turn 2 even though its trigger holds', () => {
+    for (const turn of [1, 2]) {
+      expect(decideStop({ stop_hook_active: false }, { ...stale, turn, lastNudged: {} }), `turn=${turn}`).toEqual({
+        block: false,
+      });
+    }
+  });
+
+  it('B3 fires at turn 3 (over-silencing guard)', () => {
+    expect(decideStop({ stop_hook_active: false }, { ...stale, turn: 3, lastNudged: {} })).toEqual({
+      block: true,
+      reminder: STALE_HANDOFF_REMINDER,
+      fired: ['staleHandoff'],
+    });
+  });
+
+  it('1a touches only B3: the decision nudge and B1 still fire at turn 1', () => {
+    const d = decideStop({ stop_hook_active: false }, { ...all, turn: 1, lastNudged: {} });
+    expect(d.block).toBe(true);
+    if (d.block) {
+      expect(d.fired).toEqual(['decision', 'handoff']);
+      expect(d.reminder).not.toContain(STALE_HANDOFF_REMINDER);
+    }
+  });
+
+  it("an invalid turn fails open: B3 fires (today's behaviour)", () => {
+    const bad = [undefined, NaN, Infinity, '1' as unknown as number, null as unknown as number];
+    for (const turn of bad) {
+      expect(decideStop({ stop_hook_active: false }, { ...stale, turn }), `turn=${String(turn)}`).toEqual({
+        block: true,
+        reminder: STALE_HANDOFF_REMINDER,
+        fired: ['staleHandoff'],
+      });
+    }
+  });
+});
+
+// ── ADR-0084 §1.2 (1b): a paused stop defers every nudge ─────────────────────
+describe('decideStop — paused stop defers all nudges (ADR-0084 §1.2)', () => {
+  const all = {
+    uncommittedWork: true,
+    newDecisions: 0,
+    newEntries: HANDOFF_MIN_ENTRIES,
+    newHandoffs: 0,
+    handoffStale: true,
+    turn: 5,
+    lastNudged: {},
+  };
+  const firesAll = (d: ReturnType<typeof decideStop>, label: string) => {
+    expect(d.block, label).toBe(true);
+    if (d.block) expect(d.fired, label).toEqual(['decision', 'handoff', 'staleHandoff']);
+  };
+
+  it('non-empty background_tasks → {block:false}', () => {
+    expect(decideStop({ stop_hook_active: false, background_tasks: [{}] }, all)).toEqual({ block: false });
+  });
+
+  it('non-empty session_crons → {block:false}', () => {
+    expect(decideStop({ stop_hook_active: false, session_crons: [{}] }, all)).toEqual({ block: false });
+  });
+
+  it('absent / null / non-array / empty → today (fires all three)', () => {
+    const values: unknown[] = [[], undefined, null, 'x', {}, 0];
+    for (const v of values) {
+      firesAll(decideStop({ stop_hook_active: false, background_tasks: v }, all), `background_tasks=${JSON.stringify(v)}`);
+      firesAll(decideStop({ stop_hook_active: false, session_crons: v }, all), `session_crons=${JSON.stringify(v)}`);
+    }
+    firesAll(decideStop({ stop_hook_active: false, background_tasks: [], session_crons: [] }, all), 'both empty');
+  });
+
+  it('stop_hook_active still wins over a paused payload', () => {
+    expect(decideStop({ stop_hook_active: true, background_tasks: [{}] }, all)).toEqual({ block: false });
+  });
+
+  it('isPausedStop is the single predicate', () => {
+    expect(isPausedStop({ background_tasks: [{ id: 't' }] })).toBe(true);
+    expect(isPausedStop({ session_crons: [{ id: 'c' }] })).toBe(true);
+    expect(isPausedStop({ background_tasks: [], session_crons: [] })).toBe(false);
+    expect(isPausedStop({ background_tasks: 'x', session_crons: { length: 1 } })).toBe(false);
+    expect(isPausedStop({})).toBe(false);
+    expect(isPausedStop(undefined as unknown as object)).toBe(false);
+  });
+});
+
+// ── ADR-0084 §1.3 (1d): the write-demand clause is dropped ───────────────────
+describe('STALE_HANDOFF_REMINDER text (ADR-0084 §1.3)', () => {
+  it('keeps the lead-in byte-identical (nudge-fires.py counts by it)', () => {
+    expect(STALE_HANDOFF_REMINDER.startsWith('vfkb stale-handoff check: ')).toBe(true);
+  });
+
+  it('is pinned to the new text', () => {
+    expect(STALE_HANDOFF_REMINDER).toBe(
+      'vfkb stale-handoff check: the currently pinned handoff/next entry predates a commit that ' +
+        'landed since it was written (e.g. a merged PR, possibly from another session or an ' +
+        'autonomous merge) — a fresh session would start from an out-of-date "what happened" ' +
+        'pointer. If you are WRAPPING UP, record a fresh handoff now — `mcp__vfkb__kb_add` ' +
+        '(type=fact, tags=handoff,next, role=human), or /vfkb:handoff if available — naming what ' +
+        'actually changed and what is next now. If you are still mid-session, ignore this and finish normally.',
+    );
+    expect(STALE_HANDOFF_REMINDER.endsWith('If you are still mid-session, ignore this and finish normally.')).toBe(
+      true,
+    );
+  });
+
+  it('carries no write demand', () => {
+    for (const phrase of ['must', 'before the session ends', 'plan to record one', 'no SessionEnd fallback']) {
+      expect(STALE_HANDOFF_REMINDER, phrase).not.toContain(phrase);
+    }
+  });
+});
+
 // ── handoffIsStale: the impure git-comparison function ───────────────────────
 describe('handoffIsStale', () => {
   // Commit dates are set EXPLICITLY via GIT_AUTHOR_DATE/GIT_COMMITTER_DATE rather than
@@ -456,6 +584,39 @@ function runStop(dir: string, payload: object): string {
   }).trim();
 }
 
+/** A repo whose pinned handoff predates a later non-brain commit; working tree clean. */
+function staleRepo(): string {
+  const dir = gitRepo();
+  const commitDated = (files: string[], when: string, msg: string) => {
+    execFileSync('git', ['add', ...files], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['commit', '-qm', msg], {
+      cwd: dir,
+      stdio: 'ignore',
+      env: { ...process.env, GIT_AUTHOR_DATE: when, GIT_COMMITTER_DATE: when },
+    });
+  };
+  const handoffTs = '2030-01-01T00:00:00Z';
+  writeFileSync(
+    join(dir, '.vfkb', 'entries.jsonl'),
+    JSON.stringify({
+      id: 'h1',
+      type: 'fact',
+      text: 'h',
+      tags: ['handoff', 'next'],
+      zone: 'established',
+      author: { role: 'human' },
+      provenance: { status: 'verified' },
+      validity: { valid_from: handoffTs },
+      created: handoffTs,
+      updated: handoffTs,
+    }) + '\n',
+  );
+  commitDated(['.vfkb/entries.jsonl'], handoffTs, 'handoff');
+  writeFileSync(join(dir, 'src', 'bar.ts'), 'export const y = 1;\n');
+  commitDated(['src/bar.ts'], '2030-06-01T00:00:00Z', 'merged PR');
+  return dir;
+}
+
 describe('cli hook stop — emits the verified Stop contract', () => {
   it('blocks with hookSpecificOutput when src/ changed and no decision recorded', () => {
     const dir = gitRepo();
@@ -604,5 +765,55 @@ describe('cli hook stop — emits the verified Stop contract', () => {
     );
     const out = JSON.parse(runStop(dir, { stop_hook_active: false, session_id: 'corrupt' }));
     expect(out.hookSpecificOutput.decision).toBe('block');
+  });
+  // ── ADR-0084 §1.2 (1b) through the real CLI ────────────────────────────────
+  it('1b: a paused stop (background_tasks non-empty) emits {} despite pending work', () => {
+    const dir = gitRepo();
+    writeFileSync(join(dir, 'src', 'foo.ts'), 'export const x = 1;\n'); // arms the decision nudge
+    const payload = { stop_hook_active: false, session_id: 'paused', background_tasks: [{ id: 't1' }] };
+    expect(runStop(dir, payload)).toBe('{}');
+  });
+
+  it('1b: a paused stop (session_crons non-empty) emits {} despite pending work', () => {
+    const dir = gitRepo();
+    writeFileSync(join(dir, 'src', 'foo.ts'), 'export const x = 1;\n');
+    const payload = { stop_hook_active: false, session_id: 'paused-c', session_crons: [{ id: 'c1' }] };
+    expect(runStop(dir, payload)).toBe('{}');
+  });
+
+  it('1b contrast: an EMPTY background_tasks array is not a paused stop (still blocks)', () => {
+    const dir = gitRepo();
+    writeFileSync(join(dir, 'src', 'foo.ts'), 'export const x = 1;\n');
+    const out = JSON.parse(runStop(dir, { stop_hook_active: false, session_id: 'unpaused', background_tasks: [] }));
+    expect(out.hookSpecificOutput.decision).toBe('block');
+    expect(out.hookSpecificOutput.additionalContext).toContain('vfkb decision-capture check:');
+  });
+
+  it('1b: a paused stop leaves the cooldown slot untouched — the next real stop still nudges', () => {
+    const dir = gitRepo();
+    writeFileSync(join(dir, 'src', 'foo.ts'), 'export const x = 1;\n');
+    expect(runStop(dir, { stop_hook_active: false, session_id: 'p2', background_tasks: [{ id: 't1' }] })).toBe('{}');
+    const rec = join(dir, '.vfkb', '.sessions', 'p2.json');
+    if (existsSync(rec)) {
+      const data = JSON.parse(readFileSync(rec, 'utf8')) as { nudgedAtTurn?: Record<string, number> };
+      expect(data.nudgedAtTurn?.decision).toBeUndefined();
+    }
+    const out = JSON.parse(runStop(dir, { stop_hook_active: false, session_id: 'p2' }));
+    expect(out.hookSpecificOutput.decision).toBe('block');
+    expect(out.hookSpecificOutput.additionalContext).toContain('vfkb decision-capture check:');
+  });
+
+  // ── ADR-0084 §1.1 (1a) through the real CLI ────────────────────────────────
+  it('1a: a persisted session gets no B3 on stops 1 and 2, then B3 on stop 3', () => {
+    const dir = staleRepo();
+    const payload = { stop_hook_active: false, session_id: 'sess-b3' };
+    expect(runStop(dir, payload)).toBe('{}'); // turn 1
+    expect(runStop(dir, payload)).toBe('{}'); // turn 2
+    expect(runStop(dir, payload)).toContain('vfkb stale-handoff check:'); // turn 3
+  });
+
+  it('1a contrast: an ephemeral session (no session_id) fails open — B3 on stop 1', () => {
+    const dir = staleRepo();
+    expect(runStop(dir, { stop_hook_active: false })).toContain('vfkb stale-handoff check:');
   });
 });

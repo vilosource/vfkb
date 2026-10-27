@@ -12,6 +12,10 @@
 //
 // `decideStop` is the PURE core (deterministically unit-tested, the backstop). The git /
 // brain gathering is the impure shell, used by `cli.ts hook stop`.
+//
+// ADR-0084 §1 (amends ADR-0027) adds deterministic WHEN-rules: a paused stop (non-empty
+// `background_tasks` / `session_crons`) defers every nudge (1b), B3 is quiet before turn
+// STALE_HANDOFF_MIN_TURN (1a), and B3's text no longer demands a write (1d).
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -23,6 +27,23 @@ import type { KnowledgeEntry } from './types.js';
 
 export interface StopHookInput {
   stop_hook_active?: boolean;
+  /** Claude Code: background work still live — the session is paused, not done (ADR-0084 §1.2). */
+  background_tasks?: unknown;
+  /** Claude Code: session crons still scheduled — likewise a paused stop (ADR-0084 §1.2). */
+  session_crons?: unknown;
+}
+
+/**
+ * ADR-0084 §1.2 (1b): a Stop whose payload reports a non-empty `background_tasks` or
+ * `session_crons` array is a PAUSED stop, not an end of turn. Absent, null, non-array or
+ * empty → not paused (today's behaviour). The one predicate both layers use: the CLI
+ * short-circuits on it before any turn bookkeeping or git work, and `decideStop` re-checks
+ * it as the pure backstop.
+ */
+export function isPausedStop(input: StopHookInput | undefined | null): boolean {
+  if (!input || typeof input !== 'object') return false;
+  const live = (v: unknown): boolean => Array.isArray(v) && v.length > 0;
+  return live(input.background_tasks) || live(input.session_crons);
 }
 
 /** The three Stop-hook nudge types, each with its own independent cooldown window. */
@@ -56,6 +77,12 @@ export type StopDecision = { block: false } | { block: true; reminder: string; f
 // the pre-cooldown behavior (fire) — fail-open toward reminding, never toward silence.
 export const NUDGE_COOLDOWN_TURNS = 10;
 
+// ADR-0084 §1.1 (1a): B3 stays quiet while the (valid) session turn is below this. The
+// review's single-turn headless sessions (review gate, workflow steps) were a fifth of all
+// B3 fires and could never act on one. An invalid or absent turn → today (fire): the CLI
+// passes no turn for an ephemeral session, so B3 fails open there rather than going silent.
+export const STALE_HANDOFF_MIN_TURN = 3;
+
 export const STOP_REMINDER =
   'vfkb decision-capture check: this turn changed code/docs but no `decision` was recorded ' +
   'to the brain. If a load-bearing decision was made, capture it now via ' +
@@ -81,7 +108,8 @@ export const HANDOFF_REMINDER =
   '(a real "next:", not just a summary). If you are still mid-session, ignore this and ' +
   'finish normally — the SessionEnd floor will leave a fallback if you never do.';
 
-// B3 (pragmatic patch, built NOT yet verified — no RFC/ADR/L4 yet): unlike B1/B2, this
+// B3 (first decided by ADR-0084, which accepts RFC-043 Parts 0/1/A and RFC-047; still
+// built, NOT yet verified — its agent-facing L4 is ADR-0084's phase 3): unlike B1/B2, this
 // is not about whether THIS session recorded a handoff — it fires when a commit already
 // landed (e.g. a merged PR, possibly from another session or an autonomous merge) *after*
 // the currently pinned handoff's timestamp, so the pin itself is now stale regardless of
@@ -93,29 +121,34 @@ export const HANDOFF_REMINDER =
 // concern applies here too. Originally mitigated only by an "if mid-session, this is fine
 // to defer" escape clause in the reminder text; that proved insufficient in live use
 // (operator report 2026-07-31: firing on every stop mid-session distracted the work), so
-// all three nudges now share the NUDGE_COOLDOWN_TURNS rate limit above.
+// all three nudges now share the NUDGE_COOLDOWN_TURNS rate limit above. ADR-0084 §1.3
+// (1d) then dropped the closing write demand ("must be recorded before the session
+// ends"): RFC-043 Part A's read-only render is the stale-pin floor now, so the text no
+// longer pushes a premature handoff mid-session. The lead-in stays byte-identical so the
+// fire count (`nudge-fires.py`) stays comparable.
 export const STALE_HANDOFF_REMINDER =
   'vfkb stale-handoff check: the currently pinned handoff/next entry predates a commit that ' +
   'landed since it was written (e.g. a merged PR, possibly from another session or an ' +
   'autonomous merge) — a fresh session would start from an out-of-date "what happened" ' +
   'pointer. If you are WRAPPING UP, record a fresh handoff now — `mcp__vfkb__kb_add` ' +
   '(type=fact, tags=handoff,next, role=human), or /vfkb:handoff if available — naming what ' +
-  'actually changed and what is next now. If you are still mid-session and plan to record ' +
-  'one before you finish, it is fine to ignore this for now — but note that unlike the ' +
-  'other nudges, this one has no SessionEnd fallback for a STALE (as opposed to missing) ' +
-  'pin, so a fresh handoff/next entry must be recorded before the session ends.';
+  'actually changed and what is next now. If you are still mid-session, ignore this and finish normally.';
 
 /**
  * The pure decision. Block (inject the reminder, continuing the turn) only when a
  * decision *plausibly* went unrecorded; otherwise allow the stop.
  *  1. Native loop guard: never block our own re-entry (`stop_hook_active`), or it nags forever.
- *  2. Conditional trigger: substantive work happened AND no decision was recorded this session.
+ *  2. Paused stop (ADR-0084 §1.2, 1b): live `background_tasks` / `session_crons` → allow the
+ *     stop before any trigger or cooldown work; every nudge defers to the next unpaused Stop.
+ *  3. Conditional trigger: substantive work happened AND no decision was recorded this session.
+ *  4. B3 not before turn STALE_HANDOFF_MIN_TURN (ADR-0084 §1.1, 1a); invalid turn → fire.
  *  (Not a true Brake — working-tree-changed ≠ decision-made; the committed ADR stays the
  *  deterministic backstop for *significant* decisions. This just fires the nudge at the right
  *  moment, only when plausibly needed.)
  */
 export function decideStop(input: StopHookInput, ctx: StopContext): StopDecision {
   if (input?.stop_hook_active) return { block: false };
+  if (isPausedStop(input)) return { block: false }; // 1b: not an end of turn
   // Cooldown (operator ruling 2026-07-31): a nudge whose trigger holds still stays quiet
   // for NUDGE_COOLDOWN_TURNS turns after it last fired. Without session turn info the
   // window cannot be computed → fall back to firing (the pre-cooldown behavior).
@@ -145,7 +178,9 @@ export function decideStop(input: StopHookInput, ctx: StopContext): StopDecision
     nudge('handoff', HANDOFF_REMINDER);
   // Stale-handoff nudge (B3): NOT gated on uncommittedWork — the defining case is a clean
   // working tree with everything already merged, and the pinned handoff behind it anyway.
-  if (ctx.handoffStale) nudge('staleHandoff', STALE_HANDOFF_REMINDER);
+  // 1a (ADR-0084 §1.1): quiet while a VALID turn is below STALE_HANDOFF_MIN_TURN.
+  if (ctx.handoffStale && !(turnValid && ctx.turn! < STALE_HANDOFF_MIN_TURN))
+    nudge('staleHandoff', STALE_HANDOFF_REMINDER);
   if (reminders.length === 0) return { block: false };
   return { block: true, reminder: reminders.join('\n\n'), fired };
 }
