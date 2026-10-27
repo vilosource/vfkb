@@ -2,13 +2,13 @@
 type: RFC
 title: "RFC-043: The stale-handoff nudge fires on a fact, not a moment — fix its anchor, give it a floor, and gate any decision model on evidence"
 description: "B3, the stale-handoff Stop nudge, has no RFC, ADR or L4, and it is the nudge that fires 'all the time'. Adversarial review found that a large share of its fires are a deterministic false positive: a squash merge makes the handoff it carries look stale, because the staleness anchor uses committer date. So the first fix is deterministic (Part 0: count only first-parent commits after the pin, excluding the commit that carries it and rebased pre-pin work; chosen by a prototype over 18 sandbox cases). It is followed by a reminder-text change (Part 1) and a read-only stale-pin floor in the shared resume render (Part A), which makes suppressing B3 safe. A decision-model observer such as TypeSafe Jev (Part B) is kept as a design, but it is built only if B3 still fires mid-session after Part 0 and a throwaway calibration spike shows the model beats a rule-only baseline."
-status: "Proposed"
+status: "Accepted in part → ADR-0084 (2026-10-27; Parts 0, 1, A; Part B gated)"
 timestamp: 2026-10-20
 ---
 
 # RFC-043: The stale-handoff nudge fires on a fact, not a moment
 
-- **Status:** Proposed (revised after adversarial review rounds 1–3 and a Part 0 prototype,
+- **Status:** **Accepted in part 2026-10-27 → [ADR-0084](../adr/ADR-0084-handoff-nudge-next-prompt.md)** (Parts 0, 1 and A, as written; Part B gated on the [#388](https://github.com/vilosource/vfkb/issues/388) re-measurement; open questions settled in [RFC-047](RFC-047-less-intrusive-handoff-nudge.md) §8). Previously: Proposed (revised after adversarial review rounds 1–3 and a Part 0 prototype,
   2026-10-20; round 3 escalated at the ceiling, and the operator chose prototype-first)
 - **Date:** 2026-10-20
 - **Deciders:** operator + Claude
