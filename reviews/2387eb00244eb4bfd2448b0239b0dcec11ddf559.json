@@ -1,0 +1,64 @@
+{
+  "recordVersion": 1,
+  "sha": "2387eb00244eb4bfd2448b0239b0dcec11ddf559",
+  "governing": [
+    "docs/adr/ADR-0084-handoff-nudge-next-prompt.md",
+    "docs/rfc/RFC-047-less-intrusive-handoff-nudge.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "claude-fable-5", "rounds": 1 },
+  "generated": "2026-10-27T13:10:00Z",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "PR #392 auto-closed when its base branch (test/decision-capture-isolation) was deleted on #391's squash-merge; branch still carried unsquashed 4a437fb and conflicted with main. Fixed: rebased --onto origin/main 4a437fb (heads 2f1a96a/2387eb0), src/ and test/ byte-identical to the reviewed b6e0783, merge-tree clean, npm test --maxWorkers=3 929/929 observed; reopened as a new PR against main.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F2",
+      "severity": "minor",
+      "status": "open",
+      "summary": "the non-object stdin payload guard in cli.ts hook stop has no test (M10 stays green); behaviour verified correct by hand (null -> {}, exit 0). Follow-up: a CLI e2e asserting a null payload gives {} and exit 0.",
+      "acceptedBy": null
+    },
+    {
+      "id": "F3",
+      "severity": "minor",
+      "status": "open",
+      "summary": "the CLI pass-through of background_tasks/session_crons into decideStop is unreachable end to end (CLI returns on isPausedStop first; M9 stays green); defence in depth, the pure decideStop backstop is guarded by unit tests (M2).",
+      "acceptedBy": null
+    },
+    {
+      "id": "F4",
+      "severity": "minor",
+      "status": "open",
+      "summary": "scenarios/records/decision-capture.json engineRev b6e0783 leaves history after the rebase/squash; src/ is byte-identical at 2f1a96a so the evidence holds. Noted in the PR body.",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 4,
+  "ruledOut": [
+    "conformance: 1a is turnValid && turn < 3 with invalid turns still firing; 1b sits right after stop_hook_active in decideStop with no markNudged; 1d replaces only the trailing sentence, lead-in byte-identical",
+    "Q1 CLI pre-bump short-circuit and Q2 ephemeral fail-open recorded as brain decisions 0705a3678d9e and b4b3cf62f119",
+    "no scope creep: B1 and HANDOFF_REMINDER untouched; 1c/1e/§2 not built",
+    "no source-text guards or env stand-ins: CLI tests drive stdin payloads",
+    "fail-open probed: null payload, paused payload, malformed JSON each give {} exit 0",
+    "brain: 4 entries append-only, role=human, decisions carry why",
+    "no AI attribution in commits",
+    "decision-capture record: vfkb 3/3, baseline 0/3, 0 invalid, modelUsage claude-haiku-4-5, user-scope plugin disabled",
+    "DoD honesty: PR body, commit and handoff say built, NOT yet verified; 1a agent-facing proof deferred to #385 L4"
+  ],
+  "mutations": [
+    { "guard": "test/session-backbone.test.ts > a paused stop (ADR-0084 §1.2) is not a turn: turnCount does not advance", "mutation": "M1 removed the CLI isPausedStop short-circuit in hook stop (re-observed at 2387eb0)", "observedRed": true },
+    { "guard": "test/stop-reminder.test.ts > 1b background_tasks / session_crons -> block:false", "mutation": "M2 removed the decideStop isPausedStop backstop", "observedRed": true },
+    { "guard": "test/stop-reminder.test.ts > 1a quiet at turn 1/2, 1a touches only B3; CLI quiet/quiet/fire", "mutation": "M3 removed the 1a turn gate", "observedRed": true },
+    { "guard": "test/stop-reminder.test.ts > ephemeral contrast fires B3 at stop 1; clean-tree B3", "mutation": "M4 SessionState.isPersisted -> true", "observedRed": true },
+    { "guard": "test/stop-reminder.test.ts > 1d text pinned, no write demand", "mutation": "M5 restored the old 1d write demand", "observedRed": true },
+    { "guard": "test/stop-reminder.test.ts + session-backbone > empty-array contrasts", "mutation": "M6 isPausedStop length > 0 -> >= 0", "observedRed": true },
+    { "guard": "test/stop-reminder.test.ts > 1a boundary at turn 3", "mutation": "M7 STALE_HANDOFF_MIN_TURN 3 -> 2", "observedRed": true },
+    { "guard": "test/stop-reminder.test.ts > session_crons pauses", "mutation": "M8 dropped session_crons from isPausedStop", "observedRed": true }
+  ],
+  "mutationsNote": "M9 (CLI pass-through) and M10 (non-object payload guard) stayed green; recorded as minor findings F3 and F2, not as guards.",
+  "verdict": "MERGE"
+}
