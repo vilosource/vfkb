@@ -1,9 +1,16 @@
 {
   "scenario": "decision-capture",
   "task": "config-format",
-  "model": "claude-sonnet-4-6",
+  "model": "claude-haiku-4-5",
   "trials": 3,
-  "generated": "2026-06-29T06:14:25.431Z",
+  "generated": "2026-10-27T10:42:33.999Z",
+  "engineRev": "c2ecca508f229e830d785c8dfe09637607a091c0",
+  "engineSrcDirty": false,
+  "cliVersions": [
+    "2.1.292"
+  ],
+  "isolation": "enabledPlugins {'vfkb@vfkb': false}",
+  "invalidTrials": 0,
   "vfkbCaptured": 3,
   "baselineCaptured": 0,
   "demonstrated": true,
@@ -13,31 +20,49 @@
         "captured": true,
         "didWork": true,
         "recalled": true,
-        "text": "Config files use JSON format (`.config.json`), loaded via `src/config.ts`.",
+        "text": "Use JSON for CLI config files, not YAML\n\nWhy: JSON requires no external dependencies, is the Node.js standard, and enables a truly minimal loader. YAML would add a package dependency and complexity for marginal readability gain in a CLI context.",
         "role": {
-          "role": "executor"
+          "role": "human"
         },
-        "err": ""
+        "err": "",
+        "invalid": false,
+        "invalidReasons": [],
+        "modelUsage": [
+          "claude-haiku-4-5"
+        ],
+        "cliVersion": "2.1.292"
       },
       {
         "captured": true,
         "didWork": true,
         "recalled": true,
-        "text": "Config files use JSON (not YAML). Format is `.cliconfig.json` loaded via Node's built-in `fs` + `JSON.parse` in `src/config.ts`.",
+        "text": "Use JSON for CLI config file format\n\nWhy: No external dependencies needed (native Node.js parsing), fastest load time, minimal choice for a small CLI, and sufficient for typical config use cases",
         "role": {
-          "role": "executor"
+          "role": "human"
         },
-        "err": ""
+        "err": "",
+        "invalid": false,
+        "invalidReasons": [],
+        "modelUsage": [
+          "claude-haiku-4-5"
+        ],
+        "cliVersion": "2.1.292"
       },
       {
         "captured": true,
         "didWork": true,
         "recalled": true,
-        "text": "Config files use JSON (not YAML). Loader is src/config.ts; reads config.json from CWD by default, returns {} if absent. Why: JSON requires zero extra dependencies (Node.js built-in JSON.parse), the project already uses .json files (mcp.json, settings.json), and a small CLI benefits from a minimal dependency footprint. YAML was ruled out because it requires an external parser (js-yaml / yaml) for no meaningful benefit at this scale.",
+        "text": "Use JSON for CLI config files instead of YAML\n\nWhy: Zero runtime dependencies (JSON.parse is built into Node.js), simplicity for small CLI config needs, universally recognized format. YAML adds complexity without justification for a minimal config structure.",
         "role": {
           "role": "executor"
         },
-        "err": ""
+        "err": "",
+        "invalid": false,
+        "invalidReasons": [],
+        "modelUsage": [
+          "claude-haiku-4-5"
+        ],
+        "cliVersion": "2.1.292"
       }
     ],
     "baseline": [
@@ -47,7 +72,13 @@
         "recalled": false,
         "text": "",
         "role": "",
-        "err": ""
+        "err": "",
+        "invalid": false,
+        "invalidReasons": [],
+        "modelUsage": [
+          "claude-haiku-4-5"
+        ],
+        "cliVersion": "2.1.292"
       },
       {
         "captured": false,
@@ -55,7 +86,13 @@
         "recalled": false,
         "text": "",
         "role": "",
-        "err": ""
+        "err": "",
+        "invalid": false,
+        "invalidReasons": [],
+        "modelUsage": [
+          "claude-haiku-4-5"
+        ],
+        "cliVersion": "2.1.292"
       },
       {
         "captured": false,
@@ -63,7 +100,13 @@
         "recalled": false,
         "text": "",
         "role": "",
-        "err": ""
+        "err": "",
+        "invalid": false,
+        "invalidReasons": [],
+        "modelUsage": [
+          "claude-haiku-4-5"
+        ],
+        "cliVersion": "2.1.292"
       }
     ]
   }

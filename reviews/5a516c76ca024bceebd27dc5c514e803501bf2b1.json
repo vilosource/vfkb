@@ -1,0 +1,59 @@
+{
+  "recordVersion": 1,
+  "sha": "5a516c76ca024bceebd27dc5c514e803501bf2b1",
+  "governing": [
+    "docs/adr/ADR-0084-handoff-nudge-next-prompt.md",
+    "docs/adr/ADR-0022-l4-evaluation-methodology.md",
+    "docs/adr/ADR-0050-l4-dod-constitutional-brake.md",
+    "docs/adr/ADR-0051-delivery-honesty.md"
+  ],
+  "reviewer": { "agent": "workflow adversarial reviewer (fresh context, not the author)", "model": "claude-opus-5-5", "rounds": 1 },
+  "generated": "2026-10-27T11:10:00Z",
+  "findings": [
+    {
+      "id": "M1",
+      "severity": "major",
+      "status": "open",
+      "summary": "record field engineRev = `git rev-parse HEAD` and engineSrcDirty checks src/ only, but the engine under test is the gitignored dist/ (CLI/MCP = join(REPO,'dist',...)); nothing binds the dist build to engineRev. Circumstantially fine for this run (vfkb-wt-dc-harden dist/cli.js mtime 10:39:34Z, after the self-test, src clean) but brain decision 6a558063ca55 makes this record #383's comparand, so #383's run must rebuild dist from HEAD before running (or the harness should record a dist hash). Non-blocking for a harness-only PR.",
+      "acceptedBy": null
+    },
+    {
+      "id": "m2",
+      "severity": "minor",
+      "status": "open",
+      "summary": "harness revision not recorded: the committed record was produced by the then-uncommitted scenario (engineRev c2ecca5, harness landed in 4a437fb); engineSrcDirty ignores scenarios/.",
+      "acceptedBy": null
+    },
+    {
+      "id": "m3",
+      "severity": "minor",
+      "status": "open",
+      "summary": "execFileSync default maxBuffer (1 MiB) now holds a --verbose stream-json transcript; an overflow kills the child (ENOBUFS) and the trial scores INVALID (fails closed, exit 3). UNVERIFIED that any real run approaches 1 MiB.",
+      "acceptedBy": null
+    },
+    {
+      "id": "m4",
+      "severity": "minor",
+      "status": "open",
+      "summary": "modelUsage must equal exactly [MODEL]; if VFKB_DC_MODEL pins a non-haiku model and the CLI uses haiku for auxiliary calls, every trial would be INVALID (false positive). UNVERIFIED; default haiku pin unaffected.",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 4,
+  "ruledOut": [
+    "proof-can-fail: inspectStream extracted verbatim from 4a437fb and driven with synthetic streams — clean -> no reasons; plugin (source vfkb@vfkb or name vfkb), plugin tools, plugin MCP, extra model, other model, dated model id, missing init, missing result each -> INVALID reason",
+    "live predicate observed firing: committed decision-capture.selftest-leak.json shows 2/2 INVALID 'plugin loaded: vfkb@vfkb@0.18.0' with the disable dropped; with the disable, re-pin record shows 0/6 INVALID and modelUsage ['claude-haiku-4-5'] on every trial",
+    "verdict gating: demonstrated requires invalidN===0; INVALID exits 3 and selftest writes a separate file, never the record",
+    "cleanLeaks fix: in a scratch clone, tracked unmodified src/validate.ts left alone; untracked src/config.ts removed; modified tracked file reported not deleted; reverting to the unconditional rm deletes tracked src/validate.ts (observed)",
+    "conformance with ADR-0084 DoD preamble (plugin disabled per sandbox + scenario asserts it stayed off) and item 5 (re-run after #383 — this PR supplies the pre-#383 comparand only)",
+    "stdout consumers: no other runArm logic parses stdout text, so the switch to stream-json changes no capture/didWork/recall predicate",
+    "DoD honesty: DEMONSTRATED claim names a committed record (3/3 vs 0/3, N=3, can-fail baseline arm); no user-facing/release claim made",
+    "head 5a516c7 differs from reviewed code commit 4a437fb only by one appended .vfkb/entries.jsonl line (this review's brain fact 151884784e37); protocols: no AI attribution in 4a437fb; no secrets; brain entries valid JSONL, append-only; node --check passes; CI test (20/22/24) green"
+  ],
+  "mutations": [
+    { "guard": "scenarios/decision-capture.mjs inspectStream INVALID predicate", "mutation": "VFKB_DC_SELFTEST_LEAK=1 drops enabledPlugins disable (author's live run, record decision-capture.selftest-leak.json)", "observedRed": true },
+    { "guard": "scenarios/decision-capture.mjs cleanLeaks untracked-only removal", "mutation": "reverted condition to unconditional rmSync (reviewer, scratch clone) — tracked src/validate.ts deleted", "observedRed": true }
+  ],
+  "mutationsNote": null,
+  "verdict": "MERGE"
+}

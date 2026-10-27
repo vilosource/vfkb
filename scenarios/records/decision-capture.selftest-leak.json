@@ -1,0 +1,59 @@
+{
+  "scenario": "decision-capture",
+  "task": "config-format",
+  "model": "claude-haiku-4-5",
+  "trials": 1,
+  "generated": "2026-10-27T10:39:15.142Z",
+  "engineRev": "c2ecca508f229e830d785c8dfe09637607a091c0",
+  "engineSrcDirty": true,
+  "cliVersions": [
+    "2.1.292"
+  ],
+  "isolation": "SELFTEST_LEAK (plugin NOT disabled)",
+  "invalidTrials": 2,
+  "vfkbCaptured": 1,
+  "baselineCaptured": 1,
+  "demonstrated": false,
+  "arms": {
+    "vfkb": [
+      {
+        "captured": true,
+        "didWork": true,
+        "recalled": true,
+        "text": "Use YAML for CLI configuration files\n\nWhy: YAML is the industry standard for CLI tools (Docker, Kubernetes, etc.), offers better readability than JSON for human-edited config files, supports comments for documentation, and handles complex nested structures more elegantly. The js-yaml library dependency is minimal and well-maintained.",
+        "role": {
+          "role": "human"
+        },
+        "err": "",
+        "invalid": true,
+        "invalidReasons": [
+          "plugin loaded: vfkb@vfkb@0.18.0"
+        ],
+        "modelUsage": [
+          "claude-haiku-4-5"
+        ],
+        "cliVersion": "2.1.292"
+      }
+    ],
+    "baseline": [
+      {
+        "captured": true,
+        "didWork": true,
+        "recalled": true,
+        "text": "CLI config files use JSON format via a minimal loader in src/config.ts\n\nWhy: JSON requires zero external dependencies, has native Node.js support, and is the standard for TypeScript/Node.js CLI projects. YAML would require an additional dependency (js-yaml) and added complexity without meaningful benefit for a CLI config system.",
+        "role": {
+          "role": "executor"
+        },
+        "err": "",
+        "invalid": true,
+        "invalidReasons": [
+          "plugin loaded: vfkb@vfkb@0.18.0"
+        ],
+        "modelUsage": [
+          "claude-haiku-4-5"
+        ],
+        "cliVersion": "2.1.292"
+      }
+    ]
+  }
+}
