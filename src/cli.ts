@@ -41,6 +41,16 @@ import { recordSignal, tally } from './counters.js';
 import { queryExplained } from './read.js';
 import { isBrainWrite, GATING_REASON } from './gating.js';
 import { decideStop, gatherStopContext, isPausedStop, type StopHookInput } from './stop-reminder.js';
+import {
+  clearPromptNudgeKey,
+  decidePromptNudge,
+  gatherPromptContext,
+  promptNudgeSkip,
+  readPromptNudgeSignal,
+  readSessionTurn,
+  writePromptNudgeSignal,
+  PROMPT_NUDGE_BUDGET_MS,
+} from './prompt-nudge.js';
 import { save } from './git.js';
 import { runSessionEnd } from './session-end.js';
 import { initProject, approvalNotice } from './init.js';
@@ -146,7 +156,7 @@ async function main() {
 const USAGE =
   'usage: vfkb <add|broadcast|journal purge|list|search|query|map|context|context init|resume|resume-note|curate|distill|save|' +
   'export|import|init|doctor|supersede|context-block|context-block-naive|--version|' +
-  'hook session-start|hook pre-tool-use|hook post-tool-use|hook stop|hook session-end>\n';
+  'hook session-start|hook pre-tool-use|hook post-tool-use|hook user-prompt-submit|hook stop|hook session-end>\n';
 
 async function dispatch() {
   const [cmd, sub, ...rest] = process.argv.slice(2);
@@ -654,6 +664,7 @@ async function dispatch() {
     if (sub === 'session-start') {
       const raw = await readStdin();
       let payloadId: string | undefined;
+      let source: string | undefined;
       // Ignoring the payload's `source` is LOAD-BEARING (ADR-0077). Claude Code fires
       // SessionStart again with source "compact" after a compaction, and this render is
       // the only thing carrying the Constitution (ADR-0008) and the handoff pin (ADR-0049)
@@ -664,8 +675,20 @@ async function dispatch() {
       try {
         const p = JSON.parse(raw || '{}');
         if (typeof p.session_id === 'string') payloadId = p.session_id;
+        if (typeof p.source === 'string') source = p.source;
       } catch {
         /* malformed → no harness id; env override may still apply */
+      }
+      // ADR-0084 §2.5: compaction evicts the UserPromptSubmit handoff line, so its emission
+      // key resets and the next prompt may carry it again. `resume` keeps the key. This is
+      // a side effect on the prompt-nudge signal only — the render below is untouched
+      // (ADR-0077).
+      if (source === 'compact') {
+        try {
+          clearPromptNudgeKey(brainDir(), effectiveSessionId(payloadId));
+        } catch {
+          /* fail-open */
+        }
       }
       const project = defaultProject();
       // --naive = the mykb-v1-style flat dump (L4 contrast baseline only); --limit N truncates it.
@@ -786,6 +809,14 @@ async function dispatch() {
         if (session.isPersisted) {
           turn = session.turnCount;
           lastNudged = session.nudgedAtTurn;
+          // ADR-0084 §2.5 (+ decide step Q10): a UserPromptSubmit line delivered with the
+          // stale-pin reason counts as B3's last fire, so Stop stays quiet afterwards. The
+          // prompt hook never writes this record; its delivery turn lives in its own signal.
+          const delivered = readPromptNudgeSignal(brainDir(), session.sessionId).staleAtTurn;
+          if (delivered !== undefined && delivered <= turn) {
+            const prev = lastNudged?.staleHandoff;
+            if (prev === undefined || delivered > prev) lastNudged = { ...lastNudged, staleHandoff: delivered };
+          }
         }
       } catch {
         /* bump not persisted → turn/lastNudged stay undefined → decideStop fires */
@@ -813,6 +844,52 @@ async function dispatch() {
             })
           : '{}',
       );
+      return;
+    }
+
+    // UserPromptSubmit — ADR-0084 §2 (vfkb#385): the standing handoff reminder as ONE
+    // non-blocking additionalContext line, at the moment the user's prompt is in hand.
+    // Contract: plain stdout on UserPromptSubmit is INJECTED as context, so whenever nothing
+    // is emitted this writes NOTHING (not even `{}`). Fail-silent throughout. Read-only
+    // against the session record (decide step Q10); bounded by an in-process budget (Q12).
+    if (sub === 'user-prompt-submit') {
+      const deadline = PROMPT_NUDGE_BUDGET_MS - 200; // performance.now() counts from process start
+      try {
+        const raw = await readStdin();
+        let input: { prompt?: unknown; session_id?: unknown } = {};
+        try {
+          const parsed: unknown = JSON.parse(raw || '{}');
+          if (parsed && typeof parsed === 'object') input = parsed as typeof input;
+        } catch {
+          return; // malformed → emit nothing
+        }
+        const sessionId = effectiveSessionId(typeof input.session_id === 'string' ? input.session_id : undefined);
+        const s = readSessionTurn(sessionId); // read-only: the session record is never saved here
+        if (promptNudgeSkip(input, s)) return; // harness turn / first prompt: no git work, no bookkeeping
+        if (performance.now() > deadline) return;
+        const brain = brainDir();
+        const stored = s.persisted ? readPromptNudgeSignal(brain, sessionId) : {};
+        // process.cwd(), like the Stop hook: the brain path (VFKB_DATA_DIR) resolves against it.
+        const ctx = gatherPromptContext(process.cwd(), brain, s, stored.key, deadline);
+        if (performance.now() > deadline) return; // over budget → quiet (Q12)
+        const d = decidePromptNudge(input, ctx, stored.key);
+        if (!d.emit) return;
+        if (s.persisted && sessionId) {
+          try {
+            writePromptNudgeSignal(brain, sessionId, {
+              key: d.key,
+              staleAtTurn: d.reasons.includes('stale') && s.turn !== undefined ? s.turn : stored.staleAtTurn,
+            });
+          } catch {
+            /* failed save → key unset → the line simply re-emits next prompt */
+          }
+        }
+        process.stdout.write(
+          JSON.stringify({ hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: d.text } }),
+        );
+      } catch {
+        /* fail-silent: no turn is at stake */
+      }
       return;
     }
 
@@ -886,6 +963,11 @@ async function dispatch() {
       process.stdout.write('{}');
       return;
     }
+    // An UNKNOWN hook subcommand fails open: exit 0, no output (decide step Q7, #95's rule).
+    // A consumer's settings can name a hook that a lagging engine predates — e.g. the
+    // UserPromptSubmit entry `vfkb init` now writes, run by an older $VFKB_BUNDLE_DIR engine.
+    // Printing usage and exiting 1 there would surface an error on every prompt.
+    return;
   }
 
   if (cmd === 'save') {

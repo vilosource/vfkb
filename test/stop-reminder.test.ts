@@ -7,7 +7,6 @@ import {
   decideStop,
   handoffIsStale,
   STOP_REMINDER,
-  HANDOFF_REMINDER,
   HANDOFF_MIN_ENTRIES,
   STALE_HANDOFF_REMINDER,
   NUDGE_COOLDOWN_TURNS,
@@ -48,49 +47,22 @@ describe('decideStop — conditional end-of-turn reminder', () => {
   });
 });
 
-// ── GAP-1 B1: the handoff nudge (RFC-011 §B) ─────────────────────────────────
-describe('decideStop — handoff nudge', () => {
-  const base = { uncommittedWork: true, newDecisions: 1 }; // decision already recorded → isolate the handoff branch
+// ── B1 leaves Stop (ADR-0084 §1.6): its standing reminder rides the next prompt ─
+describe('decideStop — B1 never fires on Stop (ADR-0084 §1.6)', () => {
+  const b1 = { uncommittedWork: true, newDecisions: 1, newEntries: HANDOFF_MIN_ENTRIES + 5, newHandoffs: 0 };
 
-  it('blocks with the handoff reminder when ≥threshold entries and NO handoff recorded', () => {
-    const d = decideStop({ stop_hook_active: false }, { ...base, newEntries: HANDOFF_MIN_ENTRIES, newHandoffs: 0 });
-    expect(d).toEqual({ block: true, reminder: HANDOFF_REMINDER, fired: ['handoff'] });
-  });
-
-  it('does NOT nudge below the entry threshold (weak signal → floor handles it)', () => {
-    expect(
-      decideStop({ stop_hook_active: false }, { ...base, newEntries: HANDOFF_MIN_ENTRIES - 1, newHandoffs: 0 }),
-    ).toEqual({ block: false });
-  });
-
-  it('self-silences once a handoff/next entry exists this session', () => {
-    expect(
-      decideStop({ stop_hook_active: false }, { ...base, newEntries: HANDOFF_MIN_ENTRIES + 5, newHandoffs: 1 }),
-    ).toEqual({ block: false });
-  });
-
-  it('does NOT nudge when no substantive work happened (even with entries)', () => {
-    expect(
-      decideStop({ stop_hook_active: false }, { uncommittedWork: false, newDecisions: 1, newEntries: 9, newHandoffs: 0 }),
-    ).toEqual({ block: false });
-  });
-
-  it('composes with the decision nudge: both reminders when both trigger', () => {
-    const d = decideStop(
-      { stop_hook_active: false },
-      { uncommittedWork: true, newDecisions: 0, newEntries: HANDOFF_MIN_ENTRIES, newHandoffs: 0 },
-    );
-    expect(d.block).toBe(true);
-    if (d.block) {
-      expect(d.reminder).toContain(STOP_REMINDER);
-      expect(d.reminder).toContain(HANDOFF_REMINDER);
+  it("B1's condition holds and Stop does NOT block (no handoff text)", () => {
+    for (const turn of [undefined, 1, 3, 50]) {
+      expect(decideStop({ stop_hook_active: false }, { ...b1, turn, lastNudged: {} }), `turn=${turn}`).toEqual({
+        block: false,
+      });
     }
   });
 
-  it('native loop guard still wins over the handoff trigger', () => {
-    expect(
-      decideStop({ stop_hook_active: true }, { ...base, newEntries: HANDOFF_MIN_ENTRIES + 2, newHandoffs: 0 }),
-    ).toEqual({ block: false });
+  it('with the decision nudge also triggered, only the decision text fires', () => {
+    const d = decideStop({ stop_hook_active: false }, { ...b1, newDecisions: 0 });
+    expect(d).toEqual({ block: true, reminder: STOP_REMINDER, fired: ['decision'] });
+    if (d.block) expect(d.reminder).not.toContain('vfkb handoff check');
   });
 });
 
@@ -122,17 +94,12 @@ describe('decideStop — stale-handoff nudge', () => {
     });
   });
 
-  it('composes with the decision + handoff nudges when all three trigger', () => {
+  it('composes with the decision nudge when B1, B3 and the decision trigger all hold (B1 stays off Stop)', () => {
     const d = decideStop(
       { stop_hook_active: false },
       { uncommittedWork: true, newDecisions: 0, newEntries: HANDOFF_MIN_ENTRIES, newHandoffs: 0, handoffStale: true },
     );
-    expect(d.block).toBe(true);
-    if (d.block) {
-      expect(d.reminder).toContain(STOP_REMINDER);
-      expect(d.reminder).toContain(HANDOFF_REMINDER);
-      expect(d.reminder).toContain(STALE_HANDOFF_REMINDER);
-    }
+    expect(d).toEqual({ block: true, reminder: `${STOP_REMINDER}\n\n${STALE_HANDOFF_REMINDER}`, fired: ['decision', 'staleHandoff'] });
   });
 
   it('native loop guard still wins over the stale-handoff trigger', () => {
@@ -168,7 +135,7 @@ describe('decideStop — per-nudge cooldown', () => {
     expect(d).toEqual({ block: true, reminder: STOP_REMINDER, fired: ['decision'] });
   });
 
-  it('cooldowns are independent per nudge type: a cooling decision nudge does not mute B1/B3', () => {
+  it('cooldowns are independent per nudge type: a cooling decision nudge does not mute B3', () => {
     const d = decideStop(
       { stop_hook_active: false },
       {
@@ -183,10 +150,8 @@ describe('decideStop — per-nudge cooldown', () => {
     );
     expect(d.block).toBe(true);
     if (d.block) {
-      expect(d.fired).toEqual(['handoff', 'staleHandoff']);
-      expect(d.reminder).not.toContain(STOP_REMINDER);
-      expect(d.reminder).toContain(HANDOFF_REMINDER);
-      expect(d.reminder).toContain(STALE_HANDOFF_REMINDER);
+      expect(d.fired).toEqual(['staleHandoff']);
+      expect(d.reminder).toBe(STALE_HANDOFF_REMINDER);
     }
   });
 
@@ -204,13 +169,6 @@ describe('decideStop — per-nudge cooldown', () => {
 
   // Codex review (PR #272): each nudge KEY must cool — a mutation that drops the
   // cooldown check for only one key must go red, not hide behind the decision-key tests.
-  it('the handoff nudge itself cools', () => {
-    const ctx = { uncommittedWork: true, newDecisions: 1, newEntries: HANDOFF_MIN_ENTRIES, newHandoffs: 0 };
-    expect(decideStop({ stop_hook_active: false }, { ...ctx, turn: 5, lastNudged: { handoff: 4 } })).toEqual({
-      block: false,
-    });
-  });
-
   it('the stale-handoff nudge itself cools', () => {
     const ctx = { uncommittedWork: false, newDecisions: 1, handoffStale: true };
     expect(decideStop({ stop_hook_active: false }, { ...ctx, turn: 5, lastNudged: { staleHandoff: 4 } })).toEqual({
@@ -282,11 +240,11 @@ describe('decideStop — B3 not before turn 3 (ADR-0084 §1.1)', () => {
     });
   });
 
-  it('1a touches only B3: the decision nudge and B1 still fire at turn 1', () => {
+  it('1a touches only B3: the decision nudge still fires at turn 1', () => {
     const d = decideStop({ stop_hook_active: false }, { ...all, turn: 1, lastNudged: {} });
     expect(d.block).toBe(true);
     if (d.block) {
-      expect(d.fired).toEqual(['decision', 'handoff']);
+      expect(d.fired).toEqual(['decision']);
       expect(d.reminder).not.toContain(STALE_HANDOFF_REMINDER);
     }
   });
@@ -316,7 +274,7 @@ describe('decideStop — paused stop defers all nudges (ADR-0084 §1.2)', () => 
   };
   const firesAll = (d: ReturnType<typeof decideStop>, label: string) => {
     expect(d.block, label).toBe(true);
-    if (d.block) expect(d.fired, label).toEqual(['decision', 'handoff', 'staleHandoff']);
+    if (d.block) expect(d.fired, label).toEqual(['decision', 'staleHandoff']);
   };
 
   it('non-empty background_tasks → {block:false}', () => {
@@ -327,7 +285,7 @@ describe('decideStop — paused stop defers all nudges (ADR-0084 §1.2)', () => 
     expect(decideStop({ stop_hook_active: false, session_crons: [{}] }, all)).toEqual({ block: false });
   });
 
-  it('absent / null / non-array / empty → today (fires all three)', () => {
+  it('absent / null / non-array / empty → today (fires decision + B3)', () => {
     const values: unknown[] = [[], undefined, null, 'x', {}, 0];
     for (const v of values) {
       firesAll(decideStop({ stop_hook_active: false, background_tasks: v }, all), `background_tasks=${JSON.stringify(v)}`);
@@ -642,7 +600,7 @@ describe('cli hook stop — emits the verified Stop contract', () => {
 
   const jsonl = (...os: object[]) => os.map((o) => JSON.stringify(o)).join('\n') + '\n';
 
-  it('injects the handoff nudge when ≥3 new entries exist and none is a handoff', () => {
+  it('B1 is off Stop (ADR-0084 §1.6): ≥3 new entries and none a handoff → Stop allows', () => {
     const dir = gitRepo();
     writeFileSync(join(dir, 'src', 'foo.ts'), 'export const x = 1;\n'); // uncommitted work
     // 3 new-since-HEAD entries (entries.jsonl is not in HEAD), incl. a decision so the
@@ -651,8 +609,7 @@ describe('cli hook stop — emits the verified Stop contract', () => {
       join(dir, '.vfkb', 'entries.jsonl'),
       jsonl({ type: 'fact', text: 'a' }, { type: 'fact', text: 'b' }, { type: 'decision', text: 'c' }),
     );
-    const out = JSON.parse(runStop(dir, { stop_hook_active: false }));
-    expect(out.hookSpecificOutput.additionalContext).toContain('handoff check');
+    expect(runStop(dir, { stop_hook_active: false })).toBe('{}');
   });
 
   it('self-silences: no nudge once a handoff/next entry is present', () => {
@@ -731,17 +688,16 @@ describe('cli hook stop — emits the verified Stop contract', () => {
     const payload = { stop_hook_active: false, session_id: 'save-fail' };
     const first = JSON.parse(runStop(dir, payload));
     expect(first.hookSpecificOutput.decision).toBe('block'); // fired + recorded at turn 1
-    // Chmod the record FILE, not the directory: overwriting an existing owner-writable
-    // file needs no directory write permission, so a read-only dir would not make the
-    // save fail — writeFileSync to a 0o444 file does (EACCES), which is the scenario:
-    // reads keep working, every save throws.
-    const record = join(dir, '.vfkb', '.sessions', 'save-fail.json');
-    chmodSync(record, 0o444);
+    // Chmod the record's DIRECTORY: the save is a tmp-file write plus a rename (#385,
+    // decide step Q10), and both need directory write permission, so a read-only dir is
+    // the scenario: reads keep working, every save throws.
+    const sessions = join(dir, '.vfkb', '.sessions');
+    chmodSync(sessions, 0o555);
     try {
       const second = JSON.parse(runStop(dir, payload));
       expect(second.hookSpecificOutput?.decision).toBe('block'); // '{}' here = silenced forever
     } finally {
-      chmodSync(record, 0o644); // let the tmpdir be cleaned up
+      chmodSync(sessions, 0o755); // let the tmpdir be cleaned up
     }
   });
 

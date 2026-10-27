@@ -94,6 +94,41 @@ describe('#186 — the ADR-0059 guard is not double wiring', () => {
   });
 });
 
+describe('vfkb#385 (decide step Q7) — fallback wiring is expected to carry UserPromptSubmit', () => {
+  const engineHook = (sub: string) => ({
+    hooks: [
+      {
+        type: 'command',
+        command: `VFKB_DATA_DIR=\${CLAUDE_PROJECT_DIR:-.}/.vfkb VFKB_PROJECT=p node \${CLAUDE_PROJECT_DIR:-.}/.vfkb/bin/bootstrap.mjs cli hook ${sub}`,
+      },
+    ],
+  });
+  const four = {
+    SessionStart: [engineHook('session-start')],
+    PreToolUse: [{ matcher: 'Write|Edit|MultiEdit', ...engineHook('pre-tool-use') }],
+    Stop: [engineHook('stop')],
+    SessionEnd: [engineHook('session-end')],
+  };
+
+  it('the pre-#385 four hooks → warn naming UserPromptSubmit and the remedy', () => {
+    const { proj, cfg } = setup(four, { pluginWired: false });
+    const c = check(run(proj, cfg), '.claude/settings.json');
+    expect(c?.status).toBe('warn');
+    expect(c?.detail).toContain('UserPromptSubmit not wired');
+    expect(c?.detail).toContain('vfkb init');
+  });
+
+  it('all five → ok', () => {
+    const { proj, cfg } = setup({ ...four, UserPromptSubmit: [engineHook('user-prompt-submit')] }, { pluginWired: false });
+    const c = check(run(proj, cfg), '.claude/settings.json');
+    expect(c?.status).toBe('ok');
+  });
+
+  it('isEngineWiring recognises the new subcommand', () => {
+    expect(isEngineWiring(JSON.stringify({ hooks: [{ type: 'command', command: 'node dist/cli.js hook user-prompt-submit' }] }))).toBe(true);
+  });
+});
+
 describe('#188 — the no-manifest message names the action that actually stamps it', () => {
   // writeManifest has exactly two callers: init.ts:154 and broadcast.ts:111 (the
   // latter heal-on-absence only). The ordinary append path never stamps, so

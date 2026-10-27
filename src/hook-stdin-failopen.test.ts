@@ -167,6 +167,16 @@ describe('issue #214 — hooks fail open when stdin never closes', () => {
     }, 30000);
   }
 
+  // UserPromptSubmit is the one hook whose allow path is EMPTY stdout: plain stdout on that
+  // event is injected as context, so it must not print even `{}` (ADR-0084 §2.3, #385).
+  // Terminating with exit 0 and no output IS its fail-open shape.
+  it('dist/cli.js hook user-prompt-submit TERMINATES with stdin held open, printing nothing', async () => {
+    const r = await probeWithUnclosedStdin('node', [cliPath, 'hook', 'user-prompt-submit'], benignPayload);
+    expect(r.exited, `hook user-prompt-submit did not exit (stdout so far: ${JSON.stringify(r.stdout)})`).toBe(true);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toBe('');
+  }, 30000);
+
   // The cli.ts analogue of the durable-claim payload test below. Terminating is
   // only half the contract: readStdin must resolve with the bytes that ARRIVED,
   // not an empty string. A watchdog that fires and DISCARDS the buffer exits 0,

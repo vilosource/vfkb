@@ -16,6 +16,11 @@
 // ADR-0084 §1 (amends ADR-0027) adds deterministic WHEN-rules: a paused stop (non-empty
 // `background_tasks` / `session_crons`) defers every nudge (1b), B3 is quiet before turn
 // STALE_HANDOFF_MIN_TURN (1a), and B3's text no longer demands a write (1d).
+//
+// ADR-0084 §1.6 (vfkb#385): B1 no longer fires on Stop. Its standing reminder is one
+// non-blocking UserPromptSubmit line (src/prompt-nudge.ts, ADR-0084 §2), so Stop now does
+// three things: the loop guard, the decision nudge, and B3. When that line was delivered
+// with the stale-pin reason, the CLI folds the delivery turn into B3's cooldown (§2.5).
 
 import { execFileSync } from 'node:child_process';
 import { GIT_READ_MAX_BUFFER } from './git-buffer.js';
@@ -47,8 +52,9 @@ export function isPausedStop(input: StopHookInput | undefined | null): boolean {
   return live(input.background_tasks) || live(input.session_crons);
 }
 
-/** The three Stop-hook nudge types, each with its own independent cooldown window. */
-export type NudgeKey = 'decision' | 'handoff' | 'staleHandoff';
+/** The Stop-hook nudge types, each with its own independent cooldown window. `handoff` (B1)
+ *  retired from Stop in ADR-0084 §1.6; an old record's `nudgedAtTurn.handoff` is harmless. */
+export type NudgeKey = 'decision' | 'staleHandoff';
 
 export interface StopContext {
   /** working tree has uncommitted src/ or docs/ changes (substantive work happened) */
@@ -96,18 +102,8 @@ export const STOP_REMINDER =
 // this, the SessionEnd B2 floor (ADR-0033) still guarantees a committed handoff.
 export const HANDOFF_MIN_ENTRIES = 3;
 
-// GAP-1 B1 (RFC-011 §B): the higher-quality, agent-authored handoff nudge. The Stop
-// hook is the ONLY surface that can prompt the agent, but it fires per-turn while a
-// handoff is an end-of-session artifact — so the framing is deliberately conditional
-// ("if you're wrapping up"), letting the agent decline mid-session. It self-silences:
-// the moment ANY handoff/next entry is recorded, the trigger goes quiet (no
-// KB_SESSION_ID / per-session state needed — the side-effect it asks for is the guard).
-export const HANDOFF_REMINDER =
-  'vfkb handoff check: this session has recorded knowledge but no `handoff`/`next` entry. ' +
-  'If you are WRAPPING UP, record a durable handoff now — `mcp__vfkb__kb_add` ' +
-  '(type=fact, tags=handoff,next, role=human) naming what the NEXT session should pick up ' +
-  '(a real "next:", not just a summary). If you are still mid-session, ignore this and ' +
-  'finish normally — the SessionEnd floor will leave a fallback if you never do.';
+// B1's text (GAP-1, RFC-011 §B / ADR-0034) left Stop in ADR-0084 §1.6: the condition above
+// is now one clause of the UserPromptSubmit line (src/prompt-nudge.ts renderPromptNudge).
 
 // B3 (first decided by ADR-0084, which accepts RFC-043 Parts 0/1/A and RFC-047; still
 // built, NOT yet verified — its agent-facing L4 is ADR-0084's phase 3): unlike B1/B2, this
@@ -142,6 +138,7 @@ export const STALE_HANDOFF_REMINDER =
  *  2. Paused stop (ADR-0084 §1.2, 1b): live `background_tasks` / `session_crons` → allow the
  *     stop before any trigger or cooldown work; every nudge defers to the next unpaused Stop.
  *  3. Conditional trigger: substantive work happened AND no decision was recorded this session.
+ *     (B1 is not composed on Stop — ADR-0084 §1.6.)
  *  4. B3 not before turn STALE_HANDOFF_MIN_TURN (ADR-0084 §1.1, 1a); invalid turn → fire.
  *  (Not a true Brake — working-tree-changed ≠ decision-made; the committed ADR stays the
  *  deterministic backstop for *significant* decisions. This just fires the nudge at the right
@@ -173,10 +170,8 @@ export function decideStop(input: StopHookInput, ctx: StopContext): StopDecision
   };
   // Decision-capture nudge (ADR-0027): work happened AND no decision recorded this session.
   if (ctx.uncommittedWork && ctx.newDecisions === 0) nudge('decision', STOP_REMINDER);
-  // Handoff nudge (B1, RFC-011): work happened AND a strong-signal amount of knowledge
-  // accumulated AND no handoff/next entry yet. Self-silences once a handoff is recorded.
-  if (ctx.uncommittedWork && (ctx.newEntries ?? 0) >= HANDOFF_MIN_ENTRIES && (ctx.newHandoffs ?? 0) === 0)
-    nudge('handoff', HANDOFF_REMINDER);
+  // B1 (handoff, RFC-011) is NOT composed here any more (ADR-0084 §1.6): it rides the next
+  // prompt as a non-blocking line. `newEntries`/`newHandoffs` stay in the context for it.
   // Stale-handoff nudge (B3): NOT gated on uncommittedWork — the defining case is a clean
   // working tree with everything already merged, and the pinned handoff behind it anyway.
   // 1a (ADR-0084 §1.1): quiet while a VALID turn is below STALE_HANDOFF_MIN_TURN.
@@ -187,10 +182,25 @@ export function decideStop(input: StopHookInput, ctx: StopContext): StopDecision
 }
 
 /** Working tree has uncommitted src/ or docs/ changes (brain-only changes don't count as "work"). */
-export function hasUncommittedWork(cwd: string = process.cwd(), brain: string = brainDir()): boolean {
+/** Optional bound on every git child (the UserPromptSubmit budget, decide step Q12). A
+ *  timed-out child throws, and each caller already fails open on a throw. */
+export interface GitOpts {
+  timeout?: number;
+}
+
+export function hasUncommittedWork(
+  cwd: string = process.cwd(),
+  brain: string = brainDir(),
+  opts: GitOpts = {},
+): boolean {
   let out: string;
   try {
-    out = execFileSync('git', ['status', '--porcelain'], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    out = execFileSync('git', ['status', '--porcelain'], {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: opts.timeout,
+    });
   } catch {
     return false; // not a repo / git missing → fail-open (don't nag)
   }
@@ -216,7 +226,11 @@ interface BrainLine {
  * no per-session state (KB_SESSION_ID) needed, and it aligns with the "record then commit"
  * workflow: uncommitted entries are exactly this session's captures.
  */
-export function newBrainEntriesSinceHead(brain: string = brainDir(), cwd: string = process.cwd()): BrainLine[] {
+export function newBrainEntriesSinceHead(
+  brain: string = brainDir(),
+  cwd: string = process.cwd(),
+  opts: GitOpts = {},
+): BrainLine[] {
   const file = join(brain, 'entries.jsonl');
   let current: string[];
   try {
@@ -232,6 +246,7 @@ export function newBrainEntriesSinceHead(brain: string = brainDir(), cwd: string
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
       maxBuffer: GIT_READ_MAX_BUFFER, // vfkb#384: a >1 MiB brain threw ENOBUFS here
+      timeout: opts.timeout,
     });
     headCount = head.split('\n').filter(Boolean).length;
   } catch {
@@ -254,7 +269,7 @@ export function uncommittedDecisionCount(brain: string = brainDir(), cwd: string
   return newBrainEntriesSinceHead(brain, cwd).filter((e) => e.type === 'decision').length;
 }
 
-const isHandoff = (e: BrainLine): boolean => (e.tags ?? []).some((t) => t === 'handoff' || t === 'next');
+export const isHandoff = (e: { tags?: string[] }): boolean => (e.tags ?? []).some((t) => t === 'handoff' || t === 'next');
 
 /**
  * The currently PINNED handoff (ADR-0082 §2): the brain MATERIALIZED, then the engine's
@@ -321,7 +336,11 @@ const EMPTY_TREE_SHA = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'; // git's well
  * brain directory (entries.jsonl, manifest.json, any future committed brain file), not
  * one hardcoded filename.
  */
-export function handoffIsStale(cwd: string = process.cwd(), brain: string = brainDir()): boolean {
+export function handoffIsStale(
+  cwd: string = process.cwd(),
+  brain: string = brainDir(),
+  opts: GitOpts = {},
+): boolean {
   // One outer backstop around the whole function, on top of the targeted inner handling
   // below — defense in depth (review finding F3): every individual git call already fails
   // open, but an uncaught exception ANYWHERE in this chain (this hook's own `main()` has no
@@ -334,6 +353,7 @@ export function handoffIsStale(cwd: string = process.cwd(), brain: string = brai
       cwd,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: opts.timeout,
     }).trim();
     // relativeReal, not relative: `root` comes back from git as a realpath and
     // `brain` does not. When they disagreed the exclude pathspec pointed outside
@@ -365,10 +385,15 @@ export function handoffIsStale(cwd: string = process.cwd(), brain: string = brai
       cwd: root,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: opts.timeout,
     }).trim();
     const base = anchor || EMPTY_TREE_SHA; // handoff predates all history → diff against nothing
     try {
-      execFileSync('git', ['diff', '--quiet', base, 'HEAD', '--', ...paths], { cwd: root, stdio: 'ignore' });
+      execFileSync('git', ['diff', '--quiet', base, 'HEAD', '--', ...paths], {
+        cwd: root,
+        stdio: 'ignore',
+        timeout: opts.timeout,
+      });
       return false; // exit 0: no non-brain difference
     } catch (e) {
       return (e as { status?: number }).status === 1; // exit 1: a real diff; anything else → fail-open
