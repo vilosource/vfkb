@@ -137,6 +137,15 @@ export class SessionState {
     }
   }
 
+  /**
+   * True when this state is backed by a session record (a session id was known). An
+   * ephemeral state lives for one process only, so its turnCount is always the first turn:
+   * turn-keyed rules (ADR-0084 §1.1 and later) must treat it as "no turn info", not turn 1.
+   */
+  get isPersisted(): boolean {
+    return this.persisted;
+  }
+
   static load(sessionId = process.env.KB_SESSION_ID): SessionState {
     if (!sessionId) return new SessionState(false); // ephemeral, in-memory only
     return new SessionState(true, sessionId); // keyed storage via the backend (ADR-0044)
