@@ -1,0 +1,59 @@
+{
+  "date": "2026-10-27T12:33:18.361Z",
+  "n": 10,
+  "node": "v22.23.2",
+  "brains": {
+    "real": {
+      "lines": 630,
+      "bytes": 1315933
+    },
+    "synthetic3k": {
+      "lines": 3030,
+      "bytes": 2860423
+    }
+  },
+  "cells": {
+    "v021/real": {
+      "p50": 375,
+      "p95": 445,
+      "max": 445,
+      "min": 356,
+      "subject": "chore(brain): session-end auto-commit (1 new entry, session timing-4)"
+    },
+    "v021/synthetic3k": {
+      "p50": 392,
+      "p95": 441,
+      "max": 441,
+      "min": 383,
+      "subject": "chore(brain): session-end auto-commit (1 new entry, session timing-5)"
+    },
+    "main/real": {
+      "p50": 868,
+      "p95": 918,
+      "max": 918,
+      "min": 823,
+      "subject": "chore(brain): session-end auto-commit (609 new entries, 51 curated, session timing-4)"
+    },
+    "main/synthetic3k": {
+      "p50": 1559,
+      "p95": 1703,
+      "max": 1703,
+      "min": 1486,
+      "subject": "chore(brain): session-end auto-commit (3009 new entries, 51 curated, session timing-0)"
+    },
+    "fix/real": {
+      "p50": 789,
+      "p95": 847,
+      "max": 847,
+      "min": 781,
+      "subject": "chore(brain): session-end auto-commit (2 new entries, 51 curated, session timing-c)"
+    },
+    "fix/synthetic3k": {
+      "p50": 1204,
+      "p95": 1236,
+      "max": 1236,
+      "min": 1177,
+      "subject": "chore(brain): session-end auto-commit (2 new entries, 31 curated, session timing-0)"
+    }
+  }
+}
