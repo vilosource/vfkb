@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path';
 import {
   decideStop,
   handoffIsStale,
+  handoffNudgeDue,
   STOP_REMINDER,
   HANDOFF_MIN_ENTRIES,
   STALE_HANDOFF_REMINDER,
@@ -67,6 +68,30 @@ describe('decideStop — B1 never fires on Stop (ADR-0084 §1.6)', () => {
 });
 
 // ── B3: the stale-handoff nudge (pragmatic patch, built NOT yet verified) ────
+// ── B1's trigger, re-homed (ADR-0084 §1.6 moved its TEXT to the prompt line; the trigger
+// and threshold are unchanged). These are the negative cases the Stop-side B1 tests used to
+// carry: each one goes red when its clause is dropped from handoffNudgeDue.
+describe('handoffNudgeDue — the B1 trigger (RFC-011 §B, unchanged by ADR-0084 §1.6)', () => {
+  const due = { uncommittedWork: true, newEntries: HANDOFF_MIN_ENTRIES, newHandoffs: 0 };
+
+  it('due at exactly the threshold with uncommitted work and no handoff recorded', () => {
+    expect(handoffNudgeDue(due)).toBe(true);
+  });
+
+  it('NOT due below the entry threshold (weak signal → the SessionEnd floor handles it)', () => {
+    expect(handoffNudgeDue({ ...due, newEntries: HANDOFF_MIN_ENTRIES - 1 })).toBe(false);
+    expect(handoffNudgeDue({ ...due, newEntries: 0 })).toBe(false);
+  });
+
+  it('self-silences once a handoff/next entry exists this session', () => {
+    expect(handoffNudgeDue({ ...due, newEntries: HANDOFF_MIN_ENTRIES + 5, newHandoffs: 1 })).toBe(false);
+  });
+
+  it('NOT due when no substantive work happened (even with entries)', () => {
+    expect(handoffNudgeDue({ ...due, uncommittedWork: false, newEntries: 9 })).toBe(false);
+  });
+});
+
 describe('decideStop — stale-handoff nudge', () => {
   it('blocks with the stale-handoff reminder when handoffStale=true', () => {
     const d = decideStop(
@@ -771,5 +796,38 @@ describe('cli hook stop — emits the verified Stop contract', () => {
   it('1a contrast: an ephemeral session (no session_id) fails open — B3 on stop 1', () => {
     const dir = staleRepo();
     expect(runStop(dir, { stop_hook_active: false })).toContain('vfkb stale-handoff check:');
+  });
+});
+
+// ── B1 end to end through the hook that now carries it (ADR-0084 §2) ──────────
+describe('cli hook user-prompt-submit — B1 self-silence', () => {
+  it('uncommitted work + ≥3 new entries, one a handoff/next entry → no B1 clause (empty stdout)', () => {
+    const dir = gitRepo();
+    writeFileSync(join(dir, 'src', 'foo.ts'), 'export const x = 1;\n'); // uncommitted work
+    writeFileSync(
+      join(dir, '.vfkb', 'entries.jsonl'),
+      [
+        { type: 'fact', text: 'a' },
+        { type: 'fact', text: 'b' },
+        { type: 'fact', text: 'h', tags: ['handoff', 'next'] },
+      ]
+        .map((o) => JSON.stringify(o))
+        .join('\n') + '\n',
+    );
+    // A persisted session past its first prompt (decide step Q2 silences turnCount 0).
+    mkdirSync(join(dir, '.vfkb', '.sessions'));
+    writeFileSync(
+      join(dir, '.vfkb', '.sessions', 'b1.json'),
+      JSON.stringify({ sessionId: 'b1', startedAt: 'x', lastAt: 'x', turnCount: 1, injectedIds: [], capturedIds: [] }),
+    );
+    const out = execFileSync('node', [CLI, 'hook', 'user-prompt-submit'], {
+      input: JSON.stringify({ prompt: 'thanks', session_id: 'b1' }),
+      cwd: dir,
+      // Relative brain path, as the plugin's cwd-anchored hooks resolve it (see
+      // test/user-prompt-submit.test.ts env()).
+      env: { ...process.env, VFKB_DATA_DIR: '.vfkb', VFKB_DIR: '', KB_SESSION_ID: '' },
+      encoding: 'utf8',
+    });
+    expect(out).toBe('');
   });
 });

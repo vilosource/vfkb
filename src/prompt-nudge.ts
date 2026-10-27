@@ -27,8 +27,8 @@ import { join } from 'node:path';
 import { isHarnessPrompt } from './harness-prompt.js';
 import { storageBackend } from './backend.js';
 import {
-  HANDOFF_MIN_ENTRIES,
   handoffIsStale,
+  handoffNudgeDue,
   hasUncommittedWork,
   isHandoff,
   newBrainEntriesSinceHead,
@@ -248,7 +248,7 @@ export function gatherPromptContext(
   const stale = handoffIsStale(cwd, brain, opts);
   const fresh = newBrainEntriesSinceHead(brain, cwd, { timeout: ms(left()) });
   const work = hasUncommittedWork(cwd, brain, { timeout: ms(left()) });
-  const b1 = work && fresh.length >= HANDOFF_MIN_ENTRIES && fresh.filter(isHandoff).length === 0;
+  const b1 = handoffNudgeDue({ uncommittedWork: work, newEntries: fresh.length, newHandoffs: fresh.filter(isHandoff).length });
   const branch = git(['symbolic-ref', '--short', '-q', 'HEAD'], cwd, left()) || null;
   return { ...base, stale, b1, branch, newEntries: fresh.length };
 }

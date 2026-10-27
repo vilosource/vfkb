@@ -3,7 +3,7 @@
 // step's Q2 (first prompt), Q10 (read-only against the session record) and Q12 (budget).
 import { describe, it, expect } from 'vitest';
 import { execFileSync, spawn } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -237,5 +237,19 @@ describe('session record writes are tmp + rename (decide step Q10)', () => {
     const files = execFileSync('ls', ['-a', join(dir, '.vfkb', '.sessions')], { encoding: 'utf8' });
     expect(files).not.toContain('.tmp');
     expect(JSON.parse(readFileSync(join(dir, '.vfkb', '.sessions', 'rn.json'), 'utf8')).turnCount).toBe(1);
+  });
+
+  it('a save replaces the record file (rename), never rewrites it in place', () => {
+    // A hard link shares the inode: an in-place write would rewrite the sibling too, while
+    // a rename swaps a new inode under the name and leaves the sibling on the old bytes.
+    const dir = staleRepo();
+    hook(dir, 'session-start', { session_id: 'rn', source: 'startup' });
+    const record = join(dir, '.vfkb', '.sessions', 'rn.json');
+    const sibling = join(dir, 'rn.link');
+    linkSync(record, sibling);
+    const before = readFileSync(sibling, 'utf8');
+    hook(dir, 'stop', { session_id: 'rn', stop_hook_active: false });
+    expect(JSON.parse(readFileSync(record, 'utf8')).turnCount).toBe(1); // the save happened
+    expect(readFileSync(sibling, 'utf8')).toBe(before);
   });
 });

@@ -105,6 +105,16 @@ export const HANDOFF_MIN_ENTRIES = 3;
 // B1's text (GAP-1, RFC-011 §B / ADR-0034) left Stop in ADR-0084 §1.6: the condition above
 // is now one clause of the UserPromptSubmit line (src/prompt-nudge.ts renderPromptNudge).
 
+/**
+ * B1's trigger (RFC-011 §B; trigger and threshold unchanged by ADR-0084 §1.6): substantive
+ * uncommitted work, at least HANDOFF_MIN_ENTRIES entries appended since HEAD, and none of
+ * them a handoff/next entry (self-silence). Pure, so its negative cases stay deterministic
+ * guards (test/stop-reminder.test.ts); `gatherPromptContext` is its one caller.
+ */
+export function handoffNudgeDue(ctx: { uncommittedWork: boolean; newEntries: number; newHandoffs: number }): boolean {
+  return ctx.uncommittedWork && ctx.newEntries >= HANDOFF_MIN_ENTRIES && ctx.newHandoffs === 0;
+}
+
 // B3 (first decided by ADR-0084, which accepts RFC-043 Parts 0/1/A and RFC-047; still
 // built, NOT yet verified — its agent-facing L4 is ADR-0084's phase 3): unlike B1/B2, this
 // is not about whether THIS session recorded a handoff — it fires when a commit already
