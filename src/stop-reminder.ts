@@ -18,6 +18,7 @@
 // STALE_HANDOFF_MIN_TURN (1a), and B3's text no longer demands a write (1d).
 
 import { execFileSync } from 'node:child_process';
+import { GIT_READ_MAX_BUFFER } from './git-buffer.js';
 import { readFileSync } from 'node:fs';
 import { isAbsolute, join, relative } from 'node:path';
 import { relativeReal } from './realpath.js';
@@ -226,7 +227,12 @@ export function newBrainEntriesSinceHead(brain: string = brainDir(), cwd: string
   const rel = relative(cwd, file).replace(/\\/g, '/');
   let headCount = 0;
   try {
-    const head = execFileSync('git', ['show', `HEAD:${rel}`], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    const head = execFileSync('git', ['show', `HEAD:${rel}`], {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      maxBuffer: GIT_READ_MAX_BUFFER, // vfkb#384: a >1 MiB brain threw ENOBUFS here
+    });
     headCount = head.split('\n').filter(Boolean).length;
   } catch {
     headCount = 0; // file not in HEAD / no repo → treat all current as fresh

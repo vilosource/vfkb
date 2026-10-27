@@ -11,19 +11,44 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join, isAbsolute } from 'node:path';
+import { performance } from 'node:perf_hooks';
 import { addEntry } from './engine.js';
 import { autoCurate } from './curator.js';
+import { GIT_READ_MAX_BUFFER } from './git-buffer.js';
+import { relativeReal } from './realpath.js';
 
 export type GitRunner = (args: string[], cwd: string) => string;
 
+// maxBuffer: `git show HEAD:<brain>` returns the whole committed brain; past 1 MiB the
+// default threw ENOBUFS and every entry read as new (vfkb#384).
 const realGit: GitRunner = (args, cwd) =>
-  execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: GIT_READ_MAX_BUFFER });
+
+/**
+ * The auto-commit subject's fixed prefix — ONE definition, shared with `vfkb doctor`'s
+ * session-end check so the two cannot drift (vfkb#384).
+ */
+export const SESSION_END_COMMIT_PREFIX = 'chore(brain): session-end auto-commit';
+
+/**
+ * vfkb#384 (ADR-0084 §4, decided by the #384 Fable brainstorm under ruling
+ * 54802539cda7): Claude Code gives SessionEnd hooks 1.5 s by default and a plugin's
+ * per-hook `timeout` cannot raise it. ADR-0083 Tier-1 curation is the one optional step
+ * that can run long (a backlog run, or a contended lock), so it starts only while the
+ * process clock reads below this, and stops between archives once it passes. The B2
+ * fallback and the single commit are never shed — they are the floor (ADR-0033).
+ * Measured from process start (performance.now()), because the harness budget starts at
+ * spawn, so node boot and stdin count too.
+ */
+export const SESSION_END_CURATION_DEADLINE_MS = 1000;
 
 export interface SessionEndOpts {
   cwd?: string; // project root (from the hook stdin `cwd`); defaults to process.cwd()
   dataDir?: string; // brain dir relative to cwd; defaults to $VFKB_DATA_DIR or ".vfkb"
   sessionId?: string; // for the commit message tag; defaults to $KB_SESSION_ID
   git?: GitRunner; // injectable for tests
+  /** monotonic ms since process start; injectable for tests (vfkb#384 deadline) */
+  now?: () => number;
 }
 
 export interface SessionEndResult {
@@ -41,6 +66,7 @@ export interface SessionEndResult {
   systemMessage?: string; // surfaced to the user at exit (the main-branch warning)
   autoHandoff?: boolean; // GAP 1 (B2): a fallback handoff entry was written this run
   curated?: number; // ADR-0083 §3: entries the Tier-1 rule archived or repaired this run
+  curationSkipped?: 'deadline'; // vfkb#384: curation not run, or stopped early, at the deadline
 }
 
 interface BrainEntry {
@@ -57,6 +83,16 @@ interface BrainEntry {
 // Matches the convention in stop-reminder.ts (relative(...).replace(/\\/g,'/')).
 export function brainEntriesRelPath(dataDir: string): string {
   return join(dataDir, 'entries.jsonl').replace(/\\/g, '/');
+}
+
+// The `HEAD:<path>` spelling for the brain file. git reads `HEAD:<path>` from the repo
+// ROOT, but `HEAD:./<path>` from the cwd, so a cwd-relative `./` path is right whether
+// the hook runs at the root or below it. An ABSOLUTE dataDir (the plugin passes
+// VFKB_DATA_DIR=${CLAUDE_PROJECT_DIR}/.vfkb) used to produce `HEAD:/abs/path`, which
+// git rejects — every entry then read as new (vfkb#384). relativeReal, because the
+// hook's cwd and the dataDir may name the same directory through different symlinks.
+export function brainHeadSpec(cwd: string, absEntries: string): string {
+  return `HEAD:./${relativeReal(cwd, absEntries).replace(/\\/g, '/')}`;
 }
 
 function tryGit(git: GitRunner, args: string[], cwd: string): string | null {
@@ -86,19 +122,14 @@ function parseLines(text: string): BrainEntry[] {
     .filter((e): e is BrainEntry => e !== null);
 }
 
-function newEntriesSinceHead(
-  git: GitRunner,
-  cwd: string,
-  repoRelEntries: string,
-  absEntries: string,
-): BrainEntry[] {
+function newEntriesSinceHead(git: GitRunner, cwd: string, absEntries: string): BrainEntry[] {
   let current: BrainEntry[];
   try {
     current = parseLines(readFileSync(absEntries, 'utf8'));
   } catch {
     return [];
   }
-  const head = tryGit(git, ['show', `HEAD:${repoRelEntries}`], cwd);
+  const head = tryGit(git, ['show', brainHeadSpec(cwd, absEntries)], cwd);
   const known = new Set(parseLines(head ?? '').map((e) => e.id));
   // Each new id judged by its NEWEST line (by `updated`, a tie to the later line), as the
   // engine materializes it: an entry written then retagged `handoff` is a handoff.
@@ -160,6 +191,7 @@ function defaultBranch(git: GitRunner, cwd: string): string {
 
 export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
   const git = opts.git ?? realGit;
+  const now = opts.now ?? (() => performance.now());
   const cwd = opts.cwd || process.cwd();
   const dataDir = opts.dataDir || process.env.VFKB_DATA_DIR || process.env.VFKB_DIR || '.vfkb';
   const sessionId = opts.sessionId ?? process.env.KB_SESSION_ID;
@@ -176,13 +208,15 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
 
     const tag = sessionId ? `, session ${sessionId.slice(0, 8)}` : '';
     const absBrain = isAbsolute(dataDir) ? dataDir : join(cwd, dataDir);
-    const newSinceHead = () => newEntriesSinceHead(git, cwd, entries, join(absBrain, 'entries.jsonl'));
+    // ONE read of HEAD's brain per run (vfkb#384): each `git show` of a >1 MiB blob costs
+    // tens of ms against the 1.5 s SessionEnd budget, and nothing below changes HEAD.
+    const fresh = newEntriesSinceHead(git, cwd, join(absBrain, 'entries.jsonl'));
 
     // 3) Branch guard — never commit on a detached HEAD or the default branch.
     const branch = tryGit(git, ['symbolic-ref', '--short', '-q', 'HEAD'], cwd) || '';
     const def = defaultBranch(git, cwd);
     if (!branch) {
-      const added = newSinceHead().length;
+      const added = fresh.length;
       return {
         committed: false,
         reason: 'detached-head',
@@ -191,7 +225,7 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
       };
     }
     if (branch === def || branch === 'main' || branch === 'master') {
-      const added = newSinceHead().length;
+      const added = fresh.length;
       return {
         committed: false,
         reason: 'on-default-branch',
@@ -204,7 +238,6 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
     // 4) GAP 1 (B2 floor): guarantee a committed handoff exists. DECIDE here, from the
     //    session's new-since-HEAD entries, whether a fallback is needed; WRITE it in 6),
     //    after curation and before the commit, so it ships in the same commit.
-    const fresh = newSinceHead();
     const needFallback = fresh.length > 0 && !fresh.some(isHandoff);
 
     // 5) ADR-0083 §3: Tier-1 background curation. Only when the session added a new id
@@ -212,18 +245,26 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
     //    runs AFTER the fallback decision, so its archive lines cannot read as "the
     //    session left a handoff", and BEFORE the fallback is written, so the rule measures
     //    from the last real handoff, not from an auto-handoff stamped "now". Fail-open.
+    //    vfkb#384: bounded by SESSION_END_CURATION_DEADLINE_MS on the process clock —
+    //    curation is the optional step, so it is the one the deadline sheds.
     let curated = 0;
+    let curationSkipped: 'deadline' | undefined;
     if (fresh.length > 0) {
-      const prev = process.env.VFKB_DATA_DIR;
-      process.env.VFKB_DATA_DIR = absBrain;
-      try {
-        const c = autoCurate();
-        curated = c.archived.length + c.repaired.length;
-      } catch {
-        /* best-effort */
-      } finally {
-        if (prev === undefined) delete process.env.VFKB_DATA_DIR;
-        else process.env.VFKB_DATA_DIR = prev;
+      if (now() >= SESSION_END_CURATION_DEADLINE_MS) {
+        curationSkipped = 'deadline';
+      } else {
+        const prev = process.env.VFKB_DATA_DIR;
+        process.env.VFKB_DATA_DIR = absBrain;
+        try {
+          const c = autoCurate(undefined, { now, deadlineMs: SESSION_END_CURATION_DEADLINE_MS });
+          curated = c.archived.length + c.repaired.length;
+          if (c.stopped) curationSkipped = c.stopped;
+        } catch {
+          /* best-effort */
+        } finally {
+          if (prev === undefined) delete process.env.VFKB_DATA_DIR;
+          else process.env.VFKB_DATA_DIR = prev;
+        }
       }
     }
 
@@ -239,14 +280,15 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
 
     // 7) Pathspec-scoped commit. Stage ONLY the brain file (leaves any other staged
     //    files alone), then commit with `--only` so even pre-staged files are NOT
-    //    swept into this auto-commit.
-    const added = newSinceHead().length;
+    //    swept into this auto-commit. `added` = the session's new ids plus the fallback
+    //    (a new id of its own); curation only re-writes ids that already exist.
+    const added = fresh.length + (autoHandoff ? 1 : 0);
     const extra = curated ? `, ${curated} curated` : '';
-    const message = `chore(brain): session-end auto-commit (${added} new entr${added === 1 ? 'y' : 'ies'}${extra}${tag})`;
+    const message = `${SESSION_END_COMMIT_PREFIX} (${added} new entr${added === 1 ? 'y' : 'ies'}${extra}${tag})`;
     git(['add', '--', entries], cwd);
     // `-m` MUST precede `--`; everything after `--` is treated as a pathspec.
     git(['commit', '-o', '-m', message, '--', entries], cwd);
-    return { committed: true, reason: 'committed', branch, added, message, autoHandoff, curated };
+    return { committed: true, reason: 'committed', branch, added, message, autoHandoff, curated, curationSkipped };
   } catch {
     // Any git failure (no identity, hook rejection, …) → fail-open, never block exit.
     return { committed: false, reason: 'error' };

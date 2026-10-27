@@ -675,6 +675,9 @@ async function dispatch() {
       // NEXT session can resume from it (append-only). ADR-0039: the id comes from the
       // hook's own stdin (KB_SESSION_ID is an optional override) — no harness wiring needed.
       const session = SessionState.load(effectiveSessionId(payloadId));
+      // vfkb#384: a (re)started session is alive, so an earlier SessionEnd marker on the
+      // same id (`claude --resume` keeps the id) is not a cut-off one.
+      session.clearSessionEnd();
       // ADR-0064 §2: journal recovery runs BEFORE the digest renders, so a
       // brain destroyed by a careless git operation is whole again by the time
       // the session reads it. Fail-open (a hook must never error a session);
@@ -821,19 +824,40 @@ async function dispatch() {
       const raw = await readStdin();
       let cwd: string | undefined;
       let sessionId: string | undefined;
+      let reason: string | undefined;
       try {
         const payload = JSON.parse(raw || '{}');
         if (typeof payload.cwd === 'string') cwd = payload.cwd;
         if (typeof payload.session_id === 'string') sessionId = payload.session_id;
+        if (typeof payload.reason === 'string') reason = payload.reason;
       } catch {
         /* malformed → fall back to process.cwd()/env */
       }
+      // vfkb#384: open the end marker on this session's record BEFORE any git work, and
+      // close it after, so `vfkb doctor` can see a SessionEnd that never finished (the
+      // 1.5 s budget). Ephemeral state (no session id) persists nothing. Fail-open.
+      let marker: SessionState | undefined;
+      try {
+        marker = SessionState.load(effectiveSessionId(sessionId));
+        marker.openSessionEnd(reason);
+        marker.save();
+      } catch {
+        marker = undefined;
+      }
       let systemMessage: string | undefined;
+      let outcome = 'error';
       try {
         const r = runSessionEnd({ cwd, sessionId: effectiveSessionId(sessionId) });
         systemMessage = r.systemMessage;
+        outcome = r.reason;
       } catch {
         /* fail-open: never block exit */
+      }
+      try {
+        marker?.closeSessionEnd(outcome, performance.now());
+        marker?.save();
+      } catch {
+        /* fail-open */
       }
       process.stdout.write(systemMessage ? JSON.stringify({ systemMessage }) : '{}');
       return;

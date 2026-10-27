@@ -63,6 +63,32 @@ function sanitizeNudgedAtTurn(raw: unknown): Record<string, number> | undefined 
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
+// vfkb#384 (decided by the #384 Fable brainstorm, ruling 54802539cda7): the SessionEnd
+// hook OPENS this marker before it touches git and CLOSES it (outcome, elapsedMs) after.
+// Opened-but-never-closed is exactly "the hook was cut off" — e.g. by Claude Code's
+// 1.5 s SessionEnd budget — which `vfkb doctor` reports. The record's `pid` cannot tell
+// this: it is the pid of whichever short-lived hook process created the record.
+// `turnAtEnd` lets a reader tell a resumed session (more turns since) from a cut-off one.
+export interface SessionEndMarker {
+  startedAt: string;
+  reason?: string; // the harness's SessionEnd `reason` (exit, clear, other, …)
+  turnAtEnd?: number;
+  outcome?: string; // SessionEndResult['reason'] once the hook finished
+  elapsedMs?: number; // process-clock ms at close (includes node boot)
+}
+
+function sanitizeSessionEnd(raw: unknown): SessionEndMarker | undefined {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return undefined;
+  const r = raw as Record<string, unknown>;
+  if (typeof r.startedAt !== 'string' || !r.startedAt) return undefined;
+  const out: SessionEndMarker = { startedAt: r.startedAt };
+  if (typeof r.reason === 'string') out.reason = r.reason;
+  if (typeof r.turnAtEnd === 'number' && Number.isFinite(r.turnAtEnd)) out.turnAtEnd = r.turnAtEnd;
+  if (typeof r.outcome === 'string') out.outcome = r.outcome;
+  if (typeof r.elapsedMs === 'number' && Number.isFinite(r.elapsedMs)) out.elapsedMs = r.elapsedMs;
+  return out;
+}
+
 export interface SessionData {
   sessionId?: string;
   startedAt: string;
@@ -83,6 +109,7 @@ export interface SessionData {
   // nudge type last fired, so a nudge repeats at most once per cooldown window instead
   // of on every Stop while its trigger holds.
   nudgedAtTurn?: Record<string, number>;
+  sessionEnd?: SessionEndMarker; // vfkb#384 — see SessionEndMarker
 }
 
 export class SessionState {
@@ -128,6 +155,7 @@ export class SessionState {
           branch: loaded.branch,
           pid: loaded.pid,
           nudgedAtTurn: sanitizeNudgedAtTurn(loaded.nudgedAtTurn),
+          sessionEnd: sanitizeSessionEnd(loaded.sessionEnd),
         };
         this.injected = new Set(this.data.injectedIds);
         this.captured = new Set(this.data.capturedIds);
@@ -208,6 +236,23 @@ export class SessionState {
   }
   get startedAt(): string {
     return this.data.startedAt;
+  }
+  get sessionEnd(): SessionEndMarker | undefined {
+    return this.data.sessionEnd;
+  }
+  /** vfkb#384: open the SessionEnd marker (call BEFORE any git work, then save()). */
+  openSessionEnd(reason?: string): void {
+    this.data.sessionEnd = { startedAt: now(), reason, turnAtEnd: this.data.turnCount };
+  }
+  /** vfkb#384: close the marker with the hook's outcome (then save()). */
+  closeSessionEnd(outcome: string, elapsedMs: number): void {
+    if (!this.data.sessionEnd) this.data.sessionEnd = { startedAt: now() };
+    this.data.sessionEnd.outcome = outcome;
+    this.data.sessionEnd.elapsedMs = Math.round(elapsedMs);
+  }
+  /** vfkb#384: SessionStart means the session is alive (again) — drop any old marker. */
+  clearSessionEnd(): void {
+    delete this.data.sessionEnd;
   }
 
   save(): void {
