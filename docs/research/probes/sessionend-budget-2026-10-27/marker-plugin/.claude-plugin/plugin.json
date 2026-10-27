@@ -1,0 +1,5 @@
+{
+  "name": "se-budget-marker",
+  "version": "0.0.1",
+  "description": "vfkb#384 probe only: a SessionEnd hook that writes timed markers, so the 1.5 s budget can be observed on a PLUGIN-provided hook."
+}

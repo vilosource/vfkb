@@ -1,0 +1,981 @@
+{
+  "meta": {
+    "probe": "sessionend-budget-2026-10-27",
+    "date": "2026-10-27T12:25:22.151Z",
+    "cli": "2.1.292 (Claude Code)",
+    "model": "claude-haiku-4-5",
+    "trials": 3,
+    "bundles": {
+      "v021": {
+        "path": "/Users/jasonviloria/.claude-cldp/plugins/cache/vfkb/vfkb/0.21.0/dist/bundles/vfkb.mjs",
+        "sha256_16": "c015a4b7dee4e1e0"
+      },
+      "main": {
+        "path": "/private/tmp/claude-501/-Users-jasonviloria-GitHub-vfkb/5ac6751b-0d80-4951-8071-b9205a3da085/scratchpad/base/dist/bundles/vfkb.mjs",
+        "sha256_16": "3e0946623272e722"
+      },
+      "fix": {
+        "path": "/Users/jasonviloria/GitHub/vfkb-wt-384-session-end/dist/bundles/vfkb.mjs",
+        "sha256_16": "0017deee9392f7e4"
+      }
+    },
+    "brain": {
+      "path": "/private/tmp/claude-501/-Users-jasonviloria-GitHub-vfkb/5ac6751b-0d80-4951-8071-b9205a3da085/scratchpad/probe-brain.jsonl",
+      "bytes": 1315933,
+      "lines": 630
+    },
+    "platform": "darwin arm64 node v22.23.2"
+  },
+  "results": {
+    "a0-settings": [
+      {
+        "last": 1.4,
+        "cancelled": true,
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 4021,
+        "cliVersion": "2.1.292",
+        "stderrTail": [
+          "SessionEnd hook [node \"/Users/jasonviloria/GitHub/vfkb-wt-384-probe/docs/research/probes/sessionend-budget-2026-10-27/marker-hook.mjs\" settings] failed: Hook cancelled"
+        ]
+      },
+      {
+        "last": 1.4,
+        "cancelled": true,
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 4965,
+        "cliVersion": "2.1.292",
+        "stderrTail": [
+          "SessionEnd hook [node \"/Users/jasonviloria/GitHub/vfkb-wt-384-probe/docs/research/probes/sessionend-budget-2026-10-27/marker-hook.mjs\" settings] failed: Hook cancelled"
+        ]
+      },
+      {
+        "last": 1.4,
+        "cancelled": true,
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 5939,
+        "cliVersion": "2.1.292",
+        "stderrTail": [
+          "SessionEnd hook [node \"/Users/jasonviloria/GitHub/vfkb-wt-384-probe/docs/research/probes/sessionend-budget-2026-10-27/marker-hook.mjs\" settings] failed: Hook cancelled"
+        ]
+      }
+    ],
+    "a0-plugin-timeout10": [
+      {
+        "last": 1.4,
+        "cancelled": true,
+        "plugins": [
+          "se-budget-marker@se-budget-marker@inline",
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 4551,
+        "cliVersion": "2.1.292",
+        "stderrTail": [
+          "SessionEnd hook [node \"${CLAUDE_PLUGIN_ROOT}/../marker-hook.mjs\" plugin] failed: Hook cancelled"
+        ]
+      },
+      {
+        "last": 1.4,
+        "cancelled": true,
+        "plugins": [
+          "se-budget-marker@se-budget-marker@inline",
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 4038,
+        "cliVersion": "2.1.292",
+        "stderrTail": [
+          "SessionEnd hook [node \"${CLAUDE_PLUGIN_ROOT}/../marker-hook.mjs\" plugin] failed: Hook cancelled"
+        ]
+      },
+      {
+        "last": 1.4,
+        "cancelled": true,
+        "plugins": [
+          "se-budget-marker@se-budget-marker@inline",
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 3896,
+        "cliVersion": "2.1.292",
+        "stderrTail": [
+          "SessionEnd hook [node \"${CLAUDE_PLUGIN_ROOT}/../marker-hook.mjs\" plugin] failed: Hook cancelled"
+        ]
+      }
+    ],
+    "a0-settings-timeout10": [
+      {
+        "last": 4.5,
+        "cancelled": false,
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 6946,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      },
+      {
+        "last": 4.5,
+        "cancelled": false,
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 6992,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      },
+      {
+        "last": 4.5,
+        "cancelled": false,
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 7102,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      }
+    ],
+    "c-env-process": [
+      {
+        "last": 4.5,
+        "cancelled": false,
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 6903,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      },
+      {
+        "last": 4.5,
+        "cancelled": false,
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 6815,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      },
+      {
+        "last": 4.5,
+        "cancelled": false,
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 6875,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      }
+    ],
+    "c-env-project-settings": [
+      {
+        "last": 4.5,
+        "cancelled": false,
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 7315,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      },
+      {
+        "last": 4.5,
+        "cancelled": false,
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 7307,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      },
+      {
+        "last": 4.5,
+        "cancelled": false,
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 6968,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      }
+    ],
+    "c-env-project-plugin": [
+      {
+        "last": 4.5,
+        "cancelled": false,
+        "plugins": [
+          "se-budget-marker@se-budget-marker@inline",
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 6840,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      },
+      {
+        "last": 4.5,
+        "cancelled": false,
+        "plugins": [
+          "se-budget-marker@se-budget-marker@inline",
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 7000,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      },
+      {
+        "last": 4.5,
+        "cancelled": false,
+        "plugins": [
+          "se-budget-marker@se-budget-marker@inline",
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 8081,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      }
+    ],
+    "real-v021": [
+      {
+        "done": true,
+        "cancelled": false,
+        "brain": {
+          "subject": "chore(brain): session-end auto-commit (1 new entry, session 86c43b4b)",
+          "autoCommit": true,
+          "newCount": 1,
+          "curated": 0,
+          "dirty": false,
+          "autoLines": 0,
+          "indexLock": false
+        },
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 3015,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      },
+      {
+        "done": true,
+        "cancelled": false,
+        "brain": {
+          "subject": "chore(brain): session-end auto-commit (1 new entry, session 82c998ba)",
+          "autoCommit": true,
+          "newCount": 1,
+          "curated": 0,
+          "dirty": false,
+          "autoLines": 0,
+          "indexLock": false
+        },
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 2927,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      },
+      {
+        "done": true,
+        "cancelled": false,
+        "brain": {
+          "subject": "chore(brain): session-end auto-commit (1 new entry, session d9110a41)",
+          "autoCommit": true,
+          "newCount": 1,
+          "curated": 0,
+          "dirty": false,
+          "autoLines": 0,
+          "indexLock": false
+        },
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 3125,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      }
+    ],
+    "real-main": [
+      {
+        "done": true,
+        "cancelled": false,
+        "brain": {
+          "subject": "chore(brain): session-end auto-commit (609 new entries, 51 curated, session 2ac5cce7)",
+          "autoCommit": true,
+          "newCount": 609,
+          "curated": 51,
+          "dirty": false,
+          "autoLines": 0,
+          "indexLock": false
+        },
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 3264,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      },
+      {
+        "done": true,
+        "cancelled": false,
+        "brain": {
+          "subject": "chore(brain): session-end auto-commit (609 new entries, 51 curated, session 11129054)",
+          "autoCommit": true,
+          "newCount": 609,
+          "curated": 51,
+          "dirty": false,
+          "autoLines": 0,
+          "indexLock": false
+        },
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 3728,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      },
+      {
+        "done": true,
+        "cancelled": false,
+        "brain": {
+          "subject": "chore(brain): session-end auto-commit (609 new entries, 51 curated, session 344fe51c)",
+          "autoCommit": true,
+          "newCount": 609,
+          "curated": 51,
+          "dirty": false,
+          "autoLines": 0,
+          "indexLock": false
+        },
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 3358,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      }
+    ],
+    "real-fix": [
+      {
+        "done": true,
+        "cancelled": false,
+        "brain": {
+          "subject": "chore(brain): session-end auto-commit (2 new entries, 51 curated, session ae426950)",
+          "autoCommit": true,
+          "newCount": 2,
+          "curated": 51,
+          "dirty": false,
+          "autoLines": 1,
+          "indexLock": false,
+          "marker": {
+            "startedAt": "2026-10-27T12:30:11.068Z",
+            "reason": "other",
+            "turnAtEnd": 0,
+            "outcome": "committed",
+            "elapsedMs": 798
+          }
+        },
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 3870,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      },
+      {
+        "done": true,
+        "cancelled": false,
+        "brain": {
+          "subject": "chore(brain): session-end auto-commit (2 new entries, 51 curated, session a6ac2848)",
+          "autoCommit": true,
+          "newCount": 2,
+          "curated": 51,
+          "dirty": false,
+          "autoLines": 1,
+          "indexLock": false,
+          "marker": {
+            "startedAt": "2026-10-27T12:30:21.699Z",
+            "reason": "other",
+            "turnAtEnd": 0,
+            "outcome": "committed",
+            "elapsedMs": 802
+          }
+        },
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 4179,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      },
+      {
+        "done": true,
+        "cancelled": false,
+        "brain": {
+          "subject": "chore(brain): session-end auto-commit (2 new entries, 51 curated, session 91a7c7cb)",
+          "autoCommit": true,
+          "newCount": 2,
+          "curated": 51,
+          "dirty": false,
+          "autoLines": 1,
+          "indexLock": false,
+          "marker": {
+            "startedAt": "2026-10-27T12:30:31.824Z",
+            "reason": "other",
+            "turnAtEnd": 0,
+            "outcome": "committed",
+            "elapsedMs": 809
+          }
+        },
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 3655,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      }
+    ],
+    "b-real-sleep2": [
+      {
+        "done": false,
+        "cancelled": true,
+        "brain": {
+          "subject": "seed",
+          "autoCommit": false,
+          "curated": 0,
+          "dirty": true,
+          "autoLines": 0,
+          "indexLock": false
+        },
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 4018,
+        "cliVersion": "2.1.292",
+        "stderrTail": [
+          "SessionEnd hook [sleep 2; VFKB_DATA_DIR=${CLAUDE_PROJECT_DIR:-.}/.vfkb node \"/Users/jasonviloria/GitHub/vfkb-wt-384-session-end/dist/bundles/vfkb.mjs\" hook session-end > \"$PROBE_MARK_DIR/vfkb-stdout.json\"; touch \"$PROBE_MARK_DIR/vfkb@done\"] failed: Hook cancelled"
+        ]
+      },
+      {
+        "done": false,
+        "cancelled": true,
+        "brain": {
+          "subject": "seed",
+          "autoCommit": false,
+          "curated": 0,
+          "dirty": true,
+          "autoLines": 0,
+          "indexLock": false
+        },
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 4534,
+        "cliVersion": "2.1.292",
+        "stderrTail": [
+          "SessionEnd hook [sleep 2; VFKB_DATA_DIR=${CLAUDE_PROJECT_DIR:-.}/.vfkb node \"/Users/jasonviloria/GitHub/vfkb-wt-384-session-end/dist/bundles/vfkb.mjs\" hook session-end > \"$PROBE_MARK_DIR/vfkb-stdout.json\"; touch \"$PROBE_MARK_DIR/vfkb@done\"] failed: Hook cancelled"
+        ]
+      },
+      {
+        "done": false,
+        "cancelled": true,
+        "brain": {
+          "subject": "seed",
+          "autoCommit": false,
+          "curated": 0,
+          "dirty": true,
+          "autoLines": 0,
+          "indexLock": false
+        },
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 3995,
+        "cliVersion": "2.1.292",
+        "stderrTail": [
+          "SessionEnd hook [sleep 2; VFKB_DATA_DIR=${CLAUDE_PROJECT_DIR:-.}/.vfkb node \"/Users/jasonviloria/GitHub/vfkb-wt-384-session-end/dist/bundles/vfkb.mjs\" hook session-end > \"$PROBE_MARK_DIR/vfkb-stdout.json\"; touch \"$PROBE_MARK_DIR/vfkb@done\"] failed: Hook cancelled"
+        ]
+      }
+    ],
+    "c-real-sleep2-project-env": [
+      {
+        "done": true,
+        "cancelled": false,
+        "brain": {
+          "subject": "chore(brain): session-end auto-commit (2 new entries, 51 curated, session c418004b)",
+          "autoCommit": true,
+          "newCount": 2,
+          "curated": 51,
+          "dirty": false,
+          "autoLines": 1,
+          "indexLock": false,
+          "marker": {
+            "startedAt": "2026-10-27T12:31:16.096Z",
+            "reason": "other",
+            "turnAtEnd": 0,
+            "outcome": "committed",
+            "elapsedMs": 814
+          }
+        },
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 5851,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      },
+      {
+        "done": true,
+        "cancelled": false,
+        "brain": {
+          "subject": "chore(brain): session-end auto-commit (2 new entries, 51 curated, session 3a51975b)",
+          "autoCommit": true,
+          "newCount": 2,
+          "curated": 51,
+          "dirty": false,
+          "autoLines": 1,
+          "indexLock": false,
+          "marker": {
+            "startedAt": "2026-10-27T12:31:28.022Z",
+            "reason": "other",
+            "turnAtEnd": 0,
+            "outcome": "committed",
+            "elapsedMs": 816
+          }
+        },
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 5371,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      },
+      {
+        "done": true,
+        "cancelled": false,
+        "brain": {
+          "subject": "chore(brain): session-end auto-commit (2 new entries, 51 curated, session 8abc0822)",
+          "autoCommit": true,
+          "newCount": 2,
+          "curated": 51,
+          "dirty": false,
+          "autoLines": 1,
+          "indexLock": false,
+          "marker": {
+            "startedAt": "2026-10-27T12:31:39.896Z",
+            "reason": "other",
+            "turnAtEnd": 0,
+            "outcome": "committed",
+            "elapsedMs": 803
+          }
+        },
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 5338,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      }
+    ],
+    "e-kill-mid-commit": [
+      {
+        "done": false,
+        "cancelled": true,
+        "lockRightAfter": false,
+        "brain": {
+          "subject": "seed",
+          "autoCommit": false,
+          "curated": 0,
+          "dirty": true,
+          "autoLines": 1,
+          "indexLock": false,
+          "marker": {
+            "startedAt": "2026-10-27T12:31:50.192Z",
+            "reason": "other",
+            "turnAtEnd": 0
+          }
+        },
+        "gitAfter": "git status ok",
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 4547,
+        "cliVersion": "2.1.292",
+        "stderrTail": [
+          "SessionEnd hook [VFKB_DATA_DIR=${CLAUDE_PROJECT_DIR:-.}/.vfkb node \"/Users/jasonviloria/GitHub/vfkb-wt-384-session-end/dist/bundles/vfkb.mjs\" hook session-end > \"$PROBE_MARK_DIR/vfkb-stdout.json\"; touch \"$PROBE_MARK_DIR/vfkb@done\"] failed: Hook cancelled"
+        ]
+      },
+      {
+        "done": false,
+        "cancelled": true,
+        "lockRightAfter": false,
+        "brain": {
+          "subject": "seed",
+          "autoCommit": false,
+          "curated": 0,
+          "dirty": true,
+          "autoLines": 1,
+          "indexLock": false,
+          "marker": {
+            "startedAt": "2026-10-27T12:32:00.682Z",
+            "reason": "other",
+            "turnAtEnd": 0
+          }
+        },
+        "gitAfter": "git status ok",
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 3911,
+        "cliVersion": "2.1.292",
+        "stderrTail": [
+          "SessionEnd hook [VFKB_DATA_DIR=${CLAUDE_PROJECT_DIR:-.}/.vfkb node \"/Users/jasonviloria/GitHub/vfkb-wt-384-session-end/dist/bundles/vfkb.mjs\" hook session-end > \"$PROBE_MARK_DIR/vfkb-stdout.json\"; touch \"$PROBE_MARK_DIR/vfkb@done\"] failed: Hook cancelled"
+        ]
+      },
+      {
+        "done": false,
+        "cancelled": true,
+        "lockRightAfter": false,
+        "brain": {
+          "subject": "seed",
+          "autoCommit": false,
+          "curated": 0,
+          "dirty": true,
+          "autoLines": 1,
+          "indexLock": false,
+          "marker": {
+            "startedAt": "2026-10-27T12:32:11.231Z",
+            "reason": "other",
+            "turnAtEnd": 0
+          }
+        },
+        "gitAfter": "git status ok",
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 4133,
+        "cliVersion": "2.1.292",
+        "stderrTail": [
+          "SessionEnd hook [VFKB_DATA_DIR=${CLAUDE_PROJECT_DIR:-.}/.vfkb node \"/Users/jasonviloria/GitHub/vfkb-wt-384-session-end/dist/bundles/vfkb.mjs\" hook session-end > \"$PROBE_MARK_DIR/vfkb-stdout.json\"; touch \"$PROBE_MARK_DIR/vfkb@done\"] failed: Hook cancelled"
+        ]
+      }
+    ],
+    "f-systemmessage-main": [
+      {
+        "done": true,
+        "hookEmitted": true,
+        "shownInStdout": false,
+        "shownInStderr": false,
+        "brain": {
+          "subject": "seed",
+          "autoCommit": false,
+          "curated": 0,
+          "dirty": true,
+          "autoLines": 0,
+          "indexLock": false,
+          "marker": {
+            "startedAt": "2026-10-27T12:32:21.534Z",
+            "reason": "other",
+            "turnAtEnd": 0,
+            "outcome": "on-default-branch",
+            "elapsedMs": 373
+          }
+        },
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 2806,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      },
+      {
+        "done": true,
+        "hookEmitted": true,
+        "shownInStdout": false,
+        "shownInStderr": false,
+        "brain": {
+          "subject": "seed",
+          "autoCommit": false,
+          "curated": 0,
+          "dirty": true,
+          "autoLines": 0,
+          "indexLock": false,
+          "marker": {
+            "startedAt": "2026-10-27T12:32:30.803Z",
+            "reason": "other",
+            "turnAtEnd": 0,
+            "outcome": "on-default-branch",
+            "elapsedMs": 240
+          }
+        },
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 2687,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      },
+      {
+        "done": true,
+        "hookEmitted": true,
+        "shownInStdout": false,
+        "shownInStderr": false,
+        "brain": {
+          "subject": "seed",
+          "autoCommit": false,
+          "curated": 0,
+          "dirty": true,
+          "autoLines": 0,
+          "indexLock": false,
+          "marker": {
+            "startedAt": "2026-10-27T12:32:40.792Z",
+            "reason": "other",
+            "turnAtEnd": 0,
+            "outcome": "on-default-branch",
+            "elapsedMs": 240
+          }
+        },
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 3563,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      }
+    ]
+  }
+}

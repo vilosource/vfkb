@@ -1,0 +1,288 @@
+{
+  "meta": {
+    "probe": "sessionend-budget-2026-10-27",
+    "date": "2026-10-27T12:34:50.805Z",
+    "cli": "2.1.292 (Claude Code)",
+    "model": "claude-haiku-4-5",
+    "trials": 3,
+    "bundles": {
+      "v021": {
+        "path": "/Users/jasonviloria/.claude-cldp/plugins/cache/vfkb/vfkb/0.21.0/dist/bundles/vfkb.mjs",
+        "sha256_16": "c015a4b7dee4e1e0"
+      },
+      "main": {
+        "path": "/private/tmp/claude-501/-Users-jasonviloria-GitHub-vfkb/5ac6751b-0d80-4951-8071-b9205a3da085/scratchpad/base/dist/bundles/vfkb.mjs",
+        "sha256_16": "3e0946623272e722"
+      },
+      "fix": {
+        "path": "/Users/jasonviloria/GitHub/vfkb-wt-384-session-end/dist/bundles/vfkb.mjs",
+        "sha256_16": "0017deee9392f7e4"
+      }
+    },
+    "brain": {
+      "path": "/private/tmp/claude-501/-Users-jasonviloria-GitHub-vfkb/5ac6751b-0d80-4951-8071-b9205a3da085/scratchpad/probe-brain-3k.jsonl",
+      "bytes": 2860423,
+      "lines": 3030
+    },
+    "platform": "darwin arm64 node v22.23.2"
+  },
+  "results": {
+    "real-v021": [
+      {
+        "done": true,
+        "cancelled": false,
+        "brain": {
+          "subject": "chore(brain): session-end auto-commit (1 new entry, session 0f8f4bca)",
+          "autoCommit": true,
+          "newCount": 1,
+          "curated": 0,
+          "dirty": false,
+          "autoLines": 0,
+          "indexLock": false
+        },
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 2989,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      },
+      {
+        "done": true,
+        "cancelled": false,
+        "brain": {
+          "subject": "chore(brain): session-end auto-commit (1 new entry, session aee20c22)",
+          "autoCommit": true,
+          "newCount": 1,
+          "curated": 0,
+          "dirty": false,
+          "autoLines": 0,
+          "indexLock": false
+        },
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 3977,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      },
+      {
+        "done": true,
+        "cancelled": false,
+        "brain": {
+          "subject": "chore(brain): session-end auto-commit (1 new entry, session 49658537)",
+          "autoCommit": true,
+          "newCount": 1,
+          "curated": 0,
+          "dirty": false,
+          "autoLines": 0,
+          "indexLock": false
+        },
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 2886,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      }
+    ],
+    "real-main": [
+      {
+        "done": false,
+        "cancelled": true,
+        "brain": {
+          "subject": "chore(brain): session-end auto-commit (3009 new entries, 51 curated, session 37ce7a97)",
+          "autoCommit": true,
+          "newCount": 3009,
+          "curated": 51,
+          "dirty": false,
+          "autoLines": 0,
+          "indexLock": false
+        },
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 4034,
+        "cliVersion": "2.1.292",
+        "stderrTail": [
+          "SessionEnd hook [VFKB_DATA_DIR=${CLAUDE_PROJECT_DIR:-.}/.vfkb node \"/private/tmp/claude-501/-Users-jasonviloria-GitHub-vfkb/5ac6751b-0d80-4951-8071-b9205a3da085/scratchpad/base/dist/bundles/vfkb.mjs\" hook session-end > \"$PROBE_MARK_DIR/vfkb-stdout.json\"; touch \"$PROBE_MARK_DIR/vfkb@done\"] failed: Hook cancelled"
+        ]
+      },
+      {
+        "done": false,
+        "cancelled": true,
+        "brain": {
+          "subject": "seed",
+          "autoCommit": false,
+          "curated": 0,
+          "dirty": true,
+          "autoLines": 0,
+          "indexLock": false
+        },
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 4112,
+        "cliVersion": "2.1.292",
+        "stderrTail": [
+          "SessionEnd hook [VFKB_DATA_DIR=${CLAUDE_PROJECT_DIR:-.}/.vfkb node \"/private/tmp/claude-501/-Users-jasonviloria-GitHub-vfkb/5ac6751b-0d80-4951-8071-b9205a3da085/scratchpad/base/dist/bundles/vfkb.mjs\" hook session-end > \"$PROBE_MARK_DIR/vfkb-stdout.json\"; touch \"$PROBE_MARK_DIR/vfkb@done\"] failed: Hook cancelled"
+        ]
+      },
+      {
+        "done": true,
+        "cancelled": true,
+        "brain": {
+          "subject": "chore(brain): session-end auto-commit (3009 new entries, 51 curated, session 842ea363)",
+          "autoCommit": true,
+          "newCount": 3009,
+          "curated": 51,
+          "dirty": false,
+          "autoLines": 0,
+          "indexLock": false
+        },
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 4308,
+        "cliVersion": "2.1.292",
+        "stderrTail": [
+          "SessionEnd hook [VFKB_DATA_DIR=${CLAUDE_PROJECT_DIR:-.}/.vfkb node \"/private/tmp/claude-501/-Users-jasonviloria-GitHub-vfkb/5ac6751b-0d80-4951-8071-b9205a3da085/scratchpad/base/dist/bundles/vfkb.mjs\" hook session-end > \"$PROBE_MARK_DIR/vfkb-stdout.json\"; touch \"$PROBE_MARK_DIR/vfkb@done\"] failed: Hook cancelled"
+        ]
+      }
+    ],
+    "real-fix": [
+      {
+        "done": true,
+        "cancelled": false,
+        "brain": {
+          "subject": "chore(brain): session-end auto-commit (2 new entries, 36 curated, session 5be8c2ed)",
+          "autoCommit": true,
+          "newCount": 2,
+          "curated": 36,
+          "dirty": false,
+          "autoLines": 1,
+          "indexLock": false,
+          "marker": {
+            "startedAt": "2026-10-27T12:35:54.332Z",
+            "reason": "other",
+            "turnAtEnd": 0,
+            "outcome": "committed",
+            "elapsedMs": 1172
+          }
+        },
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 3755,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      },
+      {
+        "done": true,
+        "cancelled": false,
+        "brain": {
+          "subject": "chore(brain): session-end auto-commit (2 new entries, 36 curated, session 7c262efa)",
+          "autoCommit": true,
+          "newCount": 2,
+          "curated": 36,
+          "dirty": false,
+          "autoLines": 1,
+          "indexLock": false,
+          "marker": {
+            "startedAt": "2026-10-27T12:36:05.033Z",
+            "reason": "other",
+            "turnAtEnd": 0,
+            "outcome": "committed",
+            "elapsedMs": 1159
+          }
+        },
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 4183,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      },
+      {
+        "done": true,
+        "cancelled": false,
+        "brain": {
+          "subject": "chore(brain): session-end auto-commit (2 new entries, 35 curated, session c4a60753)",
+          "autoCommit": true,
+          "newCount": 2,
+          "curated": 35,
+          "dirty": false,
+          "autoLines": 1,
+          "indexLock": false,
+          "marker": {
+            "startedAt": "2026-10-27T12:36:15.176Z",
+            "reason": "other",
+            "turnAtEnd": 0,
+            "outcome": "committed",
+            "elapsedMs": 1171
+          }
+        },
+        "plugins": [
+          "product-management@product-management@synced",
+          "design@design@synced",
+          "data@data@synced",
+          "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+          "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+          "cc-plugin-plugin-authoring@cc-plugin-plugin-authoring@builtin"
+        ],
+        "vfkbPluginLeaked": false,
+        "wallMs": 3705,
+        "cliVersion": "2.1.292",
+        "stderrTail": []
+      }
+    ]
+  }
+}
