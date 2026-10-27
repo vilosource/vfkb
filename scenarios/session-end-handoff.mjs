@@ -2,6 +2,12 @@
 // ============================================================================
 // vfkb SESSION-END HANDOFF L4 purpose scenario — GAP-1 B1 (RFC-011 §B)
 // ----------------------------------------------------------------------------
+// RETIRED AS A GATE (ADR-0084 DoD item 4, vfkb#385). B1 no longer fires on Stop; its
+// reminder rides the next prompt (ADR-0084 §2). This single-turn scenario cannot see that
+// change and has no arm that could catch nagging. It and records/session-end-handoff.json
+// stay as ADR-0034's historical evidence and are not re-run. The live proof is
+// scenarios/handoff-next-prompt.mjs.
+// ----------------------------------------------------------------------------
 // Proves the PURPOSE of the B1 Stop-hook handoff nudge: a real agent that
 // accumulates knowledge during a session — WITHOUT being told to write a handoff —
 // ends up AUTHORING a durable `handoff`/`next` entry BECAUSE OF the end-of-turn nudge.
