@@ -1,0 +1,30 @@
+{
+  "recordVersion": 1,
+  "sha": "0632f6dff92260c2a2ada083d92b5f5524624c61",
+  "governing": ["docs/adr/ADR-0084-handoff-nudge-next-prompt.md", "docs/rfc/RFC-047-less-intrusive-handoff-nudge.md", "docs/adr/ADR-0083-background-curation.md", "docs/adr/ADR-0033-session-end-continuity.md"],
+  "reviewer": { "agent": "adversarial-reviewer (workflow subagent)", "model": "opus", "rounds": 1 },
+  "generated": "2026-10-27T13:00:00Z",
+  "findings": [
+    { "id": "M1", "severity": "major", "status": "open", "summary": "doctor-staleness.json vfkbSha names 8582ee0 (merge-base), not the tree it ran on", "acceptedBy": null },
+    { "id": "m1", "severity": "minor", "status": "open", "summary": "stop-reminder HEAD: spec still uses relative(); symlink-spelling mismatch counts whole brain as new (pre-existing)", "acceptedBy": null },
+    { "id": "m2", "severity": "minor", "status": "open", "summary": "brainHeadSpec './' prefix has no guard (mutation stays green)", "acceptedBy": null },
+    { "id": "m3", "severity": "minor", "status": "open", "summary": "doctor.ts maxBuffer comment claims session-end check reads HEAD's brain; it does not", "acceptedBy": null },
+    { "id": "m4", "severity": "minor", "status": "open", "summary": "remedy text's 'v2.1.268 or later' floor is unsourced by the probe", "acceptedBy": null },
+    { "id": "m5", "severity": "minor", "status": "open", "summary": "budget override lookup ignores user-scope settings", "acceptedBy": null },
+    { "id": "m6", "severity": "minor", "status": "open", "summary": "remedy guidance merges before the probe PR #398 (ADR-0084 §4 ordering)", "acceptedBy": null },
+    { "id": "m7", "severity": "minor", "status": "open", "summary": "outer curation deadline gate not independently guarded (disclosed)", "acceptedBy": null }
+  ],
+  "findingsCount": 8,
+  "mutations": [
+    { "guard": "test/session-end-budget.test.ts > session-end counts ONE new entry and still writes the B2 fallback", "mutation": "removed maxBuffer from session-end realGit", "observedRed": true },
+    { "guard": "test/session-end-budget.test.ts > an absolute dataDir", "mutation": "brainHeadSpec replaced by HEAD:<absolute path>", "observedRed": true },
+    { "guard": "test/session-end-budget.test.ts > stop-reminder sees exactly the one appended line", "mutation": "removed maxBuffer in stop-reminder", "observedRed": true },
+    { "guard": "test/session-end-budget.test.ts > the journal can read HEAD and prunes a committed pair", "mutation": "removed maxBuffer in journal", "observedRed": true },
+    { "guard": "test/session-end-budget.test.ts > the deadline passing mid-loop stops after the archive in flight", "mutation": "removed the in-loop pastDeadline break in autoCurate", "observedRed": true },
+    { "guard": "test/session-end-budget.test.ts > SessionStart clears a marker", "mutation": "removed session.clearSessionEnd() in cli.ts", "observedRed": true },
+    { "guard": "test/session-end-budget.test.ts > the SessionEnd marker", "mutation": "removed marker.openSessionEnd + save in cli.ts", "observedRed": true },
+    { "guard": "test/session-end-budget.test.ts + src/session-end.test.ts (added count)", "mutation": "added = fresh.length (dropped the fallback +1)", "observedRed": true }
+  ],
+  "mutationsNote": null,
+  "verdict": "MERGE"
+}
