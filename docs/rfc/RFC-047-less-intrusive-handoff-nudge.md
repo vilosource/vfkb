@@ -58,7 +58,8 @@ Each is rate-limited by a 10-turn cooldown. The review measured (its own figures
   context re-read.
 - **A squash merge makes the handoff it carries look stale** (RFC-043 cause 1; gotcha
   `68ea8f1db58d`). This share of fires is unmeasured.
-- **Claude Code surfaces** (hooks reference, fetched 2026-10-27): Stop `additionalContext`
+- **Claude Code surfaces** (the review's quotations of the hooks reference, fetched
+  2026-10-27): Stop `additionalContext`
   is not a cheaper channel than `decision:block`; it forces a turn the same way. Stop input
   now carries `background_tasks` and `session_crons` "to distinguish 'session is done' from
   'session is paused'". `UserPromptSubmit` `additionalContext` costs no turn and runs with
@@ -200,7 +201,10 @@ as unset → emit while the condition holds.
 R1 skips prompts that start at column 0 with an observed harness lead-in: `<task-notification>`,
 `Another Claude session sent a message:`, `Your claude.ai usage limit has reset`. Anything
 else counts as typed (fail-open: a stray line costs no turn). The allowlist is data in one
-place, citing the probe record. A Tier-0 probe in this phase records the verbatim prompt head
+place, citing the probe record. The three lead-ins come from brainstorm E's read-only tally of
+local transcripts (1,353 of 1,377 system-origin turns start with `<task-notification>`, the
+rest with the other two; 0 of 4,461 typed prompts match). **That tally is UNVERIFIED here.**
+The probe below is what confirms it. A Tier-0 probe in this phase records the verbatim prompt head
 for each harness turn kind the CLI can start (background-task completion, subagent hand-back,
 cross-session message, cron or `/loop` tick, queued prompt, `-p` prompt) and whether the hook
 fires at all. That discharges ADR-0080 §5's Q4 for both consumers.
