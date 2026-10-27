@@ -5,10 +5,12 @@
 //
 // The allowlist is DATA in one place. Source: RFC-047 brainstorm E's read-only tally of
 // local transcripts (1,353 of 1,377 system-origin turns start with `<task-notification>`,
-// the rest with the other two; 0 of 4,461 typed prompts match) — UNVERIFIED by a
-// controlled run. The #385 Tier-0 probe
-// (docs/research/probes/harness-turns-2026-10-27/README.md) records which kinds it could
-// and could not produce; add a lead-in here only from an observed probe record.
+// the rest with the other two; 0 of 4,461 typed prompts match). The #385 Tier-0 probe
+// (docs/research/probes/harness-turns-2026-10-27/README.md, CLI 2.1.292) OBSERVED
+// `<task-notification>` at column 0 for a background Bash task and a background subagent
+// hand-back, each a second UserPromptSubmit fire on the parent's session id. The other
+// two lead-ins were not reproducible headlessly and remain UNVERIFIED. Add a lead-in here
+// only from an observed probe record.
 //
 // Column 0 only: leading whitespace is NOT skipped. Anything unmatched counts as typed —
 // fail-open, because a stray line on a harness turn costs no turn.

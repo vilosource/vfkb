@@ -1,0 +1,91 @@
+{
+  "probe": "harness-turns-2026-10-27",
+  "cli": "2.1.292",
+  "model": "claude-haiku-4-5",
+  "fires": [
+    {
+      "kind": "background-task",
+      "hook_event_name": "UserPromptSubmit",
+      "prompt_head": "Use the Bash tool with run_in_background=true to run: sleep 4; echo bg-finished . Then wait until you are notified that the background task completed, and reply with its output.",
+      "payload_keys": [
+        "cwd",
+        "hook_event_name",
+        "permission_mode",
+        "prompt",
+        "prompt_id",
+        "session_id",
+        "transcript_path"
+      ]
+    },
+    {
+      "kind": "background-task",
+      "hook_event_name": "UserPromptSubmit",
+      "prompt_head": "<task-notification>\n<task-id>bgxmoq5l6</task-id>\n<tool-use-id>toolu_01EMcnMmTiHKnC7HCqRfxgPX</tool-use-id>\n<output-file>/private/tmp/claude-501/-private-var-folders-j2-fp21t39n14j9ls2q7yr3vbbw0000gn-T",
+      "payload_keys": [
+        "cwd",
+        "hook_event_name",
+        "permission_mode",
+        "prompt",
+        "prompt_id",
+        "session_id",
+        "transcript_path"
+      ]
+    },
+    {
+      "kind": "p-prompt",
+      "hook_event_name": "UserPromptSubmit",
+      "prompt_head": "Reply with the single word: ok",
+      "payload_keys": [
+        "cwd",
+        "hook_event_name",
+        "permission_mode",
+        "prompt",
+        "prompt_id",
+        "session_id",
+        "transcript_path"
+      ]
+    },
+    {
+      "kind": "resume-prompt",
+      "hook_event_name": "UserPromptSubmit",
+      "prompt_head": "Reply with the single word: again",
+      "payload_keys": [
+        "cwd",
+        "hook_event_name",
+        "permission_mode",
+        "prompt",
+        "prompt_id",
+        "session_id",
+        "transcript_path"
+      ]
+    },
+    {
+      "kind": "subagent",
+      "hook_event_name": "UserPromptSubmit",
+      "prompt_head": "Use the Agent/Task tool to spawn one general-purpose subagent whose only job is to reply \"sub-ok\". Then reply with what it returned.",
+      "payload_keys": [
+        "cwd",
+        "hook_event_name",
+        "permission_mode",
+        "prompt",
+        "prompt_id",
+        "session_id",
+        "transcript_path"
+      ]
+    },
+    {
+      "kind": "subagent",
+      "hook_event_name": "UserPromptSubmit",
+      "prompt_head": "<task-notification>\n<task-id>a18779a85f223a175</task-id>\n<tool-use-id>toolu_01Xau24GDmYujKs3cPtQkgTK</tool-use-id>\n<output-file>/private/tmp/claude-501/-private-var-folders-j2-fp21t39n14j9ls2q7yr3vbbw",
+      "payload_keys": [
+        "cwd",
+        "hook_event_name",
+        "permission_mode",
+        "prompt",
+        "prompt_id",
+        "session_id",
+        "transcript_path"
+      ]
+    }
+  ]
+}
