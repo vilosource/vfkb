@@ -178,6 +178,12 @@ describe('SessionEnd auto-commit (GAP 2)', () => {
 // when the session added at least one new id since HEAD (option A), and after the B2
 // fallback decision, so its archive lines can neither switch the fallback off nor make
 // a commit of their own. "New entries" are new ids, not added lines.
+// vfkb#384: curation is gated on the PROCESS clock (performance.now(), right for the
+// one-shot hook process). A vitest worker has been alive for seconds, so the real clock
+// would always read "past the deadline" here; these tests pin it before the deadline.
+// The deadline itself is covered in test/session-end-budget.test.ts.
+const BEFORE_DEADLINE = () => 0;
+
 describe('SessionEnd background curation (ADR-0083 §3)', () => {
   const full = (id: string, created: string, extra: Record<string, unknown> = {}) =>
     JSON.stringify({
@@ -209,7 +215,7 @@ describe('SessionEnd background curation (ADR-0083 §3)', () => {
     git(['checkout', '-q', '-b', 'feat/work']);
     addEntry(full('k1', new Date().toISOString(), { type: 'gotcha', text: 'watch out for Z', tags: ['git'] }));
 
-    const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb' });
+    const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb', now: BEFORE_DEADLINE });
     expect(r.committed).toBe(true);
     expect(r.autoHandoff).toBe(true); // an archive line must not read as "the session left a handoff"
     expect(r.curated).toBe(1);
@@ -223,7 +229,7 @@ describe('SessionEnd background curation (ADR-0083 §3)', () => {
   it('a session that wrote nothing archives nothing and commits nothing', () => {
     committedBacklog();
     git(['checkout', '-q', '-b', 'feat/work']);
-    const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb' });
+    const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb', now: BEFORE_DEADLINE });
     expect(r.reason).toBe('brain-clean');
     expect(zoneOf('old')).toBe('established');
     expect(git(['status', '--porcelain', '--', ENTRIES])).toBe('');
@@ -233,7 +239,7 @@ describe('SessionEnd background curation (ADR-0083 §3)', () => {
     committedBacklog();
     git(['checkout', '-q', '-b', 'feat/work']);
     addEntry(full('n1', '2026-02-01T00:00:00.000Z', { updated: '2026-03-01T00:00:00.000Z', tags: ['handoff', 'next', 'x'] }));
-    const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb' });
+    const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb', now: BEFORE_DEADLINE });
     expect(r.committed).toBe(true);
     expect(r.curated ?? 0).toBe(0);
     expect(r.autoHandoff).toBe(false); // no new id → no fallback
@@ -247,7 +253,7 @@ describe('SessionEnd background curation (ADR-0083 §3)', () => {
     const t = new Date().toISOString();
     addEntry(full('real', t, { text: 'HANDOFF real: the work is done', tags: ['x'] }));
     addEntry(full('real', t, { text: 'HANDOFF real: the work is done', tags: ['handoff', 'next'], updated: new Date(Date.now() + 1000).toISOString() }));
-    const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb' });
+    const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb', now: BEFORE_DEADLINE });
     expect(r.autoHandoff).toBe(false);
     expect(readEntries().some((e) => (e.tags ?? []).includes('auto'))).toBe(false);
   });
@@ -268,7 +274,7 @@ describe('SessionEnd background curation (ADR-0083 §3)', () => {
     git(['commit', '-q', '-m', 'brain']);
     git(['checkout', '-q', '-b', 'feat/work']);
     addEntry(full('k1', new Date().toISOString(), { type: 'gotcha', text: 'watch out', tags: ['git'] }));
-    const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb' });
+    const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb', now: BEFORE_DEADLINE });
     expect(r.autoHandoff).toBe(true);
     expect(zoneOf('X')).toBe('established');
     expect(r.curated ?? 0).toBe(0);
@@ -277,7 +283,7 @@ describe('SessionEnd background curation (ADR-0083 §3)', () => {
   it('an edit-only session on the default branch is warned about brain changes, not "0 new entries"', () => {
     committedBacklog();
     addEntry(full('n1', '2026-02-01T00:00:00.000Z', { updated: '2026-03-01T00:00:00.000Z', tags: ['handoff', 'next', 'x'] }));
-    const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb' });
+    const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb', now: BEFORE_DEADLINE });
     expect(r.reason).toBe('on-default-branch');
     expect(r.systemMessage).toMatch(/^vfkb: brain changes on `main` left uncommitted/);
   });
@@ -287,14 +293,14 @@ describe('SessionEnd background curation (ADR-0083 §3)', () => {
     addEntry(HANDOFF_ENTRY);
     addEntry('{"id":"gone","type":"fact","text":"t","updated":"2026-01-01T00:00:00.000Z"}');
     addEntry('{"id":"gone","deleted":true,"updated":"2026-01-02T00:00:00.000Z"}');
-    const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb' });
+    const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb', now: BEFORE_DEADLINE });
     expect(r.added).toBe(1); // only the handoff
   });
 
   it('never curates on the default branch', () => {
     committedBacklog();
     addEntry(full('k1', new Date().toISOString(), { type: 'gotcha', text: 'watch out', tags: ['git'] }));
-    const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb' });
+    const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb', now: BEFORE_DEADLINE });
     expect(r.reason).toBe('on-default-branch');
     expect(zoneOf('old')).toBe('established');
     expect(r.added).toBe(1);

@@ -13,6 +13,7 @@
 // journalAppend, so an import back would cycle); callers pass the brain dir
 // and hold the ADR-0040 lock around recovery themselves.
 import { execFileSync } from 'node:child_process';
+import { GIT_READ_MAX_BUFFER } from './git-buffer.js';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { realPath, relativeReal } from './realpath.js';
@@ -139,6 +140,7 @@ function pairsAtHead(brain: string): Set<string> | 'not-git' | 'unknown' {
     const head = execFileSync('git', ['-C', repoDir, 'cat-file', '-p', `HEAD:${rel}`], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
+      maxBuffer: GIT_READ_MAX_BUFFER, // vfkb#384: past 1 MiB this threw → 'unknown' → never pruned
     });
     return new Set(parseLines(head).map((l) => l.pair));
   } catch {

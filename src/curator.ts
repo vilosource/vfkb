@@ -235,14 +235,35 @@ export interface AutoCurateResult {
   repaired: string[];
   /** set when the rule could not run at all, e.g. the pin's `created` does not parse */
   skipped?: string;
+  /**
+   * vfkb#384: set when the caller's deadline passed before the archive loop finished.
+   * Partial runs are safe: each archive is justified at its own evaluation, and the next
+   * qualifying session picks up where this one stopped.
+   */
+  stopped?: 'deadline';
+}
+
+export interface AutoCurateOpts {
+  dryRun?: boolean;
+  /**
+   * vfkb#384 (SessionEnd budget): a monotonic clock and a deadline on it. When both are
+   * given, the rule checks the clock after taking the lock and before each archive, and
+   * stops once `now() >= deadlineMs`. Unset → no deadline (the CLI `curate` paths).
+   */
+  now?: () => number;
+  deadlineMs?: number;
 }
 
 /**
  * Run the Tier-1 rule once. `today` dates the rule tag; the age test is measured
  * against the pin's `created`, not the wall clock. `dryRun` reports without writing.
  */
-export function autoCurate(today = todayIso(), opts: { dryRun?: boolean } = {}): AutoCurateResult {
+export function autoCurate(today = todayIso(), opts: AutoCurateOpts = {}): AutoCurateResult {
+  const pastDeadline = (): boolean =>
+    opts.deadlineMs !== undefined && (opts.now ?? (() => performance.now()))() >= opts.deadlineMs;
   return withExclusive(() => {
+    // The lock wait can be long under contention (ADR-0040); re-check once inside.
+    if (pastDeadline()) return { archived: [], repaired: [], stopped: 'deadline' };
     const records = readRecords();
     const all = materialize(records);
     const linesById = new Map<string, KnowledgeEntry[]>();
@@ -295,6 +316,10 @@ export function autoCurate(today = todayIso(), opts: { dryRun?: boolean } = {}):
     // Newest-first, so a handoff this run archives never clears an older one.
     const candidates = shaped.filter((e) => e.id !== pin.id).sort((a, b) => createdMs(b) - createdMs(a));
     for (const e of candidates) {
+      if (pastDeadline()) {
+        result.stopped = 'deadline';
+        break;
+      }
       if (kept.has(e.id)) continue;
       if (createdMs(pin) - createdMs(e) < MIN_AGE_DAYS * DAY_MS) continue;
       // Compared as instants, not strings: `created` may carry a timezone offset.

@@ -4,8 +4,9 @@
 // a different engine build). Deterministic; unit-tested (the inner gate per ADR-0023).
 
 import { execFileSync } from 'node:child_process';
+import { GIT_READ_MAX_BUFFER } from './git-buffer.js';
 import { randomBytes } from 'node:crypto';
-import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync, unlinkSync } from 'node:fs';
 import { join, dirname, relative, isAbsolute } from 'node:path';
 import { SCHEMA_VERSION, ENGINE_VERSION, ENGINE_COMMIT } from './version.js';
 import { journalStatus } from './journal.js';
@@ -126,6 +127,7 @@ const realGit: GitRunner = (args, cwd) =>
     encoding: 'utf8',
     timeout: 5000,
     stdio: ['ignore', 'pipe', 'pipe'],
+    maxBuffer: GIT_READ_MAX_BUFFER, // vfkb#384: the session-end check reads HEAD's brain
     env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_SSH_COMMAND: 'ssh -oBatchMode=yes' },
   });
 
@@ -958,6 +960,45 @@ export function runDoctor(opts: DoctorOpts): DoctorReport {
     }
   }
 
+  // 6b. SessionEnd finished? (vfkb#384 — see checkSessionEnd)
+  // Its own read-only git, NOT opts.git: that seam belongs to the currency check, whose
+  // test pins that it issues `ls-remote` and nothing else.
+  {
+    const git = realGit;
+    const inRepo = (() => {
+      try {
+        return git(['rev-parse', '--is-inside-work-tree'], root).trim() === 'true';
+      } catch {
+        return false;
+      }
+    })();
+    let brainDirty: boolean | undefined;
+    let headTimeMs: number | undefined;
+    if (inRepo) {
+      try {
+        brainDirty = git(['status', '--porcelain', '--', join(brainDir, 'entries.jsonl')], root).trim() !== '';
+      } catch {
+        brainDirty = undefined;
+      }
+      try {
+        const t = Date.parse(git(['log', '-1', '--format=%cI'], root).trim());
+        headTimeMs = Number.isFinite(t) ? t : undefined;
+      } catch {
+        headTimeMs = undefined;
+      }
+    }
+    const local = readJson(join(root, '.claude', 'settings.local.json'));
+    const budgetOverride =
+      local?.env?.[SESSION_END_BUDGET_ENV] ?? settings?.env?.[SESSION_END_BUDGET_ENV] ?? env[SESSION_END_BUDGET_ENV];
+    const c = checkSessionEnd({
+      records: readSessionRecords(brainDir),
+      brainDirty,
+      headTimeMs,
+      budgetOverride: budgetOverride === undefined ? undefined : String(budgetOverride),
+    });
+    add('session-end', c.status, c.detail);
+  }
+
   // 7. pi face wiring (ADR-0066) — optional, but half-wired is a silent tool outage.
   {
     const piSettingsPath = join(root, '.pi', 'settings.json');
@@ -970,6 +1011,109 @@ export function runDoctor(opts: DoctorOpts): DoctorReport {
   }
 
   return { checks, ok: !checks.some((c) => c.status === 'fail') };
+}
+
+/**
+ * vfkb#384 (ADR-0084 §4 / RFC-047 §4.2; shape decided by the #384 Fable brainstorm under
+ * ruling 54802539cda7) — did a SessionEnd hook start and never finish?
+ *
+ * The SessionEnd hook opens `sessionEnd` on its session record before any git work and
+ * closes it (`outcome`) after (cli.ts). Opened and never closed = the hook was cut off,
+ * most likely by Claude Code's 1.5 s SessionEnd budget, which a plugin's per-hook
+ * `timeout` cannot raise. A marker on a session that ran more turns afterwards
+ * (`turnCount > turnAtEnd`, i.e. resumed) is not a cut-off one.
+ *
+ * Wording discipline (ADR-0058): say what was compared, name the likely cause as
+ * likely, never assert it. A closed marker whose outcome left the brain uncommitted on
+ * purpose (default branch / detached HEAD) is reported too, because Claude Code drops a
+ * SessionEnd hook's `systemMessage`, so ADR-0033's warning never reached anyone.
+ */
+export interface SessionEndInputs {
+  records: Array<{ sessionId?: string; turnCount?: number; sessionEnd?: { startedAt?: string; reason?: string; turnAtEnd?: number; outcome?: string; elapsedMs?: number } }>;
+  /** uncommitted changes to entries.jsonl right now (undefined = git unreadable) */
+  brainDirty?: boolean;
+  /** HEAD's commit time, ms (undefined = unknown) */
+  headTimeMs?: number;
+  /** the project's .claude settings already set CLAUDE_CODE_SESSIONEND_HOOKS_TIMEOUT_MS */
+  budgetOverride?: string;
+}
+export const SESSION_END_BUDGET_ENV = 'CLAUDE_CODE_SESSIONEND_HOOKS_TIMEOUT_MS';
+
+export function checkSessionEnd(i: SessionEndInputs): { status: DoctorStatus; detail: string } {
+  const marked = i.records.filter((r) => r.sessionEnd && typeof r.sessionEnd.startedAt === 'string');
+  if (marked.length === 0) {
+    return {
+      status: 'skip',
+      detail: `no session record carries a SessionEnd marker (${i.records.length} record(s); the marker is written by plugin releases carrying vfkb#384) — nothing to compare`,
+    };
+  }
+  const id8 = (r: SessionEndInputs['records'][number]) => (r.sessionId ?? '?').slice(0, 8);
+  const resumed = (r: SessionEndInputs['records'][number]) =>
+    typeof r.sessionEnd!.turnAtEnd === 'number' && (r.turnCount ?? 0) > r.sessionEnd!.turnAtEnd;
+  const open = marked.filter((r) => !r.sessionEnd!.outcome && !resumed(r));
+  // An open marker matters while nothing has been committed since it opened and the
+  // brain is still dirty; older ones were evidently resolved by a later commit.
+  const after = (r: SessionEndInputs['records'][number]) => {
+    const t = Date.parse(r.sessionEnd!.startedAt!);
+    return i.headTimeMs === undefined || !Number.isFinite(t) || t > i.headTimeMs;
+  };
+  const actionable = open.filter((r) => i.brainDirty !== false && after(r));
+  if (actionable.length > 0) {
+    const newest = actionable.sort((a, b) => b.sessionEnd!.startedAt!.localeCompare(a.sessionEnd!.startedAt!))[0];
+    const remedy = i.budgetOverride
+      ? `${SESSION_END_BUDGET_ENV}=${i.budgetOverride} is already set in .claude settings — look for a slow git (hooks, a large repo) or lock contention`
+      : `if this recurs, raise the budget in the project's .claude/settings.json: "env": { "${SESSION_END_BUDGET_ENV}": "5000" } (Claude Code v2.1.268 or later)`;
+    return {
+      status: 'warn',
+      detail:
+        `SessionEnd began ${newest.sessionEnd!.startedAt} for session ${id8(newest)} and never finished ` +
+        `(${actionable.length} such session(s); no commit since, brain ${i.brainDirty ? 'has uncommitted changes' : 'state unknown'}) — ` +
+        `likely cut off by Claude Code's SessionEnd time budget. Commit the brain by hand: ` +
+        `\`git commit -o -m "chore(brain): commit brain" -- .vfkb/entries.jsonl\` on a topic branch; ${remedy}`,
+    };
+  }
+  const last = marked.sort((a, b) => b.sessionEnd!.startedAt!.localeCompare(a.sessionEnd!.startedAt!))[0];
+  const o = last.sessionEnd!.outcome;
+  if (i.brainDirty && (o === 'on-default-branch' || o === 'detached-head' || o === 'error') && after(last)) {
+    const why =
+      o === 'error'
+        ? 'the auto-commit failed (git identity, a commit hook, or a lock)'
+        : o === 'detached-head'
+          ? 'it ran on a detached HEAD, where vfkb never auto-commits'
+          : 'it ran on the default branch, where vfkb never auto-commits';
+    return {
+      status: 'warn',
+      detail: `the last SessionEnd (session ${id8(last)}, ${last.sessionEnd!.startedAt}) finished as "${o}": ${why}, and entries.jsonl still has uncommitted changes — move them to a topic branch and commit (Claude Code does not display SessionEnd messages, so this is the only place that says so)`,
+    };
+  }
+  const closed = marked.filter((r) => r.sessionEnd!.outcome);
+  const slow = closed.filter((r) => (r.sessionEnd!.elapsedMs ?? 0) > 1000).length;
+  const slowNote = slow ? `; ${slow} took over 1000 ms of the 1500 ms default budget` : '';
+  const stale = open.length - actionable.length;
+  const staleNote = stale ? `; ${stale} earlier unfinished one(s) are followed by a commit or a clean brain` : '';
+  return {
+    status: 'ok',
+    detail: `last SessionEnd (session ${id8(last)}) finished as "${o ?? 'unfinished'}"; ${closed.length} of ${marked.length} marked session(s) finished${slowNote}${staleNote}`,
+  };
+}
+
+function readSessionRecords(brainDir: string): SessionEndInputs['records'] {
+  const dir = join(brainDir, '.sessions');
+  let names: string[];
+  try {
+    names = readdirSync(dir).filter((n) => n.endsWith('.json'));
+  } catch {
+    return [];
+  }
+  const out: SessionEndInputs['records'] = [];
+  for (const n of names) {
+    try {
+      out.push(JSON.parse(readFileSync(join(dir, n), 'utf8')));
+    } catch {
+      /* a corrupt record is skipped, as SessionState.records() does */
+    }
+  }
+  return out;
 }
 
 const ICON: Record<DoctorStatus, string> = { ok: 'OK  ', warn: 'WARN', fail: 'FAIL', skip: 'SKIP' };
