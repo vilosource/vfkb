@@ -3,8 +3,8 @@
   "task": "config-format",
   "model": "claude-haiku-4-5",
   "trials": 3,
-  "generated": "2026-10-27T10:42:33.999Z",
-  "engineRev": "c2ecca508f229e830d785c8dfe09637607a091c0",
+  "generated": "2026-10-27T10:46:43.936Z",
+  "engineRev": "b6e0783d8eb3b8f50b9bf6a546e5cbdf3f3e2c37",
   "engineSrcDirty": false,
   "cliVersions": [
     "2.1.292"
@@ -20,7 +20,7 @@
         "captured": true,
         "didWork": true,
         "recalled": true,
-        "text": "Use JSON for CLI config files, not YAML\n\nWhy: JSON requires no external dependencies, is the Node.js standard, and enables a truly minimal loader. YAML would add a package dependency and complexity for marginal readability gain in a CLI context.",
+        "text": "Config files use JSON format\n\nWhy: JSON is standard in Node.js/TypeScript ecosystems, requires no external dependencies, and is ideal for a small CLI where configs are typically generated programmatically rather than hand-edited",
         "role": {
           "role": "human"
         },
@@ -36,7 +36,7 @@
         "captured": true,
         "didWork": true,
         "recalled": true,
-        "text": "Use JSON for CLI config file format\n\nWhy: No external dependencies needed (native Node.js parsing), fastest load time, minimal choice for a small CLI, and sufficient for typical config use cases",
+        "text": "Use JSON (not YAML) for CLI config file format\n\nWhy: No external dependencies required (native Node.js support), simpler implementation, faster parsing, better TypeScript integration, and lower complexity for shipping a minimal CLI. YAML would require adding a dependency like js-yaml without proportional benefit.",
         "role": {
           "role": "human"
         },
@@ -52,9 +52,9 @@
         "captured": true,
         "didWork": true,
         "recalled": true,
-        "text": "Use JSON for CLI config files instead of YAML\n\nWhy: Zero runtime dependencies (JSON.parse is built into Node.js), simplicity for small CLI config needs, universally recognized format. YAML adds complexity without justification for a minimal config structure.",
+        "text": "CLI config files use JSON format\n\nWhy: Zero external dependencies (native TypeScript/Node.js support), simple parsing with good error messages, practical for CLI users who hand-edit configs, avoids whitespace-sensitivity issues of YAML",
         "role": {
-          "role": "executor"
+          "role": "human"
         },
         "err": "",
         "invalid": false,

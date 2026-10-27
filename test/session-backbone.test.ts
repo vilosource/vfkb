@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, existsSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { SessionState } from '../src/session.js';
 
 // V2-1 session backbone (ADR-0039 ← RFC-014): the hooks read `session_id` from their
 // own stdin JSON and use it as the effective session id — KB_SESSION_ID becomes an
@@ -78,6 +79,31 @@ describe('hook stdin session_id → persisted session state (GAP-1 root fix)', (
     runHook(brain, 'stop', { session_id: 'sess-guard', stop_hook_active: false });
     runHook(brain, 'stop', { session_id: 'sess-guard', stop_hook_active: true });
     expect(sessionRecord(brain, 'sess-guard')!.turnCount).toBe(1);
+  });
+
+  it('a paused stop (ADR-0084 §1.2) is not a turn: turnCount does not advance', () => {
+    runHook(brain, 'session-start', { session_id: 'sess-paused' });
+    runHook(brain, 'stop', { session_id: 'sess-paused', stop_hook_active: false });
+    const bg = { session_id: 'sess-paused', stop_hook_active: false, background_tasks: [{ id: 't' }] };
+    const cron = { session_id: 'sess-paused', stop_hook_active: false, session_crons: [{ id: 'c' }] };
+    expect(runHook(brain, 'stop', bg).trim()).toBe('{}');
+    expect(runHook(brain, 'stop', cron).trim()).toBe('{}');
+    expect(sessionRecord(brain, 'sess-paused')!.turnCount).toBe(1);
+    // contrast: an EMPTY array is a real end of turn
+    runHook(brain, 'stop', { session_id: 'sess-paused', stop_hook_active: false, background_tasks: [] });
+    expect(sessionRecord(brain, 'sess-paused')!.turnCount).toBe(2);
+  });
+
+  it('SessionState.isPersisted: false without an id, true with one', () => {
+    const prev = process.env.VFKB_DATA_DIR;
+    process.env.VFKB_DATA_DIR = brain; // never touch the real ~/.vfkb
+    try {
+      expect(SessionState.load('').isPersisted).toBe(false); // '' skips the KB_SESSION_ID default
+      expect(SessionState.load('sess-x').isPersisted).toBe(true);
+    } finally {
+      if (prev === undefined) delete process.env.VFKB_DATA_DIR;
+      else process.env.VFKB_DATA_DIR = prev;
+    }
   });
 
   it('KB_SESSION_ID, when set, OVERRIDES the stdin session_id', () => {

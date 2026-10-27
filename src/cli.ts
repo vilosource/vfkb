@@ -40,7 +40,7 @@ import { distill } from './distiller.js';
 import { recordSignal, tally } from './counters.js';
 import { queryExplained } from './read.js';
 import { isBrainWrite, GATING_REASON } from './gating.js';
-import { decideStop, gatherStopContext } from './stop-reminder.js';
+import { decideStop, gatherStopContext, isPausedStop, type StopHookInput } from './stop-reminder.js';
 import { save } from './git.js';
 import { runSessionEnd } from './session-end.js';
 import { initProject, approvalNotice } from './init.js';
@@ -735,14 +735,23 @@ async function dispatch() {
     // continue the turn; `stop_hook_active` is the native loop guard (never block twice).
     if (sub === 'stop') {
       const raw = await readStdin();
-      let input: { stop_hook_active?: boolean; session_id?: string } = {};
+      let input: StopHookInput & { session_id?: string } = {};
       try {
-        input = JSON.parse(raw || '{}');
+        const parsed: unknown = JSON.parse(raw || '{}');
+        if (parsed && typeof parsed === 'object') input = parsed as typeof input;
       } catch {
         /* malformed → fail-open: allow the stop, never wedge the turn */
       }
       // Native loop guard first (cheap, git-free): our own re-entry → allow the stop.
       if (input.stop_hook_active) {
+        process.stdout.write('{}');
+        return;
+      }
+      // ADR-0084 §1.2 (1b): a paused stop (live background_tasks / session_crons) is not an
+      // end of turn — allow it BEFORE the turn bump and the git gather, so turnCount, 1a's
+      // turn gate and the cooldown count only real turns, and no git runs. `decideStop`
+      // re-checks the same predicate as the pure backstop.
+      if (isPausedStop(input)) {
         process.stdout.write('{}');
         return;
       }
@@ -768,12 +777,20 @@ async function dispatch() {
         );
         session.bumpTurn();
         session.save();
-        turn = session.turnCount;
-        lastNudged = session.nudgedAtTurn;
+        // ADR-0084 §1.1: an ephemeral session (no id) is a fresh process per Stop, so its
+        // turnCount is always 1. Pass no turn → decideStop fails open (B3 fires as today)
+        // instead of reading "turn 1" forever and silencing B3 for good.
+        if (session.isPersisted) {
+          turn = session.turnCount;
+          lastNudged = session.nudgedAtTurn;
+        }
       } catch {
         /* bump not persisted → turn/lastNudged stay undefined → decideStop fires */
       }
-      const d = decideStop({ stop_hook_active: false }, { ...gatherStopContext(), turn, lastNudged });
+      const d = decideStop(
+        { stop_hook_active: false, background_tasks: input.background_tasks, session_crons: input.session_crons },
+        { ...gatherStopContext(), turn, lastNudged },
+      );
       try {
         if (d.block && session) {
           for (const key of d.fired) session.markNudged(key);
