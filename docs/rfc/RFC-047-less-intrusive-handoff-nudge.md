@@ -147,6 +147,7 @@ In `decideStop`:
 - **`vfkb doctor` symptom check** (RFC-024 §1's detection ownership): a session record
   exists, brain entries are newer than HEAD on a topic branch, and there is no vfkb
   auto-commit. It catches a silent truncation in any consumer regardless of the README.
+- **No release note claims B2 as the floor** until the probe is committed (ADR-0084 §4).
 
 ### 4.3 Phase 3 (#385): the standing reminder moves to the next prompt
 
@@ -215,7 +216,7 @@ fires at all. That discharges ADR-0080 §5's Q4 for both consumers.
   gate makes a Stop fire structurally mid-session.
 - **B3 on Stop stays quiet once the line was delivered this session.** When the prompt line
   is emitted with the stale-pin reason, the handler calls the existing
-  `SessionState.markNudged('staleHandoff', turn)`. Before #387 the existing cooldown then
+  `SessionState.markNudged('staleHandoff')` (it records the current turn). Before #387 the existing cooldown then
   keeps Stop quiet for 10 turns; after #387 (1e) it is quiet for the session. One state, one
   rule. Missing session state keeps today's fail-open-toward-firing.
 - Net Stop after Phases 1, 3 and 5: loop guard, decision nudge, and at most one B3 fire per
@@ -333,13 +334,21 @@ stayed off (brain `fb712c13f39e`). One docker L4 at a time. Each is written and 
 before its build**.
 
 1. **`scenarios/handoff-next-prompt.mjs`** (#385; also verifies 1a from #383). Two
-   `claude -p` turns with one harness session id (`--resume`).
+   `claude -p` turns with one harness session id (`--resume`). **SessionEnd is wired on
+   turn 2 only**, in every arm. Each `claude -p` exit fires SessionEnd (`f0e913b97824`);
+   in an interactive session it fires once, at the end. Wired on turn 1, on the topic
+   branch B2 needs, it would auto-commit the brain, leaving B1's entries-since-HEAD count at
+   0 for turn 2, and its `auto` handoff fact would pass `isPinCandidate` and become a fresh
+   pin, un-staling the seeded one. Either way turn 2 emits no line and the treatment arm
+   fails for a reason that is not the feature.
    - **Treatment (stale pin):** pin seeded, then a later plain non-brain commit (stale under
      today's rule and Part 0). Turn 2's prompt is a wrap-up. Asserts an agent-authored handoff
      (tags `handoff`/`next`, not `auto`) containing a session sentinel.
    - **Treatment (B1):** no stale pin; turn 1 makes uncommitted `src/` work and ≥ 3 entries;
      turn 2 is a wrap-up. Same assertion.
-   - **Contrast:** the `UserPromptSubmit` entry disabled, B2 wired → only the `auto` floor.
+   - **Contrast:** the `UserPromptSubmit` entry disabled, B2 wired on turn 2 → **no
+     agent-authored (non-`auto`) handoff**. An `auto` fact is allowed, not required: B2
+     writes one only when the session added entries.
    - **Negative (can-fail):** a mid-session turn-2 prompt → **no** handoff written.
    - **Stop precondition in every arm** (§8, 1a-in-L4 decision): the Stop hook is wired as
      `sh -c 'node <CLI> hook stop | tee -a <sandbox>/.stop-hook.log'`. After each turn the log

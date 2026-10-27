@@ -108,8 +108,8 @@ B3 fire per session.
 5. **Cadence:** emit iff the trigger holds and `(pin id, pin created, HEAD)` differs from the
    last key stored on the SessionState record. Reset that key on SessionStart
    `source: "compact"`. No session state → emit while the trigger holds. When the line is
-   emitted with the stale-pin reason, the handler calls `markNudged('staleHandoff', turn)`, so
-   §1's Stop fallback stays quiet afterwards.
+   emitted with the stale-pin reason, the handler calls `markNudged('staleHandoff')` (it
+   records the current turn), so §1's Stop fallback stays quiet afterwards.
 6. **Harness-generated turns:** a shared, git-free `isHarnessPrompt(prompt)` skips prompts
    that start at column 0 with `<task-notification>`, `Another Claude session sent a
    message:` or `Your claude.ai usage limit has reset`. Everything else counts as typed.
@@ -184,10 +184,16 @@ build, one docker run at a time.
 
 1. **`scenarios/handoff-next-prompt.mjs`** (#385; also the agent-facing proof of 1a):
    - two turns, one session id;
+   - **SessionEnd is wired on the final turn only.** Each `claude -p` exit fires SessionEnd
+     (`f0e913b97824`), which in an interactive session fires once, at the end. Wired on
+     turn 1 it would auto-commit the brain (so B1's entries-since-HEAD count is 0 at turn 2)
+     and write an `auto` handoff fact that `isPinCandidate` accepts as a fresh pin (so the
+     stale pin is no longer stale). Turn 1 runs with every other hook wired;
    - two treatment arms, a seeded stale pin and B1's condition: a wrap-up prompt produces an
      agent-authored handoff (`handoff`/`next`, not `auto`) carrying a session sentinel;
-   - a contrast arm with the `UserPromptSubmit` entry disabled and B2 wired produces only the
-     `auto` floor;
+   - a contrast arm with the `UserPromptSubmit` entry disabled and B2 wired produces **no
+     agent-authored (non-`auto`) handoff**; an `auto` fact may or may not exist, since B2
+     writes only when the session added entries;
    - a negative arm, where a mid-session prompt produces **no** handoff;
    - in every arm, a tee log of the Stop hook's stdout shows ≥ 1 invocation and neither
      `vfkb stale-handoff check` nor `vfkb handoff check` text. A trial failing this scores
