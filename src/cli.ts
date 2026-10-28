@@ -18,6 +18,7 @@ import {
 import { SessionState, effectiveSessionId } from './session.js';
 import { brainDir, defaultProject, withExclusive, writeMeta } from './storage.js';
 import { healBrain, resumePayload } from './heal.js';
+import { gitPinStalenessProvider } from './pin-staleness.js';
 import { purgeJournal } from './journal.js';
 import { runExport } from './export.js';
 import { broadcast as runBroadcast } from './broadcast.js';
@@ -381,7 +382,12 @@ async function dispatch() {
   if (cmd === 'context-block') {
     const p = parseArgs('context-block', argsOf(sub, rest), {});
     if (p.positionals.length > 1) throw new UsageError('context-block: at most one [project] argument');
-    process.stdout.write(renderContextBundle(p.positionals[0] || defaultProject()));
+    // RFC-043 Part A (#386): `context-block` renders `## Last handoff` too (#205 parity).
+    process.stdout.write(
+      renderContextBundle(p.positionals[0] || defaultProject(), undefined, {
+        pinStaleness: gitPinStalenessProvider(process.cwd(), brainDir()),
+      }),
+    );
     return;
   }
 
@@ -714,7 +720,7 @@ async function dispatch() {
         restoreNote +
         (rest.includes('--naive')
           ? renderNaiveDump(project, undefined, lim ? Number(lim) : undefined)
-          : renderResume(project, session));
+          : renderResume(project, session, { pinStaleness: gitPinStalenessProvider(process.cwd(), brainDir()) }));
       session.save();
       process.stdout.write(
         JSON.stringify({

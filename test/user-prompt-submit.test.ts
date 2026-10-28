@@ -91,10 +91,14 @@ describe('hook user-prompt-submit — emission and cadence', () => {
     seedSession(dir, 's1', 1);
     const first = ups(dir, typed('s1'));
     expect(ctxOf(first).hookEventName).toBe('UserPromptSubmit');
+    // #386: the line names Part 0's set S (sha7 = the full hash sliced) and says the next
+    // session sees the same list.
+    const sha7 = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim().slice(0, 7);
     expect(ctxOf(first).additionalContext).toBe(
-      `${LEADIN} the pinned handoff (pin000000001, 2030-02-01) predates a later commit on feat/x. If this prompt ends ` +
+      `${LEADIN} the pinned handoff (pin000000001, 2030-02-01) predates 1 commit on feat/x: ${sha7} later b. If this prompt ends ` +
         'the session, a fresh handoff/next entry (kb_add type=fact, tags=handoff,next, role=human) naming what ' +
-        'changed and what is next is the one thing worth recording before finishing; otherwise nothing is needed now.',
+        'changed and what is next is the one thing worth recording before finishing; otherwise nothing is needed now' +
+        ' — the next session sees this same list at start.',
     );
     expect(ups(dir, typed('s1'))).toBe(''); // EMPTY stdout, not `{}` — plain stdout is injected
     commitLater(dir, 'c');

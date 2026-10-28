@@ -25,10 +25,10 @@
 import { execFileSync } from 'node:child_process';
 import { GIT_READ_MAX_BUFFER } from './git-buffer.js';
 import { readFileSync } from 'node:fs';
-import { isAbsolute, join, relative } from 'node:path';
-import { relativeReal } from './realpath.js';
-import { brainDir, COMMITTED_BRAIN_PATHS, materialize, type StoredRecord } from './storage.js';
-import { latestHandoff, supersededIds } from './engine.js';
+import { join, relative } from 'node:path';
+import { brainDir, materialize, type StoredRecord } from './storage.js';
+import { latestHandoff, renderCommitsSince, supersededIds, type StaleCommit } from './engine.js';
+import { cachedPinStaleness, type PinStalenessOpts } from './pin-staleness.js';
 import type { KnowledgeEntry } from './types.js';
 
 export interface StopHookInput {
@@ -65,8 +65,10 @@ export interface StopContext {
   newEntries?: number;
   /** count of `handoff`/`next`-tagged entries appended to the brain since HEAD */
   newHandoffs?: number;
-  /** the currently pinned handoff/next entry predates a non-brain commit (B3) */
-  handoffStale?: boolean;
+  /** RFC-043 Part 0's set S for the pinned handoff (newest first); non-empty = stale (B3) */
+  staleCommits?: StaleCommit[];
+  /** the pinned handoff B3 names (its id and created) */
+  pin?: { id: string; created: string };
   /** this session's turn count AFTER the current turn was bumped (from SessionState) */
   turn?: number;
   /** turn at which each nudge last fired this session (from SessionState) */
@@ -116,30 +118,42 @@ export function handoffNudgeDue(ctx: { uncommittedWork: boolean; newEntries: num
 }
 
 // B3 (first decided by ADR-0084, which accepts RFC-043 Parts 0/1/A and RFC-047; still
-// built, NOT yet verified — its agent-facing L4 is ADR-0084's phase 3): unlike B1/B2, this
-// is not about whether THIS session recorded a handoff — it fires when a commit already
-// landed (e.g. a merged PR, possibly from another session or an autonomous merge) *after*
-// the currently pinned handoff's timestamp, so the pin itself is now stale regardless of
-// what this session did. Deliberately NOT gated on `uncommittedWork`: the defining case is
-// everything already committed/merged and the working tree clean.
+// built, NOT yet verified — its L4 is scenarios/stale-handoff-anchor.mjs, vfkb#386): unlike
+// B1/B2, this is not about whether THIS session recorded a handoff — it fires when commits
+// already landed after the currently pinned handoff, so the pin itself is behind regardless
+// of what this session did. Deliberately NOT gated on `uncommittedWork`: the defining case is
+// everything already merged and the working tree clean. Since #386 "landed after" is RFC-043
+// Part 0's set S (src/pin-staleness.ts), so a squash merge no longer flags the very commit
+// that carries the pin.
 //
-// Nag risk (review round 3): unlike B1, this has no entry-count threshold and no
-// SessionEnd-floor equivalent for a STALE (vs missing) pin — RFC-011 §B's per-turn-nag
-// concern applies here too. Originally mitigated only by an "if mid-session, this is fine
-// to defer" escape clause in the reminder text; that proved insufficient in live use
-// (operator report 2026-07-31: firing on every stop mid-session distracted the work), so
-// all three nudges now share the NUDGE_COOLDOWN_TURNS rate limit above. ADR-0084 §1.3
-// (1d) then dropped the closing write demand ("must be recorded before the session
-// ends"): RFC-043 Part A's read-only render is the stale-pin floor now, so the text no
-// longer pushes a premature handoff mid-session. The lead-in stays byte-identical so the
-// fire count (`nudge-fires.py`) stays comparable.
-export const STALE_HANDOFF_REMINDER =
-  'vfkb stale-handoff check: the currently pinned handoff/next entry predates a commit that ' +
-  'landed since it was written (e.g. a merged PR, possibly from another session or an ' +
-  'autonomous merge) — a fresh session would start from an out-of-date "what happened" ' +
-  'pointer. If you are WRAPPING UP, record a fresh handoff now — `mcp__vfkb__kb_add` ' +
-  '(type=fact, tags=handoff,next, role=human), or /vfkb:handoff if available — naming what ' +
-  'actually changed and what is next now. If you are still mid-session, ignore this and finish normally.';
+// Nag history: per-turn firing (operator report 2026-07-31) → the NUDGE_COOLDOWN_TURNS rate
+// limit; ADR-0084 §1.3 (1d) dropped the closing write demand; RFC-043 Part 1's second half
+// (#386) now says what moved — the same bounded list Part A renders under `## Last handoff`
+// — and that the next session sees it, so a handoff written now is optional unless wrapping
+// up. The lead-in stays byte-identical so the fire count (`nudge-fires.py`) stays comparable.
+export const STALE_HANDOFF_LEADIN = 'vfkb stale-handoff check: ';
+
+/** RFC-047 §4.4's sentence, verbatim. */
+export const STALE_HANDOFF_NEXT_SESSION =
+  "The next session's resume lists these same commits under `## Last handoff`, so a handoff " +
+  'written now is optional unless you are wrapping up.';
+
+/**
+ * The B3 Stop text (decide D4). The commit block is byte-identical to Part A's, from the
+ * one engine renderer, so "these same commits" is literally true. Never rendered without a
+ * list: an empty S means B3 does not fire.
+ */
+export function renderStaleHandoffReminder(pin: { id: string; created: string } | undefined, commits: StaleCommit[]): string {
+  const date = pin && /^\d{4}-\d{2}-\d{2}/.test(pin.created) ? `, ${pin.created.slice(0, 10)}` : '';
+  const which = pin ? ` (${pin.id}${date})` : '';
+  return (
+    `${STALE_HANDOFF_LEADIN}the pinned handoff/next entry${which} predates commits that landed after it was written.\n` +
+    renderCommitsSince(commits) +
+    `${STALE_HANDOFF_NEXT_SESSION} If you are WRAPPING UP, record a fresh handoff now — kb_add ` +
+    '(type=fact, tags=handoff,next, role=human), or /vfkb:handoff if available — naming what ' +
+    'actually changed and what is next now. If you are still mid-session, ignore this and finish normally.'
+  );
+}
 
 /**
  * The pure decision. Block (inject the reminder, continuing the turn) only when a
@@ -185,8 +199,9 @@ export function decideStop(input: StopHookInput, ctx: StopContext): StopDecision
   // Stale-handoff nudge (B3): NOT gated on uncommittedWork — the defining case is a clean
   // working tree with everything already merged, and the pinned handoff behind it anyway.
   // 1a (ADR-0084 §1.1): quiet while a VALID turn is below STALE_HANDOFF_MIN_TURN.
-  if (ctx.handoffStale && !(turnValid && ctx.turn! < STALE_HANDOFF_MIN_TURN))
-    nudge('staleHandoff', STALE_HANDOFF_REMINDER);
+  const stale = ctx.staleCommits ?? [];
+  if (stale.length > 0 && !(turnValid && ctx.turn! < STALE_HANDOFF_MIN_TURN))
+    nudge('staleHandoff', renderStaleHandoffReminder(ctx.pin, stale));
   if (reminders.length === 0) return { block: false };
   return { block: true, reminder: reminders.join('\n\n'), fired };
 }
@@ -312,115 +327,57 @@ export function pinnedHandoff(brain: string): KnowledgeEntry | undefined {
 }
 
 /**
- * B3's staleness input (ADR-0082 §2): the pin's `created`, not its `updated` — a zone
- * edit to the pin does not change what it says. Consequence, owned by this build: an
- * old fact retagged into the pin reads stale if code landed after it was first written
- * (RFC-043 prototype case 3, quiet → STALE).
+ * RFC-043 Part 0 for the currently pinned handoff: its set S (newest first), `[]` when not
+ * stale, `null` when unknown (no pin, not a repo, a git step failed, or the budget ran out —
+ * every one of those is silence). The pin is `pinnedHandoff` — the engine's one selector
+ * (rule 1, ADR-0082 §2) — and u is its `created`, not its `updated`: a zone edit to the pin
+ * does not change what it says.
+ *
+ * Every git child is bounded by one shared deadline (decide D8, PIN_STALENESS_BUDGET_MS
+ * from entry unless the caller passes its own), and the answer is cached per
+ * (pin id, created, HEAD, toplevel, brainRel) in `<brain>/.signals/pin-staleness.json`
+ * (decide D1). See src/pin-staleness.ts for the rule and its disclosed misses.
  */
-function pinnedHandoffCreated(brain: string): string | undefined {
-  return pinnedHandoff(brain)?.created;
+export function pinStaleCommits(
+  cwd: string = process.cwd(),
+  brain: string = brainDir(),
+  opts: PinStalenessOpts = {},
+): { pin: KnowledgeEntry; commits: StaleCommit[] } | null {
+  try {
+    const pin = pinnedHandoff(brain);
+    if (!pin) return null; // no handoff pinned yet — B1/B2 own that gap, not this trigger
+    const r = cachedPinStaleness(cwd, brain, { id: pin.id, created: pin.created }, opts);
+    return r ? { pin, commits: r.commits } : null;
+  } catch {
+    return null; // an uncaught throw would crash `hook stop` with zero stdout (review F3)
+  }
 }
 
-const EMPTY_TREE_SHA = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'; // git's well-known empty-tree object
-
 /**
- * True when the tree at HEAD differs — outside the brain directory — from the tree as of
- * the commit nearest the pinned handoff's timestamp. The signal that the currently
- * pinned handoff no longer reflects the branch's real state (e.g. a PR merged after the
- * handoff was written).
- *
- * Deliberately a TREE diff between an anchor commit and HEAD, not a `git log --since`
- * walk: `--name-only` prints no paths for an ordinary merge commit by default (verified
- * empirically), so a long-lived branch whose own commits predate the handoff but whose
- * merge lands after it would be silently missed by a log-walk. Diffing two trees
- * sidesteps merge-commit display/simplification entirely, and `--quiet` (exit-code only,
- * no captured output) avoids buffering a large file list for a repo with a lot of history
- * since an old handoff.
- *
- * Resolves the repo root via `git rev-parse --show-toplevel` and runs there — pathspecs
- * are resolved relative to the invocation cwd, so running from a subdirectory (a
- * supported hook condition) without this would silently exclude the wrong path.
- *
- * General across projects: unlike `hasUncommittedWork`, this makes no `src/`/`docs/`
- * assumption, since a consumer repo may use neither layout — and excludes the WHOLE
- * brain directory (entries.jsonl, manifest.json, any future committed brain file), not
- * one hardcoded filename.
+ * True when RFC-043 Part 0's set S is non-empty: a first-parent commit after the pin's
+ * timestamp anchor touches non-brain paths, the commit carrying the pin and rebased pre-pin
+ * work excluded. Fails toward silence (false). Kept as the boolean face of
+ * `pinStaleCommits`; `timeout` is honoured as the whole computation's budget.
  */
 export function handoffIsStale(
   cwd: string = process.cwd(),
   brain: string = brainDir(),
   opts: GitOpts = {},
 ): boolean {
-  // One outer backstop around the whole function, on top of the targeted inner handling
-  // below — defense in depth (review finding F3): every individual git call already fails
-  // open, but an uncaught exception ANYWHERE in this chain (this hook's own `main()` has no
-  // top-level catch) would otherwise crash `cli.ts hook stop` entirely — zero stdout, not
-  // fail-open — instead of just skipping this one nudge.
-  try {
-    const since = pinnedHandoffCreated(brain);
-    if (!since) return false; // no handoff pinned yet — B1/B2 own that gap, not this trigger
-    const root = execFileSync('git', ['rev-parse', '--show-toplevel'], {
-      cwd,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      timeout: opts.timeout,
-    }).trim();
-    // relativeReal, not relative: `root` comes back from git as a realpath and
-    // `brain` does not. When they disagreed the exclude pathspec pointed outside
-    // the repo, every commit looked brain-only, and the stale nudge never fired.
-    const brainRel = relativeReal(root, brain);
-    // Three shapes. Only the last is the common case, and each of the other two was
-    // a live defect: a wrong pathspec here does not error, it silently answers "no
-    // non-brain change" and the ADR-0034 nudge dies.
-    let paths: string[];
-    if (brainRel === '') {
-      // ROOT brain (VFKB_DATA_DIR=.): the brain dir IS the worktree. Excluding it
-      // means `:(exclude)` with an EMPTY pattern, which excludes everything — git
-      // then exits 0 and the nudge is permanently dead for every root-brain project
-      // (verified: `git diff --quiet A B -- . ':(exclude)'` → exit 0). Exclude the
-      // brain's committed PATHS instead — the shared list, because naming a subset
-      // here made a root brain nudge for its own `bin/` and `mcp.json` commits.
-      paths = ['.', ...COMMITTED_BRAIN_PATHS.map((f) => `:(exclude)${f}`)];
-    } else if (brainRel === '..' || brainRel.startsWith('../') || isAbsolute(brainRel)) {
-      // OUTSIDE the worktree — `<repo>/.vfkb` symlinked to a standalone brain, the
-      // shape git.ts insideSurroundingRepo calls "documented, not exotic". Nothing in
-      // this tree to exclude, and an escaping pathspec makes git exit 128 while the
-      // handler below counts only exit 1 as "a real diff": the check would fail open
-      // and the nudge would die silently.
-      paths = ['.'];
-    } else {
-      paths = ['.', `:(exclude)${brainRel}`];
-    }
-    const anchor = execFileSync('git', ['rev-list', '-1', `--before=${since}`, 'HEAD'], {
-      cwd: root,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      timeout: opts.timeout,
-    }).trim();
-    const base = anchor || EMPTY_TREE_SHA; // handoff predates all history → diff against nothing
-    try {
-      execFileSync('git', ['diff', '--quiet', base, 'HEAD', '--', ...paths], {
-        cwd: root,
-        stdio: 'ignore',
-        timeout: opts.timeout,
-      });
-      return false; // exit 0: no non-brain difference
-    } catch (e) {
-      return (e as { status?: number }).status === 1; // exit 1: a real diff; anything else → fail-open
-    }
-  } catch {
-    return false; // not a repo / git missing / anything unexpected → fail-open (don't nag)
-  }
+  const o: PinStalenessOpts = opts.timeout !== undefined ? { deadline: performance.now() + opts.timeout } : {};
+  return (pinStaleCommits(cwd, brain, o)?.commits.length ?? 0) > 0;
 }
 
 /** Impure shell: gather the real context for `decideStop` from git + the brain. */
 export function gatherStopContext(cwd: string = process.cwd(), brain: string = brainDir()): StopContext {
   const fresh = newBrainEntriesSinceHead(brain, cwd);
+  const stale = pinStaleCommits(cwd, brain);
   return {
     uncommittedWork: hasUncommittedWork(cwd, brain),
     newDecisions: fresh.filter((e) => e.type === 'decision').length,
     newEntries: fresh.length,
     newHandoffs: fresh.filter(isHandoff).length,
-    handoffStale: handoffIsStale(cwd, brain),
+    staleCommits: stale?.commits ?? [],
+    pin: stale ? { id: stale.pin.id, created: stale.pin.created } : undefined,
   };
 }

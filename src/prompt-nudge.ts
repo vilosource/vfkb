@@ -26,8 +26,9 @@ import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node
 import { join } from 'node:path';
 import { isHarnessPrompt } from './harness-prompt.js';
 import { storageBackend } from './backend.js';
+import { boundedCommits, truncateSubject, type StaleCommit } from './engine.js';
+import { cachedPinStaleness } from './pin-staleness.js';
 import {
-  handoffIsStale,
   handoffNudgeDue,
   hasUncommittedWork,
   isHandoff,
@@ -51,8 +52,10 @@ export interface PinFacts {
 export interface PromptNudgeContext {
   /** `promptNudgeKey(pin, HEAD)` */
   key: string;
-  /** the pinned handoff predates a later non-brain commit (today's `handoffIsStale`) */
+  /** the pinned handoff predates a later non-brain commit (RFC-043 Part 0: S non-empty) */
   stale: boolean;
+  /** RFC-043 Part 0's set S (newest first) — the list the line names (vfkb#386) */
+  staleCommits?: StaleCommit[];
   /** B1: uncommitted src/docs work AND ≥ HANDOFF_MIN_ENTRIES new entries AND no handoff entry */
   b1: boolean;
   pin?: PinFacts;
@@ -106,19 +109,32 @@ export function decidePromptNudge(
 }
 
 /**
- * The one engine-side text function (ADR-0084 §2.4, RFC-047 §4.3). Before RFC-043 Part A
- * ships (#386) there is no commit list and no "the next session sees this same list"
- * clause (RFC-047 §8 K).
+ * The one engine-side text function (ADR-0084 §2.4, RFC-047 §4.3). Since RFC-043 Part A
+ * (#386) the stale clause names the commits — the same bounded subset Part A renders and the
+ * B3 Stop text lists (decide D4: same membership, same 7-char hashes, same truncated
+ * subjects) — and the "otherwise" branch says the next session sees this same list.
  */
 export function renderPromptNudge(
   reasons: PromptNudgeReason[],
-  facts: { pin?: PinFacts; branch: string | null; newEntries: number },
+  facts: { pin?: PinFacts; branch: string | null; newEntries: number; staleCommits?: StaleCommit[] },
 ): string {
   const clauses: string[] = [];
+  const commits = facts.staleCommits ?? [];
+  const listed = reasons.includes('stale') && !!facts.pin && commits.length > 0;
   if (reasons.includes('stale') && facts.pin) {
     const date = /^\d{4}-\d{2}-\d{2}/.test(facts.pin.created) ? `, ${facts.pin.created.slice(0, 10)}` : '';
     const where = facts.branch ? facts.branch : 'a detached HEAD';
-    clauses.push(`the pinned handoff (${facts.pin.id}${date}) predates a later commit on ${where}`);
+    if (listed) {
+      const { shown, more } = boundedCommits(commits);
+      const items = shown.map((c) => `${c.short} ${truncateSubject(c.subject)}`).join('; ');
+      const n = commits.length;
+      clauses.push(
+        `the pinned handoff (${facts.pin.id}${date}) predates ${n} commit${n === 1 ? '' : 's'} on ${where}: ` +
+          `${items}${more > 0 ? ` (+${more} more)` : ''}`,
+      );
+    } else {
+      clauses.push(`the pinned handoff (${facts.pin.id}${date}) predates a later commit on ${where}`);
+    }
   }
   if (reasons.includes('b1')) {
     clauses.push(`this session has recorded ${facts.newEntries} entries and no handoff/next entry`);
@@ -127,7 +143,7 @@ export function renderPromptNudge(
     `${PROMPT_NUDGE_LEADIN} ${clauses.join('; ')}.` +
     ' If this prompt ends the session, a fresh handoff/next entry (kb_add type=fact, tags=handoff,next, ' +
     'role=human) naming what changed and what is next is the one thing worth recording before finishing; ' +
-    'otherwise nothing is needed now.'
+    `otherwise nothing is needed now${listed ? ' — the next session sees this same list at start' : ''}.`
   );
 }
 
@@ -244,11 +260,13 @@ export function gatherPromptContext(
     turn: s.turn,
   };
   if (storedKey !== undefined && storedKey === key) return base;
-  const opts = { timeout: ms(left()) };
-  const stale = handoffIsStale(cwd, brain, opts);
+  // RFC-043 Part 0 for the pin already selected above, inside this handler's deadline (Q12)
+  // and through the shared per-brain cache (decide D1), so Stop and Part A agree with it.
+  const staleCommits = p ? (cachedPinStaleness(cwd, brain, pin!, { deadline })?.commits ?? []) : [];
+  const stale = staleCommits.length > 0;
   const fresh = newBrainEntriesSinceHead(brain, cwd, { timeout: ms(left()) });
   const work = hasUncommittedWork(cwd, brain, { timeout: ms(left()) });
   const b1 = handoffNudgeDue({ uncommittedWork: work, newEntries: fresh.length, newHandoffs: fresh.filter(isHandoff).length });
   const branch = git(['symbolic-ref', '--short', '-q', 'HEAD'], cwd, left()) || null;
-  return { ...base, stale, b1, branch, newEntries: fresh.length };
+  return { ...base, stale, staleCommits, b1, branch, newEntries: fresh.length };
 }

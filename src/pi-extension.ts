@@ -18,6 +18,7 @@ import {
   renderResume,
 } from './engine.js';
 import { healBrain } from './heal.js';
+import { gitPinStalenessProvider } from './pin-staleness.js';
 import { SessionState } from './session.js';
 import { defaultProject } from './storage.js';
 import { isBrainWrite, GATING_REASON } from './gating.js';
@@ -82,7 +83,9 @@ export default function (pi: ExtensionAPI): void {
     const e = (args[0] as BeforeAgentStartEvent) || {};
     const current = e.systemPrompt || '';
     const restoreNote = healBrain();
-    const resume = renderResume(project(), session);
+    // RFC-043 Part A (#386): pi renders on every prompt, so the provider's per-brain cache
+    // (decide D1) keeps an unchanged HEAD to two rev-parse calls and one file read.
+    const resume = renderResume(project(), session, { pinStaleness: gitPinStalenessProvider(process.cwd(), brainDir()) });
     session.markInjected(currentInjectableIds());
     session.save();
     return { systemPrompt: current + '\n\n' + restoreNote + resume };
