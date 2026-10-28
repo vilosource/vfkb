@@ -26,7 +26,7 @@
 //
 // Hosts (decide D9): rule 5's squash case assumes a squash commit's author date is the
 // merge time — git's own `merge --squash` default, observed on GitHub. GitLab and Bitbucket
-// are UNVERIFIED (follow-on issue linked from the #386 PR). A host that kept the original
+// are UNVERIFIED (Tier-0 probe: vfkb#400). A host that kept the original
 // author date could only make this quieter (like RFC-043 case 11), never noisier.
 //
 // Failure posture is RFC-043's: every failure is toward silence. `null` means "unknown"

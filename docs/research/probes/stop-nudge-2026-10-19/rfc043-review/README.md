@@ -140,4 +140,4 @@ frozen.
 merge time: git's default for `merge --squash`, and observed on GitHub. GitLab and Bitbucket
 are UNVERIFIED. On a host that keeps the original author date, a squash-landed PR below the
 carrier with pre-pin authorship is dropped (quiet, like case 11). No host behaviour can add a
-fire.
+fire. The Tier-0 probe is [#400](https://github.com/vilosource/vfkb/issues/400).
