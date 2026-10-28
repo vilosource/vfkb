@@ -21,7 +21,7 @@ export type GitRunner = (args: string[], cwd: string) => string;
 
 // maxBuffer: `git show HEAD:<brain>` returns the whole committed brain; past 1 MiB the
 // default threw ENOBUFS and every entry read as new (vfkb#384).
-const realGit: GitRunner = (args, cwd) =>
+export const realGit: GitRunner = (args, cwd) =>
   execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: GIT_READ_MAX_BUFFER });
 
 /**
@@ -182,11 +182,41 @@ function writeAutoHandoff(absBrain: string, fresh: BrainEntry[], sessionId?: str
   }
 }
 
-// The repo's default branch (e.g. "main"/"master"), best-effort; falls back to "main".
-function defaultBranch(git: GitRunner, cwd: string): string {
+export type BranchKind = 'default' | 'detached' | 'topic';
+
+/**
+ * The one branch classifier (ADR-0084 §1.4 rule 1c; RFC-047 §7.6; brain cc69faa15edd),
+ * shared by SessionEnd's guard and Stop's rule 1c so the two cannot disagree about what
+ * "on the default branch" means. Tri-state (decide step Q3, vfkb#387) so vfkb#395's third
+ * trigger, which fires on default OR detached, reuses it without a second HEAD read.
+ *  - `detached`: `symbolic-ref --short -q HEAD` is empty or throws (branch is null).
+ *  - `default`:  the branch equals the short name of `refs/remotes/origin/HEAD` (when that
+ *                resolves under `origin/`), or is literally `main` or `master`.
+ *  - `topic`:    anything else — including a repo with no origin/HEAD and a branch that is
+ *                neither main nor master (unknown → not default, cc69faa15edd).
+ * Both git reads run in the same order SessionEnd always ran them, so its git sequence is
+ * unchanged. Never throws.
+ */
+export function classifyBranch(git: GitRunner, cwd: string): { kind: BranchKind; branch: string | null } {
+  const branch = tryGit(git, ['symbolic-ref', '--short', '-q', 'HEAD'], cwd) || '';
   const ref = tryGit(git, ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'], cwd);
-  if (ref && ref.startsWith('origin/')) return ref.slice('origin/'.length);
-  return 'main';
+  const def = ref && ref.startsWith('origin/') ? ref.slice('origin/'.length) : null;
+  if (!branch) return { kind: 'detached', branch: null };
+  if (branch === def || branch === 'main' || branch === 'master') return { kind: 'default', branch };
+  return { kind: 'topic', branch };
+}
+
+/**
+ * ADR-0084 §1.4's `isOnDefaultBranch(git, cwd)`: the boolean face of `classifyBranch`.
+ * A detached HEAD is NOT the default branch, and any failure reads false — rule 1c is a
+ * suppression, so an unknown branch leaves B3 eligible (fail toward firing).
+ */
+export function isOnDefaultBranch(git: GitRunner, cwd: string): boolean {
+  try {
+    return classifyBranch(git, cwd).kind === 'default';
+  } catch {
+    return false;
+  }
 }
 
 export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
@@ -213,9 +243,8 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
     const fresh = newEntriesSinceHead(git, cwd, join(absBrain, 'entries.jsonl'));
 
     // 3) Branch guard — never commit on a detached HEAD or the default branch.
-    const branch = tryGit(git, ['symbolic-ref', '--short', '-q', 'HEAD'], cwd) || '';
-    const def = defaultBranch(git, cwd);
-    if (!branch) {
+    const cls = classifyBranch(git, cwd);
+    if (cls.kind === 'detached') {
       const added = fresh.length;
       return {
         committed: false,
@@ -224,7 +253,8 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
         systemMessage: `vfkb: brain changes uncommitted (${added} new entr${added === 1 ? 'y' : 'ies'}, detached HEAD) — check out a branch and commit to preserve continuity.`,
       };
     }
-    if (branch === def || branch === 'main' || branch === 'master') {
+    const branch = cls.branch ?? '';
+    if (cls.kind === 'default') {
       const added = fresh.length;
       return {
         committed: false,

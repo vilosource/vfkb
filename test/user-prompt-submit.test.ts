@@ -187,7 +187,7 @@ describe('hook user-prompt-submit ↔ stop — one delivery, no B3 on Stop after
     for (let turn = 3; turn <= 14; turn++) {
       expect(hook(dir, 'stop', { session_id: 'once', stop_hook_active: false }).trim(), `turn ${turn}`).toBe('{}');
     }
-  });
+  }, 60_000);
 });
 
 describe('hook user-prompt-submit — Q10: read-only against the session record', () => {

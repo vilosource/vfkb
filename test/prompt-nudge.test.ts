@@ -3,11 +3,18 @@
 // and the decide step's Q2 (no line on a persisted session's first prompt) and Q9
 // (placeholder fallbacks). Each `it` was observed RED before src/prompt-nudge.ts existed.
 import { describe, it, expect } from 'vitest';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { decideStop } from '../src/stop-reminder.js';
 import {
   decidePromptNudge,
   renderPromptNudge,
   promptNudgeKey,
   PROMPT_NUDGE_LEADIN,
+  clearPromptNudgeKey,
+  readPromptNudgeSignal,
+  writePromptNudgeSignal,
   type PromptNudgeContext,
 } from '../src/prompt-nudge.js';
 import { isHarnessPrompt, HARNESS_PROMPT_LEADINS } from '../src/harness-prompt.js';
@@ -207,5 +214,49 @@ describe('isHarnessPrompt (shared with v3 R1)', () => {
   it('leading whitespace is NOT skipped (documented: column 0 only)', () => {
     expect(isHarnessPrompt(' <task-notification>')).toBe(false);
     expect(isHarnessPrompt('\n<task-notification>')).toBe(false);
+  });
+});
+
+// ── vfkb#387 decide Q8: 1e's once-per-session quiet survives compaction ──────────────
+// The compact reset (ADR-0084 §2.5) clears only the prompt line's key; the delivery turn
+// it folds into Stop's B3 mark survives, so B3 stays quiet for the session while the
+// cheap surface (the prompt line) re-arms. Can fail both ways.
+
+describe('compaction (decide Q8): the prompt line re-arms, B3 stays quiet for the session', () => {
+  const S = [{ hash: 'a'.repeat(40), short: 'aaaaaaa', subject: 'fix: x' }];
+  const N = 4;
+  const setup = () => {
+    const brain = mkdtempSync(join(tmpdir(), 'vfkb-q8-'));
+    const key = promptNudgeKey(pin, 'abc123');
+    writePromptNudgeSignal(brain, 'sess', { key, staleAtTurn: N });
+    clearPromptNudgeKey(brain, 'sess'); // SessionStart source=compact
+    return { brain, key };
+  };
+
+  it('the key is cleared and staleAtTurn kept', () => {
+    const { brain } = setup();
+    const sig = readPromptNudgeSignal(brain, 'sess');
+    expect(sig.key).toBeUndefined();
+    expect(sig.staleAtTurn).toBe(N);
+  });
+
+  it('Stop B3 stays quiet at N+1, N+11 and N+50 on the kept delivery turn', () => {
+    const { brain } = setup();
+    const staleHandoff = readPromptNudgeSignal(brain, 'sess').staleAtTurn;
+    for (const turn of [N + 1, N + 11, N + 50]) {
+      expect(
+        decideStop(
+          { stop_hook_active: false },
+          { uncommittedWork: false, newDecisions: 1, staleCommits: S, pin, turn, lastNudged: { staleHandoff } },
+        ),
+        `turn=${turn}`,
+      ).toEqual({ block: false });
+    }
+  });
+
+  it('the negative: after the clear, the same key re-emits the prompt line', () => {
+    const { brain, key } = setup();
+    const d = decidePromptNudge(typed, ctx({ key }), readPromptNudgeSignal(brain, 'sess').key);
+    expect(d.emit).toBe(true);
   });
 });

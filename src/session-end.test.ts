@@ -9,7 +9,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, appendFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runSessionEnd, brainEntriesRelPath } from './session-end.js';
+import { runSessionEnd, brainEntriesRelPath, classifyBranch, isOnDefaultBranch, realGit } from './session-end.js';
 
 let repo: string;
 const git = (args: string[], cwd = repo) =>
@@ -304,5 +304,78 @@ describe('SessionEnd background curation (ADR-0083 §3)', () => {
     expect(r.reason).toBe('on-default-branch');
     expect(zoneOf('old')).toBe('established');
     expect(r.added).toBe(1);
+  });
+});
+
+// ── vfkb#387 (ADR-0084 §1.4 rule 1c; RFC-047 §7.6; brain cc69faa15edd): ONE branch
+// classifier shared by SessionEnd's guard and Stop's rule 1c, on real throwaway repos.
+describe('classifyBranch / isOnDefaultBranch — the shared default-branch rule', () => {
+  // Each row leaves `repo` (created by beforeEach on `main`, no remote) in one shape.
+  const setOriginHead = (name: string) => {
+    git(['update-ref', `refs/remotes/origin/${name}`, 'HEAD']);
+    git(['symbolic-ref', 'refs/remotes/origin/HEAD', `refs/remotes/origin/${name}`]);
+  };
+  const rows: Array<{ name: string; shape: () => void; kind: 'default' | 'detached' | 'topic'; branch: string | null }> = [
+    { name: 'main, no origin', shape: () => {}, kind: 'default', branch: 'main' },
+    { name: 'master, no origin', shape: () => git(['branch', '-m', 'main', 'master']), kind: 'default', branch: 'master' },
+    {
+      name: 'trunk with origin/HEAD → origin/trunk',
+      shape: () => {
+        git(['branch', '-m', 'main', 'trunk']);
+        setOriginHead('trunk');
+      },
+      kind: 'default',
+      branch: 'trunk',
+    },
+    {
+      name: 'feat/x with origin/HEAD → origin/main',
+      shape: () => {
+        setOriginHead('main');
+        git(['checkout', '-q', '-b', 'feat/x']);
+      },
+      kind: 'topic',
+      branch: 'feat/x',
+    },
+    { name: 'feat/x, no origin', shape: () => git(['checkout', '-q', '-b', 'feat/x']), kind: 'topic', branch: 'feat/x' },
+    { name: 'detached HEAD', shape: () => git(['checkout', '-q', '--detach']), kind: 'detached', branch: null },
+    {
+      // the deleted `return 'main'` fallback: unknown default + a non-main name → topic
+      name: 'develop, no origin/HEAD',
+      shape: () => git(['checkout', '-q', '-b', 'develop']),
+      kind: 'topic',
+      branch: 'develop',
+    },
+  ];
+
+  for (const row of rows) {
+    it(`${row.name} → ${row.kind}`, () => {
+      row.shape();
+      expect(classifyBranch(realGit, repo)).toEqual({ kind: row.kind, branch: row.branch });
+      expect(isOnDefaultBranch(realGit, repo)).toBe(row.kind === 'default');
+    });
+
+    // RFC-047 §7.6's divergence test: the Stop rule and the SessionEnd guard cannot
+    // disagree about "on the default branch" — for every row, with a dirty brain.
+    it(`${row.name}: isOnDefaultBranch agrees with runSessionEnd's reason`, () => {
+      row.shape();
+      addEntry(HANDOFF_ENTRY);
+      const onDefault = isOnDefaultBranch(realGit, repo);
+      const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb', sessionId: 'div00001' });
+      expect(onDefault).toBe(r.reason === 'on-default-branch');
+      expect(r.reason === 'detached-head').toBe(row.kind === 'detached');
+    });
+  }
+
+  it('a non-repo directory → isOnDefaultBranch false (fails toward firing)', () => {
+    const plain = mkdtempSync(join(tmpdir(), 'vfkb-norepo-'));
+    expect(isOnDefaultBranch(realGit, plain)).toBe(false);
+  });
+
+  it('a throwing git runner → false, never a throw', () => {
+    const boom = () => {
+      throw new Error('git wedged');
+    };
+    expect(isOnDefaultBranch(boom, repo)).toBe(false);
+    expect(classifyBranch(boom, repo)).toEqual({ kind: 'detached', branch: null });
   });
 });

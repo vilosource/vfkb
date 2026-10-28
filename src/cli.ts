@@ -816,11 +816,14 @@ async function dispatch() {
           turn = session.turnCount;
           lastNudged = session.nudgedAtTurn;
           // ADR-0084 §2.5 (+ decide step Q10): a UserPromptSubmit line delivered with the
-          // stale-pin reason counts as B3's last fire, so Stop stays quiet afterwards. The
-          // prompt hook never writes this record; its delivery turn lives in its own signal.
+          // stale-pin reason counts as B3's last fire, so Stop stays quiet for the rest of the
+          // session (1e, vfkb#387). The prompt hook never writes this record; its delivery
+          // turn lives in its own signal. A recorded value outside [0, turn] is no fire record
+          // (decide Q7), so it cannot outrank a valid delivery turn.
           const delivered = readPromptNudgeSignal(brainDir(), session.sessionId).staleAtTurn;
           if (delivered !== undefined && delivered <= turn) {
-            const prev = lastNudged?.staleHandoff;
+            const raw = lastNudged?.staleHandoff;
+            const prev = typeof raw === 'number' && Number.isFinite(raw) && raw >= 0 && raw <= turn ? raw : undefined;
             if (prev === undefined || delivered > prev) lastNudged = { ...lastNudged, staleHandoff: delivered };
           }
         }

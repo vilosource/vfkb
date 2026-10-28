@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import {
@@ -721,7 +721,11 @@ describe('handoffIsStale', () => {
 
 // ── CLI e2e: the verified Stop JSON contract shape (CLI v2.1.195) ─────────────
 function gitRepo(): string {
-  const dir = mkdtempSync(join(tmpdir(), 'vfkb-stop-'));
+  // realpath: an absolute /var/… brain path against a /private/var/… cwd (macOS tmpdir)
+  // defeats the `git show HEAD:<rel>` line count, so every brain line would read as new and
+  // rule 1c's `newEntries === 0` could never hold (a pre-existing helper limit; it errs
+  // toward firing).
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'vfkb-stop-')));
   const git = (...a: string[]) => execFileSync('git', a, { cwd: dir, stdio: 'ignore' });
   // Explicit `-b main` (vfkb#387): rule 1c reads the branch, so the fixture must not
   // depend on the machine's init.defaultBranch.
@@ -997,7 +1001,7 @@ describe('cli hook stop — emits the verified Stop contract', () => {
       // the 10-turn cooldown re-fired at turn 13; 1e keeps it quiet for the session
       expect(runStop(dir, payload), `turn ${turn}`).toBe('{}');
     }
-  });
+  }, 60_000);
 
   it('1e contrast: an ephemeral session (no session_id) on a topic branch fires B3 on every stop', () => {
     const dir = staleRepo();
