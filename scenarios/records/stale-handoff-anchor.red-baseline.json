@@ -1,0 +1,227 @@
+{
+  "scenario": "stale-handoff-anchor",
+  "recordVersion": 1,
+  "model": "claude-haiku-4-5",
+  "generated": "2026-10-28T08:24:29.836Z",
+  "red": true,
+  "engineCli": "/private/var/folders/j2/fp21t39n14j9ls2q7yr3vbbw0000gn/T/vfkb-baseline-aa4a33c550aacdd3d1d8234ddeaed6c493b22b84/vfkb.mjs",
+  "engineRev": "aa4a33c550aacdd3d1d8234ddeaed6c493b22b84",
+  "engineCliSha256": "9c9223fe4c6651a31d37ec71a4b590cfebd5fabaae52d797996b4b149eb7ca8d",
+  "engineSrcDirty": false,
+  "vfkbSha": "de424340d2e29e4b9f040789d6b2fce22ae0cd1c",
+  "gitVersion": "git version 2.50.1 (Apple Git-155)",
+  "cliVersions": [
+    "2.1.292"
+  ],
+  "isolation": "enabledPlugins {'vfkb@vfkb': false}; init event asserted; --tools '' and no MCP",
+  "shape": "decide D7: 3 turns, one session id, topic branch off the merged main; SessionStart + tee'd Stop wired; UserPromptSubmit and SessionEnd not wired",
+  "hosts": "squash arm = git merge --squash (git default; observed GitHub behaviour). GitLab/Bitbucket UNVERIFIED (vfkb#400).",
+  "thresholds": "hook-output predicates: 3/3 valid trials per arm (scenarios/lib/anchor-verdict.mjs)",
+  "verdict": {
+    "counts": {
+      "squash": {
+        "valid": 3,
+        "attempts": 3,
+        "pass": 0
+      },
+      "can-fail": {
+        "valid": 3,
+        "attempts": 3,
+        "pass": 0
+      }
+    },
+    "invalidTrials": 0,
+    "complete": true,
+    "demonstrated": false,
+    "reasons": [
+      "squash: 3 valid trial(s) failed a deterministic predicate",
+      "can-fail: 3 valid trial(s) failed a deterministic predicate"
+    ]
+  },
+  "trials": {
+    "squash": [
+      {
+        "invalid": [],
+        "deterministicFail": [
+          "squash: the turn-3 Stop emitted output (expected {})",
+          "squash: B3 text appears in the Stop log"
+        ],
+        "pass": false,
+        "sessionId": "e2b72d06-80ff-43f0-8cda-3ca774ef4d68",
+        "sentinelSubject": null,
+        "sentinelSha7": null,
+        "stopRunsPerTurn": [
+          1,
+          1,
+          2
+        ],
+        "b3PerTurn": [
+          false,
+          false,
+          true
+        ],
+        "turn3Stop": "--- hook-run\n{\"hookSpecificOutput\":{\"hookEventName\":\"Stop\",\"decision\":\"block\",\"additionalContext\":\"vfkb stale-handoff check: the currently pinned handoff/next entry predates a commit that landed since it was written (e.g. a merged PR, possibly from another session or an autonomous merge) — a fresh session would start from an out-of-date \\\"what happened\\\" pointer. If you are WRAPPING UP, record a fresh handoff now — `mcp__vfkb__kb_add` (type=fact, tags=handoff,next, role=human), or /vfkb:handoff if available — naming what actually changed and what is next now. If you are still mid-session, ignore this and finish normally.\"}}\n--- hook-run\n{}\n",
+        "gitLog": [
+          "93cf7e5 2026-10-28 08:23:57 +0000 feat: greeter (#1)",
+          "88702cc 2026-10-28 08:23:27 +0000 feat: greeter, with the handoff",
+          "f915f12 2026-10-28 08:20:57 +0000 seed"
+        ],
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [
+          "squash: the turn-3 Stop emitted output (expected {})",
+          "squash: B3 text appears in the Stop log"
+        ],
+        "pass": false,
+        "sessionId": "94a50e0f-3eb2-4f30-8366-3e99afbafc3f",
+        "sentinelSubject": null,
+        "sentinelSha7": null,
+        "stopRunsPerTurn": [
+          1,
+          1,
+          2
+        ],
+        "b3PerTurn": [
+          false,
+          false,
+          true
+        ],
+        "turn3Stop": "--- hook-run\n{\"hookSpecificOutput\":{\"hookEventName\":\"Stop\",\"decision\":\"block\",\"additionalContext\":\"vfkb stale-handoff check: the currently pinned handoff/next entry predates a commit that landed since it was written (e.g. a merged PR, possibly from another session or an autonomous merge) — a fresh session would start from an out-of-date \\\"what happened\\\" pointer. If you are WRAPPING UP, record a fresh handoff now — `mcp__vfkb__kb_add` (type=fact, tags=handoff,next, role=human), or /vfkb:handoff if available — naming what actually changed and what is next now. If you are still mid-session, ignore this and finish normally.\"}}\n--- hook-run\n{}\n",
+        "gitLog": [
+          "1527709 2026-10-28 08:24:13 +0000 feat: greeter (#1)",
+          "9ddbacf 2026-10-28 08:23:43 +0000 feat: greeter, with the handoff",
+          "50a039f 2026-10-28 08:21:13 +0000 seed"
+        ],
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [
+          "squash: the turn-3 Stop emitted output (expected {})",
+          "squash: B3 text appears in the Stop log"
+        ],
+        "pass": false,
+        "sessionId": "9fce2862-393b-4f5e-8098-7c91b699a13f",
+        "sentinelSubject": null,
+        "sentinelSha7": null,
+        "stopRunsPerTurn": [
+          1,
+          1,
+          2
+        ],
+        "b3PerTurn": [
+          false,
+          false,
+          true
+        ],
+        "turn3Stop": "--- hook-run\n{\"hookSpecificOutput\":{\"hookEventName\":\"Stop\",\"decision\":\"block\",\"additionalContext\":\"vfkb stale-handoff check: the currently pinned handoff/next entry predates a commit that landed since it was written (e.g. a merged PR, possibly from another session or an autonomous merge) — a fresh session would start from an out-of-date \\\"what happened\\\" pointer. If you are WRAPPING UP, record a fresh handoff now — `mcp__vfkb__kb_add` (type=fact, tags=handoff,next, role=human), or /vfkb:handoff if available — naming what actually changed and what is next now. If you are still mid-session, ignore this and finish normally.\"}}\n--- hook-run\n{}\n",
+        "gitLog": [
+          "3fca851 2026-10-28 08:24:29 +0000 feat: greeter (#1)",
+          "c881552 2026-10-28 08:23:59 +0000 feat: greeter, with the handoff",
+          "72dceae 2026-10-28 08:21:29 +0000 seed"
+        ],
+        "errors": [],
+        "cliVersion": "2.1.292"
+      }
+    ],
+    "can-fail": [
+      {
+        "invalid": [],
+        "deterministicFail": [
+          "can-fail: B3 lacks the RFC-047 §4.4 sentence (old text)",
+          "can-fail: B3 lacks \"Commits since this handoff was recorded (1):\"",
+          "can-fail: B3 does not list the sentinel commit as \"<sha7> <subject>\""
+        ],
+        "pass": false,
+        "sessionId": "87d34e44-3a43-4026-8fed-e71fad7704a8",
+        "sentinelSubject": "fix: harden sentinel-e299e7 parsing",
+        "sentinelSha7": "7e890d4",
+        "stopRunsPerTurn": [
+          1,
+          1,
+          2
+        ],
+        "b3PerTurn": [
+          false,
+          false,
+          true
+        ],
+        "turn3Stop": "--- hook-run\n{\"hookSpecificOutput\":{\"hookEventName\":\"Stop\",\"decision\":\"block\",\"additionalContext\":\"vfkb stale-handoff check: the currently pinned handoff/next entry predates a commit that landed since it was written (e.g. a merged PR, possibly from another session or an autonomous merge) — a fresh session would start from an out-of-date \\\"what happened\\\" pointer. If you are WRAPPING UP, record a fresh handoff now — `mcp__vfkb__kb_add` (type=fact, tags=handoff,next, role=human), or /vfkb:handoff if available — naming what actually changed and what is next now. If you are still mid-session, ignore this and finish normally.\"}}\n--- hook-run\n{}\n",
+        "gitLog": [
+          "7e890d4 2026-10-28 08:25:44 +0000 fix: harden sentinel-e299e7 parsing",
+          "e06bbf5 2026-10-28 08:24:44 +0000 feat: greeter (#1)",
+          "0d67d23 2026-10-28 08:24:14 +0000 feat: greeter, with the handoff",
+          "11259d1 2026-10-28 08:21:43 +0000 seed"
+        ],
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [
+          "can-fail: B3 lacks the RFC-047 §4.4 sentence (old text)",
+          "can-fail: B3 lacks \"Commits since this handoff was recorded (1):\"",
+          "can-fail: B3 does not list the sentinel commit as \"<sha7> <subject>\""
+        ],
+        "pass": false,
+        "sessionId": "226c87d0-12c0-4c01-9289-f33769e81123",
+        "sentinelSubject": "fix: harden sentinel-d42c3f parsing",
+        "sentinelSha7": "0ab755d",
+        "stopRunsPerTurn": [
+          1,
+          1,
+          2
+        ],
+        "b3PerTurn": [
+          false,
+          false,
+          true
+        ],
+        "turn3Stop": "--- hook-run\n{\"hookSpecificOutput\":{\"hookEventName\":\"Stop\",\"decision\":\"block\",\"additionalContext\":\"vfkb stale-handoff check: the currently pinned handoff/next entry predates a commit that landed since it was written (e.g. a merged PR, possibly from another session or an autonomous merge) — a fresh session would start from an out-of-date \\\"what happened\\\" pointer. If you are WRAPPING UP, record a fresh handoff now — `mcp__vfkb__kb_add` (type=fact, tags=handoff,next, role=human), or /vfkb:handoff if available — naming what actually changed and what is next now. If you are still mid-session, ignore this and finish normally.\"}}\n--- hook-run\n{}\n",
+        "gitLog": [
+          "0ab755d 2026-10-28 08:25:58 +0000 fix: harden sentinel-d42c3f parsing",
+          "c82d6f4 2026-10-28 08:24:58 +0000 feat: greeter (#1)",
+          "8a593df 2026-10-28 08:24:28 +0000 feat: greeter, with the handoff",
+          "76fe62d 2026-10-28 08:21:58 +0000 seed"
+        ],
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [
+          "can-fail: B3 lacks the RFC-047 §4.4 sentence (old text)",
+          "can-fail: B3 lacks \"Commits since this handoff was recorded (1):\"",
+          "can-fail: B3 does not list the sentinel commit as \"<sha7> <subject>\""
+        ],
+        "pass": false,
+        "sessionId": "838ba9fa-ca40-476d-be6f-075524defc26",
+        "sentinelSubject": "fix: harden sentinel-25fdca parsing",
+        "sentinelSha7": "ceaeb0d",
+        "stopRunsPerTurn": [
+          1,
+          1,
+          2
+        ],
+        "b3PerTurn": [
+          false,
+          false,
+          true
+        ],
+        "turn3Stop": "--- hook-run\n{\"hookSpecificOutput\":{\"hookEventName\":\"Stop\",\"decision\":\"block\",\"additionalContext\":\"vfkb stale-handoff check: the currently pinned handoff/next entry predates a commit that landed since it was written (e.g. a merged PR, possibly from another session or an autonomous merge) — a fresh session would start from an out-of-date \\\"what happened\\\" pointer. If you are WRAPPING UP, record a fresh handoff now — `mcp__vfkb__kb_add` (type=fact, tags=handoff,next, role=human), or /vfkb:handoff if available — naming what actually changed and what is next now. If you are still mid-session, ignore this and finish normally.\"}}\n--- hook-run\n{}\n",
+        "gitLog": [
+          "ceaeb0d 2026-10-28 08:26:13 +0000 fix: harden sentinel-25fdca parsing",
+          "fd9c9e3 2026-10-28 08:25:13 +0000 feat: greeter (#1)",
+          "c53e26b 2026-10-28 08:24:43 +0000 feat: greeter, with the handoff",
+          "4bdc6c4 2026-10-28 08:22:13 +0000 seed"
+        ],
+        "errors": [],
+        "cliVersion": "2.1.292"
+      }
+    ]
+  }
+}
