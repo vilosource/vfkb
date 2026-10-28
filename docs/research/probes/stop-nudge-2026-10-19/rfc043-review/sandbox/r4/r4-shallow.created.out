@@ -1,0 +1,9 @@
+visible: Y post-pin code|X post-pin code
+carrier found: X post-pin code
+
+### S1 shallow --depth 2, pin below the boundary, two post-pin commits
+expected: STALE {X, Y}
+  today: STALE (tree diff)
+  r2   : STALE {Y post-pin code}
+  A    : STALE {Y post-pin code}
+  B    : STALE {Y post-pin code}
