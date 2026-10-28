@@ -2,8 +2,9 @@
 // handoff, never counting the one that carries it. The git layer — the engine stays
 // git-free and receives this as an injected `PinStalenessProvider` (Part A).
 //
-// Built, NOT yet verified until scenarios/records/stale-handoff-anchor.json and
-// scenarios/records/stale-pin-floor.json are DEMONSTRATED (ADR-0050/0051).
+// Capability DEMONSTRATED by scenarios/records/stale-handoff-anchor.json (Parts 0/1) and
+// scenarios/records/stale-pin-floor.json (Part A), on settings-file wiring. Delivery through
+// the plugin is unproven until its install-path record is re-pinned (ADR-0051).
 //
 // One computation feeds three surfaces, so they cannot disagree: B3 on Stop (stale iff S is
 // non-empty), the UserPromptSubmit line, and Part A's list under `## Last handoff`.

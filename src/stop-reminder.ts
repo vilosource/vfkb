@@ -117,8 +117,9 @@ export function handoffNudgeDue(ctx: { uncommittedWork: boolean; newEntries: num
   return ctx.uncommittedWork && ctx.newEntries >= HANDOFF_MIN_ENTRIES && ctx.newHandoffs === 0;
 }
 
-// B3 (first decided by ADR-0084, which accepts RFC-043 Parts 0/1/A and RFC-047; still
-// built, NOT yet verified — its L4 is scenarios/stale-handoff-anchor.mjs, vfkb#386): unlike
+// B3 (first decided by ADR-0084, which accepts RFC-043 Parts 0/1/A and RFC-047; capability
+// DEMONSTRATED by scenarios/records/stale-handoff-anchor.json, vfkb#386 — delivery through the
+// plugin unproven until its install-path re-pin, ADR-0051): unlike
 // B1/B2, this is not about whether THIS session recorded a handoff — it fires when commits
 // already landed after the currently pinned handoff, so the pin itself is behind regardless
 // of what this session did. Deliberately NOT gated on `uncommittedWork`: the defining case is

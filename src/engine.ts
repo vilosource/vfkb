@@ -534,8 +534,9 @@ function trustGlyph(e: KnowledgeEntry): string {
 // (stop-reminder.ts) materializes and calls it (ADR-0082 §2).
 const HANDOFF_PIN_CAP_CHARS = 2000; // bound the pinned section; the live 07-08 handoff ≈ 1.5k
 
-// --- RFC-043 Part A (accepted by ADR-0084 §5; vfkb#386): the stale-pin floor. Built, NOT
-// yet verified until scenarios/records/stale-pin-floor.json is DEMONSTRATED (ADR-0050/0051).
+// --- RFC-043 Part A (accepted by ADR-0084 §5; vfkb#386): the stale-pin floor. Capability
+// DEMONSTRATED by scenarios/records/stale-pin-floor.json; delivery through the plugin is
+// unproven until its install-path record is re-pinned (ADR-0051).
 // The engine never runs git (src/backend.ts: git-layer consumers stay file-based BY
 // DESIGN), so the commits come from an INJECTED provider, implemented in the git layer
 // (src/pin-staleness.ts) and wired at each face that renders `## Last handoff`
