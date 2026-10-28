@@ -16,8 +16,9 @@
 //   - Q10: the handler is READ-ONLY against the session record. The emitted key (and the
 //     turn a stale-reason line was delivered) live in a per-session signal file under
 //     `<brain>/.signals/prompt-nudge/`, written tmp + rename. The Stop hook folds that turn
-//     into its `staleHandoff` cooldown — the effect of ADR-0084 §2.5's markNudged without a
-//     second writer of the shared record.
+//     into its `staleHandoff` last-fired mark — the effect of ADR-0084 §2.5's markNudged
+//     without a second writer of the shared record. Since 1e (vfkb#387) that mark keeps B3
+//     quiet on Stop for the rest of the session, compaction included (decide Q8).
 //   - Q12: an in-process budget. Every git child gets a timeout bounded by the deadline;
 //     past it the handler emits nothing.
 

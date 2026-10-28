@@ -177,6 +177,38 @@ describe('hook user-prompt-submit ↔ stop — one delivery, no B3 on Stop after
     const other = JSON.parse(hook(dir, 'stop', { session_id: 'other', stop_hook_active: false }));
     expect(other.hookSpecificOutput.additionalContext).toContain('vfkb stale-handoff check');
   });
+
+  it('vfkb#387 (1e): after the line, Stop stays quiet for the SESSION — no B3 through turn 14', () => {
+    // RFC-047 §4.3: "after #387, quiet for the session". The 10-turn cooldown re-fired B3
+    // once the delivery turn was 10 turns old; 1e makes the delivery a once-per-session mark.
+    const dir = staleRepo(); // on feat/x, so rule 1c (default branch) is not what silences it
+    seedSession(dir, 'once', 2);
+    expect(ctxOf(ups(dir, typed('once'))).additionalContext).toContain(LEADIN);
+    for (let turn = 3; turn <= 14; turn++) {
+      expect(hook(dir, 'stop', { session_id: 'once', stop_hook_active: false }).trim(), `turn ${turn}`).toBe('{}');
+    }
+  }, 60_000);
+
+  it('decide Q7: a future-dated staleHandoff on the record cannot outrank the delivery turn', () => {
+    // 999 passes sanitizeNudgedAtTurn (finite, >= 0) but is outside [0, turn]; the fold must
+    // treat it as no record, so the line's delivery turn wins and Stop stays quiet.
+    const dir = staleRepo();
+    mkdirSync(join(dir, '.vfkb', '.sessions'), { recursive: true });
+    writeFileSync(
+      join(dir, '.vfkb', '.sessions', 'future.json'),
+      JSON.stringify({
+        sessionId: 'future',
+        startedAt: 'x',
+        lastAt: 'x',
+        turnCount: 2,
+        injectedIds: [],
+        capturedIds: [],
+        nudgedAtTurn: { staleHandoff: 999 },
+      }),
+    );
+    expect(ctxOf(ups(dir, typed('future'))).additionalContext).toContain(LEADIN);
+    expect(hook(dir, 'stop', { session_id: 'future', stop_hook_active: false }).trim()).toBe('{}');
+  }, 30_000);
 });
 
 describe('hook user-prompt-submit — Q10: read-only against the session record', () => {

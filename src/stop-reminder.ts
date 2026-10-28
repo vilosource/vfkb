@@ -1,8 +1,8 @@
 // Stop-hook decision-capture reminder (RFC-008 / ADR-0027). A conditional end-of-turn
 // nudge: when a turn plausibly made a decision but recorded none, inject a reminder so
-// the agent captures it before handing back to the user. Each nudge type is rate-limited
-// to once per NUDGE_COOLDOWN_TURNS turns per session (operator ruling 2026-07-31) — a
-// standing trigger no longer nags on every Stop.
+// the agent captures it before handing back to the user. The decision nudge is rate-limited
+// to once per NUDGE_COOLDOWN_TURNS turns per session (operator ruling 2026-07-31); B3 fires
+// at most once per session (ADR-0084 §1.5, 1e) — a standing trigger no longer nags on every Stop.
 //
 // Contract is EMPIRICALLY VERIFIED at Claude Code CLI v2.1.195 (brain gotcha
 // d70c0299e144): a Stop hook may emit
@@ -20,7 +20,12 @@
 // ADR-0084 §1.6 (vfkb#385): B1 no longer fires on Stop. Its standing reminder is one
 // non-blocking UserPromptSubmit line (src/prompt-nudge.ts, ADR-0084 §2), so Stop now does
 // three things: the loop guard, the decision nudge, and B3. When that line was delivered
-// with the stale-pin reason, the CLI folds the delivery turn into B3's cooldown (§2.5).
+// with the stale-pin reason, the CLI folds the delivery turn into B3's last-fired mark (§2.5).
+//
+// ADR-0084 §1.4/§1.5 (vfkb#387): B3 is quiet on the default branch with a clean tree and no
+// new entries (1c — SessionEnd never commits there, so nothing the agent writes now would
+// ship), and fires at most once per session (1e). Both only REMOVE fires; the UserPromptSubmit
+// line and RFC-043 Part A's render under `## Last handoff` carry what they suppress.
 
 import { execFileSync } from 'node:child_process';
 import { GIT_READ_MAX_BUFFER } from './git-buffer.js';
@@ -29,6 +34,7 @@ import { join, relative } from 'node:path';
 import { brainDir, materialize, type StoredRecord } from './storage.js';
 import { latestHandoff, renderCommitsSince, supersededIds, type StaleCommit } from './engine.js';
 import { cachedPinStaleness, type PinStalenessOpts } from './pin-staleness.js';
+import { isOnDefaultBranch, realGit } from './session-end.js';
 import type { KnowledgeEntry } from './types.js';
 
 export interface StopHookInput {
@@ -73,12 +79,20 @@ export interface StopContext {
   turn?: number;
   /** turn at which each nudge last fired this session (from SessionState) */
   lastNudged?: Partial<Record<NudgeKey, number>>;
+  /**
+   * ADR-0084 §1.4 (1c): is HEAD on the repo's default branch? A LAZY probe — called only
+   * when B3 is otherwise about to fire (RFC-047 §4.5), so the git reads cost nothing on the
+   * common path. Absent, throwing or false → B3 stays eligible (1c fails toward firing).
+   */
+  onDefaultBranch?: () => boolean;
 }
 
 export type StopDecision = { block: false } | { block: true; reminder: string; fired: NudgeKey[] };
 
 // Per-nudge cooldown (operator ruling 2026-07-31, replacing per-turn repetition): while a
 // trigger holds, its nudge repeats at most once every N turns instead of on every Stop.
+// Since ADR-0084 §1.5 (1e, vfkb#387) this window applies to the DECISION nudge only; B3's
+// window is the rest of the session.
 // The live incident: B3 armed the moment a PR merged mid-session and then fired on EVERY
 // stop for the rest of the session, forcing the agent to spend a turn declining each time.
 // Cooldown state lives on the SessionState record (keyed by harness session_id); when no
@@ -118,8 +132,8 @@ export function handoffNudgeDue(ctx: { uncommittedWork: boolean; newEntries: num
 }
 
 // B3 (first decided by ADR-0084, which accepts RFC-043 Parts 0/1/A and RFC-047; capability
-// DEMONSTRATED by scenarios/records/stale-handoff-anchor.json, vfkb#386 — delivery through the
-// plugin unproven until its install-path re-pin, ADR-0051): unlike
+// DEMONSTRATED by scenarios/records/stale-handoff-anchor.json, vfkb#386; 1c/1e, vfkb#387, rest
+// on the inner gate only — delivery through the plugin is unproven, ADR-0051): unlike
 // B1/B2, this is not about whether THIS session recorded a handoff — it fires when commits
 // already landed after the currently pinned handoff, so the pin itself is behind regardless
 // of what this session did. Deliberately NOT gated on `uncommittedWork`: the defining case is
@@ -128,10 +142,12 @@ export function handoffNudgeDue(ctx: { uncommittedWork: boolean; newEntries: num
 // that carries the pin.
 //
 // Nag history: per-turn firing (operator report 2026-07-31) → the NUDGE_COOLDOWN_TURNS rate
-// limit; ADR-0084 §1.3 (1d) dropped the closing write demand; RFC-043 Part 1's second half
-// (#386) now says what moved — the same bounded list Part A renders under `## Last handoff`
-// — and that the next session sees it, so a handoff written now is optional unless wrapping
-// up. The lead-in stays byte-identical so the fire count (`nudge-fires.py`) stays comparable.
+// limit → at most once per session (ADR-0084 §1.5, 1e, vfkb#387), and never on the default
+// branch with nothing to commit (§1.4, 1c); ADR-0084 §1.3 (1d) dropped the closing write
+// demand; RFC-043 Part 1's second half (#386) now says what moved — the same bounded list
+// Part A renders under `## Last handoff` — and that the next session sees it, so a handoff
+// written now is optional unless wrapping up. The lead-in stays byte-identical so the fire
+// count (`nudge-fires.py`) stays comparable.
 export const STALE_HANDOFF_LEADIN = 'vfkb stale-handoff check: ';
 
 /** RFC-047 §4.4's sentence, verbatim. */
@@ -165,6 +181,9 @@ export function renderStaleHandoffReminder(pin: { id: string; created: string } 
  *  3. Conditional trigger: substantive work happened AND no decision was recorded this session.
  *     (B1 is not composed on Stop — ADR-0084 §1.6.)
  *  4. B3 not before turn STALE_HANDOFF_MIN_TURN (ADR-0084 §1.1, 1a); invalid turn → fire.
+ *  5. B3 at most once per session (ADR-0084 §1.5, 1e); an invalid record → fire.
+ *  6. B3 quiet on the default branch with a clean tree and no new entries (§1.4, 1c); any
+ *     unknown → fire. The branch probe runs last and only when B3 would otherwise fire.
  *  (Not a true Brake — working-tree-changed ≠ decision-made; the committed ADR stays the
  *  deterministic backstop for *significant* decisions. This just fires the nudge at the right
  *  moment, only when plausibly needed.)
@@ -180,11 +199,15 @@ export function decideStop(input: StopHookInput, ctx: StopContext): StopDecision
   // would let a malformed-but-parseable value — null, "1000", or an absurdly large
   // number — read as "cooling" and fail CLOSED (silence) instead of open (fire).
   const turnValid = typeof ctx.turn === 'number' && Number.isFinite(ctx.turn);
+  // ADR-0084 §1.5 (1e, vfkb#387; decide Q7): B3's window is the rest of the session, so
+  // "set" means exactly what it means for the decision cooldown — a finite turn in
+  // [0, turn] on a valid turn — and anything else fires (fail open, PR #272).
   const cooling = (key: NudgeKey): boolean => {
     if (!turnValid) return false;
     const last = ctx.lastNudged?.[key];
     if (typeof last !== 'number' || !Number.isFinite(last) || last < 0 || last > ctx.turn!) return false;
-    return ctx.turn! - last < NUDGE_COOLDOWN_TURNS;
+    const window = key === 'staleHandoff' ? Infinity : NUDGE_COOLDOWN_TURNS;
+    return ctx.turn! - last < window;
   };
   const reminders: string[] = [];
   const fired: NudgeKey[] = [];
@@ -200,20 +223,41 @@ export function decideStop(input: StopHookInput, ctx: StopContext): StopDecision
   // Stale-handoff nudge (B3): NOT gated on uncommittedWork — the defining case is a clean
   // working tree with everything already merged, and the pinned handoff behind it anyway.
   // 1a (ADR-0084 §1.1): quiet while a VALID turn is below STALE_HANDOFF_MIN_TURN.
+  // 1e (ADR-0084 §1.5): once fired (by Stop, or by the folded prompt line), quiet for the session.
+  // 1c (ADR-0084 §1.4): quiet on the default branch with a clean tree and no new entries —
+  // SessionEnd never commits the default branch, so a handoff written now would not ship.
+  // `newEntries` must be exactly 0 (undefined = not established → fire); the probe runs last.
+  // Disclosed gap (decide Q4): `uncommittedWork` counts only src/ and docs/ (the same field
+  // B1 and the decision nudge read), so a test/- or scenarios/-only edit on main reads clean.
+  // `newEntries` is the brain LINE count since HEAD (decide Q5): under the append-only brain
+  // it is never below SessionEnd's id count, so the two can only disagree toward firing.
   const stale = ctx.staleCommits ?? [];
-  if (stale.length > 0 && !(turnValid && ctx.turn! < STALE_HANDOFF_MIN_TURN))
-    nudge('staleHandoff', renderStaleHandoffReminder(ctx.pin, stale));
+  if (stale.length > 0 && !(turnValid && ctx.turn! < STALE_HANDOFF_MIN_TURN) && !cooling('staleHandoff')) {
+    const defaultBranchIdle =
+      !ctx.uncommittedWork && ctx.newEntries === 0 && probeDefaultBranch(ctx.onDefaultBranch);
+    if (!defaultBranchIdle) nudge('staleHandoff', renderStaleHandoffReminder(ctx.pin, stale));
+  }
   if (reminders.length === 0) return { block: false };
   return { block: true, reminder: reminders.join('\n\n'), fired };
 }
 
-/** Working tree has uncommitted src/ or docs/ changes (brain-only changes don't count as "work"). */
+/** 1c's probe, fail-open: only a probe that RETURNS true counts; absent or throwing → false. */
+function probeDefaultBranch(probe: (() => boolean) | undefined): boolean {
+  if (typeof probe !== 'function') return false;
+  try {
+    return probe() === true;
+  } catch {
+    return false;
+  }
+}
+
 /** Optional bound on every git child (the UserPromptSubmit budget, decide step Q12). A
  *  timed-out child throws, and each caller already fails open on a throw. */
 export interface GitOpts {
   timeout?: number;
 }
 
+/** Working tree has uncommitted src/ or docs/ changes (brain-only changes don't count as "work"). */
 export function hasUncommittedWork(
   cwd: string = process.cwd(),
   brain: string = brainDir(),
@@ -380,5 +424,6 @@ export function gatherStopContext(cwd: string = process.cwd(), brain: string = b
     newHandoffs: fresh.filter(isHandoff).length,
     staleCommits: stale?.commits ?? [],
     pin: stale ? { id: stale.pin.id, created: stale.pin.created } : undefined,
+    onDefaultBranch: () => isOnDefaultBranch(realGit, cwd),
   };
 }
