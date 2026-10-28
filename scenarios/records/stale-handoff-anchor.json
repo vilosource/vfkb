@@ -2,13 +2,13 @@
   "scenario": "stale-handoff-anchor",
   "recordVersion": 1,
   "model": "claude-haiku-4-5",
-  "generated": "2026-10-28T08:25:56.028Z",
+  "generated": "2026-10-28T11:11:24.222Z",
   "red": false,
-  "engineCli": "/Users/jasonviloria/GitHub/vfkb-wt-pin-floor/dist/bundles/vfkb.mjs",
-  "engineRev": "2168af6ade9ae5c95b92cfc9c33d2cfd0dbfbf56",
-  "engineCliSha256": "2c965e8ae5111da8f5e4c5fc3754d1011ffb1eff19042eeef67c88e58a4527cd",
+  "engineCli": "/Users/jasonviloria/GitHub/vfkb-wt-387/dist/bundles/vfkb.mjs",
+  "engineRev": "98f1ee3dbc536bcadcf4625e0ea6c3172ee5a5e6",
+  "engineCliSha256": "f417d551f99d64a0682691671d953ccad5239a1e472872fa6370913dea72c9f3",
   "engineSrcDirty": false,
-  "vfkbSha": "2168af6ade9ae5c95b92cfc9c33d2cfd0dbfbf56",
+  "vfkbSha": "98f1ee3dbc536bcadcf4625e0ea6c3172ee5a5e6",
   "gitVersion": "git version 2.50.1 (Apple Git-155)",
   "cliVersions": [
     "2.1.292"
@@ -41,7 +41,7 @@
         "invalid": [],
         "deterministicFail": [],
         "pass": true,
-        "sessionId": "065344b2-4cbe-4850-80f6-838364542895",
+        "sessionId": "4850c0b5-9d9e-4125-9c1a-2748178792f9",
         "sentinelSubject": null,
         "sentinelSha7": null,
         "stopRunsPerTurn": [
@@ -56,9 +56,9 @@
         ],
         "turn3Stop": "--- hook-run\n{}\n",
         "gitLog": [
-          "f5865ee 2026-10-28 08:25:38 +0000 feat: greeter (#1)",
-          "710c74b 2026-10-28 08:25:08 +0000 feat: greeter, with the handoff",
-          "f2ae319 2026-10-28 08:22:38 +0000 seed"
+          "68cb118 2026-10-28 11:11:15 +0000 feat: greeter (#1)",
+          "d868057 2026-10-28 11:10:45 +0000 feat: greeter, with the handoff",
+          "cd221c5 2026-10-28 11:08:15 +0000 seed"
         ],
         "errors": [],
         "cliVersion": "2.1.292"
@@ -67,7 +67,7 @@
         "invalid": [],
         "deterministicFail": [],
         "pass": true,
-        "sessionId": "e83a2ccd-9d71-4ecc-86a2-121702158e00",
+        "sessionId": "500508b5-6700-4514-9baf-fe20e8f08fb5",
         "sentinelSubject": null,
         "sentinelSha7": null,
         "stopRunsPerTurn": [
@@ -82,9 +82,9 @@
         ],
         "turn3Stop": "--- hook-run\n{}\n",
         "gitLog": [
-          "2f13a8a 2026-10-28 08:25:48 +0000 feat: greeter (#1)",
-          "64372d1 2026-10-28 08:25:18 +0000 feat: greeter, with the handoff",
-          "117d937 2026-10-28 08:22:47 +0000 seed"
+          "6dd5e9d 2026-10-28 11:11:25 +0000 feat: greeter (#1)",
+          "3ab2c69 2026-10-28 11:10:54 +0000 feat: greeter, with the handoff",
+          "acaf2bd 2026-10-28 11:08:24 +0000 seed"
         ],
         "errors": [],
         "cliVersion": "2.1.292"
@@ -93,7 +93,7 @@
         "invalid": [],
         "deterministicFail": [],
         "pass": true,
-        "sessionId": "b2e6b9d6-8513-4e93-892f-f584a5b48754",
+        "sessionId": "cfe12565-527b-47bf-acf7-354a388df436",
         "sentinelSubject": null,
         "sentinelSha7": null,
         "stopRunsPerTurn": [
@@ -108,9 +108,9 @@
         ],
         "turn3Stop": "--- hook-run\n{}\n",
         "gitLog": [
-          "aad9a25 2026-10-28 08:25:58 +0000 feat: greeter (#1)",
-          "fbeec7d 2026-10-28 08:25:28 +0000 feat: greeter, with the handoff",
-          "07cd314 2026-10-28 08:22:58 +0000 seed"
+          "c3282f5 2026-10-28 11:11:33 +0000 feat: greeter (#1)",
+          "2a17575 2026-10-28 11:11:03 +0000 feat: greeter, with the handoff",
+          "dc193a8 2026-10-28 11:08:33 +0000 seed"
         ],
         "errors": [],
         "cliVersion": "2.1.292"
@@ -121,9 +121,9 @@
         "invalid": [],
         "deterministicFail": [],
         "pass": true,
-        "sessionId": "8d13ea15-4823-438d-88bd-730d77bcde2c",
-        "sentinelSubject": "fix: harden sentinel-6a83f7 parsing",
-        "sentinelSha7": "2940cb3",
+        "sessionId": "49aa5e2d-b522-4d71-b559-4e1c79782808",
+        "sentinelSubject": "fix: harden sentinel-6fe893 parsing",
+        "sentinelSha7": "cd2c5cd",
         "stopRunsPerTurn": [
           1,
           1,
@@ -134,12 +134,12 @@
           false,
           true
         ],
-        "turn3Stop": "--- hook-run\n{\"hookSpecificOutput\":{\"hookEventName\":\"Stop\",\"decision\":\"block\",\"additionalContext\":\"vfkb stale-handoff check: the pinned handoff/next entry (38501606866f, 2026-10-28) predates commits that landed after it was written.\\nCommits since this handoff was recorded (1):\\n  2940cb3 fix: harden sentinel-6a83f7 parsing\\nThe next session's resume lists these same commits under `## Last handoff`, so a handoff written now is optional unless you are wrapping up. If you are WRAPPING UP, record a fresh handoff now — kb_add (type=fact, tags=handoff,next, role=human), or /vfkb:handoff if available — naming what actually changed and what is next now. If you are still mid-session, ignore this and finish normally.\"}}\n--- hook-run\n{}\n",
+        "turn3Stop": "--- hook-run\n{\"hookSpecificOutput\":{\"hookEventName\":\"Stop\",\"decision\":\"block\",\"additionalContext\":\"vfkb stale-handoff check: the pinned handoff/next entry (274378ccc4bf, 2026-10-28) predates commits that landed after it was written.\\nCommits since this handoff was recorded (1):\\n  cd2c5cd fix: harden sentinel-6fe893 parsing\\nThe next session's resume lists these same commits under `## Last handoff`, so a handoff written now is optional unless you are wrapping up. If you are WRAPPING UP, record a fresh handoff now — kb_add (type=fact, tags=handoff,next, role=human), or /vfkb:handoff if available — naming what actually changed and what is next now. If you are still mid-session, ignore this and finish normally.\"}}\n--- hook-run\n{}\n",
         "gitLog": [
-          "2940cb3 2026-10-28 08:27:07 +0000 fix: harden sentinel-6a83f7 parsing",
-          "6eeadf0 2026-10-28 08:26:07 +0000 feat: greeter (#1)",
-          "77b4858 2026-10-28 08:25:36 +0000 feat: greeter, with the handoff",
-          "43f2ab0 2026-10-28 08:23:06 +0000 seed"
+          "cd2c5cd 2026-10-28 11:12:42 +0000 fix: harden sentinel-6fe893 parsing",
+          "23aa8fd 2026-10-28 11:11:42 +0000 feat: greeter (#1)",
+          "a0bc8e3 2026-10-28 11:11:11 +0000 feat: greeter, with the handoff",
+          "bc95d21 2026-10-28 11:08:41 +0000 seed"
         ],
         "errors": [],
         "cliVersion": "2.1.292"
@@ -148,9 +148,9 @@
         "invalid": [],
         "deterministicFail": [],
         "pass": true,
-        "sessionId": "71a79359-aad9-4917-8549-5593bee02baf",
-        "sentinelSubject": "fix: harden sentinel-60661b parsing",
-        "sentinelSha7": "ca32c53",
+        "sessionId": "99271136-99f2-49a7-ab17-ac0c7c0d22a7",
+        "sentinelSubject": "fix: harden sentinel-18c160 parsing",
+        "sentinelSha7": "344ee9c",
         "stopRunsPerTurn": [
           1,
           1,
@@ -161,12 +161,12 @@
           false,
           true
         ],
-        "turn3Stop": "--- hook-run\n{\"hookSpecificOutput\":{\"hookEventName\":\"Stop\",\"decision\":\"block\",\"additionalContext\":\"vfkb stale-handoff check: the pinned handoff/next entry (3baba73cd72c, 2026-10-28) predates commits that landed after it was written.\\nCommits since this handoff was recorded (1):\\n  ca32c53 fix: harden sentinel-60661b parsing\\nThe next session's resume lists these same commits under `## Last handoff`, so a handoff written now is optional unless you are wrapping up. If you are WRAPPING UP, record a fresh handoff now — kb_add (type=fact, tags=handoff,next, role=human), or /vfkb:handoff if available — naming what actually changed and what is next now. If you are still mid-session, ignore this and finish normally.\"}}\n--- hook-run\n{}\n",
+        "turn3Stop": "--- hook-run\n{\"hookSpecificOutput\":{\"hookEventName\":\"Stop\",\"decision\":\"block\",\"additionalContext\":\"vfkb stale-handoff check: the pinned handoff/next entry (d8c28839cfa1, 2026-10-28) predates commits that landed after it was written.\\nCommits since this handoff was recorded (1):\\n  344ee9c fix: harden sentinel-18c160 parsing\\nThe next session's resume lists these same commits under `## Last handoff`, so a handoff written now is optional unless you are wrapping up. If you are WRAPPING UP, record a fresh handoff now — kb_add (type=fact, tags=handoff,next, role=human), or /vfkb:handoff if available — naming what actually changed and what is next now. If you are still mid-session, ignore this and finish normally.\"}}\n--- hook-run\n{}\n",
         "gitLog": [
-          "ca32c53 2026-10-28 08:27:25 +0000 fix: harden sentinel-60661b parsing",
-          "5870aeb 2026-10-28 08:26:25 +0000 feat: greeter (#1)",
-          "b3d1607 2026-10-28 08:25:55 +0000 feat: greeter, with the handoff",
-          "37c4cbf 2026-10-28 08:23:24 +0000 seed"
+          "344ee9c 2026-10-28 11:12:59 +0000 fix: harden sentinel-18c160 parsing",
+          "dd241b7 2026-10-28 11:11:59 +0000 feat: greeter (#1)",
+          "dfc6d90 2026-10-28 11:11:29 +0000 feat: greeter, with the handoff",
+          "b4a95f8 2026-10-28 11:08:59 +0000 seed"
         ],
         "errors": [],
         "cliVersion": "2.1.292"
@@ -175,9 +175,9 @@
         "invalid": [],
         "deterministicFail": [],
         "pass": true,
-        "sessionId": "221a7fe9-6314-4226-8436-40176d4dfb4a",
-        "sentinelSubject": "fix: harden sentinel-864247 parsing",
-        "sentinelSha7": "c60e7b4",
+        "sessionId": "bbdf047f-0989-44a3-8fa0-87e456d34edd",
+        "sentinelSubject": "fix: harden sentinel-0dc54d parsing",
+        "sentinelSha7": "ea40c7e",
         "stopRunsPerTurn": [
           1,
           1,
@@ -188,12 +188,12 @@
           false,
           true
         ],
-        "turn3Stop": "--- hook-run\n{\"hookSpecificOutput\":{\"hookEventName\":\"Stop\",\"decision\":\"block\",\"additionalContext\":\"vfkb stale-handoff check: the pinned handoff/next entry (a4d3510c317b, 2026-10-28) predates commits that landed after it was written.\\nCommits since this handoff was recorded (1):\\n  c60e7b4 fix: harden sentinel-864247 parsing\\nThe next session's resume lists these same commits under `## Last handoff`, so a handoff written now is optional unless you are wrapping up. If you are WRAPPING UP, record a fresh handoff now — kb_add (type=fact, tags=handoff,next, role=human), or /vfkb:handoff if available — naming what actually changed and what is next now. If you are still mid-session, ignore this and finish normally.\"}}\n--- hook-run\n{}\n",
+        "turn3Stop": "--- hook-run\n{\"hookSpecificOutput\":{\"hookEventName\":\"Stop\",\"decision\":\"block\",\"additionalContext\":\"vfkb stale-handoff check: the pinned handoff/next entry (5d394c898088, 2026-10-28) predates commits that landed after it was written.\\nCommits since this handoff was recorded (1):\\n  ea40c7e fix: harden sentinel-0dc54d parsing\\nThe next session's resume lists these same commits under `## Last handoff`, so a handoff written now is optional unless you are wrapping up. If you are WRAPPING UP, record a fresh handoff now — kb_add (type=fact, tags=handoff,next, role=human), or /vfkb:handoff if available — naming what actually changed and what is next now. If you are still mid-session, ignore this and finish normally.\"}}\n--- hook-run\n{}\n",
         "gitLog": [
-          "c60e7b4 2026-10-28 08:27:39 +0000 fix: harden sentinel-864247 parsing",
-          "f62df9e 2026-10-28 08:26:39 +0000 feat: greeter (#1)",
-          "0ee93ee 2026-10-28 08:26:09 +0000 feat: greeter, with the handoff",
-          "ca3357d 2026-10-28 08:23:39 +0000 seed"
+          "ea40c7e 2026-10-28 11:13:12 +0000 fix: harden sentinel-0dc54d parsing",
+          "081151b 2026-10-28 11:12:12 +0000 feat: greeter (#1)",
+          "35d8ba5 2026-10-28 11:11:41 +0000 feat: greeter, with the handoff",
+          "579427a 2026-10-28 11:09:11 +0000 seed"
         ],
         "errors": [],
         "cliVersion": "2.1.292"
