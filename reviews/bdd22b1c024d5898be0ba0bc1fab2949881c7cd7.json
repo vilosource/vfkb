@@ -1,6 +1,6 @@
 {
   "recordVersion": 1,
-  "sha": "19ed4c73bf2b40a72431ee583ffd5c3654b51ff1",
+  "sha": "bdd22b1c024d5898be0ba0bc1fab2949881c7cd7",
   "governing": [
     "docs/adr/ADR-0084-handoff-nudge-next-prompt.md",
     "docs/rfc/RFC-043-stop-nudge-observer.md",
@@ -9,7 +9,8 @@
   "reviewer": {
     "agent": "claude -p (fresh process, opus)",
     "model": "opus",
-    "rounds": 2
+    "rounds": 2,
+    "note": "Rounds 1-2 read the code at 19ed4c73bf2b40a72431ee583ffd5c3654b51ff1; bdd22b1c024d5898be0ba0bc1fab2949881c7cd7 adds only .vfkb/entries.jsonl (review + handoff facts) and the first filing of this record, so the reviewed code is byte-identical."
   },
   "generated": "2026-10-28T09:08:24Z",
   "findings": [
