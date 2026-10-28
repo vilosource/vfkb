@@ -1,0 +1,151 @@
+{
+  "recordVersion": 1,
+  "sha": "7000eb1da0252b841db4281d5f14aed8603575cb",
+  "governing": [
+    "docs/adr/ADR-0084-handoff-nudge-next-prompt.md",
+    "docs/rfc/RFC-043-stop-nudge-observer.md",
+    "docs/rfc/RFC-047-less-intrusive-handoff-nudge.md"
+  ],
+  "reviewer": {
+    "agent": "claude -p (fresh process, opus)",
+    "model": "opus",
+    "rounds": 4,
+    "note": "Rounds 1-2 (pre-PR) read 19ed4c7 (record bdd22b1). PR-level adversarial rounds 1-2 posted on #401: round 1 at 613e42c (FIX-FIRST, B1), round 2 at 7000eb1 (B1 fixed, no new findings; https://github.com/vilosource/vfkb/pull/401#issuecomment-6465759130). 7000eb1 is test-only (19 lines in test/pin-staleness.test.ts); the 11b mutations were re-run by the filer at 7000eb1 and observed 64/65 under each, 65/65 at head."
+  },
+  "generated": "2026-10-28T09:50:20Z",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "escapeRegex escaped the basic-regex set but git log -G takes an extended regex: a created with +03:00 (outside writer) missed its carrier and B' listed the squash carrying the pin (fixed in 19ed4c7; macOS git probed 22/22, Linux git UNVERIFIED, the CI-run offset fixture self-checks it)",
+      "acceptedBy": null
+    },
+    {
+      "id": "F2",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "mutants survived round 1: trailer ignored in boundedCommits, <= -> < in the author-date drop, the final budget check; guards added in 19ed4c7 and observed red. M3 (T without --first-parent) is near-equivalent under rule 5 and carried as a note",
+      "acceptedBy": null
+    },
+    {
+      "id": "F3",
+      "severity": "minor",
+      "status": "accepted",
+      "summary": "a timed-out Part 0 result is never cached (decide D8, by design): on a repo where Part 0 exceeds 1.5 s, B3 and Part A stay silent; disclosure for the release note (measured 0.55-0.68 s here)",
+      "acceptedBy": null
+    },
+    {
+      "id": "PR1-B1",
+      "severity": "blocking",
+      "status": "fixed",
+      "summary": "rule 5 carrier-path ancestry clause (src/pin-staleness.ts:284-285) had no guard: deleting \"ancestor of C\" left the suite green; fixed in 7000eb1 by row 11b (pre-pin-authored PR rebase-merged above the carrier -> STALE {O})",
+      "acceptedBy": null
+    },
+    {
+      "id": "PR1-m1",
+      "severity": "minor",
+      "status": "open",
+      "summary": "the T anchor (range ${T}..HEAD) can be removed with the suite green; rule 5 drops make T near-redundant (a distinguishing input needs clock skew, UNVERIFIED)",
+      "acceptedBy": null
+    },
+    {
+      "id": "PR1-m2",
+      "severity": "minor",
+      "status": "open",
+      "summary": "the cache key rule field has no guard (sameKey ignoring rule stays green); only one PIN_STALENESS_RULE version exists today",
+      "acceptedBy": null
+    },
+    {
+      "id": "PR1-m3",
+      "severity": "minor",
+      "status": "open",
+      "summary": "the D5 test (test/pin-floor-render.test.ts:125) is vacuous: constitutional is decision-only and isPinCandidate requires fact, so the guarded case is unreachable; pre-existing guard, not a defect",
+      "acceptedBy": null
+    },
+    {
+      "id": "PR1-m4",
+      "severity": "minor",
+      "status": "open",
+      "summary": "the PR body cites reviews/19ed4c73...json, renamed to reviews/bdd22b1c...json by 613e42c (now superseded by this record)",
+      "acceptedBy": null
+    },
+    {
+      "id": "PR1-m5",
+      "severity": "minor",
+      "status": "open",
+      "summary": "the L4 records enforce but do not store the observed modelUsage per trial; storing it would make ADR-0050 pinned-model observation auditable from the record alone",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 9,
+  "mutations": [
+    {
+      "guard": "test/pin-staleness.test.ts row fixtures (N5, N5b)",
+      "mutation": "B' off: no-carrier path keeps every commit",
+      "observedRed": true
+    },
+    {
+      "guard": "test/pin-staleness.test.ts row fixtures (1, 1b, 7b, N1, N6, N7, S1, metachar)",
+      "mutation": "carrier not excluded from S",
+      "observedRed": true
+    },
+    {
+      "guard": "test/pin-staleness.test.ts > escapeRegex / metachar carrier",
+      "mutation": "escapeRegex is identity",
+      "observedRed": true
+    },
+    {
+      "guard": "test/pin-staleness.test.ts > offset created finds its carrier",
+      "mutation": "escapeRegex reverted to the BRE set",
+      "observedRed": true
+    },
+    {
+      "guard": "test/pin-staleness.test.ts > a commit authored EXACTLY at u is dropped",
+      "mutation": "at*1000 <= uMs -> <",
+      "observedRed": true
+    },
+    {
+      "guard": "test/pin-staleness.test.ts > a computation that finishes past the deadline is null",
+      "mutation": "final b.left() removed",
+      "observedRed": true
+    },
+    {
+      "guard": "test/pin-floor-render.test.ts > mixed subject lengths never overflow",
+      "mutation": "boundedCommits ignores the (+k more) trailer",
+      "observedRed": true
+    },
+    {
+      "guard": "test/pin-floor-faces.test.ts > all five entry points",
+      "mutation": "reviewer W1-W4: provider removed from resumePayload / SessionStart / context-block / pi",
+      "observedRed": true
+    },
+    {
+      "guard": "test/pin-staleness.test.ts > cache tests",
+      "mutation": "reviewer C1-C4: key ignores HEAD / cache never read / failures cached / deadline fixed at build",
+      "observedRed": true
+    },
+    {
+      "guard": "test/stop-reminder.test.ts > the B3 Stop text",
+      "mutation": "reviewer S1/S2: reminder without the list / without the next-session sentence",
+      "observedRed": true
+    },
+    {
+      "guard": "test/prompt-nudge.test.ts > with the Part 0 list",
+      "mutation": "reviewer N1-N3: no next-session clause / no Part 0 / no list",
+      "observedRed": true
+    },
+    {
+      "guard": "test/pin-staleness.test.ts row 11b (rebasemergeabove: pre-pin-authored PR above the carrier -> STALE {O})",
+      "mutation": "return !(ancestorOfC && authoredByU(c.at)) -> return !authoredByU(c.at) (ancestry clause dropped on the carrier path)",
+      "observedRed": true
+    },
+    {
+      "guard": "test/pin-staleness.test.ts row 11b (rebasemergeabove: pre-pin-authored PR above the carrier -> STALE {O})",
+      "mutation": "const ancestorOfC = true (every commit treated as an ancestor of C)",
+      "observedRed": true
+    }
+  ],
+  "mutationsNote": null,
+  "verdict": "MERGE"
+}
