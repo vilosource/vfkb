@@ -95,8 +95,13 @@ export interface PinStalenessKey {
 // `performance.now()` difference silently disabled every git read there.
 export const ms = (t: number): number => Math.max(1, Math.floor(t));
 
-/** BRE metacharacters for `git log -G` (`.` is the one real ids/dates carry). */
-export const escapeRegex = (s: string): string => s.replace(/[.[\]*^$\\]/g, '\\$&');
+/**
+ * Escape for `git log -G`, which takes an EXTENDED regex (observed: an unescaped `+` does
+ * not match itself and `a|b` alternates — review of #401, finding 1). `.` is the common
+ * case; a `created` with an offset (`+03:00`) from an outside writer needs `+` escaped, or
+ * the carrier is missed and B′ lists the very squash that carries the pin.
+ */
+export const escapeRegex = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 class Budget {
   readonly deadline: number;

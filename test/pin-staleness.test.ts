@@ -503,8 +503,19 @@ describe('rule 1 — B3 selects the pin with latestHandoff (R3-M3)', () => {
 
 // ── regex escaping in the carrier lookup ─────────────────────────────────────────────────
 describe('the carrier lookup escapes regex metacharacters', () => {
-  it('escapeRegex covers . * [ ] $ ^ \\', () => {
+  it('escapeRegex covers the EXTENDED set git -G uses: . * + ? ^ $ { } ( ) | [ ] \\', () => {
     expect(escapeRegex('a.b*c[d]e$f^g\\h')).toBe('a\\.b\\*c\\[d\\]e\\$f\\^g\\\\h');
+    expect(escapeRegex('+?{}()|')).toBe('\\+\\?\\{\\}\\(\\)\\|');
+  });
+  it('a pin whose created carries an offset (+03:00) still finds its carrier (review #401 F1)', () => {
+    sh(`fresh offset; git switch -q -c topic
+printf '{"id":"OF1","type":"fact","text":"t","tags":["handoff"],"created":"2026-01-02T03:00:00+03:00","updated":"2026-01-02T03:00:00+03:00"}\\n' >> .vfkb/entries.jsonl
+git add -A; c 2026-01-02T01:00:00Z "topic: pin"
+echo b>b; git add -A; c 2026-01-02T02:00:00Z "topic: code"
+git switch -q main; git merge -q --squash topic; c 2026-01-03T00:00:00Z "squash (#5)"`);
+    const cwd = join(WORK, 'offset');
+    // Unescaped, `+` is a quantifier: no carrier, B′ lists the squash (cause 1 again).
+    expect(subjectsOf(cwd, join(cwd, '.vfkb'), 'OF1', '2026-01-02T03:00:00+03:00')).toEqual([]);
   });
   it('an id full of metacharacters still finds its own carrier and not a look-alike', () => {
     // `.` unescaped would let id "a.c" match a line for "abc"; `*` and `[` would break -G.
@@ -761,6 +772,35 @@ describe('a hung git is cut at the budget (decide D8)', () => {
       else process.env.VFKB_DIR = prev.dir;
       if (prev.data !== undefined) process.env.VFKB_DATA_DIR = prev.data;
     }
+  });
+});
+
+// Review #401 finding 2: guards for three mutants that survived round 1.
+describe('boundaries the fixtures did not pin (review #401 F2)', () => {
+  // Committer dates are after u (a rebase shape), so T does not hide them: only rule 5 can.
+  it('a commit authored EXACTLY at u is dropped (at or before u, rule 5 / B′)', () => {
+    sh(`fresh atu
+echo b>b; git add -A; c 2026-01-02T00:00:00Z "code before pin"
+entry PA 2026-01-03T00:00:00.000Z handoff
+echo k>k; git add k; GIT_AUTHOR_DATE=2026-01-03T00:00:00Z GIT_COMMITTER_DATE=2026-01-03T01:00:00Z git commit -q -m "authored at u"
+echo m>m; git add m; GIT_AUTHOR_DATE=2026-01-03T00:00:01Z GIT_COMMITTER_DATE=2026-01-03T01:00:01Z git commit -q -m "authored after u"`);
+    const cwd = join(WORK, 'atu');
+    expect(subjectsOf(cwd, join(cwd, '.vfkb'), 'PA', '2026-01-03T00:00:00.000Z')).toEqual(['authored after u']);
+  });
+  it('a computation that finishes past the deadline is null (the final budget check)', () => {
+    sh(`fresh late
+entry PL 2026-01-03T00:00:00.000Z handoff
+echo k>k; git add k; c 2026-01-04T00:00:00Z "after pin"`);
+    const cwd = join(WORK, 'late');
+    let t = 0;
+    const git: GitRunner = (args, c, o) => {
+      const out = defaultGit(args, c, o);
+      if (args[0] === 'log' && args.some((x) => x.startsWith('--format=%H%x00'))) t = 5_000; // the last child
+      return out;
+    };
+    const pin = { id: 'PL', created: '2026-01-03T00:00:00.000Z' };
+    expect(cachedPinStaleness(cwd, join(cwd, '.vfkb'), pin, { git, now: () => t, deadline: 1500, cache: false })).toBeNull();
+    expect(cachedPinStaleness(cwd, join(cwd, '.vfkb'), pin, { cache: false })?.commits.map((x) => x.subject)).toEqual(['after pin']);
   });
 });
 

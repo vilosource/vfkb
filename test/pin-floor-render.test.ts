@@ -51,6 +51,18 @@ describe('the Part A block (decide D4)', () => {
     expect(b).toContain(`  (+${more} more)\n`);
     expect(b.startsWith('Commits since this handoff was recorded (30):\n')).toBe(true);
   });
+  it('mixed subject lengths never overflow the slice once the (+k more) trailer is counted (review #401 F2)', () => {
+    let seed = 7;
+    const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+    for (let iter = 0; iter < 3000; iter++) {
+      const n = 1 + Math.floor(rnd() * 25);
+      const cs = Array.from({ length: n }, (_, i) => c(i, 's'.repeat(Math.floor(rnd() * 140))));
+      const b = renderCommitsSince(cs);
+      expect(b.length, `iter ${iter}`).toBeLessThanOrEqual(COMMITS_SINCE_SLICE_CHARS);
+      const { shown, more } = boundedCommits(cs);
+      expect(shown.length + more).toBe(n);
+    }
+  });
   it('the count line always survives and N is |S|, not the shown count', () => {
     const many = Array.from({ length: 999 }, (_, i) => c(i, 'q'.repeat(100)));
     expect(renderCommitsSince(many)).toMatch(/^Commits since this handoff was recorded \(999\):\n/);
