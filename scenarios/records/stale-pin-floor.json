@@ -1,0 +1,387 @@
+{
+  "scenario": "stale-pin-floor",
+  "recordVersion": 1,
+  "model": "claude-haiku-4-5",
+  "generated": "2026-10-28T08:33:55.752Z",
+  "red": false,
+  "engineCli": "/Users/jasonviloria/GitHub/vfkb-wt-pin-floor/dist/bundles/vfkb.mjs",
+  "engineMcp": "/Users/jasonviloria/GitHub/vfkb-wt-pin-floor/dist/bundles/vfkb-mcp.mjs",
+  "engineRev": "d1cb5bdad937b676757c89261937ddaac019daa5",
+  "engineCliSha256": "01296c070cc706caee7cf99297920749337e8f217be1e4b3d3ea8261969ba79a",
+  "engineMcpSha256": "ffccda63352a52ec8dc5769333d10b24a4beb85092ac5ae895ee63af2615fab1",
+  "engineSrcDirty": false,
+  "contrastEngineRev": "aa4a33c550aacdd3d1d8234ddeaed6c493b22b84",
+  "contrastEngineCliSha256": "9c9223fe4c6651a31d37ec71a4b590cfebd5fabaae52d797996b4b149eb7ca8d",
+  "contrastEngineMcpSha256": "0e20a9363f21457b706176bcdf2f5dfb5e191a3502d3df9de196a6a4b5476016",
+  "contrastNote": "decide D6: the contrast engine is the whole pre-#386 engine on every face (SessionStart hook + MCP server). Parts 0 and 1 cannot put a commit subject into the render, so the predicate is insensitive to them.",
+  "vfkbSha": "d1cb5bdad937b676757c89261937ddaac019daa5",
+  "cliVersions": [
+    "2.1.292"
+  ],
+  "isolation": "enabledPlugins {'vfkb@vfkb': false}; init event asserted; --tools '' + vfkb MCP only; UserPromptSubmit not wired; git-status snapshot off (CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS=1, includeGitInstructions:false)",
+  "thresholds": "scenarios/lib/floor-verdict.mjs (treatment ≥2/3; contrast ≤1/3 and below treatment; render predicates 3/3; mcp-resume diagnostic)",
+  "verdict": {
+    "counts": {
+      "treatment": {
+        "valid": 3,
+        "attempts": 3,
+        "pass": 3,
+        "deterministicFailures": 0
+      },
+      "contrast": {
+        "valid": 3,
+        "attempts": 3,
+        "pass": 0,
+        "deterministicFailures": 0
+      },
+      "squash-negative": {
+        "valid": 3,
+        "attempts": 3,
+        "pass": 3,
+        "deterministicFailures": 0
+      },
+      "mcp-resume": {
+        "valid": 3,
+        "attempts": 3,
+        "pass": 3,
+        "deterministicFailures": 0
+      }
+    },
+    "invalidTrials": 0,
+    "complete": true,
+    "demonstrated": true,
+    "reasons": []
+  },
+  "trials": {
+    "treatment": [
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "named": true,
+        "pinSentinel": "heron-77548d",
+        "commitSentinel": "kestrel-83f18c",
+        "engineCli": "/Users/jasonviloria/GitHub/vfkb-wt-pin-floor/dist/bundles/vfkb.mjs",
+        "renderSection": "## Last handoff\n- [fact ✓operator · b6fcac9c32e5] handoff: the app scaffold is in place. next: review the heron-77548d checklist.\nCommits since this handoff was recorded (1):\n  52c3e4c feat: add the kestrel-83f18c module\n\n",
+        "renderHasBlock": true,
+        "toolCalls": [],
+        "answer": "Based on the context provided, one commit landed after the last handoff:\n\n- `feat: add the kestrel-83f18c module`",
+        "errors": [],
+        "cliVersion": "2.1.292",
+        "initTools": [
+          "mcp__vfkb__kb_add",
+          "mcp__vfkb__kb_context",
+          "mcp__vfkb__kb_get",
+          "mcp__vfkb__kb_list",
+          "mcp__vfkb__kb_map",
+          "mcp__vfkb__kb_resume",
+          "mcp__vfkb__kb_search",
+          "mcp__vfkb__kb_supersede",
+          "mcp__vfkb__kb_transition"
+        ]
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "named": true,
+        "pinSentinel": "heron-ac70e0",
+        "commitSentinel": "kestrel-80100b",
+        "engineCli": "/Users/jasonviloria/GitHub/vfkb-wt-pin-floor/dist/bundles/vfkb.mjs",
+        "renderSection": "## Last handoff\n- [fact ✓operator · 4407b9aad2ef] handoff: the app scaffold is in place. next: review the heron-ac70e0 checklist.\nCommits since this handoff was recorded (1):\n  ad9d13e feat: add the kestrel-80100b module\n\n",
+        "renderHasBlock": true,
+        "toolCalls": [],
+        "answer": "Based on the vfkb context provided in the session start, one commit landed after the last recorded handoff:\n\n- `feat: add the kestrel-80100b module`",
+        "errors": [],
+        "cliVersion": "2.1.292",
+        "initTools": [
+          "mcp__vfkb__kb_add",
+          "mcp__vfkb__kb_context",
+          "mcp__vfkb__kb_get",
+          "mcp__vfkb__kb_list",
+          "mcp__vfkb__kb_map",
+          "mcp__vfkb__kb_resume",
+          "mcp__vfkb__kb_search",
+          "mcp__vfkb__kb_supersede",
+          "mcp__vfkb__kb_transition"
+        ]
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "named": true,
+        "pinSentinel": "heron-e5948a",
+        "commitSentinel": "kestrel-511142",
+        "engineCli": "/Users/jasonviloria/GitHub/vfkb-wt-pin-floor/dist/bundles/vfkb.mjs",
+        "renderSection": "## Last handoff\n- [fact ✓operator · 6b959bada754] handoff: the app scaffold is in place. next: review the heron-e5948a checklist.\nCommits since this handoff was recorded (1):\n  156d23a feat: add the kestrel-511142 module\n\n",
+        "renderHasBlock": true,
+        "toolCalls": [],
+        "answer": "Based on the context provided, **1 commit** has landed since the last recorded handoff:\n\n- `feat: add the kestrel-511142 module`",
+        "errors": [],
+        "cliVersion": "2.1.292",
+        "initTools": [
+          "mcp__vfkb__kb_add",
+          "mcp__vfkb__kb_context",
+          "mcp__vfkb__kb_get",
+          "mcp__vfkb__kb_list",
+          "mcp__vfkb__kb_map",
+          "mcp__vfkb__kb_resume",
+          "mcp__vfkb__kb_search",
+          "mcp__vfkb__kb_supersede",
+          "mcp__vfkb__kb_transition"
+        ]
+      }
+    ],
+    "contrast": [
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": false,
+        "named": false,
+        "pinSentinel": "heron-36e40e",
+        "commitSentinel": "kestrel-fd0fa5",
+        "engineCli": "/private/var/folders/j2/fp21t39n14j9ls2q7yr3vbbw0000gn/T/vfkb-baseline-aa4a33c550aacdd3d1d8234ddeaed6c493b22b84/vfkb.mjs",
+        "renderSection": "## Last handoff\n- [fact ✓operator · 4b959d3fb261] handoff: the app scaffold is in place. next: review the heron-36e40e checklist.\n\n",
+        "renderHasBlock": false,
+        "toolCalls": [],
+        "answer": "UNKNOWN\n\nThe vfkb context shows the last handoff fact (\"handoff: the app scaffold is in place. next: review the heron-36e40e checklist.\") but doesn't provide git commit history or the timestamp of that handoff. I'd need to query git or vfkb search for entry metadata to correlate the handoff to a specific commit and see what landed after it.",
+        "errors": [],
+        "cliVersion": "2.1.292",
+        "initTools": [
+          "mcp__vfkb__kb_add",
+          "mcp__vfkb__kb_context",
+          "mcp__vfkb__kb_get",
+          "mcp__vfkb__kb_list",
+          "mcp__vfkb__kb_map",
+          "mcp__vfkb__kb_resume",
+          "mcp__vfkb__kb_search",
+          "mcp__vfkb__kb_supersede",
+          "mcp__vfkb__kb_transition"
+        ]
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": false,
+        "named": false,
+        "pinSentinel": "heron-7655d8",
+        "commitSentinel": "kestrel-0b6555",
+        "engineCli": "/private/var/folders/j2/fp21t39n14j9ls2q7yr3vbbw0000gn/T/vfkb-baseline-aa4a33c550aacdd3d1d8234ddeaed6c493b22b84/vfkb.mjs",
+        "renderSection": "## Last handoff\n- [fact ✓operator · 1090bc0e8e3d] handoff: the app scaffold is in place. next: review the heron-7655d8 checklist.\n\n",
+        "renderHasBlock": false,
+        "toolCalls": [],
+        "answer": "UNKNOWN\n\nThe vfkb context shows the last recorded handoff fact but doesn't include subsequent git history, and the vfkb tools don't provide git log queries. I'd need to run `git log` to see commits after that handoff point.",
+        "errors": [],
+        "cliVersion": "2.1.292",
+        "initTools": [
+          "mcp__vfkb__kb_add",
+          "mcp__vfkb__kb_context",
+          "mcp__vfkb__kb_get",
+          "mcp__vfkb__kb_list",
+          "mcp__vfkb__kb_map",
+          "mcp__vfkb__kb_resume",
+          "mcp__vfkb__kb_search",
+          "mcp__vfkb__kb_supersede",
+          "mcp__vfkb__kb_transition"
+        ]
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": false,
+        "named": false,
+        "pinSentinel": "heron-e2f917",
+        "commitSentinel": "kestrel-f23a13",
+        "engineCli": "/private/var/folders/j2/fp21t39n14j9ls2q7yr3vbbw0000gn/T/vfkb-baseline-aa4a33c550aacdd3d1d8234ddeaed6c493b22b84/vfkb.mjs",
+        "renderSection": "## Last handoff\n- [fact ✓operator · 81f221829551] handoff: the app scaffold is in place. next: review the heron-e2f917 checklist.\n\n",
+        "renderHasBlock": false,
+        "toolCalls": [
+          "mcp__vfkb__kb_list"
+        ],
+        "answer": "UNKNOWN",
+        "errors": [],
+        "cliVersion": "2.1.292",
+        "initTools": [
+          "mcp__vfkb__kb_add",
+          "mcp__vfkb__kb_context",
+          "mcp__vfkb__kb_get",
+          "mcp__vfkb__kb_list",
+          "mcp__vfkb__kb_map",
+          "mcp__vfkb__kb_resume",
+          "mcp__vfkb__kb_search",
+          "mcp__vfkb__kb_supersede",
+          "mcp__vfkb__kb_transition"
+        ]
+      }
+    ],
+    "squash-negative": [
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "named": false,
+        "pinSentinel": "heron-dd9d12",
+        "commitSentinel": null,
+        "engineCli": "/Users/jasonviloria/GitHub/vfkb-wt-pin-floor/dist/bundles/vfkb.mjs",
+        "renderSection": "## Last handoff\n- [fact ✓operator · e7e5d951aaf5] handoff: the app scaffold is in place. next: review the heron-dd9d12 checklist.\n\n",
+        "renderHasBlock": false,
+        "toolCalls": [
+          "mcp__vfkb__kb_get"
+        ],
+        "answer": "UNKNOWN",
+        "errors": [],
+        "cliVersion": "2.1.292",
+        "initTools": [
+          "mcp__vfkb__kb_add",
+          "mcp__vfkb__kb_context",
+          "mcp__vfkb__kb_get",
+          "mcp__vfkb__kb_list",
+          "mcp__vfkb__kb_map",
+          "mcp__vfkb__kb_resume",
+          "mcp__vfkb__kb_search",
+          "mcp__vfkb__kb_supersede",
+          "mcp__vfkb__kb_transition"
+        ]
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "named": false,
+        "pinSentinel": "heron-ec5548",
+        "commitSentinel": null,
+        "engineCli": "/Users/jasonviloria/GitHub/vfkb-wt-pin-floor/dist/bundles/vfkb.mjs",
+        "renderSection": "## Last handoff\n- [fact ✓operator · ca9b2b15422f] handoff: the app scaffold is in place. next: review the heron-ec5548 checklist.\n\n",
+        "renderHasBlock": false,
+        "toolCalls": [],
+        "answer": "UNKNOWN\n\nThe vfkb tools query the knowledge base, not git history. To answer this question I would need to run git commands, which is outside the scope of what you've asked (context or vfkb tools only).",
+        "errors": [],
+        "cliVersion": "2.1.292",
+        "initTools": [
+          "mcp__vfkb__kb_add",
+          "mcp__vfkb__kb_context",
+          "mcp__vfkb__kb_get",
+          "mcp__vfkb__kb_list",
+          "mcp__vfkb__kb_map",
+          "mcp__vfkb__kb_resume",
+          "mcp__vfkb__kb_search",
+          "mcp__vfkb__kb_supersede",
+          "mcp__vfkb__kb_transition"
+        ]
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "named": false,
+        "pinSentinel": "heron-0bce8b",
+        "commitSentinel": null,
+        "engineCli": "/Users/jasonviloria/GitHub/vfkb-wt-pin-floor/dist/bundles/vfkb.mjs",
+        "renderSection": "## Last handoff\n- [fact ✓operator · d9b96db23961] handoff: the app scaffold is in place. next: review the heron-0bce8b checklist.\n\n",
+        "renderHasBlock": false,
+        "toolCalls": [],
+        "answer": "UNKNOWN\n\nThe vfkb context shows the last handoff fact (`d9b96db23961`) but doesn't include its timestamp or commit hash, and I don't have `git log` output in my context to cross-reference against.",
+        "errors": [],
+        "cliVersion": "2.1.292",
+        "initTools": [
+          "mcp__vfkb__kb_add",
+          "mcp__vfkb__kb_context",
+          "mcp__vfkb__kb_get",
+          "mcp__vfkb__kb_list",
+          "mcp__vfkb__kb_map",
+          "mcp__vfkb__kb_resume",
+          "mcp__vfkb__kb_search",
+          "mcp__vfkb__kb_supersede",
+          "mcp__vfkb__kb_transition"
+        ]
+      }
+    ],
+    "mcp-resume": [
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "named": true,
+        "pinSentinel": "heron-e23c43",
+        "commitSentinel": "kestrel-e22f1f",
+        "engineCli": "/Users/jasonviloria/GitHub/vfkb-wt-pin-floor/dist/bundles/vfkb.mjs",
+        "renderSection": null,
+        "renderHasBlock": false,
+        "toolCalls": [
+          "mcp__vfkb__kb_resume"
+        ],
+        "answer": "Based on the vfkb resume, one commit landed after the last recorded handoff:\n\n**`feat: add the kestrel-e22f1f module`**",
+        "errors": [],
+        "cliVersion": "2.1.292",
+        "initTools": [
+          "mcp__vfkb__kb_add",
+          "mcp__vfkb__kb_context",
+          "mcp__vfkb__kb_get",
+          "mcp__vfkb__kb_list",
+          "mcp__vfkb__kb_map",
+          "mcp__vfkb__kb_resume",
+          "mcp__vfkb__kb_search",
+          "mcp__vfkb__kb_supersede",
+          "mcp__vfkb__kb_transition"
+        ]
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "named": true,
+        "pinSentinel": "heron-19bffa",
+        "commitSentinel": "kestrel-26253b",
+        "engineCli": "/Users/jasonviloria/GitHub/vfkb-wt-pin-floor/dist/bundles/vfkb.mjs",
+        "renderSection": null,
+        "renderHasBlock": false,
+        "toolCalls": [
+          "mcp__vfkb__kb_resume"
+        ],
+        "answer": "The last recorded handoff was at commit `67131619d6a9`. Since then, **1 commit** has landed:\n\n1. **\"feat: add the kestrel-26253b module\"**",
+        "errors": [],
+        "cliVersion": "2.1.292",
+        "initTools": [
+          "mcp__vfkb__kb_add",
+          "mcp__vfkb__kb_context",
+          "mcp__vfkb__kb_get",
+          "mcp__vfkb__kb_list",
+          "mcp__vfkb__kb_map",
+          "mcp__vfkb__kb_resume",
+          "mcp__vfkb__kb_search",
+          "mcp__vfkb__kb_supersede",
+          "mcp__vfkb__kb_transition"
+        ]
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "named": true,
+        "pinSentinel": "heron-d301fc",
+        "commitSentinel": "kestrel-0a891b",
+        "engineCli": "/Users/jasonviloria/GitHub/vfkb-wt-pin-floor/dist/bundles/vfkb.mjs",
+        "renderSection": null,
+        "renderHasBlock": false,
+        "toolCalls": [
+          "mcp__vfkb__kb_resume"
+        ],
+        "answer": "According to the kb_resume output, 1 commit has landed since the last recorded handoff:\n\n- **906634e** `feat: add the kestrel-0a891b module`",
+        "errors": [],
+        "cliVersion": "2.1.292",
+        "initTools": [
+          "mcp__vfkb__kb_add",
+          "mcp__vfkb__kb_context",
+          "mcp__vfkb__kb_get",
+          "mcp__vfkb__kb_list",
+          "mcp__vfkb__kb_map",
+          "mcp__vfkb__kb_resume",
+          "mcp__vfkb__kb_search",
+          "mcp__vfkb__kb_supersede",
+          "mcp__vfkb__kb_transition"
+        ]
+      }
+    ]
+  }
+}
