@@ -533,6 +533,75 @@ function trustGlyph(e: KnowledgeEntry): string {
 // expired handoff ages out via isInjectable. This is the ONLY pin selector: B3
 // (stop-reminder.ts) materializes and calls it (ADR-0082 §2).
 const HANDOFF_PIN_CAP_CHARS = 2000; // bound the pinned section; the live 07-08 handoff ≈ 1.5k
+
+// --- RFC-043 Part A (accepted by ADR-0084 §5; vfkb#386): the stale-pin floor. Capability
+// DEMONSTRATED by scenarios/records/stale-pin-floor.json; delivery through the plugin is
+// unproven until its install-path record is re-pinned (ADR-0051).
+// The engine never runs git (src/backend.ts: git-layer consumers stay file-based BY
+// DESIGN), so the commits come from an INJECTED provider, implemented in the git layer
+// (src/pin-staleness.ts) and wired at each face that renders `## Last handoff`
+// (resumePayload, the SessionStart hook, `context-block`, pi). Without a provider, or when
+// it returns nothing, the render is byte-identical to the provider-less render.
+
+/** One commit of RFC-043 Part 0's set S. `short` is the full hash sliced to 7 (decide D4). */
+export interface StaleCommit {
+  hash: string;
+  short: string;
+  subject: string;
+}
+
+/** pin → Part 0's S (newest first); `null`/`undefined` on any failure (→ no annotation). */
+export type PinStalenessProvider = (pin: KnowledgeEntry) => StaleCommit[] | null | undefined;
+
+export interface RenderOpts {
+  pinStaleness?: PinStalenessProvider;
+}
+
+/** RFC-043 Part A: the annotation's reserved slice, newlines included. */
+export const COMMITS_SINCE_SLICE_CHARS = 400;
+/** RFC-043 Part A: each subject is cut to this many UTF-16 units, then "…". */
+export const COMMIT_SUBJECT_CAP_CHARS = 100;
+/** The count line's lead-in. A predicate anchor (the squash-negative arm asserts its absence). */
+export const COMMITS_SINCE_LEADIN = 'Commits since this handoff was recorded (';
+
+export const truncateSubject = (s: string): string =>
+  s.length > COMMIT_SUBJECT_CAP_CHARS ? `${s.slice(0, COMMIT_SUBJECT_CAP_CHARS)}…` : s;
+
+/**
+ * The bounded subset of S every surface shows (decide D4): as many commits as fit the
+ * 400-char slice, in order, the count line always kept. The B3 Stop text, the
+ * UserPromptSubmit line and Part A all take this one subset, so "these same commits" is
+ * literally true on all three. A commit is kept only if, with it, the block plus the
+ * "(+k more)" trailer for what remains after it still fits.
+ */
+export function boundedCommits(commits: StaleCommit[]): { shown: StaleCommit[]; more: number } {
+  const n = commits.length;
+  const trailer = (k: number) => (k > 0 ? `  (+${k} more)\n`.length : 0);
+  let len = `${COMMITS_SINCE_LEADIN}${n}):\n`.length;
+  const shown: StaleCommit[] = [];
+  for (let i = 0; i < n; i++) {
+    const line = `  ${commits[i].short} ${truncateSubject(commits[i].subject)}\n`.length;
+    if (len + line + trailer(n - i - 1) > COMMITS_SINCE_SLICE_CHARS) break;
+    len += line;
+    shown.push(commits[i]);
+  }
+  return { shown, more: n - shown.length };
+}
+
+/**
+ * RFC-043 Part A's block (decide D4), exact bytes: a flush-left count line, then each shown
+ * commit as two-space-indented `<sha7> <subject>`, then `  (+k more)` when some were left
+ * out. Every line ends in "\n"; the whole block is ≤ COMMITS_SINCE_SLICE_CHARS. Neutral:
+ * no call to action (the render re-runs after every compaction, ADR-0077). Empty S → ''.
+ */
+export function renderCommitsSince(commits: StaleCommit[]): string {
+  if (commits.length === 0) return '';
+  const { shown, more } = boundedCommits(commits);
+  let out = `${COMMITS_SINCE_LEADIN}${commits.length}):\n`;
+  for (const c of shown) out += `  ${c.short} ${truncateSubject(c.subject)}\n`;
+  if (more > 0) out += `  (+${more} more)\n`;
+  return out;
+}
 export function isPinCandidate(e: KnowledgeEntry): boolean {
   return e.type === 'fact' && (e.tags.includes('handoff') || e.tags.includes('next'));
 }
@@ -626,7 +695,11 @@ export function renderCaptureFallback(engineDir = dirname(fileURLToPath(import.m
   );
 }
 
-export function renderContextBundle(project = defaultProject(), budget = SESSION_BUDGET_CHARS): string {
+export function renderContextBundle(
+  project = defaultProject(),
+  budget = SESSION_BUDGET_CHARS,
+  opts: RenderOpts = {},
+): string {
   const all = readAll();
   const today = nowIso().slice(0, 10);
   const superseded = supersededIds(all);
@@ -658,13 +731,27 @@ export function renderContextBundle(project = defaultProject(), budget = SESSION
   // already pinned in the Constitution section; don't render it twice.
   const handoff = latestHandoff(all, today, superseded);
   if (handoff && !constitutionalIds.has(handoff.id)) {
+    // RFC-043 Part A (ADR-0084 §5): the commits since the pin, computed by the injected
+    // provider and placed directly under the pin. Only ever asked about the pin actually
+    // rendered here (decide D5: no section, no annotation). Any provider failure → none.
+    let since = '';
+    if (opts.pinStaleness) {
+      try {
+        since = renderCommitsSince(opts.pinStaleness(handoff) ?? []);
+      } catch {
+        since = ''; // a wrong annotation misleads; silence does not (RFC-043 Part A)
+      }
+    }
+    // The block has its own reserved slice, so the pin gives up exactly what it used and
+    // the section stays within today's cap.
+    const cap = HANDOFF_PIN_CAP_CHARS - since.length;
     const text =
-      handoff.text.length > HANDOFF_PIN_CAP_CHARS
-        ? `${handoff.text.slice(0, HANDOFF_PIN_CAP_CHARS)}… (truncated — kb_get ${handoff.id} for the rest)`
+      handoff.text.length > cap
+        ? `${handoff.text.slice(0, cap)}… (truncated — kb_get ${handoff.id} for the rest)`
         : handoff.text;
     // The id rides in the label (ADR-0082 §3) so /vfkb:handoff can name the pin it
     // proposes to retire.
-    body += `## Last handoff\n- [${handoff.type} ${trustGlyph(handoff)} · ${handoff.id}] ${text}\n\n`;
+    body += `## Last handoff\n- [${handoff.type} ${trustGlyph(handoff)} · ${handoff.id}] ${text}\n${since}\n`;
   }
 
   // Background curation (ADR-0083 §5): one line after the pin, only when the Tier-1
@@ -1023,13 +1110,17 @@ export function renderResumeDigest(rec: SessionData, all: KnowledgeEntry[] = rea
 // The "Resume" render (ADR-0020 pt 5): the most recent PRIOR session's digest +
 // the live Tier-A knowledge bundle, budgeted to the 10k cap. Both halves are
 // derived from ground truth at call time.
-export function renderResume(project = defaultProject(), session: SessionState = SessionState.load()): string {
+export function renderResume(
+  project = defaultProject(),
+  session: SessionState = SessionState.load(),
+  opts: RenderOpts = {},
+): string {
   const all = readAll();
   const prior = SessionState.records().find((r) => r.sessionId !== session.sessionId);
   const digest = prior
     ? renderResumeDigest(prior, all)
     : '## Resume\n- (first recorded session — no prior continuity)';
   const head = `<vfkb-resume project="${project}">\n${digest}\n</vfkb-resume>`;
-  const bundle = renderContextBundle(project, Math.max(0, SESSION_BUDGET_CHARS - head.length - 1));
+  const bundle = renderContextBundle(project, Math.max(0, SESSION_BUDGET_CHARS - head.length - 1), opts);
   return `${head}\n${bundle}`;
 }

@@ -1,0 +1,111 @@
+
+### N1 handoff -> code -> single mixed commit (topic)
+expected: STALE {K} (code written after the handoff)
+  today: STALE (tree diff)
+  r2   : quiet
+  A    : quiet
+  B    : quiet
+
+### N2 pre-pin commit amended with post-pin code, then brain commit
+expected: STALE {K} (amended after the handoff)
+  today: STALE (tree diff)
+  r2   : quiet
+  A    : STALE {K code (authored pre-pin)}
+  B    : quiet
+
+### N3 post-pin code with back-dated author date, then brain commit
+expected: STALE {K}
+  today: STALE (tree diff)
+  r2   : quiet
+  A    : STALE {K --date in the past}
+  B    : quiet
+
+### N4 post-pin fixup squashed into pre-pin commit, then brain commit
+expected: STALE {A1} (it now holds post-pin work)
+  today: STALE (tree diff)
+  r2   : quiet
+  A    : STALE {A1 code (pre-pin)}
+  B    : quiet
+
+### N5 uncommitted pin, then force-rebase (no upstream change)
+expected: quiet
+  today: STALE (tree diff)
+  r2   : STALE {A1 code (pre-pin)}
+  A    : STALE {A1 code (pre-pin)}
+  B    : STALE {A1 code (pre-pin)}
+
+### N5b uncommitted pin, rebase onto moved main
+expected: STALE {M1} only
+  today: STALE (tree diff)
+  r2   : STALE {A1 code (pre-pin)|M1 main (post-pin)}
+  A    : STALE {A1 code (pre-pin)|M1 main (post-pin)}
+  B    : STALE {A1 code (pre-pin)|M1 main (post-pin)}
+Fast-forwarding to: b1
+Trying simple merge with b2
+Trying simple merge with b3
+
+### N6 octopus merge carries pin + other arms' post-pin code
+expected: STALE {OCT}? (b2/b3 are not the pin's PR) - inherent: inside carrier
+  today: STALE (tree diff)
+  r2   : quiet
+  A    : quiet
+  B    : quiet
+Squash commit -- not updating HEAD
+
+### N7 merge main into topic (carrier = that merge)
+expected: STALE {T1, and S2 via MM}
+  today: STALE (tree diff)
+  r2   : quiet
+  A    : STALE {T1 topic code (post-pin)}
+  B    : STALE {T1 topic code (post-pin)}
+
+### N8 pin updated twice, v2 after code
+expected: quiet
+  today: STALE (tree diff)
+  r2   : STALE {K code}
+  A    : STALE {K code}
+  B    : STALE {K code}
+
+### N8b v3 uncommitted, HEAD holds v2
+expected: quiet
+  today: STALE (tree diff)
+  r2   : STALE {K code}
+  A    : STALE {K code}
+  B    : STALE {K code}
+fatal: pathspec '.' did not match any files
+
+### N9 orphan branch, pin predates history (empty T), code after
+expected: STALE {K}
+  today: STALE (tree diff)
+  r2   : STALE {K code}
+  A    : STALE {K code}
+  B    : STALE {K code}
+
+### N9b orphan branch, empty T, nothing after
+expected: quiet
+  today: quiet
+  r2   : quiet
+  A    : quiet
+  B    : quiet
+
+### N10 +03:00 author date before u (UTC), force-rebase
+expected: quiet
+  today: STALE (tree diff)
+  r2   : quiet
+  A    : STALE {A1 (09:30Z, pre-pin)}
+  B    : quiet
+   (string compare of %aI vs u would say: after u -> kept -> STALE)
+
+### N11 detached HEAD in a linked worktree (R3-B1 shape)
+expected: STALE {K}
+  today: STALE (tree diff)
+  r2   : quiet
+  A    : STALE {K code after the handoff}
+  B    : STALE {K code after the handoff}
+
+### N12 pull --rebase on main, local brain commit, upstream post-pin PR
+expected: STALE {O}
+  today: STALE (tree diff)
+  r2   : quiet
+  A    : STALE {O upstream PR (post-pin)}
+  B    : STALE {O upstream PR (post-pin)}

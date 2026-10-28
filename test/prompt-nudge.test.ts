@@ -79,6 +79,47 @@ describe('renderPromptNudge — the pinned wording (ADR-0084 §2.4)', () => {
   });
 });
 
+// RFC-047 §4.3 / §4.4 (vfkb#386): with Part A, the stale clause names the commits — the same
+// bounded subset Part A renders (decide D4) — and gains the "next session sees" clause.
+describe('renderPromptNudge — with the Part 0 list (#386)', () => {
+  const c = (n: number, subject = `fix: change ${n}`) => ({ hash: `${n}`.repeat(40), short: `${n}`.repeat(7), subject });
+  const LISTED_COND = COND.replace(/\.$/, ' — the next session sees this same list at start.');
+
+  it('pins the RFC-047 §4.3 template for two commits', () => {
+    expect(renderPromptNudge(['stale'], { pin, branch: 'feat/x', newEntries: 0, staleCommits: [c(2), c(1)] })).toBe(
+      'vfkb handoff status: the pinned handoff (c708f71279b6, 2026-10-27) predates 2 commits on feat/x: ' +
+        '2222222 fix: change 2; 1111111 fix: change 1.' +
+        LISTED_COND,
+    );
+  });
+  it('one commit is singular', () => {
+    expect(renderPromptNudge(['stale'], { pin, branch: 'b', newEntries: 0, staleCommits: [c(1)] })).toContain(
+      'predates 1 commit on b: 1111111 fix: change 1.',
+    );
+  });
+  it('the list is the bounded subset, then (+k more); about 400 characters at most', () => {
+    const many = Array.from({ length: 12 }, (_, i) => c(i % 10, `feat: subject ${i} ` + 'y'.repeat(200)));
+    const t = renderPromptNudge(['stale'], { pin, branch: 'b', newEntries: 0, staleCommits: many });
+    const list = t.slice(t.indexOf(': ', t.indexOf('predates')) + 2, t.indexOf(' If this prompt'));
+    expect(list.length).toBeLessThanOrEqual(400);
+    expect(list).toMatch(/\(\+\d+ more\)\.$/);
+    expect(list).toContain('…'); // subjects cut at 100 characters
+  });
+  it('with B1 too: both fact clauses, one conditional, the listed ending', () => {
+    const t = renderPromptNudge(['stale', 'b1'], { pin, branch: 'feat/x', newEntries: 4, staleCommits: [c(1)] });
+    expect(t.split('If ').length - 1).toBe(1);
+    expect(t).toContain('; this session has recorded 4 entries and no handoff/next entry.');
+    expect(t.endsWith('— the next session sees this same list at start.')).toBe(true);
+  });
+  it('still never says must / before the session ends', () => {
+    const t = renderPromptNudge(['stale', 'b1'], { pin, branch: 'feat/x', newEntries: 4, staleCommits: [c(1), c(2)] });
+    for (const bad of ['must', 'before the session ends', 'plan to record one']) expect(t.toLowerCase()).not.toContain(bad);
+  });
+  it('B1 alone never claims a list', () => {
+    expect(renderPromptNudge(['b1'], { branch: 'b', newEntries: 4, staleCommits: [c(1)] })).not.toContain('next session sees');
+  });
+});
+
 describe('decidePromptNudge — trigger and cadence (ADR-0084 §2.2, §2.5)', () => {
   it('emits the stale line when the pin is stale and nothing is stored', () => {
     const d = decidePromptNudge(typed, ctx(), undefined);

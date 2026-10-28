@@ -34,6 +34,7 @@ import { dirname, join } from 'node:path';
 
 import { renderResume } from './engine.js';
 import { recoverFromJournal } from './journal.js';
+import { gitPinStalenessProvider } from './pin-staleness.js';
 import { effectiveSessionId } from './session.js';
 import { brainDir, withExclusive, writeMeta } from './storage.js';
 
@@ -173,5 +174,7 @@ export function resumePayload(
   opts: { sessionId?: string; debounce?: boolean } = {},
 ): string {
   const note = healBrain(opts);
-  return note + renderResume(project, session);
+  // RFC-043 Part A (#386): the commits since the pin, under `## Last handoff` — one
+  // provider for kb_resume and `vfkb resume`, so they render what SessionStart and pi do.
+  return note + renderResume(project, session, { pinStaleness: gitPinStalenessProvider(process.cwd(), brainDir()) });
 }

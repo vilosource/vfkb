@@ -1,0 +1,82 @@
+## git: git version 2.50.1 (Apple Git-155)  os: Darwin 25.5.0  date: 2026-10-28T07:58:39Z
+## script edits
+23,24c23,24
+< entry P3 2026-01-09T00:00:00.000Z handoff; git add -A; c 2026-01-09T01:00:00Z "retag P3"
+< ID=P3 U=2026-01-09T00:00:00.000Z; report "3 retagged old entry" "quiet"
+---
+> entry P3 2026-01-09T00:00:00.000Z handoff 2026-01-02T00:00:00.000Z; git add -A; c 2026-01-09T01:00:00Z "retag P3"
+> ID=P3 U=2026-01-02T00:00:00.000Z; report "3 retagged old entry" "quiet"
+84c84
+< printf '{"id":"PT","type":"fact","text":"t","tags":["handoff"],"created":"2026-01-01T00:00:00.000Z","updated":"2026-01-03T00:00:00.000Z"}\n' > entries.jsonl
+---
+> printf '{"id":"PT","type":"fact","text":"t","tags":["handoff"],"created":"2026-01-03T00:00:00.000Z","updated":"2026-01-03T00:00:00.000Z"}\n' > entries.jsonl
+166,169c166,169
+< entry Q8 2026-03-02T12:00:00.000Z handoff; git add -A; c 2026-03-02T12:30:00Z "C2 pin v2"
+< ID=Q8 U=2026-03-02T12:00:00.000Z; report "N8 pin updated twice, v2 after code" "quiet"
+< entry Q8 2026-03-02T13:00:00.000Z handoff
+< ID=Q8 U=2026-03-02T13:00:00.000Z; report "N8b v3 uncommitted, HEAD holds v2" "quiet"
+---
+> entry Q8 2026-03-02T12:00:00.000Z handoff 2026-03-02T10:00:00.000Z; git add -A; c 2026-03-02T12:30:00Z "C2 pin v2"
+> ID=Q8 U=2026-03-02T10:00:00.000Z; report "N8 pin updated twice, v2 after code" "quiet"
+> entry Q8 2026-03-02T13:00:00.000Z handoff 2026-03-02T10:00:00.000Z
+> ID=Q8 U=2026-03-02T10:00:00.000Z; report "N8b v3 uncommitted, HEAD holds v2" "quiet"
+69,72c69,72
+< entry Q8 2026-03-02T12:00:00.000Z handoff; git add -A; c 2026-03-02T12:30:00Z "C2 pin v2"
+< ID=Q8 U=2026-03-02T12:00:00.000Z; report "N8 pin updated twice, v2 after code" "quiet"
+< entry Q8 2026-03-02T13:00:00.000Z handoff
+< ID=Q8 U=2026-03-02T13:00:00.000Z; report "N8b v3 uncommitted, HEAD holds v2" "quiet"
+---
+> entry Q8 2026-03-02T12:00:00.000Z handoff 2026-03-02T10:00:00.000Z; git add -A; c 2026-03-02T12:30:00Z "C2 pin v2"
+> ID=Q8 U=2026-03-02T10:00:00.000Z; report "N8 pin updated twice, v2 after code" "quiet"
+> entry Q8 2026-03-02T13:00:00.000Z handoff 2026-03-02T10:00:00.000Z
+> ID=Q8 U=2026-03-02T10:00:00.000Z; report "N8b v3 uncommitted, HEAD holds v2" "quiet"
+## bp-all: rows orig 33, created 33
+## bp-all output diff (updated < > created)
+19,20c19,20
+<   B    : quiet
+<   B-prime: quiet
+---
+>   B    : STALE {code2|code1}
+>   B-prime: STALE {code2|code1}
+24,25c24,25
+<   B    : STALE {code3}
+<   B-prime: STALE {code3}
+---
+>   B    : STALE {code3|code2|code1}
+>   B-prime: STALE {code3|code2|code1}
+134,135c134,135
+<   B    : quiet
+<   B-prime: quiet
+---
+>   B    : STALE {K code}
+>   B-prime: STALE {K code}
+139,140c139,140
+<   B    : quiet
+<   B-prime: quiet
+---
+>   B    : STALE {K code}
+>   B-prime: STALE {K code}
+## r4-cases: rows orig 15, created 15
+## r4-cases output diff (updated < > created)
+64,67c64,67
+<   today: quiet
+<   r2   : quiet
+<   A    : quiet
+<   B    : quiet
+---
+>   today: STALE (tree diff)
+>   r2   : STALE {K code}
+>   A    : STALE {K code}
+>   B    : STALE {K code}
+71,74c71,74
+<   today: quiet
+<   r2   : quiet
+<   A    : quiet
+<   B    : quiet
+---
+>   today: STALE (tree diff)
+>   r2   : STALE {K code}
+>   A    : STALE {K code}
+>   B    : STALE {K code}
+## r4-shallow: rows orig 1, created 1
+## r4-shallow output diff (updated < > created)

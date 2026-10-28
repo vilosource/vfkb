@@ -9,13 +9,22 @@ import {
   handoffNudgeDue,
   STOP_REMINDER,
   HANDOFF_MIN_ENTRIES,
-  STALE_HANDOFF_REMINDER,
+  renderStaleHandoffReminder,
+  STALE_HANDOFF_LEADIN,
+  STALE_HANDOFF_NEXT_SESSION,
   NUDGE_COOLDOWN_TURNS,
   STALE_HANDOFF_MIN_TURN,
   isPausedStop,
 } from '../src/stop-reminder.js';
 
+import { COMMITS_SINCE_SLICE_CHARS, renderCommitsSince, type StaleCommit } from '../src/engine.js';
+
 const CLI = resolve(__dirname, '../dist/cli.js');
+
+// B3's text is built from Part 0's set S since #386 (RFC-043 Part 1, second half).
+const PIN = { id: 'p1aa', created: '2026-01-02T00:00:00.000Z' };
+const S1: StaleCommit[] = [{ hash: 'a'.repeat(40), short: 'aaaaaaa', subject: 'fix: a thing (#9)' }];
+const STALE_HANDOFF_REMINDER = renderStaleHandoffReminder(PIN, S1);
 
 // ── pure core: the deterministic backstop (RFC-008 / ADR-0027) ───────────────
 describe('decideStop — conditional end-of-turn reminder', () => {
@@ -93,10 +102,10 @@ describe('handoffNudgeDue — the B1 trigger (RFC-011 §B, unchanged by ADR-0084
 });
 
 describe('decideStop — stale-handoff nudge', () => {
-  it('blocks with the stale-handoff reminder when handoffStale=true', () => {
+  it('blocks with the stale-handoff reminder when S is non-empty', () => {
     const d = decideStop(
       { stop_hook_active: false },
-      { uncommittedWork: false, newDecisions: 1, newEntries: 0, newHandoffs: 0, handoffStale: true },
+      { uncommittedWork: false, newDecisions: 1, newEntries: 0, newHandoffs: 0, staleCommits: S1, pin: PIN },
     );
     expect(d).toEqual({ block: true, reminder: STALE_HANDOFF_REMINDER, fired: ['staleHandoff'] });
   });
@@ -105,14 +114,14 @@ describe('decideStop — stale-handoff nudge', () => {
     // everything already committed/merged, working tree clean, pin still stale
     const d = decideStop(
       { stop_hook_active: false },
-      { uncommittedWork: false, newDecisions: 1, handoffStale: true },
+      { uncommittedWork: false, newDecisions: 1, staleCommits: S1, pin: PIN },
     );
     expect(d.block).toBe(true);
   });
 
-  it('does NOT block when handoffStale is false/absent', () => {
+  it('does NOT block when S is empty/absent', () => {
     expect(
-      decideStop({ stop_hook_active: false }, { uncommittedWork: false, newDecisions: 1, handoffStale: false }),
+      decideStop({ stop_hook_active: false }, { uncommittedWork: false, newDecisions: 1, staleCommits: [] }),
     ).toEqual({ block: false });
     expect(decideStop({ stop_hook_active: false }, { uncommittedWork: false, newDecisions: 1 })).toEqual({
       block: false,
@@ -122,14 +131,14 @@ describe('decideStop — stale-handoff nudge', () => {
   it('composes with the decision nudge when B1, B3 and the decision trigger all hold (B1 stays off Stop)', () => {
     const d = decideStop(
       { stop_hook_active: false },
-      { uncommittedWork: true, newDecisions: 0, newEntries: HANDOFF_MIN_ENTRIES, newHandoffs: 0, handoffStale: true },
+      { uncommittedWork: true, newDecisions: 0, newEntries: HANDOFF_MIN_ENTRIES, newHandoffs: 0, staleCommits: S1, pin: PIN },
     );
     expect(d).toEqual({ block: true, reminder: `${STOP_REMINDER}\n\n${STALE_HANDOFF_REMINDER}`, fired: ['decision', 'staleHandoff'] });
   });
 
   it('native loop guard still wins over the stale-handoff trigger', () => {
     expect(
-      decideStop({ stop_hook_active: true }, { uncommittedWork: false, newDecisions: 1, handoffStale: true }),
+      decideStop({ stop_hook_active: true }, { uncommittedWork: false, newDecisions: 1, staleCommits: S1, pin: PIN }),
     ).toEqual({ block: false });
   });
 });
@@ -168,7 +177,7 @@ describe('decideStop — per-nudge cooldown', () => {
         newDecisions: 0, // decision trigger holds, but cooling
         newEntries: HANDOFF_MIN_ENTRIES,
         newHandoffs: 0, // B1 trigger holds, never fired
-        handoffStale: true, // B3 trigger holds, never fired
+        staleCommits: S1, pin: PIN, // B3 trigger holds, never fired
         turn: 3,
         lastNudged: { decision: 2 },
       },
@@ -195,7 +204,7 @@ describe('decideStop — per-nudge cooldown', () => {
   // Codex review (PR #272): each nudge KEY must cool — a mutation that drops the
   // cooldown check for only one key must go red, not hide behind the decision-key tests.
   it('the stale-handoff nudge itself cools', () => {
-    const ctx = { uncommittedWork: false, newDecisions: 1, handoffStale: true };
+    const ctx = { uncommittedWork: false, newDecisions: 1, staleCommits: S1, pin: PIN };
     expect(decideStop({ stop_hook_active: false }, { ...ctx, turn: 5, lastNudged: { staleHandoff: 4 } })).toEqual({
       block: false,
     });
@@ -236,13 +245,13 @@ describe('decideStop — per-nudge cooldown', () => {
 
 // ── ADR-0084 §1.1 (1a): B3 is quiet before turn 3 ────────────────────────────
 describe('decideStop — B3 not before turn 3 (ADR-0084 §1.1)', () => {
-  const stale = { uncommittedWork: false, newDecisions: 1, handoffStale: true };
+  const stale = { uncommittedWork: false, newDecisions: 1, staleCommits: S1, pin: PIN };
   const all = {
     uncommittedWork: true,
     newDecisions: 0,
     newEntries: HANDOFF_MIN_ENTRIES,
     newHandoffs: 0,
-    handoffStale: true,
+    staleCommits: S1, pin: PIN,
   };
 
   it('pins the threshold: B3 first eligible at turn 3', () => {
@@ -293,7 +302,7 @@ describe('decideStop — paused stop defers all nudges (ADR-0084 §1.2)', () => 
     newDecisions: 0,
     newEntries: HANDOFF_MIN_ENTRIES,
     newHandoffs: 0,
-    handoffStale: true,
+    staleCommits: S1, pin: PIN,
     turn: 5,
     lastNudged: {},
   };
@@ -333,30 +342,56 @@ describe('decideStop — paused stop defers all nudges (ADR-0084 §1.2)', () => 
   });
 });
 
-// ── ADR-0084 §1.3 (1d): the write-demand clause is dropped ───────────────────
-describe('STALE_HANDOFF_REMINDER text (ADR-0084 §1.3)', () => {
+// ── ADR-0084 §1.3 (1d) + RFC-043 Part 1 second half (#386; decide D4) ─────────
+describe('the B3 Stop text', () => {
+  const many: StaleCommit[] = Array.from({ length: 9 }, (_, i) => ({
+    hash: `${i}`.repeat(40),
+    short: `${i}`.repeat(7),
+    subject: `feat: change number ${i} ` + 'x'.repeat(300),
+  }));
+
   it('keeps the lead-in byte-identical (nudge-fires.py counts by it)', () => {
+    expect(STALE_HANDOFF_LEADIN).toBe('vfkb stale-handoff check: ');
     expect(STALE_HANDOFF_REMINDER.startsWith('vfkb stale-handoff check: ')).toBe(true);
   });
 
-  it('is pinned to the new text', () => {
+  it('is pinned to the D4 template: fact, the shared block, RFC-047 §4.4, the conditional', () => {
     expect(STALE_HANDOFF_REMINDER).toBe(
-      'vfkb stale-handoff check: the currently pinned handoff/next entry predates a commit that ' +
-        'landed since it was written (e.g. a merged PR, possibly from another session or an ' +
-        'autonomous merge) — a fresh session would start from an out-of-date "what happened" ' +
-        'pointer. If you are WRAPPING UP, record a fresh handoff now — `mcp__vfkb__kb_add` ' +
-        '(type=fact, tags=handoff,next, role=human), or /vfkb:handoff if available — naming what ' +
-        'actually changed and what is next now. If you are still mid-session, ignore this and finish normally.',
+      'vfkb stale-handoff check: the pinned handoff/next entry (p1aa, 2026-01-02) predates commits that landed after it was written.\n' +
+        'Commits since this handoff was recorded (1):\n' +
+        '  aaaaaaa fix: a thing (#9)\n' +
+        "The next session's resume lists these same commits under `## Last handoff`, so a handoff written now is optional unless you are wrapping up. " +
+        'If you are WRAPPING UP, record a fresh handoff now — kb_add (type=fact, tags=handoff,next, role=human), ' +
+        'or /vfkb:handoff if available — naming what actually changed and what is next now. ' +
+        'If you are still mid-session, ignore this and finish normally.',
     );
-    expect(STALE_HANDOFF_REMINDER.endsWith('If you are still mid-session, ignore this and finish normally.')).toBe(
-      true,
+    expect(STALE_HANDOFF_REMINDER.endsWith('If you are still mid-session, ignore this and finish normally.')).toBe(true);
+  });
+
+  it("contains RFC-047 §4.4's sentence verbatim", () => {
+    expect(STALE_HANDOFF_NEXT_SESSION).toBe(
+      "The next session's resume lists these same commits under `## Last handoff`, so a handoff written now is optional unless you are wrapping up.",
     );
+    expect(STALE_HANDOFF_REMINDER).toContain(STALE_HANDOFF_NEXT_SESSION);
+  });
+
+  it('embeds the SAME bytes Part A renders (one renderer), bounded', () => {
+    const t = renderStaleHandoffReminder(PIN, many);
+    const block = renderCommitsSince(many);
+    expect(t).toContain(block);
+    expect(block.length).toBeLessThanOrEqual(COMMITS_SINCE_SLICE_CHARS);
+    expect(block).toContain('Commits since this handoff was recorded (9):');
+    expect(block).toMatch(/ {2}\(\+\d+ more\)\n$/);
   });
 
   it('carries no write demand', () => {
-    for (const phrase of ['must', 'before the session ends', 'plan to record one', 'no SessionEnd fallback']) {
-      expect(STALE_HANDOFF_REMINDER, phrase).not.toContain(phrase);
-    }
+    for (const t of [STALE_HANDOFF_REMINDER, renderStaleHandoffReminder(PIN, many)])
+      for (const phrase of ['must', 'before the session ends', 'plan to record one', 'no SessionEnd fallback', 'mcp__vfkb__kb_add'])
+        expect(t, phrase).not.toContain(phrase);
+  });
+
+  it('a malformed pin created drops the date, never the id', () => {
+    expect(renderStaleHandoffReminder({ id: 'zz', created: 'junk' }, S1)).toContain('entry (zz) predates');
   });
 });
 
