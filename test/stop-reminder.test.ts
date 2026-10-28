@@ -352,9 +352,10 @@ describe('decideStop — 1c: B3 quiet on the default branch, clean tree, no new 
     if (d.block) expect(d.fired).toEqual(['decision', 'staleHandoff']);
   });
 
-  it('1c touches only B3: the decision nudge still fires on the default branch', () => {
-    // newDecisions 0 + uncommittedWork arms the decision nudge; 1c's own precondition
-    // (clean tree) fails here, so B3 also fires — pin that 1c never mutes the decision key.
+  it('the decision nudge ignores the branch probe: it still fires on the default branch', () => {
+    // The decision nudge needs uncommittedWork, which itself breaks 1c's clean-tree clause, so
+    // the two can never both apply; this row pins only that a true probe does not reach the
+    // decision key (with S empty, B3 is out of the picture).
     const d = decideStop(
       { stop_hook_active: false },
       { ...base, uncommittedWork: true, staleCommits: [], onDefaultBranch: () => true },

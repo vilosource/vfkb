@@ -188,6 +188,27 @@ describe('hook user-prompt-submit ↔ stop — one delivery, no B3 on Stop after
       expect(hook(dir, 'stop', { session_id: 'once', stop_hook_active: false }).trim(), `turn ${turn}`).toBe('{}');
     }
   }, 60_000);
+
+  it('decide Q7: a future-dated staleHandoff on the record cannot outrank the delivery turn', () => {
+    // 999 passes sanitizeNudgedAtTurn (finite, >= 0) but is outside [0, turn]; the fold must
+    // treat it as no record, so the line's delivery turn wins and Stop stays quiet.
+    const dir = staleRepo();
+    mkdirSync(join(dir, '.vfkb', '.sessions'), { recursive: true });
+    writeFileSync(
+      join(dir, '.vfkb', '.sessions', 'future.json'),
+      JSON.stringify({
+        sessionId: 'future',
+        startedAt: 'x',
+        lastAt: 'x',
+        turnCount: 2,
+        injectedIds: [],
+        capturedIds: [],
+        nudgedAtTurn: { staleHandoff: 999 },
+      }),
+    );
+    expect(ctxOf(ups(dir, typed('future'))).additionalContext).toContain(LEADIN);
+    expect(hook(dir, 'stop', { session_id: 'future', stop_hook_active: false }).trim()).toBe('{}');
+  }, 30_000);
 });
 
 describe('hook user-prompt-submit — Q10: read-only against the session record', () => {
