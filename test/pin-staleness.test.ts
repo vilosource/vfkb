@@ -291,6 +291,25 @@ git merge -q --squash topic; c 2026-01-05T00:00:00Z "squash topic (#4)"`,
       { row: '11 pre-pin-authored PR rebase-merged below carrier', id: 'PB', created: '2026-01-03T00:00:00.000Z', expected: Q, today: true },
     ],
   },
+  {
+    // Rule 5's ancestry clause (review #401 F2): a pre-pin-authored PR rebase-merged ABOVE
+    // the carrier is not an ancestor of C, so the author-date drop must not apply to it.
+    dir: 'rebasemergeabove',
+    setup: `fresh rebasemergeabove; git switch -q -c other
+GIT_AUTHOR_DATE=2026-01-02T00:00:00Z GIT_COMMITTER_DATE=2026-01-02T00:00:00Z sh -c 'echo o>o; git add -A; git commit -q -m "O other PR (authored pre-pin)"'
+git switch -q main
+entry PC 2026-01-03T00:00:00.000Z handoff; git add -A; c 2026-01-03T01:00:00Z "main: pin"
+GIT_COMMITTER_DATE=2026-01-04T00:00:00Z git cherry-pick other >/dev/null`,
+    rows: [
+      {
+        row: '11b pre-pin-authored PR rebase-merged above carrier',
+        id: 'PC',
+        created: '2026-01-03T00:00:00.000Z',
+        expected: ['O other PR (authored pre-pin)'],
+        today: true,
+      },
+    ],
+  },
   // ── round 4 ──
   {
     dir: 'n1',
