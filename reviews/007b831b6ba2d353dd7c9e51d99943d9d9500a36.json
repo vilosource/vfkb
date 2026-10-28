@@ -1,6 +1,6 @@
 {
   "recordVersion": 1,
-  "sha": "1a4d9664b358b369010dc6039970ce927e21585e",
+  "sha": "007b831b6ba2d353dd7c9e51d99943d9d9500a36",
   "governing": ["docs/adr/ADR-0084-handoff-nudge-next-prompt.md", "docs/rfc/RFC-047-less-intrusive-handoff-nudge.md"],
   "reviewer": { "agent": "claude -p (fresh process, opus)", "model": "opus", "rounds": 1 },
   "generated": "2026-10-28T11:38:39Z",
@@ -34,6 +34,6 @@
     { "guard": "test/stop-reminder.test.ts 1c e2e rows", "mutation": "gatherStopContext omits onDefaultBranch", "observedRed": true },
     { "guard": "test/user-prompt-submit.test.ts > decide Q7 future-dated staleHandoff", "mutation": "cli.ts fold 'const prev = raw'", "observedRed": true }
   ],
-  "mutationsNote": "Round 1 (fresh claude -p, opus) reviewed head 822cb6f; 1a4d9664b358b369010dc6039970ce927e21585e adds only the F1/F2 test changes, verified by the author (F1 guard observed RED under its revert).",
+  "mutationsNote": "Filed against 007b831 (1a4d966 plus a brain-only commit recording this review). Round 1 (fresh claude -p, opus) reviewed head 822cb6f; 1a4d9664b358b369010dc6039970ce927e21585e adds only the F1/F2 test changes, verified by the author (F1 guard observed RED under its revert).",
   "verdict": "MERGE"
 }
