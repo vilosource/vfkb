@@ -69,8 +69,7 @@ The trigger becomes: pin stale OR B1's condition OR **`no-autocommit`**.
 The id-based count SessionEnd already uses (ids absent from HEAD, newest line per id,
 tombstones dropped) becomes the one shared helper. `newBrainEntriesSinceHead` returns it,
 read with a bounded timeout and `GIT_READ_MAX_BUFFER`, so the third clause's N, the line's
-B1 count and Stop's counts are one number. HEAD's brain is read with `HEAD:./<path>` from
-the cwd, which also fixes the old line counter's miss when the hook ran below the repo root.
+B1 count and Stop's counts are one number.
 
 ### 3. Wording (amends ADR-0084 §2.4, Q3)
 
