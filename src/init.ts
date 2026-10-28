@@ -111,6 +111,8 @@ function settingsHooks(project: string) {
     PreToolUse: [
       { matcher: 'Write|Edit|MultiEdit', hooks: [{ type: 'command', command: hookCommand(project, 'pre-tool-use') }] },
     ],
+    // ADR-0084 §2 (vfkb#385): the handoff reminder's non-blocking surface. No matcher.
+    UserPromptSubmit: [{ hooks: [{ type: 'command', command: hookCommand(project, 'user-prompt-submit') }] }],
     Stop: [{ hooks: [{ type: 'command', command: hookCommand(project, 'stop') }] }],
     SessionEnd: [{ hooks: [{ type: 'command', command: hookCommand(project, 'session-end') }] }],
   };

@@ -1,0 +1,281 @@
+{
+  "scenario": "handoff-next-prompt",
+  "recordVersion": 1,
+  "model": "claude-haiku-4-5",
+  "generated": "2026-10-27T14:09:48.384Z",
+  "red": true,
+  "engineCli": "/private/tmp/claude-501/-Users-jasonviloria-GitHub-vfkb/5ac6751b-0d80-4951-8071-b9205a3da085/scratchpad/red-505deb1/vfkb.mjs",
+  "engineRev": "505deb1",
+  "engineCliSha256": "c28bd8f3fa3efd67cfa6f9b2e2424ffd81c53fa432ab605560ebf25b2dc9f5f2",
+  "vfkbSha": "505deb174500ea384099ce5231cb1c51870e1485",
+  "engineSrcDirty": true,
+  "cliVersions": [
+    "2.1.292"
+  ],
+  "isolation": "enabledPlugins {'vfkb@vfkb': false}; init event asserted",
+  "promptLineLeadin": "vfkb handoff status:",
+  "thresholds": "decide-step Q4 (scenarios/lib/nudge-verdict.mjs)",
+  "verdict": {
+    "counts": {
+      "treatment-stale": {
+        "valid": 3,
+        "attempts": 3,
+        "pass": 0
+      },
+      "treatment-b1": {
+        "valid": 3,
+        "attempts": 3,
+        "pass": 0
+      },
+      "contrast": {
+        "valid": 3,
+        "attempts": 3,
+        "pass": 0
+      },
+      "negative": {
+        "valid": 0,
+        "attempts": 3,
+        "pass": 0
+      }
+    },
+    "invalidTrials": 3,
+    "deterministicFailures": 3,
+    "complete": false,
+    "demonstrated": false,
+    "reasons": [
+      "fewer than 3 valid trials in some arm — no verdict",
+      "3 valid trial(s) failed a deterministic hook-output predicate",
+      "treatment-stale 0/3 < 2",
+      "treatment-b1 0/3 < 2",
+      "contrast 0 not strictly below treatment-stale 0",
+      "contrast 0 not strictly below treatment-b1 0",
+      "negative clean 0/0 < 2"
+    ]
+  },
+  "trials": {
+    "treatment-stale": [
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": false,
+        "sentinel": "greeter-937649",
+        "upsEmitted": false,
+        "upsLine": null,
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "finalAnswer": "You're welcome! The greeter module is ready at `src/greeter-937649.ts`. See you next time.",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": false,
+        "sentinel": "greeter-5760a0",
+        "upsEmitted": false,
+        "upsLine": null,
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "finalAnswer": "You're welcome! The greeter module is ready to go. See you next session.",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": false,
+        "sentinel": "greeter-a6e816",
+        "upsEmitted": false,
+        "upsLine": null,
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "finalAnswer": "All set. The greeter module is in place. See you next time.",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      }
+    ],
+    "treatment-b1": [
+      {
+        "invalid": [],
+        "deterministicFail": [
+          "Stop emitted \"vfkb handoff check\""
+        ],
+        "pass": false,
+        "sentinel": "greeter-b68ce2",
+        "upsEmitted": false,
+        "upsLine": null,
+        "turn1Line": false,
+        "stopRuns": 4,
+        "stopBlocked": true,
+        "turn2Handoffs": [
+          {
+            "tags": [
+              "handoff",
+              "next"
+            ],
+            "text": "greeter module created at src/greeter-b68ce2.ts. next: integrate into app or add additional modules.\n\nWhy: Greeter module scaffolding is complete and ready for integration or further development"
+          }
+        ],
+        "finalAnswer": "Handoff recorded. Next session has context on the greeter module and what to do next.",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [
+          "Stop emitted \"vfkb handoff check\""
+        ],
+        "pass": false,
+        "sentinel": "greeter-9a8b50",
+        "upsEmitted": false,
+        "upsLine": null,
+        "turn1Line": false,
+        "stopRuns": 4,
+        "stopBlocked": true,
+        "turn2Handoffs": [
+          {
+            "tags": [
+              "handoff",
+              "next"
+            ],
+            "text": "greeter module created at src/greeter-9a8b50.ts with greet(name: string) function. next: integrate greeter into app or add tests."
+          }
+        ],
+        "finalAnswer": "Done — handoff recorded. Session complete.",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [
+          "Stop emitted \"vfkb handoff check\""
+        ],
+        "pass": false,
+        "sentinel": "greeter-8d63ff",
+        "upsEmitted": false,
+        "upsLine": null,
+        "turn1Line": false,
+        "stopRuns": 4,
+        "stopBlocked": true,
+        "turn2Handoffs": [
+          {
+            "tags": [
+              "handoff",
+              "next"
+            ],
+            "text": "next: integrate greeter module into app and test it. src/greeter-8d63ff.ts is drafted with greet(name: string) function; next session should export/use it in main app and verify it works."
+          }
+        ],
+        "finalAnswer": "Done. Handoff recorded for the next session.",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      }
+    ],
+    "contrast": [
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": false,
+        "sentinel": "greeter-a9bbd4",
+        "upsEmitted": false,
+        "upsLine": null,
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "finalAnswer": "You're welcome! The greeter module is in place and ready. See you next time.",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": false,
+        "sentinel": "greeter-1b5dc7",
+        "upsEmitted": false,
+        "upsLine": null,
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "finalAnswer": "You're welcome! The greeter module is ready. See you next time.",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": false,
+        "sentinel": "greeter-f4b45d",
+        "upsEmitted": false,
+        "upsLine": null,
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "finalAnswer": "You're welcome! The greeter module is in place. See you next session.",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      }
+    ],
+    "negative": [
+      {
+        "invalid": [
+          "negative arm: line not injected at turn 2 (vacuous)"
+        ],
+        "deterministicFail": [],
+        "pass": true,
+        "sentinel": "greeter-52f918",
+        "upsEmitted": false,
+        "upsLine": null,
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "finalAnswer": "done",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [
+          "negative arm: line not injected at turn 2 (vacuous)"
+        ],
+        "deterministicFail": [],
+        "pass": true,
+        "sentinel": "greeter-7133d1",
+        "upsEmitted": false,
+        "upsLine": null,
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "finalAnswer": "done",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [
+          "negative arm: line not injected at turn 2 (vacuous)"
+        ],
+        "deterministicFail": [],
+        "pass": true,
+        "sentinel": "greeter-cbe483",
+        "upsEmitted": false,
+        "upsLine": null,
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "finalAnswer": "done",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      }
+    ]
+  }
+}

@@ -416,7 +416,7 @@ export async function checkNpmCurrency(opts: NpmCurrencyOpts): Promise<{ status:
 // MIGRATION_GUIDE tells every consumer to commit. So a correctly migrated repo
 // was told to delete its own INACTIVE detector, and real double wiring was
 // buried in a warning consumers had learned to ignore.
-const HOOK_SUBCOMMANDS = ['session-start', 'pre-tool-use', 'post-tool-use', 'stop', 'session-end'];
+const HOOK_SUBCOMMANDS = ['session-start', 'pre-tool-use', 'post-tool-use', 'user-prompt-submit', 'stop', 'session-end'];
 export function isEngineWiring(hookJson: string): boolean {
   // Compare against the LITERAL command text, not its JSON encoding: a tab in the
   // command is the two characters \\t once stringified, and a quoted subcommand is
@@ -794,7 +794,10 @@ export function runDoctor(opts: DoctorOpts): DoctorReport {
 
   // 5. Hooks wiring (same plugin logic as check 4).
   const hooks = settings?.hooks ?? {};
-  const expected = ['SessionStart', 'PreToolUse', 'Stop', 'SessionEnd'];
+  // UserPromptSubmit joined in vfkb#385 (ADR-0084 §2; decide step Q7): the handoff reminder
+  // left Stop for it, so a fallback wiring without it has silently lost the reminder. Same
+  // tier as the others, as ADR-0033 did for SessionEnd: warn once, `vfkb init` clears it.
+  const expected = ['SessionStart', 'PreToolUse', 'UserPromptSubmit', 'Stop', 'SessionEnd'];
   const have = expected.filter((e) => isEngineWiring(JSON.stringify(hooks[e] ?? '')));
   if (plugin && have.length > 0) {
     add('.claude/settings.json', 'warn', `vfkb hooks present ALONGSIDE the plugin (double wiring) — remove them; the plugin's hooks are primary (ADR-0045)`);
@@ -803,7 +806,12 @@ export function runDoctor(opts: DoctorOpts): DoctorReport {
   } else if (have.length === 0) {
     add('.claude/settings.json', 'warn', 'no vfkb hooks — run `vfkb init`');
   } else if (have.length < expected.length) {
-    add('.claude/settings.json', 'warn', `only ${have.join(', ')} wired (expected ${expected.join(', ')})`);
+    const missing = expected.filter((e) => !have.includes(e));
+    add(
+      '.claude/settings.json',
+      'warn',
+      `${missing.join(', ')} not wired (have ${have.join(', ')}) — re-run \`vfkb init\` (idempotent; merges, keeps your own hooks)`,
+    );
   } else {
     add('.claude/settings.json', 'ok', `${have.join(', ')} wired`);
   }

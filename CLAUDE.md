@@ -115,7 +115,7 @@ this is a **deliberate discipline**:
   **ENOTFOUND off-VPN**. `node_modules` here was bootstrapped by copying from `~/GitHub/vfkb`.
   On VPN, a normal install works (or `--registry`).
 - **CLI:** `node dist/cli.js <cmd>` — `add|list|search|query|map|context|context init|resume|`
-  `resume-note|curate|distill|save|init|import|doctor|hook (session-start|pre-tool-use|post-tool-use|stop|session-end)`.
+  `resume-note|curate|distill|save|init|import|doctor|hook (session-start|pre-tool-use|post-tool-use|user-prompt-submit|stop|session-end)`.
   Env: `VFKB_DATA_DIR` (brain/data dir; default `~/.vfkb`), `VFKB_PROJECT`, and `VFKB_BUNDLE_DIR`
   (the shared engine bundles — required by the auto-layer, see above). **`VFKB_DIR`/`VFKB_HOME` are
   deprecated aliases** (ADR-0032) — still honored. This repo's live auto-layer now uses the bootstrap +

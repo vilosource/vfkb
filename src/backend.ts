@@ -26,6 +26,7 @@ import {
   writeFileSync,
   existsSync,
   readdirSync,
+  renameSync,
 } from 'node:fs';
 import { join } from 'node:path';
 import { withBrainLock } from './lock.js';
@@ -131,7 +132,13 @@ class JsonlFsBackend implements StorageBackend {
   writeSessionRecord(id: string, json: string): void {
     const dir = join(dataDir(), '.sessions');
     mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, `${safeKey(id)}.json`), json, 'utf8');
+    // tmp + rename (#385, decide step Q10): a reader never sees a torn record. A torn read
+    // made SessionState "start fresh", and the next save persisted that RESET (turnCount,
+    // cooldowns, injected ids) — the one catastrophic outcome of a concurrent save.
+    const f = join(dir, `${safeKey(id)}.json`);
+    const tmp = `${f}.${process.pid}.tmp`;
+    writeFileSync(tmp, json, 'utf8');
+    renameSync(tmp, f);
   }
   withExclusive<T>(fn: () => T): T {
     return withBrainLock(fn);

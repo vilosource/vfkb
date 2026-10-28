@@ -1,0 +1,3 @@
+brain: 1347849 bytes; engine: /Users/jasonviloria/GitHub/vfkb-wt-nudge-phase3/dist/cli.js
+cold      { p50: 322, p95: 370, max: 370 } emitted 10/10
+same-key  { p50: 126, p95: 139, max: 139 } emitted 0/10 (expected 0: key cached; first call emitted=true)

@@ -1,0 +1,31 @@
+{
+  "recordVersion": 1,
+  "sha": "47b1397f1392b4613e4a5453a0a8f7eed663fd86",
+  "governing": ["docs/adr/ADR-0084-handoff-nudge-next-prompt.md"],
+  "reviewer": { "agent": "general-purpose", "model": "claude-opus-5-5", "rounds": 2 },
+  "generated": "2026-10-27T15:05:00Z",
+  "findings": [
+    { "id": "F1", "severity": "blocking", "status": "fixed", "summary": "round 1: 12 B1 tests removed from test/stop-reminder.test.ts left the B1 threshold / self-silence / work clauses unguarded (M14-M16 survived). Fixed in 47b1397: pure handoffNudgeDue() + re-homed negatives + a prompt-hook e2e self-silence negative; M14/M15/M16 and the gather-site isHandoff-filter drop each observed red by the round-2 reviewer; tamper-check PASSED in CI run 40523078412", "acceptedBy": null },
+    { "id": "F2", "severity": "blocking", "status": "fixed", "summary": "round 1: the tmp+rename session-record guard was vacuous. Fixed in 47b1397: hard-link sibling guard; observed red by the round-2 reviewer with writeSessionRecord reverted to an in-place writeFileSync", "acceptedBy": null },
+    { "id": "F3", "severity": "major", "status": "open", "summary": "carried from round 1, not addressed: src/prompt-nudge.ts:247-250 computes ms(left()) once per helper, so handoffIsStale's up-to-3 git children each get the whole remainder; round-1 probe measured 2.79 s against the 2 s Q12 budget. Fix: pass left() into the helpers", "acceptedBy": null },
+    { "id": "m1", "severity": "minor", "status": "open", "summary": "gather-site wiring of B1's work and count inputs is unguarded: at src/prompt-nudge.ts:251, passing uncommittedWork: true, or newEntries: 99, keeps all 104 tests in the three nudge files green (observed). The pure predicate is guarded; its caller's arguments are not. Two cheap prompt-hook e2e negatives (clean tree; <3 entries) would close it", "acceptedBy": null },
+    { "id": "m2", "severity": "minor", "status": "open", "summary": "PR body 'Notes for review' says the commit after b5f0fef changes only a source comment, brain, docs and records; 47b1397 now also changes src/prompt-nudge.ts and src/stop-reminder.ts. It is a behaviour-preserving refactor (same boolean expression), so the b5f0fef L4 record still stands, but the note should be updated", "acceptedBy": null },
+    { "id": "m3", "severity": "minor", "status": "open", "summary": "carried from round 1 (F4-F7): silent budget exhaustion on slow repos; §2.5 mechanism deviations live only in brain decisions (track Amended-by in #389); RED baseline built from a dirty tree; unknown hook subcommands exit 0 with no usage on stderr", "acceptedBy": null }
+  ],
+  "findingsCount": 6,
+  "ruledOut": [
+    "re-homing honesty: name-level diff of test/stop-reminder.test.ts merge-base vs head; the removed tests assert Stop-side B1 behaviour that ADR-0084 §1.6 removes, and the count returns to 64 with real guards, not padding",
+    "full suite at head: 3 nudge files 104/104 locally; CI test (20/22/24) green; local full-run timeouts were load-only and passed when re-run serially",
+    "no AI attribution in branch commits",
+    "DoD honesty: the L4 record handoff-next-prompt.json is demonstrated:true (3/3/0-leak contrast/3) at b5f0fef with engineSrcDirty:false; the PR says 'Delivery is unproven' and claims no plugin release"
+  ],
+  "mutations": [
+    { "guard": "test/stop-reminder.test.ts > handoffNudgeDue NOT due below the entry threshold", "mutation": "M14: dropped newEntries >= HANDOFF_MIN_ENTRIES from handoffNudgeDue", "observedRed": true },
+    { "guard": "test/stop-reminder.test.ts > handoffNudgeDue self-silences + cli hook user-prompt-submit B1 self-silence e2e", "mutation": "M15: dropped newHandoffs === 0 from handoffNudgeDue (2 red)", "observedRed": true },
+    { "guard": "test/stop-reminder.test.ts > handoffNudgeDue NOT due when no substantive work happened", "mutation": "M16: dropped uncommittedWork from handoffNudgeDue", "observedRed": true },
+    { "guard": "test/stop-reminder.test.ts > cli hook user-prompt-submit B1 self-silence e2e", "mutation": "gather site passes newHandoffs: 0 instead of fresh.filter(isHandoff).length", "observedRed": true },
+    { "guard": "test/user-prompt-submit.test.ts > a save replaces the record file (rename), never rewrites it in place", "mutation": "writeSessionRecord reverted to writeFileSync(f, json) in place", "observedRed": true }
+  ],
+  "mutationsNote": null,
+  "verdict": "MERGE"
+}

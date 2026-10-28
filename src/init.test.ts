@@ -41,8 +41,11 @@ describe('vfkb init (FR-1)', () => {
       'SessionEnd',
       'SessionStart',
       'Stop',
+      'UserPromptSubmit', // vfkb#385 / ADR-0084 §2 (decide step Q7)
     ]);
     expect(settings.hooks.SessionEnd[0].hooks[0].command).toContain('cli hook session-end');
+    expect(settings.hooks.UserPromptSubmit[0].hooks[0].command).toContain('cli hook user-prompt-submit');
+    expect(settings.hooks.UserPromptSubmit[0].matcher).toBeUndefined();
     const blob = JSON.stringify(settings);
     expect(blob).toContain('.vfkb/bin/bootstrap.mjs cli hook');
     expect(blob).toContain('VFKB_PROJECT=demo');

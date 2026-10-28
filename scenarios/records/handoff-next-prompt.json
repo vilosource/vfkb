@@ -1,0 +1,317 @@
+{
+  "scenario": "handoff-next-prompt",
+  "recordVersion": 1,
+  "model": "claude-haiku-4-5",
+  "generated": "2026-10-27T14:15:19.455Z",
+  "red": false,
+  "engineCli": "/private/tmp/claude-501/-Users-jasonviloria-GitHub-vfkb/5ac6751b-0d80-4951-8071-b9205a3da085/scratchpad/green-b5f0fef/vfkb.mjs",
+  "engineRev": "b5f0fef",
+  "engineCliSha256": "b5139e8113bb24c33ca9cc738c145bef67535c362570c65eeba3cd8a818911c0",
+  "vfkbSha": "b5f0fefa6eed3e0494ccbde01c727a7ed7e8d2e7",
+  "engineSrcDirty": false,
+  "cliVersions": [
+    "2.1.292"
+  ],
+  "isolation": "enabledPlugins {'vfkb@vfkb': false}; init event asserted",
+  "promptLineLeadin": "vfkb handoff status:",
+  "thresholds": "decide-step Q4 (scenarios/lib/nudge-verdict.mjs)",
+  "verdict": {
+    "counts": {
+      "treatment-stale": {
+        "valid": 3,
+        "attempts": 3,
+        "pass": 3
+      },
+      "treatment-b1": {
+        "valid": 3,
+        "attempts": 3,
+        "pass": 3
+      },
+      "contrast": {
+        "valid": 3,
+        "attempts": 3,
+        "pass": 0
+      },
+      "negative": {
+        "valid": 3,
+        "attempts": 3,
+        "pass": 3
+      }
+    },
+    "invalidTrials": 0,
+    "deterministicFailures": 0,
+    "complete": true,
+    "demonstrated": true,
+    "reasons": []
+  },
+  "trials": {
+    "treatment-stale": [
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "sentinel": "greeter-3da71a",
+        "upsEmitted": true,
+        "upsLine": "vfkb handoff status: the pinned handoff (06c4327ae6c3, 2026-10-27) predates a later commit on feat/work. If this prompt ends the session, a fresh handoff/next entry (kb_add type=fact, tags=handoff,next, role=human) naming what changed and what is next is the one thing worth recording before finishing; otherwise nothing is needed now.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [
+          {
+            "tags": [
+              "handoff",
+              "next"
+            ],
+            "text": "greeter module created: src/greeter-3da71a.ts exports greet(name: string) function. next: integrate into app or add tests"
+          },
+          {
+            "tags": [
+              "handoff",
+              "next",
+              "retired-by:94316e02135d"
+            ],
+            "text": "handoff: the app scaffold is in place. next: add a greeter module."
+          }
+        ],
+        "finalAnswer": "Thanks for the session! Handoff recorded. See you next time.",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "sentinel": "greeter-771fad",
+        "upsEmitted": true,
+        "upsLine": "vfkb handoff status: the pinned handoff (6c36e28ff952, 2026-10-27) predates a later commit on feat/work. If this prompt ends the session, a fresh handoff/next entry (kb_add type=fact, tags=handoff,next, role=human) naming what changed and what is next is the one thing worth recording before finishing; otherwise nothing is needed now.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [
+          {
+            "tags": [
+              "handoff",
+              "next"
+            ],
+            "text": "greeter module added (src/greeter-771fad.ts with greet function). ready for next phase."
+          },
+          {
+            "tags": [
+              "handoff",
+              "next",
+              "retired-by:5bd8c1c0401b"
+            ],
+            "text": "handoff: the app scaffold is in place. next: add a greeter module."
+          }
+        ],
+        "finalAnswer": "Done! Handoff recorded. The greeter module is in place and ready for whatever comes next.",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "sentinel": "greeter-f064ea",
+        "upsEmitted": true,
+        "upsLine": "vfkb handoff status: the pinned handoff (3e98a1652643, 2026-10-27) predates a later commit on feat/work. If this prompt ends the session, a fresh handoff/next entry (kb_add type=fact, tags=handoff,next, role=human) naming what changed and what is next is the one thing worth recording before finishing; otherwise nothing is needed now.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [
+          {
+            "tags": [
+              "handoff",
+              "next"
+            ],
+            "text": "greeter module added at src/greeter-f064ea.ts (uncommitted). next: commit the greeter module, add tests, or continue with next feature"
+          },
+          {
+            "tags": [
+              "handoff",
+              "next",
+              "retired-by:93ed653eba38"
+            ],
+            "text": "handoff: the app scaffold is in place. next: add a greeter module."
+          }
+        ],
+        "finalAnswer": "Done — handoff recorded. See you next time!",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      }
+    ],
+    "treatment-b1": [
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "sentinel": "greeter-464c84",
+        "upsEmitted": true,
+        "upsLine": "vfkb handoff status: this session has recorded 3 entries and no handoff/next entry. If this prompt ends the session, a fresh handoff/next entry (kb_add type=fact, tags=handoff,next, role=human) naming what changed and what is next is the one thing worth recording before finishing; otherwise nothing is needed now.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [
+          {
+            "tags": [
+              "handoff",
+              "next"
+            ],
+            "text": "handoff: greeter module created at src/greeter-464c84.ts with greet(name) function. next: integrate greeter into app or continue with additional modules."
+          }
+        ],
+        "finalAnswer": "All set! Handoff recorded. See you next time.",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "sentinel": "greeter-2bd470",
+        "upsEmitted": true,
+        "upsLine": "vfkb handoff status: this session has recorded 3 entries and no handoff/next entry. If this prompt ends the session, a fresh handoff/next entry (kb_add type=fact, tags=handoff,next, role=human) naming what changed and what is next is the one thing worth recording before finishing; otherwise nothing is needed now.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [
+          {
+            "tags": [
+              "handoff",
+              "next"
+            ],
+            "text": "handoff: greeter module added (src/greeter-2bd470.ts with greet function). next: awaiting feature request"
+          },
+          {
+            "tags": [
+              "handoff",
+              "next",
+              "retired-by:a695d2f9c1e1"
+            ],
+            "text": "handoff: the app scaffold is in place. next: add a greeter module."
+          }
+        ],
+        "finalAnswer": "Done—handoff recorded. See you next time!",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "sentinel": "greeter-cc0c48",
+        "upsEmitted": true,
+        "upsLine": "vfkb handoff status: this session has recorded 3 entries and no handoff/next entry. If this prompt ends the session, a fresh handoff/next entry (kb_add type=fact, tags=handoff,next, role=human) naming what changed and what is next is the one thing worth recording before finishing; otherwise nothing is needed now.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [
+          {
+            "tags": [
+              "handoff",
+              "next"
+            ],
+            "text": "greeter module implemented (src/greeter-cc0c48.ts exports greet function). next: test/integrate or continue with remaining features."
+          }
+        ],
+        "finalAnswer": "Handoff recorded. Have a great rest of your day! 👋",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      }
+    ],
+    "contrast": [
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": false,
+        "sentinel": "greeter-bdc360",
+        "upsEmitted": false,
+        "upsLine": null,
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "finalAnswer": "You're welcome! The greeter module is ready. See you next time.",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": false,
+        "sentinel": "greeter-afe03d",
+        "upsEmitted": false,
+        "upsLine": null,
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "finalAnswer": "You're welcome! Talk soon.",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": false,
+        "sentinel": "greeter-e51e03",
+        "upsEmitted": false,
+        "upsLine": null,
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "finalAnswer": "Thanks! The greeter module is ready at `src/greeter-e51e03.ts`. See you next time.",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      }
+    ],
+    "negative": [
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "sentinel": "greeter-ffb1c1",
+        "upsEmitted": true,
+        "upsLine": "vfkb handoff status: the pinned handoff (4439bb28bde9, 2026-10-27) predates a later commit on feat/work. If this prompt ends the session, a fresh handoff/next entry (kb_add type=fact, tags=handoff,next, role=human) naming what changed and what is next is the one thing worth recording before finishing; otherwise nothing is needed now.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "finalAnswer": "done",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "sentinel": "greeter-e95623",
+        "upsEmitted": true,
+        "upsLine": "vfkb handoff status: the pinned handoff (54f9ebc6991a, 2026-10-27) predates a later commit on feat/work. If this prompt ends the session, a fresh handoff/next entry (kb_add type=fact, tags=handoff,next, role=human) naming what changed and what is next is the one thing worth recording before finishing; otherwise nothing is needed now.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "finalAnswer": "done",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "sentinel": "greeter-95429a",
+        "upsEmitted": true,
+        "upsLine": "vfkb handoff status: the pinned handoff (fd4459b7f32b, 2026-10-27) predates a later commit on feat/work. If this prompt ends the session, a fresh handoff/next entry (kb_add type=fact, tags=handoff,next, role=human) naming what changed and what is next is the one thing worth recording before finishing; otherwise nothing is needed now.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "finalAnswer": "done",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      }
+    ]
+  }
+}
