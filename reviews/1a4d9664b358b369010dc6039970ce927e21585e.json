@@ -1,0 +1,39 @@
+{
+  "recordVersion": 1,
+  "sha": "1a4d9664b358b369010dc6039970ce927e21585e",
+  "governing": ["docs/adr/ADR-0084-handoff-nudge-next-prompt.md", "docs/rfc/RFC-047-less-intrusive-handoff-nudge.md"],
+  "reviewer": { "agent": "claude -p (fresh process, opus)", "model": "opus", "rounds": 1 },
+  "generated": "2026-10-28T11:38:39Z",
+  "findings": [
+    { "id": "F1", "severity": "minor", "status": "fixed", "summary": "cli.ts fold validity guard (decide Q7) had no covering test; reverting it to 'const prev = raw' stayed green. Fixed in 1a4d9664b358b369010dc6039970ce927e21585e: a CLI e2e seeding staleHandoff 999 at turn 2, observed RED under that revert.", "acceptedBy": null },
+    { "id": "F2", "severity": "minor", "status": "fixed", "summary": "Nit: the '1c touches only B3' decision-nudge row uses staleCommits [] so 1c is never evaluated; its name claimed more than it checks. Renamed and its comment states what it pins (the two rules cannot both apply).", "acceptedBy": null },
+    { "id": "F3", "severity": "minor", "status": "accepted", "summary": "Informational: 1c is inert (B3 fires) when the brain path and cwd disagree through a symlink (macOS /var vs /private/var) or the brain is not at HEAD, because the shared line count reads every line as new. Errs toward firing (decide Q5's disclosed limit); disclosed in the test helper comment. No change.", "acceptedBy": null }
+  ],
+  "findingsCount": 3,
+  "ruledOut": [
+    "classifyBranch vs the old SessionEnd guard: same 2 git calls in the same order, same detached-then-default result and systemMessage; 1.5 s budget unaffected",
+    "lazy probe only runs when 1a, 1e, empty S and a paused stop have not silenced B3",
+    "absent or throwing probe fires (fail open)",
+    "detached HEAD fires; linked worktree on master quiet; origin/HEAD->develop on main quiet; cwd in a subdirectory still counts lines",
+    "ephemeral sessions keep firing on every stop",
+    "1e survives compaction (decide Q8); the decision nudge keeps its 10-turn cooldown",
+    "the pi face does not call decideStop (ADR-0084 §2.8: no Stop B3 on pi)",
+    "no source-text guards; no AI attribution in commits; brain diff append-only",
+    "L4 re-pin engineRev 98f1ee3 matches HEAD's src; labelled a regression re-pin, delivery unproven",
+    "scope matches ADR-0084 §1.4/§1.5 and decide Q2-Q9"
+  ],
+  "mutations": [
+    { "guard": "test/stop-reminder.test.ts 1e unit + CLI e2e; test/user-prompt-submit.test.ts cross-hook row", "mutation": "staleHandoff window Infinity -> NUDGE_COOLDOWN_TURNS", "observedRed": true },
+    { "guard": "test/stop-reminder.test.ts > 1c can-fail rows", "mutation": "ctx.newEntries === 0 -> treat undefined as 0", "observedRed": true },
+    { "guard": "test/stop-reminder.test.ts > can-fail row: uncommitted work on the default branch", "mutation": "drop !ctx.uncommittedWork from 1c", "observedRed": true },
+    { "guard": "test/stop-reminder.test.ts > 1c can-fail rows (probe absent/false/throws)", "mutation": "ignore the probe / read a throw as default", "observedRed": true },
+    { "guard": "test/stop-reminder.test.ts > lazy probe", "mutation": "probe evaluated eagerly", "observedRed": true },
+    { "guard": "src/session-end.test.ts classifier table + test/stop-reminder.test.ts trunk e2e", "mutation": "classifyBranch drops the origin/HEAD rule", "observedRed": true },
+    { "guard": "src/session-end.test.ts classifier table + SessionEnd default-branch tests", "mutation": "classifyBranch drops the literal main/master rule", "observedRed": true },
+    { "guard": "src/session-end.test.ts divergence test", "mutation": "SessionEnd guard also treats 'develop' as default (reviewer)", "observedRed": true },
+    { "guard": "test/stop-reminder.test.ts 1c e2e rows", "mutation": "gatherStopContext omits onDefaultBranch", "observedRed": true },
+    { "guard": "test/user-prompt-submit.test.ts > decide Q7 future-dated staleHandoff", "mutation": "cli.ts fold 'const prev = raw'", "observedRed": true }
+  ],
+  "mutationsNote": "Round 1 (fresh claude -p, opus) reviewed head 822cb6f; 1a4d9664b358b369010dc6039970ce927e21585e adds only the F1/F2 test changes, verified by the author (F1 guard observed RED under its revert).",
+  "verdict": "MERGE"
+}
