@@ -44,7 +44,7 @@ Three facts shaped the decision:
    under an unchanged HEAD, which is the normal shape for both this reason and B1.
 3. The prompt line counted new entries by lines past HEAD's line count; SessionEnd (and
    ADR-0083 §3) counts new ids. Edits, retags and curation-archive copies append a full line
-   for an existing id (22 of 667 lines in this repo's brain at the time of writing).
+   for an existing id (observed: 22 of 690 lines in this repo's committed brain at `b350815`).
 
 ## Decision
 
@@ -105,8 +105,9 @@ written literally as `.vfkb/entries.jsonl`, the plugin's brain path.
 - The stage-1 fast path is dropped: every non-skipped prompt runs the full gather inside
   the 2 s in-process budget (over budget → emit nothing, unchanged). The harness-turn and
   first-prompt skips still run before any git work, and the pin-staleness cache still bounds
-  the carrier scan to once per HEAD. Measured on this repo's 1.36 MB brain (one macOS
-  machine): full gather 263 ms warm, 775 ms cold, against an 1800 ms deadline.
+  the carrier scan to once per HEAD. The decide step measured, on this repo's
+  1.36 MB brain on one macOS machine, a full gather of 263 ms warm and 775 ms cold against an
+  1800 ms deadline. These figures are relayed from that step; the #395 PR re-measures them.
 - A three-part key stored by an older engine never matches a four-part one, so each live
   session re-emits once after the upgrade. Accepted.
 - Only a line carrying the stale reason records `staleAtTurn` (the `markNudged` effect),
