@@ -245,6 +245,10 @@ describe('the Stop text, the UserPromptSubmit line and the render name the same 
       .trim()
       .split('\n')
       .map((h) => h.slice(0, 7));
+    // Off the default branch: ADR-0084 §1.4 (1c, vfkb#387) keeps B3 quiet on a clean `main`
+    // with no new entries, which is this repo's shape. (On macOS the /var tmpdir symlink
+    // made every brain line read as new, so 1c never held locally; CI's /tmp exposed it.)
+    execFileSync('git', ['switch', '-q', '-c', 'feat/x'], { cwd: repo });
     // Stop at turn 3 (1a), from a seeded session record.
     const sid = 'xhook-1';
     for (let i = 0; i < 2; i++) cli(repo, ['hook', 'stop'], JSON.stringify({ session_id: sid, stop_hook_active: false }));
