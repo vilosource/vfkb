@@ -201,13 +201,17 @@ describe('decideStop — per-nudge cooldown', () => {
     expect(NUDGE_COOLDOWN_TURNS).toBe(10);
   });
 
-  // Codex review (PR #272): each nudge KEY must cool — a mutation that drops the
-  // cooldown check for only one key must go red, not hide behind the decision-key tests.
-  it('the stale-handoff nudge itself cools', () => {
+  // Codex review (PR #272): each nudge KEY must be rate-limited — a mutation that drops
+  // the check for only one key must go red, not hide behind the decision-key tests. Since
+  // ADR-0084 §1.5 (1e, vfkb#387) the stale key's window is the rest of the session.
+  it('the stale-handoff nudge itself stays quiet once fired (1e: for the session, not 10 turns)', () => {
     const ctx = { uncommittedWork: false, newDecisions: 1, staleCommits: S1, pin: PIN };
-    expect(decideStop({ stop_hook_active: false }, { ...ctx, turn: 5, lastNudged: { staleHandoff: 4 } })).toEqual({
-      block: false,
-    });
+    for (const turn of [5, 4 + NUDGE_COOLDOWN_TURNS, 50]) {
+      expect(
+        decideStop({ stop_hook_active: false }, { ...ctx, turn, lastNudged: { staleHandoff: 4 } }),
+        `turn=${turn}`,
+      ).toEqual({ block: false });
+    }
   });
 
   // Codex review (PR #272): the session record is parsed JSON with no upstream runtime
@@ -240,6 +244,146 @@ describe('decideStop — per-nudge cooldown', () => {
       { ...trigger, turn: NaN as unknown as number, lastNudged: { decision: 1 } },
     );
     expect(d).toEqual({ block: true, reminder: STOP_REMINDER, fired: ['decision'] });
+  });
+});
+
+// ── ADR-0084 §1.5 (1e, vfkb#387): B3 fires at most once per session ─────────
+describe('decideStop — 1e: B3 at most once per session (ADR-0084 §1.5)', () => {
+  const stale = { uncommittedWork: false, newDecisions: 1, staleCommits: S1, pin: PIN };
+  const fires = { block: true, reminder: STALE_HANDOFF_REMINDER, fired: ['staleHandoff'] };
+
+  it('RED on main: quiet at turn 50 after a Stop fire at turn 4 (the 10-turn cooldown would re-fire)', () => {
+    expect(decideStop({ stop_hook_active: false }, { ...stale, turn: 50, lastNudged: { staleHandoff: 4 } })).toEqual({
+      block: false,
+    });
+  });
+
+  it('RED on main: quiet for the session when the key came from the folded prompt-line turn', () => {
+    // cli.ts folds the UserPromptSubmit signal's staleAtTurn into lastNudged.staleHandoff
+    // (ADR-0084 §2.5); decideStop cannot tell the two sources apart, by design.
+    for (const turn of [7, 17, 120]) {
+      expect(
+        decideStop({ stop_hook_active: false }, { ...stale, turn, lastNudged: { staleHandoff: 6 } }),
+        `turn=${turn}`,
+      ).toEqual({ block: false });
+    }
+  });
+
+  it('a same-turn mark is "set" (inclusive upper bound): staleHandoff 6 at turn 6 is quiet', () => {
+    expect(decideStop({ stop_hook_active: false }, { ...stale, turn: 6, lastNudged: { staleHandoff: 6 } })).toEqual({
+      block: false,
+    });
+  });
+
+  it('a future-dated key is not a fire record: staleHandoff 7 at turn 6 fires', () => {
+    expect(decideStop({ stop_hook_active: false }, { ...stale, turn: 6, lastNudged: { staleHandoff: 7 } })).toEqual(
+      fires,
+    );
+  });
+
+  it('malformed staleHandoff values fail open (fire), never silence', () => {
+    const bad = [999999, -5, Infinity, NaN, '1000' as unknown as number, null as unknown as number, true as unknown as number];
+    for (const value of bad) {
+      expect(
+        decideStop({ stop_hook_active: false }, { ...stale, turn: 5, lastNudged: { staleHandoff: value } }),
+        `lastNudged.staleHandoff=${String(value)}`,
+      ).toEqual(fires);
+    }
+  });
+
+  it('no turn (an ephemeral session) with the key set still fires (brain b4b3cf62f119)', () => {
+    for (const turn of [undefined, NaN]) {
+      expect(
+        decideStop({ stop_hook_active: false }, { ...stale, turn, lastNudged: { staleHandoff: 3 } }),
+        `turn=${String(turn)}`,
+      ).toEqual(fires);
+    }
+  });
+
+  it('1e touches only B3: the decision nudge keeps its 10-turn cooldown', () => {
+    const d = decideStop(
+      { stop_hook_active: false },
+      { uncommittedWork: true, newDecisions: 0, turn: 11, lastNudged: { decision: 1, staleHandoff: 1 } },
+    );
+    expect(d).toEqual({ block: true, reminder: STOP_REMINDER, fired: ['decision'] });
+  });
+});
+
+// ── ADR-0084 §1.4 (1c, vfkb#387): no B3 on the default branch with nothing to commit ─
+describe('decideStop — 1c: B3 quiet on the default branch, clean tree, no new entries (ADR-0084 §1.4)', () => {
+  const base = {
+    uncommittedWork: false,
+    newDecisions: 0,
+    newEntries: 0,
+    staleCommits: S1,
+    pin: PIN,
+    turn: 5,
+    lastNudged: {},
+  };
+  const fires = { block: true, reminder: STALE_HANDOFF_REMINDER, fired: ['staleHandoff'] };
+
+  it('RED on main: default branch + clean tree + no new entries → quiet', () => {
+    expect(decideStop({ stop_hook_active: false }, { ...base, onDefaultBranch: () => true })).toEqual({ block: false });
+  });
+
+  it('can-fail rows: each broken precondition leaves B3 firing', () => {
+    const rows: Array<[string, Record<string, unknown>]> = [
+      ['newEntries: 1', { newEntries: 1, newDecisions: 1, onDefaultBranch: () => true }],
+      ['newEntries undefined', { newEntries: undefined, onDefaultBranch: () => true }],
+      ['probe returns false (topic branch)', { onDefaultBranch: () => false }],
+      [
+        'probe throws',
+        {
+          onDefaultBranch: () => {
+            throw new Error('git wedged');
+          },
+        },
+      ],
+      ['probe absent', {}],
+    ];
+    for (const [label, over] of rows) {
+      expect(decideStop({ stop_hook_active: false }, { ...base, ...over }), label).toEqual(fires);
+    }
+  });
+
+  it('can-fail row: uncommitted work on the default branch → B3 fires (alongside the decision nudge)', () => {
+    const d = decideStop({ stop_hook_active: false }, { ...base, uncommittedWork: true, onDefaultBranch: () => true });
+    expect(d.block).toBe(true);
+    if (d.block) expect(d.fired).toEqual(['decision', 'staleHandoff']);
+  });
+
+  it('1c touches only B3: the decision nudge still fires on the default branch', () => {
+    // newDecisions 0 + uncommittedWork arms the decision nudge; 1c's own precondition
+    // (clean tree) fails here, so B3 also fires — pin that 1c never mutes the decision key.
+    const d = decideStop(
+      { stop_hook_active: false },
+      { ...base, uncommittedWork: true, staleCommits: [], onDefaultBranch: () => true },
+    );
+    expect(d).toEqual({ block: true, reminder: STOP_REMINDER, fired: ['decision'] });
+  });
+
+  it('lazy: the probe is NOT called when 1a, 1e, an empty S or a paused stop already silence B3', () => {
+    const spy = () => {
+      throw new Error('probe must not run');
+    };
+    let calls = 0;
+    const counting = () => {
+      calls++;
+      return spy();
+    };
+    const cases: Array<[string, object, object]> = [
+      ['1a (turn 2)', {}, { turn: 2 }],
+      ['1e (already fired)', {}, { lastNudged: { staleHandoff: 4 } }],
+      ['empty S', {}, { staleCommits: [] }],
+      ['paused stop', { background_tasks: [{ id: 't' }] }, {}],
+    ];
+    for (const [label, input, over] of cases) {
+      expect(
+        decideStop({ stop_hook_active: false, ...input }, { ...base, ...over, onDefaultBranch: counting }),
+        label,
+      ).toEqual({ block: false });
+    }
+    expect(calls).toBe(0);
   });
 });
 
@@ -579,7 +723,9 @@ describe('handoffIsStale', () => {
 function gitRepo(): string {
   const dir = mkdtempSync(join(tmpdir(), 'vfkb-stop-'));
   const git = (...a: string[]) => execFileSync('git', a, { cwd: dir, stdio: 'ignore' });
-  git('init', '-q');
+  // Explicit `-b main` (vfkb#387): rule 1c reads the branch, so the fixture must not
+  // depend on the machine's init.defaultBranch.
+  git('init', '-q', '-b', 'main');
   git('config', 'user.email', 't@t');
   git('config', 'user.name', 't');
   mkdirSync(join(dir, 'src'));
@@ -602,8 +748,12 @@ function runStop(dir: string, payload: object): string {
   }).trim();
 }
 
-/** A repo whose pinned handoff predates a later non-brain commit; working tree clean. */
-function staleRepo(): string {
+/**
+ * A repo whose pinned handoff predates a later non-brain commit; working tree clean. Left on
+ * the topic branch `feat/x` by default, so ADR-0084 §1.4's rule 1c (quiet on the default
+ * branch with nothing to commit) does not mask the B3 cases; `onMain` keeps it on `main`.
+ */
+function staleRepo(onMain = false): string {
   const dir = gitRepo();
   const commitDated = (files: string[], when: string, msg: string) => {
     execFileSync('git', ['add', ...files], { cwd: dir, stdio: 'ignore' });
@@ -632,6 +782,7 @@ function staleRepo(): string {
   commitDated(['.vfkb/entries.jsonl'], handoffTs, 'handoff');
   writeFileSync(join(dir, 'src', 'bar.ts'), 'export const y = 1;\n');
   commitDated(['src/bar.ts'], '2030-06-01T00:00:00Z', 'merged PR');
+  if (!onMain) execFileSync('git', ['checkout', '-q', '-b', 'feat/x'], { cwd: dir, stdio: 'ignore' });
   return dir;
 }
 
@@ -715,6 +866,8 @@ describe('cli hook stop — emits the verified Stop contract', () => {
     commitDated(['.vfkb/entries.jsonl'], handoffTs, 'handoff'); // the pinned handoff, committed
     writeFileSync(join(dir, 'src', 'bar.ts'), 'export const y = 1;\n');
     commitDated(['src/bar.ts'], '2030-06-01T00:00:00Z', 'merged PR'); // lands after the handoff
+    // off the default branch, so rule 1c (ADR-0084 §1.4) cannot be what this case observes
+    execFileSync('git', ['checkout', '-q', '-b', 'feat/x'], { cwd: dir, stdio: 'ignore' });
     // working tree is now clean — every other trigger (decision/B1) requires uncommittedWork
     const out = JSON.parse(runStop(dir, { stop_hook_active: false }));
     expect(out.hookSpecificOutput.additionalContext).toContain('stale-handoff check');
@@ -831,6 +984,62 @@ describe('cli hook stop — emits the verified Stop contract', () => {
   it('1a contrast: an ephemeral session (no session_id) fails open — B3 on stop 1', () => {
     const dir = staleRepo();
     expect(runStop(dir, { stop_hook_active: false })).toContain('vfkb stale-handoff check:');
+  });
+
+  // ── ADR-0084 §1.5 (1e) and §1.4 (1c) through the real CLI (vfkb#387) ───────
+  it('1e: a persisted session on a topic branch gets B3 once (stop 3), then {} through stop 14', () => {
+    const dir = staleRepo();
+    const payload = { stop_hook_active: false, session_id: 'sess-1e' };
+    expect(runStop(dir, payload)).toBe('{}'); // turn 1 (1a)
+    expect(runStop(dir, payload)).toBe('{}'); // turn 2 (1a)
+    expect(runStop(dir, payload)).toContain('vfkb stale-handoff check:'); // turn 3: the one fire
+    for (let turn = 4; turn <= 14; turn++) {
+      // the 10-turn cooldown re-fired at turn 13; 1e keeps it quiet for the session
+      expect(runStop(dir, payload), `turn ${turn}`).toBe('{}');
+    }
+  });
+
+  it('1e contrast: an ephemeral session (no session_id) on a topic branch fires B3 on every stop', () => {
+    const dir = staleRepo();
+    for (let i = 1; i <= 3; i++) {
+      expect(runStop(dir, { stop_hook_active: false }), `stop ${i}`).toContain('vfkb stale-handoff check:');
+    }
+  });
+
+  it('1c: on main, clean tree, no new entries → {} through turn 4 (B3 eligible by 1a from turn 3)', () => {
+    const dir = staleRepo(true);
+    const payload = { stop_hook_active: false, session_id: 'sess-1c' };
+    for (let turn = 1; turn <= 4; turn++) expect(runStop(dir, payload), `turn ${turn}`).toBe('{}');
+  });
+
+  it('1c can-fail arm: the same repo on main with an uncommitted src/ file fires B3', () => {
+    const dir = staleRepo(true);
+    writeFileSync(join(dir, 'src', 'wip.ts'), 'export const z = 1;\n');
+    // the decision nudge fires too; assert on B3's own lead-in
+    expect(runStop(dir, { stop_hook_active: false })).toContain('vfkb stale-handoff check:');
+  });
+
+  it('1c can-fail arm: the same repo on main with a new brain entry fires B3', () => {
+    const dir = staleRepo(true);
+    const brain = join(dir, '.vfkb', 'entries.jsonl');
+    writeFileSync(brain, readFileSync(brain, 'utf8') + JSON.stringify({ id: 'n1', type: 'fact', text: 'n' }) + '\n');
+    expect(runStop(dir, { stop_hook_active: false })).toContain('vfkb stale-handoff check:');
+  });
+
+  it('1c accepted gap (decide Q4): on main a test/-only edit is not "uncommitted work" → {}', () => {
+    const dir = staleRepo(true);
+    mkdirSync(join(dir, 'test'));
+    writeFileSync(join(dir, 'test', 'x.test.ts'), 'export {};\n');
+    expect(runStop(dir, { stop_hook_active: false })).toBe('{}');
+  });
+
+  it('1c reads the default branch from origin/HEAD: `trunk` with origin/HEAD → origin/trunk is quiet', () => {
+    const dir = staleRepo(true);
+    const git = (...a: string[]) => execFileSync('git', a, { cwd: dir, stdio: 'ignore' });
+    git('branch', '-m', 'main', 'trunk');
+    git('update-ref', 'refs/remotes/origin/trunk', 'HEAD');
+    git('symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/trunk');
+    expect(runStop(dir, { stop_hook_active: false })).toBe('{}');
   });
 });
 
