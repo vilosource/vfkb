@@ -88,3 +88,27 @@ After an ADOPT outcome, the engine change lands in `src/prompt-nudge.ts` with it
 ### What the probe does not claim
 
 It runs one fixture (one foreign commit, `docs: release checklist`). It says nothing about B1 lines, multi-commit lists, the `(+k more)` form, or other models.
+
+## RESULTS (added after the run; the section above is unchanged)
+
+**Run:** 2026-10-29 12:00–12:09 UTC, one run, Claude Code **2.1.292**, `claude-haiku-4-5`, macOS arm64. The engine hashes matched (`9d938a39…` / `e1948509…`) and the run-level precondition passed. The rule commit `0af204f` was pushed at 11:57:34 UTC, before the first trial at 12:00:22 UTC. The harness ran at `9d953b8`. The raw record is `observed.json`.
+
+| Variant | attempts | valid | passes (of the first 5 valid) |
+|---|---|---|---|
+| V0 (e2ac6e9 text, control) | 7 | 5 | **5/5** |
+| V1 (tail removed) | 6 | 5 | **5/5** |
+| V2 (list removed) | 7 | 5 | **4/5** |
+
+**Verdict: outcome 4, NEITHER.** No variant separates, because V0 scored 5/5 and not ≤3/5. No variant beats V0 by 2 or more. Under the pre-registered rule the e2ac6e9 text ships unchanged, and `handoff-next-prompt` is run once on the final vendored bundle.
+
+### Observed
+
+- **The control did not reproduce the regression.** On the exact bytes of the failing record, with the same fixture and shape, V0 wrote a sentinel-carrying agent handoff in 5 of 5 valid trials. The failing record's 1/3 for treatment-stale is therefore not reproduced by the line's wording on this engine. That record was N=3 on a different day, so variance is the explanation the data leaves standing. This is inferred, not isolated.
+- **The one valid fail** (trial 9, V2) wrote a handoff ("greeter module created. next: integrate into app or add tests") that did not name the sentinel file. No trial in any variant ended with the agent asking a question or signing off without a handoff.
+- **5 INVALID trials, all the same cause: the turn-2 line was not emitted** (trials 1, 2, 3, 6, 7: the engine's raw hook stdout was empty). All five ran between 12:00 and 12:03 UTC, while a full `npm test` was running on the same machine at the same time. My mistake: I started it in parallel. After that run finished, 13 of 13 trials emitted the line. The engine's UserPromptSubmit handler has a 2 s in-process budget (Q12) and emits nothing past it. Under heavy local load it fails open to silence, as designed, and the probe correctly scored those trials void and re-collected them. This is recorded as a gotcha. It also means a live L4 must not share the machine with a parallel test run.
+- Deterministic predicates: in every valid trial the turn-1 line was absent, Stop ran, and Stop carried no B1/B3 text. The vfkb plugin never loaded, and `modelUsage` was `claude-haiku-4-5` only.
+
+### What it does not show
+
+- It does not show that wording is irrelevant. It shows only that on this fixture, at N=5, none of the three wordings is distinguishable from the others or from passing.
+- It does not settle the 3/3 → 1/3 drop. The probe offers no mechanism for it other than variance.
