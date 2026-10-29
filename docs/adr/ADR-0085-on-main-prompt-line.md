@@ -12,6 +12,8 @@ timestamp: 2026-10-28
   the Fable review's recommendations and delegates every open question to a Fable
   brainstorm; this ADR's open questions were settled by the #395 decide step, brain
   decisions `42cb42c2cbe1` (Q1) through `a3143d53a8b6` (Q9), listed in §8).
+  §3 revised in PR on 2026-10-29 before landing, on the evidence in §3's "First wording"
+  note (decide step brain `98344d1a7d1b`).
 - **Date:** 2026-10-28
 - **Issue:** [vfkb#395](https://github.com/vilosource/vfkb/issues/395), tracked under
   [#389](https://github.com/vilosource/vfkb/issues/389).
@@ -80,19 +82,31 @@ The third fact clause, joined after the stale and B1 clauses with "; ":
 
 The conditional, when `no-autocommit` is the only reason:
 
-> If this prompt ends the session, committing .vfkb/entries.jsonl on a topic branch is worth
-> doing before finishing; otherwise nothing is needed now.
+> If this prompt ends the session, switching to a topic branch (`git switch -c <name>`) and committing
+> .vfkb/entries.jsonl there is worth doing before finishing; otherwise nothing is needed now.
 
 The conditional, when `no-autocommit` is present with stale and/or B1:
 
 > If this prompt ends the session, two things are worth doing before finishing: a fresh
 > handoff/next entry (kb_add type=fact, tags=handoff,next, role=human) naming what changed
-> and what is next, then committing .vfkb/entries.jsonl on a topic branch; otherwise nothing
-> is needed now[ — the next session sees this same list at start].
+> and what is next, then switching to a topic branch (`git switch -c <name>`) and committing
+> .vfkb/entries.jsonl there; otherwise nothing is needed now[ — the next session sees this
+> same list at start].
 
 Without `no-autocommit`, the text is byte-identical to ADR-0084's. Each shape has exactly
 one "If "; none says "must", "before the session ends" or "plan to record one". The path is
-written literally as `.vfkb/entries.jsonl`, the plugin's brain path.
+written literally as `.vfkb/entries.jsonl`, the plugin's brain path. The conditional names
+the recipe (`git switch -c <name>`), in parity with the stale clause's `(kb_add type=fact,
+tags=handoff,next, role=human)`; the register is unchanged, so it is not a command. The
+fact clause is unchanged by the revision.
+
+**First wording (superseded in this PR before landing).** The conditional first read "If
+this prompt ends the session, committing .vfkb/entries.jsonl on a topic branch is worth
+doing before finishing; otherwise nothing is needed now" (combined: "… then committing
+.vfkb/entries.jsonl on a topic branch; …"). It named a goal, not an action, from a checkout
+that is on `main`. treatment-main scored 1/3 with the clause delivered 3/3; both failing
+trials ended the session without mentioning the brain. Record:
+`scenarios/records/handoff-next-prompt.on-main.probe-run2.json` (vfkb#406).
 
 ### 4. Cadence: the reason set joins the key (amends ADR-0084 §2.5, Q4)
 
@@ -187,6 +201,12 @@ third clause makes the trial INVALID (vacuous).
 - **Treatment and contrast only:** cannot fail in the intrusiveness direction (Q7).
 - **Reuse 1c's clean-tree carve-out:** silences exactly the stranded-entries case (Q8).
 - **Keep the warning on SessionEnd or move it to SessionStart:** settled by `38adeee165d9`.
+- **Goal-only conditional (no recipe):** 1/3 on haiku, record
+  `scenarios/records/handoff-next-prompt.on-main.probe-run2.json` (§3 "First wording").
+- **A forceful conditional ("must", imperative, "before the session ends"):** reads as a
+  command; negative-main exists to fail it (Q7). The revision adds specificity, not force.
+- **Change the treatment-main pass condition instead:** a relay predicate would pass neither
+  failing trial, would tune the judge to the run, and would make contrast-main vacuous.
 
 ## Decide-step record (§8)
 
@@ -194,7 +214,7 @@ third clause makes the trial INVALID (vacuous).
 |---|---|---|
 | Q1 | `42cb42c2cbe1` | one reason, `no-autocommit` |
 | Q2 | `1e112efbd5d4` | mirror SessionEnd via `brainCommitOutcome` |
-| Q3 | `f6a86d9024bc` | wording, three shapes |
+| Q3 | `c339801d4c1f` (supersedes `f6a86d9024bc`) | wording, three shapes; recipe in the conditional |
 | Q4 | `0e9b2a0f0087` | drop the fast path; superset cadence |
 | Q5 | `6cd65965e314` | one id-based count |
 | Q6 | `080afb7eecd7` | only a non-default branch passes |
