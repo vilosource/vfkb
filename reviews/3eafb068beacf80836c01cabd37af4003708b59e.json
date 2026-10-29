@@ -1,0 +1,56 @@
+{
+  "recordVersion": 1,
+  "sha": "3eafb068beacf80836c01cabd37af4003708b59e",
+  "governing": [
+    "docs/adr/ADR-0004-decision-is-adr-grade.md",
+    "docs/adr/ADR-0050-l4-dod-constitutional-brake.md",
+    "docs/adr/ADR-0070-guards-that-can-fail.md"
+  ],
+  "governingNote": "Primary authority is brain decision 35c0d9b23224 (delegated decide Q2, now on main via #409) under operator ruling 54802539cda7; it has no doc file, so the record names the ADRs it rests on (ADR-0004 supersession edge, ADR-0050 sub-task clause, ADR-0070 can-fail guards).",
+  "reviewer": { "agent": "workflow-review-subagent (fresh eyes, not the author)", "model": "claude-opus-5-5", "rounds": 1 },
+  "generated": "2026-10-29T10:45:00Z",
+  "findings": [
+    {
+      "id": "P1",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "PR was CONFLICTING on GitHub after #409 merged (GitHub's server-side merge ignores .gitattributes merge=union on .vfkb/entries.jsonl), contradicting the PR body's 'can merge independently'. Fixed by merging origin/main into the branch (union merge local, 699 JSONL lines all parse; 1193/1193 serial at the merge head).",
+      "acceptedBy": null
+    },
+    {
+      "id": "m1",
+      "severity": "minor",
+      "status": "open",
+      "summary": "Doc drift: kb_supersede's tags param description (src/mcp-server.ts:276) and README.md:178 do not mention that omitted tags are now inherited from the predecessor, or that CLI supersede takes --tag.",
+      "acceptedBy": null
+    },
+    {
+      "id": "m2",
+      "severity": "minor",
+      "status": "accepted",
+      "summary": "No CLI route to an untagged successor of a tagged predecessor (flagList rejects --tag '' and ',,,'); MCP can only do it via tags='[]' (tags() returns [] for an empty JSON array but undefined for ''). Consistent with decision 35c0d9b23224 ('explicit tags override inheritance'); noted, not blocking.",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 3,
+  "ruledOut": [
+    "call sites: grep -rn 'supersede(' src/ -> only src/cli.ts:607 and src/mcp-server.ts:281 call engine supersede(); curator.ts only references it in an error string. Both faces get the inheritance.",
+    "MCP absent/empty tags: tags() returns undefined for undefined and for '' / whitespace (src/mcp-server.ts:83-85), so the engine's ?? inherits; no MCP regression.",
+    "CLI empty list: --tag '' errors (exit 1, non-empty list message); bare --tag errors 'requires a value' -- probed against dist/cli.js.",
+    "predecessor with no tags: old.tags undefined -> successor tags undefined, same as before.",
+    "no merge semantics: explicit tags replace (verified by mutation M4).",
+    "scope: diff does exactly what 35c0d9b23224 decided (engine default + CLI --tag), no retro-tag of 52e9ea680e0e, no hand-edit of the brain; the only brain change is one appended gotcha b8165f782095.",
+    "no AI attribution in commit c23a1e7 message.",
+    "DoD honesty: PR body claims unit-gated sub-task per ADR-0050 and says delivery to plugin users is unproven; no done/shipped/verified claim.",
+    "test count claim: npm test --no-file-parallelism re-run at c23a1e7 = 82 files / 1193 tests passed, matching the PR body; CI test (20/22/24) green."
+  ],
+  "mutations": [
+    { "guard": "test/decision-family.test.ts > a successor with no caller-supplied tags inherits the predecessor tags", "mutation": "src/engine.ts supersede: tags: opts.tags ?? old.tags -> tags: opts.tags (revert the fix)", "observedRed": true },
+    { "guard": "test/cli-args.test.ts > supersede accepts --tag, and inherits the predecessor tags without it", "mutation": "same engine revert (inherit leg)", "observedRed": true },
+    { "guard": "test/cli-args.test.ts > supersede accepts --tag, and inherits the predecessor tags without it", "mutation": "src/cli.ts: drop tag: 'value' from supersede parseArgs spec", "observedRed": true },
+    { "guard": "test/cli-args.test.ts > supersede accepts --tag, and inherits the predecessor tags without it", "mutation": "src/cli.ts supersede call: tags: flagList(p, 'tag') -> tags: undefined (anchored on the supersede site; a first attempt hit broadcast's identical line at cli.ts:234 and stayed green -- anchor misapplied, re-run at the correct site went red)", "observedRed": true },
+    { "guard": "test/decision-family.test.ts > explicit tags win and are not merged with the predecessor tags", "mutation": "src/engine.ts: tags -> union of old.tags and opts.tags", "observedRed": true }
+  ],
+  "mutationsNote": null,
+  "verdict": "MERGE"
+}
