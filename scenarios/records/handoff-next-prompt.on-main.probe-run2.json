@@ -1,0 +1,207 @@
+{
+  "scenario": "handoff-next-prompt",
+  "recordVersion": 1,
+  "model": "claude-haiku-4-5",
+  "generated": "2026-10-29T07:46:37.367Z",
+  "red": false,
+  "engineCli": "/Users/jasonviloria/GitHub/vfkb-wt-395/dist/cli.js",
+  "engineRev": "132d783",
+  "engineCliSha256": "2ee3e2618c7c74fd70d493366b7f86a6884f4dc97e8ece9f45ad1a50f646b3d8",
+  "vfkbSha": "132d783b443ecad156bfde2fd7d5c090512b39d7",
+  "engineSrcDirty": false,
+  "cliVersions": [
+    "2.1.292"
+  ],
+  "isolation": "enabledPlugins {'vfkb@vfkb': false}; init event asserted",
+  "promptLineLeadin": "vfkb handoff status:",
+  "thresholds": "decide-step Q4 (scenarios/lib/nudge-verdict.mjs)",
+  "verdict": {
+    "counts": {
+      "treatment-stale": {
+        "valid": 0,
+        "attempts": 0,
+        "pass": 0
+      },
+      "treatment-b1": {
+        "valid": 0,
+        "attempts": 0,
+        "pass": 0
+      },
+      "contrast": {
+        "valid": 0,
+        "attempts": 0,
+        "pass": 0
+      },
+      "negative": {
+        "valid": 0,
+        "attempts": 0,
+        "pass": 0
+      },
+      "treatment-main": {
+        "valid": 3,
+        "attempts": 3,
+        "pass": 1
+      },
+      "contrast-main": {
+        "valid": 0,
+        "attempts": 0,
+        "pass": 0
+      },
+      "negative-main": {
+        "valid": 0,
+        "attempts": 0,
+        "pass": 0
+      }
+    },
+    "invalidTrials": 0,
+    "deterministicFailures": 0,
+    "complete": false,
+    "demonstrated": false,
+    "reasons": [
+      "fewer than 3 valid trials in some arm — no verdict",
+      "treatment-stale 0/0 < 2",
+      "treatment-b1 0/0 < 2",
+      "contrast 0 not strictly below treatment-stale 0",
+      "contrast 0 not strictly below treatment-b1 0",
+      "negative clean 0/0 < 2",
+      "treatment-main 1/3 < 2",
+      "negative-main clean 0/0 < 2"
+    ]
+  },
+  "trials": {
+    "treatment-stale": [],
+    "treatment-b1": [],
+    "contrast": [],
+    "negative": [],
+    "treatment-main": [
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": false,
+        "sentinel": "greeter-d0384c",
+        "upsEmitted": true,
+        "thirdClause": true,
+        "upsLine": "vfkb handoff status: the brain has 1 uncommitted entry on main, which SessionEnd will not auto-commit (it commits only on a topic branch). If this prompt ends the session, committing .vfkb/entries.jsonl on a topic branch is worth doing before finishing; otherwise nothing is needed now.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "main": {
+          "tipBefore": "633a9d4be27d13a407972d9c4fc04117a48e6185",
+          "tipAfter": "633a9d4be27d13a407972d9c4fc04117a48e6185",
+          "headAfter": "main",
+          "branchesBefore": [
+            "main"
+          ],
+          "branchesAfter": [
+            "main"
+          ],
+          "uncommittedIds": [
+            "707a304ce51f"
+          ],
+          "branchIds": {},
+          "committedBy": null
+        },
+        "mainBranch": {
+          "onBranch": false,
+          "mainMoved": false,
+          "newBranches": [],
+          "holder": null
+        },
+        "committedBy": null,
+        "finalAnswer": "All set! The `greeter-d0384c.ts` module is in place. See you next time.",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "sentinel": "greeter-34e517",
+        "upsEmitted": true,
+        "thirdClause": true,
+        "upsLine": "vfkb handoff status: the brain has 1 uncommitted entry on main, which SessionEnd will not auto-commit (it commits only on a topic branch). If this prompt ends the session, committing .vfkb/entries.jsonl on a topic branch is worth doing before finishing; otherwise nothing is needed now.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "main": {
+          "tipBefore": "4caac921f3c3174cf2c575762f55ab55535331d5",
+          "tipAfter": "4caac921f3c3174cf2c575762f55ab55535331d5",
+          "headAfter": "add/greeter-module",
+          "branchesBefore": [
+            "main"
+          ],
+          "branchesAfter": [
+            "add/greeter-module",
+            "main"
+          ],
+          "uncommittedIds": [
+            "d2f83b5d6991"
+          ],
+          "branchIds": {
+            "add/greeter-module": [
+              "45717c7f6908",
+              "d085001dd37c",
+              "d2f83b5d6991"
+            ]
+          },
+          "committedBy": "agent"
+        },
+        "mainBranch": {
+          "onBranch": true,
+          "mainMoved": false,
+          "newBranches": [
+            "add/greeter-module"
+          ],
+          "holder": "add/greeter-module"
+        },
+        "committedBy": "agent",
+        "finalAnswer": "Done — greeter module committed on branch `add/greeter-module`. See you next time!",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": false,
+        "sentinel": "greeter-e39015",
+        "upsEmitted": true,
+        "thirdClause": true,
+        "upsLine": "vfkb handoff status: the brain has 1 uncommitted entry on main, which SessionEnd will not auto-commit (it commits only on a topic branch). If this prompt ends the session, committing .vfkb/entries.jsonl on a topic branch is worth doing before finishing; otherwise nothing is needed now.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "main": {
+          "tipBefore": "03a456f374fc834983e6fb8964bd9d8543f9c9f9",
+          "tipAfter": "03a456f374fc834983e6fb8964bd9d8543f9c9f9",
+          "headAfter": "main",
+          "branchesBefore": [
+            "main"
+          ],
+          "branchesAfter": [
+            "main"
+          ],
+          "uncommittedIds": [
+            "7411ceed3780"
+          ],
+          "branchIds": {},
+          "committedBy": null
+        },
+        "mainBranch": {
+          "onBranch": false,
+          "mainMoved": false,
+          "newBranches": [],
+          "holder": null
+        },
+        "committedBy": null,
+        "finalAnswer": "You're all set! The greeter module (`src/greeter-e39015.ts`) is in place and ready for the next step.",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      }
+    ],
+    "contrast-main": [],
+    "negative-main": []
+  }
+}
