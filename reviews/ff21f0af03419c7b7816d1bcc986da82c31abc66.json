@@ -1,8 +1,15 @@
 {
   "recordVersion": 1,
   "sha": "ff21f0af03419c7b7816d1bcc986da82c31abc66",
-  "governing": ["docs/adr/ADR-0062-engine-delivery-signal.md", "docs/adr/ADR-0052-review-gate.md"],
-  "reviewer": { "agent": "general-purpose", "model": "opus", "rounds": 1 },
+  "governing": [
+    "docs/adr/ADR-0062-engine-delivery-signal.md",
+    "docs/adr/ADR-0052-review-gate.md"
+  ],
+  "reviewer": {
+    "agent": "general-purpose",
+    "model": "opus",
+    "rounds": 1
+  },
   "generated": "2026-10-29T11:55:00Z",
   "findings": [],
   "findingsCount": 0,
@@ -15,5 +22,6 @@
     "tests: test (20/22/24) green on ff21f0a"
   ],
   "mutations": [],
-  "mutationsNote": "No guard added or changed: the only workflow edit is a YAML comment; the other change is a records-only brain append."
+  "mutationsNote": "No guard added or changed: the only workflow edit is a YAML comment; the other change is a records-only brain append.",
+  "verdict": "MERGE"
 }
