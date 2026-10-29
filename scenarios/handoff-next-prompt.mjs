@@ -22,6 +22,17 @@
 //   negative         treatment-stale, turn 2 = mid-session task           → no agent handoff
 // In every arm the Stop hook's stdout is tee'd: ≥1 invocation and neither B1 nor B3 text.
 //
+// ON-MAIN ARMS (ADR-0085 DoD, vfkb#395): the sandbox stays on `main` with a fresh pin;
+// between turns ONE brain entry is added (B1 false, pin not stale), so the turn-2 line's
+// only reason is `no-autocommit` — ADR-0033's "brain left uncommitted on the default
+// branch" warning, which SessionEnd's systemMessage never displays.
+//   treatment-main   turn 2 = wrap-up → main's tip unchanged AND another local branch's
+//                    brain holds every id uncommitted at turn start (diagnostic: committedBy)
+//   contrast-main    treatment-main, NO UserPromptSubmit entry → the same condition is a leak
+//   negative-main    turn 2 = mid-session task → no handoff, HEAD still main, main unmoved,
+//                    no new branch
+//   VFKB_HNP_RED=1 VFKB_HNP_ARMS=treatment-main …          # → handoff-next-prompt.on-main.red-baseline.json
+//
 // VERDICT: scenarios/lib/nudge-verdict.mjs (pure, unit-tested). Diagnostics per trial
 // (decide step Q3, never predicates): upsEmitted, upsLine, finalAnswer.
 //
@@ -40,7 +51,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync
 import { randomUUID, randomBytes } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { ARMS, MAX_ATTEMPTS_PER_ARM, VALID_PER_ARM, RUN_MARKER, PROMPT_LINE_LEADIN, scoreTrial, runVerdict, recordName, hasLine } from './lib/nudge-verdict.mjs';
+import { ARMS, MAIN_ARMS, MAX_ATTEMPTS_PER_ARM, VALID_PER_ARM, RUN_MARKER, PROMPT_LINE_LEADIN, SESSION_END_COMMIT_PREFIX, scoreTrial, runVerdict, recordName, hasLine, hasThirdClause, mainBranchFacts } from './lib/nudge-verdict.mjs';
 
 const REPO = resolve(process.argv[1], '../..');
 const CLI = resolve(process.env.VFKB_HNP_CLI || join(REPO, 'dist', 'cli.js'));
@@ -75,7 +86,7 @@ function settings({ ups, sessionEnd, logs }) {
   return JSON.stringify({ enabledPlugins: { 'vfkb@vfkb': false }, hooks }, null, 2);
 }
 
-function makeSandbox() {
+function makeSandbox({ onMain = false } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'vfkb-hnp-'));
   const logDir = mkdtempSync(join(tmpdir(), 'vfkb-hnp-logs-'));
   for (const d of ['src', 'docs', '.vfkb', '.claude']) mkdirSync(join(dir, d));
@@ -97,7 +108,7 @@ function makeSandbox() {
   // Backdated ~60 s so the pin (written now) is strictly after it at git's 1 s resolution.
   const past = new Date(Date.now() - 60_000).toISOString();
   git(['commit', '-qm', 'seed'], { GIT_AUTHOR_DATE: past, GIT_COMMITTER_DATE: past });
-  git(['checkout', '-q', '-b', 'feat/work']); // B2 commits only on a topic branch
+  if (!onMain) git(['checkout', '-q', '-b', 'feat/work']); // B2 commits only on a topic branch
   // The pin: an operator handoff written after the seed, committed brain-only (not stale).
   cli('add', 'fact', 'handoff: the app scaffold is in place. next: add a greeter module.', '--tag', 'handoff,next', '--role', 'human');
   git(['add', '.vfkb/entries.jsonl']);
@@ -138,6 +149,30 @@ function runTurn(sb, prompt, sessionArgs) {
 }
 
 const readText = (f) => (existsSync(f) ? readFileSync(f, 'utf8') : '');
+const idsOf = (text) => [...new Set(String(text).split('\n').filter(Boolean)
+  .map((l) => { try { return JSON.parse(l).id; } catch { return undefined; } }).filter(Boolean))];
+const tryGit = (dir, a) => { try { return sh('git', a, { cwd: dir, stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return null; } };
+const localBranches = (dir) => (tryGit(dir, ['for-each-ref', '--format=%(refname:short)', 'refs/heads']) || '').split('\n').filter(Boolean);
+
+// The on-main git facts (ADR-0085 DoD) and the diagnostic `committedBy` (Q9, never a predicate).
+function mainFacts(dir, before) {
+  const branchesAfter = localBranches(dir);
+  const branchIds = {};
+  let committedBy = null;
+  for (const b of branchesAfter) {
+    if (b === 'main') continue;
+    branchIds[b] = idsOf(tryGit(dir, ['show', `${b}:.vfkb/entries.jsonl`]) || '');
+    if (before.uncommittedIds.length && before.uncommittedIds.every((id) => branchIds[b].includes(id))) {
+      const subj = tryGit(dir, ['log', '-1', '--format=%s', b, '--', '.vfkb/entries.jsonl']) || '';
+      committedBy = subj.startsWith(SESSION_END_COMMIT_PREFIX) ? 'session-end' : 'agent';
+    }
+  }
+  return {
+    tipBefore: before.tip, tipAfter: tryGit(dir, ['rev-parse', 'refs/heads/main']),
+    headAfter: tryGit(dir, ['symbolic-ref', '--short', '-q', 'HEAD']) || null,
+    branchesBefore: before.branches, branchesAfter, uncommittedIds: before.uncommittedIds, branchIds, committedBy,
+  };
+}
 const entries = (dir) => readText(join(dir, '.vfkb/entries.jsonl')).split('\n').filter(Boolean)
   .map((l) => { try { return JSON.parse(l); } catch { return {}; } });
 
@@ -157,9 +192,10 @@ function runTrial(arm) {
   // "what changed" carries it naturally (the RED run's handoffs all named the file).
   const sentinel = `greeter-${randomBytes(3).toString('hex')}`;
   const file = `src/${sentinel}.ts`;
-  const sb = makeSandbox();
+  const onMain = MAIN_ARMS.includes(arm);
+  const sb = makeSandbox({ onMain });
   const sid = randomUUID();
-  const wired = arm !== 'contrast';
+  const wired = arm !== 'contrast' && arm !== 'contrast-main';
   const setTurn = (turn) => writeFileSync(join(sb.dir, '.claude/settings.json'),
     settings({ ups: wired, sessionEnd: turn === 2, logs: sb.logs }));
 
@@ -172,7 +208,10 @@ function runTrial(arm) {
   const upsOffset = ups1?.length ?? 0;
 
   // Between turns: make the trigger true.
-  if (arm === 'treatment-b1') {
+  if (onMain) {
+    // ONE entry: B1 needs ≥3, and no commit lands, so the pin stays fresh.
+    sb.cli('add', 'fact', `work note: ${file} drafted`, '--role', 'executor');
+  } else if (arm === 'treatment-b1') {
     if (!existsSync(join(sb.dir, file))) writeFileSync(join(sb.dir, file), 'export const greet = (n: string) => `Hello, ${n}!`;\n');
     const have = entries(sb.dir).length;
     const headCount = sh('git', ['show', 'HEAD:.vfkb/entries.jsonl'], { cwd: sb.dir }).split('\n').filter(Boolean).length;
@@ -183,17 +222,25 @@ function runTrial(arm) {
     sb.git(['commit', '-qm', 'docs: release checklist']);
   }
   const before = entries(sb.dir).length;
+  const headIds = new Set(idsOf(tryGit(sb.dir, ['show', 'HEAD:.vfkb/entries.jsonl']) || ''));
+  const mainBefore = onMain ? {
+    tip: tryGit(sb.dir, ['rev-parse', 'refs/heads/main']), branches: localBranches(sb.dir),
+    uncommittedIds: idsOf(readText(join(sb.dir, '.vfkb/entries.jsonl'))).filter((id) => !headIds.has(id)),
+  } : null;
 
   // Turn 2 — the asserted prompt.
   setTurn(2);
-  const prompt2 = arm === 'negative'
+  const prompt2 = arm === 'negative' || arm === 'negative-main'
     ? 'Next: create the file src/format-date.ts ON DISK exporting formatDate(d: Date) that returns YYYY-MM-DD. Reply "done" when it exists; we will keep going after this.'
     : "That's everything for today — we're done for this session, thanks.";
   const t2 = runTurn(sb, prompt2, ['--resume', sid]);
   const upsAll = wired ? readText(sb.logs.ups) : null;
   const ups2 = wired ? upsAll.slice(upsOffset) : null;
+  // Turn-2 entries are read from the working file; on main an agent may have switched
+  // branches, so the brain path is still the sandbox's working copy.
   const all = entries(sb.dir);
   const turn2Entries = all.slice(before);
+  const main = onMain ? mainFacts(sb.dir, mainBefore) : undefined;
   const leak = leaks([file]);
 
   const upsLineMatch = ups2 && /"additionalContext":"((?:[^"\\]|\\.)*)"/.exec(ups2);
@@ -201,7 +248,7 @@ function runTrial(arm) {
     arm, sentinel, leak,
     isolationReasons: [...t1.reasons.map((r) => `t1: ${r}`), ...t2.reasons.map((r) => `t2: ${r}`)],
     engaged: !!t1.result && !!t2.result,
-    ups1, ups2, stopLog: readText(sb.logs.stop), turn2Entries,
+    ups1, ups2, stopLog: readText(sb.logs.stop), turn2Entries, main,
   };
   const scored = scoreTrial(obs);
   const finalAnswer = String(t2.result?.result ?? '').slice(0, 2000);
@@ -215,12 +262,13 @@ function runTrial(arm) {
   return {
     ...scored, sentinel,
     // Diagnostics (Q3) — never predicates.
-    upsEmitted: hasLine(ups2), upsLine: upsLineMatch ? JSON.parse(`"${upsLineMatch[1]}"`) : null,
+    upsEmitted: hasLine(ups2), thirdClause: hasThirdClause(ups2), upsLine: upsLineMatch ? JSON.parse(`"${upsLineMatch[1]}"`) : null,
     turn1Line: hasLine(ups1),
     stopRuns: obs.stopLog.split('\n').filter((l) => l.startsWith(RUN_MARKER)).length,
     stopBlocked: obs.stopLog.includes('"decision":"block"'),
     turn2Handoffs: turn2Entries.filter((e) => (e.tags || []).some((t) => t === 'handoff' || t === 'next'))
       .map((e) => ({ tags: e.tags, text: String(e.text).slice(0, 300) })),
+    ...(main ? { main, mainBranch: mainBranchFacts(main), committedBy: main.committedBy } : {}),
     finalAnswer, errors: [t1.err, t2.err].filter(Boolean),
     cliVersion: t2.cliVersion || t1.cliVersion,
   };
@@ -238,7 +286,8 @@ for (const arm of arms) {
     const r = runTrial(arm);
     trials[arm].push(r);
     if (r.invalid.length === 0) valid++;
-    console.log(`${r.invalid.length ? 'INVALID ' : ''}${r.pass ? 'PASS' : 'no'}  line@t2=${r.upsEmitted} line@t1=${r.turn1Line} stopRuns=${r.stopRuns}` +
+    console.log(`${r.invalid.length ? 'INVALID ' : ''}${r.pass ? 'PASS' : 'no'}  line@t2=${r.upsEmitted} third=${r.thirdClause} line@t1=${r.turn1Line} stopRuns=${r.stopRuns}` +
+      `${r.main ? `  head=${r.main.headAfter} mainMoved=${r.mainBranch.mainMoved} holder=${r.mainBranch.holder} by=${r.committedBy}` : ''}` +
       `${r.deterministicFail.length ? '  DET-FAIL: ' + r.deterministicFail.join('; ') : ''}` +
       `${r.invalid.length ? '  ✗ ' + r.invalid.join('; ') : ''}`);
     if (r.turn2Handoffs.length) console.log(`        handoffs@t2: ${r.turn2Handoffs.map((h) => `[${h.tags}] ${h.text.slice(0, 120)}`).join(' | ')}`);
@@ -266,7 +315,7 @@ const rec = {
   promptLineLeadin: PROMPT_LINE_LEADIN, thresholds: 'decide-step Q4 (scenarios/lib/nudge-verdict.mjs)',
   verdict: { ...verdict, demonstrated: verdict.demonstrated && complete }, trials,
 };
-const file = recordName('handoff-next-prompt', { complete, red: RED });
+const file = recordName('handoff-next-prompt', { complete, red: RED, redArms: arms });
 mkdirSync(join(REPO, 'scenarios/records'), { recursive: true });
 writeFileSync(join(REPO, 'scenarios/records', file), JSON.stringify(rec, null, 2) + '\n');
 console.log(`record → scenarios/records/${file}`);

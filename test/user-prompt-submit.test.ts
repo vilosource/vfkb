@@ -3,7 +3,8 @@
 // step's Q2 (first prompt), Q10 (read-only against the session record) and Q12 (budget).
 import { describe, it, expect } from 'vitest';
 import { execFileSync, spawn } from 'node:child_process';
-import { chmodSync, existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { runSessionEnd } from '../src/session-end.js';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -238,7 +239,7 @@ describe('hook user-prompt-submit — Q10: read-only against the session record'
     expect(readFileSync(rec, 'utf8')).toBe(before);
     const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim();
     const sig = JSON.parse(readFileSync(join(dir, '.vfkb', '.signals', 'prompt-nudge', 'cc.json'), 'utf8'));
-    expect(sig.key.endsWith(`|${head}`)).toBe(true);
+    expect(sig.key.endsWith(`|${head}|stale`)).toBe(true); // ADR-0085 §4: base + reason set
   }, 30000);
 });
 
@@ -288,4 +289,164 @@ describe('session record writes are tmp + rename (decide step Q10)', () => {
     expect(JSON.parse(readFileSync(record, 'utf8')).turnCount).toBe(1); // the save happened
     expect(readFileSync(sibling, 'utf8')).toBe(before);
   });
+});
+
+// ── ADR-0085 (vfkb#395): the no-autocommit reason, end to end over real git ───────────
+// ADR-0033's branch guard refuses the default branch and a detached HEAD; its SessionEnd
+// systemMessage is discarded (vfkb#384 arm F), so the line carries it. Each case below was
+// observed RED (no line) before the source change, except the silences, which can fail.
+
+const entry = (id: string, extra: Record<string, unknown> = {}) =>
+  JSON.stringify({ id, type: 'fact', text: `note ${id}`, tags: [], created: '2030-03-01T00:00:00.000Z', updated: '2030-03-01T00:00:00.000Z', ...extra }) + '\n';
+
+/** A repo on `main` whose committed pin is fresh (no later non-brain commit). */
+function mainRepo(branch = 'main'): string {
+  const dir = mkdtempSync(join(tmpdir(), 'vfkb-ups-main-'));
+  git(dir, ['init', '-q', '-b', branch]);
+  git(dir, ['config', 'user.email', 't@t']);
+  git(dir, ['config', 'user.name', 't']);
+  mkdirSync(join(dir, 'src'));
+  mkdirSync(join(dir, '.vfkb'));
+  writeFileSync(join(dir, '.gitignore'), '.vfkb/.sessions/\n.vfkb/.signals/\n');
+  writeFileSync(join(dir, 'src', 'a.ts'), 'a\n');
+  git(dir, ['add', '.']);
+  git(dir, ['commit', '-qm', 'seed'], '2030-01-01T00:00:00Z');
+  const ts = '2030-02-01T00:00:00.000Z';
+  writeFileSync(join(dir, '.vfkb', 'entries.jsonl'), entry('pin000000001', { text: 'handoff: x. next: y', tags: ['handoff', 'next'], zone: 'established', author: { role: 'human' }, provenance: { status: 'verified' }, validity: { valid_from: ts }, created: ts, updated: ts }));
+  git(dir, ['add', '.vfkb/entries.jsonl']);
+  git(dir, ['commit', '-qm', 'handoff'], ts);
+  return dir;
+}
+const addEntries = (dir: string, ...ids: string[]) => {
+  for (const id of ids) appendFileSync(join(dir, '.vfkb', 'entries.jsonl'), entry(id));
+};
+const lineOf = (out: string) => (out ? ctxOf(out).additionalContext : '');
+const UNC = 'which SessionEnd will not auto-commit (it commits only on a topic branch)';
+
+describe('hook user-prompt-submit — the no-autocommit reason (ADR-0085)', () => {
+  it('on main with one new entry: the third clause alone; same prompt again → empty', () => {
+    const dir = mainRepo();
+    seedSession(dir, 'm', 1);
+    addEntries(dir, 'new000000001');
+    expect(lineOf(ups(dir, typed('m')))).toBe(
+      `${LEADIN} the brain has 1 uncommitted entry on main, ${UNC}. If this prompt ends the session, committing ` +
+        '.vfkb/entries.jsonl on a topic branch is worth doing before finishing; otherwise nothing is needed now.',
+    );
+    expect(ups(dir, typed('m'))).toBe('');
+  });
+
+  it('a detached HEAD: the detached rendering', () => {
+    const dir = mainRepo();
+    git(dir, ['checkout', '-q', '--detach']);
+    seedSession(dir, 'd', 1);
+    addEntries(dir, 'new000000001', 'new000000002');
+    expect(lineOf(ups(dir, typed('d')))).toContain(`the brain has 2 uncommitted entries on a detached HEAD, ${UNC}.`);
+  });
+
+  it('origin/HEAD names the default: on `trunk` the clause fires', () => {
+    const dir = mainRepo('trunk');
+    git(dir, ['update-ref', 'refs/remotes/origin/trunk', 'HEAD']);
+    git(dir, ['symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/trunk']);
+    seedSession(dir, 't', 1);
+    addEntries(dir, 'new000000001');
+    expect(lineOf(ups(dir, typed('t')))).toContain(`uncommitted entry on trunk, ${UNC}`);
+  });
+
+  it('can fail: a topic branch with new entries (B1 false) → empty', () => {
+    const dir = mainRepo();
+    git(dir, ['checkout', '-qb', 'feat/y']);
+    seedSession(dir, 'tb', 1);
+    addEntries(dir, 'new000000001');
+    expect(ups(dir, typed('tb'))).toBe('');
+  });
+
+  it('can fail: not a git repo, a brain full of entries → empty (no false "detached HEAD")', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'vfkb-ups-norepo-'));
+    mkdirSync(join(dir, '.vfkb'));
+    writeFileSync(join(dir, '.vfkb', 'entries.jsonl'), entry('a00000000001') + entry('b00000000001') + entry('c00000000001'));
+    seedSession(dir, 'nr', 1);
+    expect(ups(dir, typed('nr'))).toBe('');
+  });
+
+  it('can fail: a gitignored brain on main → empty (status of the pathspec is clean)', () => {
+    const dir = mainRepo();
+    git(dir, ['rm', '-q', '--cached', '.vfkb/entries.jsonl']);
+    appendFileSync(join(dir, '.gitignore'), '.vfkb/\n');
+    git(dir, ['add', '.gitignore']);
+    git(dir, ['commit', '-qm', 'ignore brain']);
+    seedSession(dir, 'ig', 1);
+    addEntries(dir, 'new000000001');
+    expect(ups(dir, typed('ig'))).toBe('');
+  });
+
+  it('can fail: on main, only an edit of a committed id (0 new ids) → empty', () => {
+    const dir = mainRepo();
+    seedSession(dir, 'ed', 1);
+    appendFileSync(join(dir, '.vfkb', 'entries.jsonl'), entry('pin000000001', { tags: ['handoff', 'next', 'retagged'], updated: '2030-04-01T00:00:00.000Z' }));
+    expect(ups(dir, typed('ed'))).toBe('');
+  });
+
+  it('committing the brain on a topic branch clears it (self-silencing)', () => {
+    const dir = mainRepo();
+    seedSession(dir, 'cl', 1);
+    addEntries(dir, 'new000000001');
+    expect(lineOf(ups(dir, typed('cl')))).toContain(UNC);
+    git(dir, ['checkout', '-qb', 'feat/brain']);
+    git(dir, ['commit', '-qm', 'brain', '--', '.vfkb/entries.jsonl']);
+    expect(ups(dir, typed('cl'))).toBe('');
+  });
+
+  it('cadence: a stale line already delivered, then a new entry on main → re-emits with both clauses', () => {
+    const dir = mainRepo();
+    commitLater(dir, 'later'); // the pin is now stale, on main
+    seedSession(dir, 'cd', 1);
+    const first = lineOf(ups(dir, typed('cd')));
+    expect(first).toContain('predates 1 commit on main');
+    expect(first).not.toContain(UNC);
+    expect(ups(dir, typed('cd'))).toBe('');
+    addEntries(dir, 'new000000001'); // HEAD unchanged — the old fast path swallowed this
+    const second = lineOf(ups(dir, typed('cd')));
+    expect(second).toContain(`; the brain has 1 uncommitted entry on main, ${UNC}.`);
+    expect(second).toContain('two things are worth doing before finishing');
+    expect(ups(dir, typed('cd'))).toBe('');
+  });
+});
+
+describe('parity (ADR-0085 §1): the line fires exactly when SessionEnd refuses new entries', () => {
+  const cases: Array<[string, () => string]> = [
+    ['default', () => { const d = mainRepo(); addEntries(d, 'p00000000001'); return d; }],
+    ['detached', () => { const d = mainRepo(); git(d, ['checkout', '-q', '--detach']); addEntries(d, 'p00000000001'); return d; }],
+    ['topic', () => { const d = mainRepo(); git(d, ['checkout', '-qb', 'feat/p']); addEntries(d, 'p00000000001'); return d; }],
+    ['clean', () => mainRepo()],
+    ['no-repo', () => { const d = mkdtempSync(join(tmpdir(), 'vfkb-par-')); mkdirSync(join(d, '.vfkb')); writeFileSync(join(d, '.vfkb', 'entries.jsonl'), entry('p00000000001')); return d; }],
+  ];
+  for (const [name, mk] of cases) {
+    it(name, () => {
+      const dir = mk();
+      seedSession(dir, 'par', 1);
+      const fired = lineOf(ups(dir, typed('par'))).includes(UNC);
+      // SessionEnd's verdict on the same state (runSessionEnd returns before any write on
+      // these outcomes; on a topic branch it would commit, so read it on a copy of the state).
+      const r = runSessionEnd({ cwd: dir, dataDir: '.vfkb', now: () => 99_999 });
+      const refused = (r.reason === 'on-default-branch' || r.reason === 'detached-head') && (r.added ?? 0) >= 1;
+      expect(fired, `${name}: SessionEnd=${r.reason}`).toBe(refused);
+    });
+  }
+});
+
+describe('hook user-prompt-submit — Q12 normal path (ADR-0085 §4: no fast path)', () => {
+  it('cold cache, real git, every reason gathered: the line is emitted inside the budget', () => {
+    const dir = mainRepo();
+    commitLater(dir, 'later');
+    seedSession(dir, 'np', 1);
+    writeFileSync(join(dir, 'src', 'wip.ts'), 'wip\n');
+    addEntries(dir, 'n00000000001', 'n00000000002', 'n00000000003');
+    const t0 = Date.now();
+    const line = lineOf(ups(dir, typed('np')));
+    const wall = Date.now() - t0;
+    expect(line).toContain('predates 1 commit on main');
+    expect(line).toContain('this session has recorded 3 entries');
+    expect(line).toContain(UNC);
+    expect(wall).toBeLessThan(3000); // PROMPT_NUDGE_BUDGET_MS + 1000, the wedged-git margin
+  }, 20000);
 });

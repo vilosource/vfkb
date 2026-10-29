@@ -879,7 +879,7 @@ async function dispatch() {
         const brain = brainDir();
         const stored = s.persisted ? readPromptNudgeSignal(brain, sessionId) : {};
         // process.cwd(), like the Stop hook: the brain path (VFKB_DATA_DIR) resolves against it.
-        const ctx = gatherPromptContext(process.cwd(), brain, s, stored.key, deadline);
+        const ctx = gatherPromptContext(process.cwd(), brain, s, deadline);
         if (performance.now() > deadline) return; // over budget → quiet (Q12)
         const d = decidePromptNudge(input, ctx, stored.key);
         if (!d.emit) return;

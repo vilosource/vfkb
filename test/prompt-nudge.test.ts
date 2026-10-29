@@ -130,7 +130,7 @@ describe('renderPromptNudge — with the Part 0 list (#386)', () => {
 describe('decidePromptNudge — trigger and cadence (ADR-0084 §2.2, §2.5)', () => {
   it('emits the stale line when the pin is stale and nothing is stored', () => {
     const d = decidePromptNudge(typed, ctx(), undefined);
-    expect(d).toEqual({ emit: true, text: STALE_TEXT + COND, reasons: ['stale'], key: ctx().key });
+    expect(d).toEqual({ emit: true, text: STALE_TEXT + COND, reasons: ['stale'], key: `${ctx().key}|stale` });
   });
   it('the four-way reason table', () => {
     expect(decidePromptNudge(typed, ctx({ stale: false, b1: false }), undefined).emit).toBe(false);
@@ -144,8 +144,8 @@ describe('decidePromptNudge — trigger and cadence (ADR-0084 §2.2, §2.5)', ()
   it('stale without a pin cannot be stated, so it is not a reason', () => {
     expect(decidePromptNudge(typed, ctx({ pin: undefined }), undefined).emit).toBe(false);
   });
-  it('the same key does not re-emit', () => {
-    expect(decidePromptNudge(typed, ctx(), ctx().key)).toEqual({ emit: false, why: 'same-key' });
+  it('the same key does not re-emit (ADR-0085: base plus the delivered reason set)', () => {
+    expect(decidePromptNudge(typed, ctx(), `${ctx().key}|stale`)).toEqual({ emit: false, why: 'same-key' });
   });
   it('a moved HEAD re-emits', () => {
     expect(decidePromptNudge(typed, ctx({ key: promptNudgeKey(pin, 'def456') }), ctx().key).emit).toBe(true);
@@ -156,8 +156,28 @@ describe('decidePromptNudge — trigger and cadence (ADR-0084 §2.2, §2.5)', ()
     expect(decidePromptNudge(typed, ctx({ key: k1 }), ctx().key).emit).toBe(true);
     expect(decidePromptNudge(typed, ctx({ key: k2 }), ctx().key).emit).toBe(true);
   });
-  it('a reason-only change does not re-emit', () => {
-    expect(decidePromptNudge(typed, ctx({ stale: false, b1: true, newEntries: 5 }), ctx().key).emit).toBe(false);
+  it('ADR-0085 §4: a reason that DISAPPEARS under the same base does not re-emit', () => {
+    expect(decidePromptNudge(typed, ctx({ stale: true, b1: false }), `${ctx().key}|b1+stale`)).toEqual({
+      emit: false,
+      why: 'same-key',
+    });
+  });
+  it('ADR-0085 §4: a NEWLY TRUE reason under the same base re-emits, and the key carries the union', () => {
+    const d = decidePromptNudge(typed, ctx({ stale: true, b1: true, newEntries: 5 }), `${ctx().key}|stale`);
+    expect(d.emit && d.reasons).toEqual(['stale', 'b1']);
+    expect(d.emit && d.key).toBe(`${ctx().key}|b1+stale`);
+    // a reason swap (stale → b1) is a new reason too
+    const swap = decidePromptNudge(typed, ctx({ stale: false, b1: true, newEntries: 5 }), `${ctx().key}|stale`);
+    expect(swap.emit && swap.key).toBe(`${ctx().key}|b1+stale`);
+  });
+  it('ADR-0085 §4: a changed base re-emits with only the current reasons in the key', () => {
+    const d = decidePromptNudge(typed, ctx({ key: promptNudgeKey(pin, 'def456') }), `${ctx().key}|b1+stale`);
+    expect(d.emit && d.key).toBe(`${promptNudgeKey(pin, 'def456')}|stale`);
+  });
+  it('ADR-0085 §4: an old three-part stored key re-emits once (then the four-part key holds)', () => {
+    const d = decidePromptNudge(typed, ctx(), ctx().key);
+    expect(d.emit).toBe(true);
+    expect(decidePromptNudge(typed, ctx(), d.emit ? d.key : undefined)).toEqual({ emit: false, why: 'same-key' });
   });
   it('no stored key (ephemeral / failed save) emits every time the trigger holds', () => {
     for (let i = 0; i < 3; i++) expect(decidePromptNudge(typed, ctx({ persisted: false }), undefined).emit).toBe(true);
@@ -165,6 +185,11 @@ describe('decidePromptNudge — trigger and cadence (ADR-0084 §2.2, §2.5)', ()
   it('promptNudgeKey is (pin id, created, HEAD) with placeholders for absent parts', () => {
     expect(promptNudgeKey(pin, 'abc')).toBe('c708f71279b6|2026-10-27T07:36:12.345Z|abc');
     expect(promptNudgeKey(undefined, 'abc')).toBe('-|-|abc');
+  });
+  it('ADR-0085 §4: with reasons, the key gains the sorted reason set as a fourth part', () => {
+    expect(promptNudgeKey(pin, 'abc', ['stale', 'no-autocommit', 'b1'])).toBe(
+      'c708f71279b6|2026-10-27T07:36:12.345Z|abc|b1+no-autocommit+stale',
+    );
   });
 });
 
@@ -258,5 +283,92 @@ describe('compaction (decide Q8): the prompt line re-arms, B3 stays quiet for th
     const { brain, key } = setup();
     const d = decidePromptNudge(typed, ctx({ key }), readPromptNudgeSignal(brain, 'sess').key);
     expect(d.emit).toBe(true);
+  });
+});
+
+// ── ADR-0085 (vfkb#395): the third reason, no-autocommit ─────────────────────────────
+// ADR-0033's default-branch / detached-HEAD warning, rerouted from SessionEnd's discarded
+// systemMessage. Decide Q1 (one reason), Q2 (SessionEnd's outcome), Q3 (wording).
+
+const THIRD_MAIN = 'the brain has 2 uncommitted entries on main, which SessionEnd will not auto-commit (it commits only on a topic branch)';
+const COND_UNCOMMITTED =
+  ' If this prompt ends the session, committing .vfkb/entries.jsonl on a topic branch is worth doing before finishing; ' +
+  'otherwise nothing is needed now.';
+const COND_BOTH =
+  ' If this prompt ends the session, two things are worth doing before finishing: a fresh handoff/next entry ' +
+  '(kb_add type=fact, tags=handoff,next, role=human) naming what changed and what is next, then committing ' +
+  '.vfkb/entries.jsonl on a topic branch; otherwise nothing is needed now.';
+
+describe('renderPromptNudge — the no-autocommit clause (ADR-0085 §3)', () => {
+  it('alone, on the default branch', () => {
+    expect(renderPromptNudge(['no-autocommit'], { branch: 'main', newEntries: 2 })).toBe(
+      `vfkb handoff status: ${THIRD_MAIN}.${COND_UNCOMMITTED}`,
+    );
+  });
+  it('alone, singular, on a detached HEAD (decide Q1: one reason, two renderings)', () => {
+    expect(renderPromptNudge(['no-autocommit'], { branch: null, newEntries: 1 })).toBe(
+      'vfkb handoff status: the brain has 1 uncommitted entry on a detached HEAD, which SessionEnd will not auto-commit ' +
+        `(it commits only on a topic branch).${COND_UNCOMMITTED}`,
+    );
+  });
+  it('with stale: stale clause first, then the third; the two-things conditional', () => {
+    expect(renderPromptNudge(['stale', 'no-autocommit'], { pin, branch: 'main', newEntries: 2 })).toBe(
+      'vfkb handoff status: the pinned handoff (c708f71279b6, 2026-10-27) predates a later commit on main; ' +
+        `${THIRD_MAIN}.${COND_BOTH}`,
+    );
+  });
+  it('with b1: b1 clause, then the third', () => {
+    expect(renderPromptNudge(['b1', 'no-autocommit'], { branch: 'main', newEntries: 2 })).toBe(
+      'vfkb handoff status: this session has recorded 2 entries and no handoff/next entry; ' + `${THIRD_MAIN}.${COND_BOTH}`,
+    );
+  });
+  it('with a listed stale clause: the listed suffix closes the two-things conditional', () => {
+    const c1 = { hash: '1'.repeat(40), short: '1111111', subject: 'fix: one' };
+    const t = renderPromptNudge(['stale', 'no-autocommit'], { pin, branch: 'main', newEntries: 2, staleCommits: [c1] });
+    expect(t.endsWith(`${COND_BOTH.replace(/\.$/, '')} — the next session sees this same list at start.`)).toBe(true);
+  });
+  it('every shape: exactly one "If ", none of the forbidden phrases', () => {
+    for (const r of [['no-autocommit'], ['stale', 'no-autocommit'], ['b1', 'no-autocommit'], ['stale', 'b1', 'no-autocommit']] as const) {
+      const t = renderPromptNudge([...r], { pin, branch: 'main', newEntries: 3 });
+      expect(t.split('If ').length - 1, r.join('+')).toBe(1);
+      expect(t.startsWith(PROMPT_NUDGE_LEADIN)).toBe(true);
+      for (const bad of ['must', 'before the session ends', 'plan to record one']) expect(t.toLowerCase()).not.toContain(bad);
+    }
+  });
+  it('regression: stale / b1 without the third reason stay byte-identical to ADR-0084', () => {
+    expect(renderPromptNudge(['stale'], { pin, branch: 'feat/x', newEntries: 0 })).toBe(STALE_TEXT + COND);
+    expect(renderPromptNudge(['b1'], { branch: 'feat/x', newEntries: 4 })).toBe(B1_TEXT + COND);
+  });
+});
+
+describe('decidePromptNudge — the no-autocommit reason (ADR-0085 §1)', () => {
+  const quiet = { stale: false, b1: false, branch: 'main', newEntries: 2 };
+  it('on-default-branch with ≥ 1 new id → [no-autocommit]', () => {
+    const d = decidePromptNudge(typed, ctx({ ...quiet, commitOutcome: 'on-default-branch' }), undefined);
+    expect(d.emit && d.reasons).toEqual(['no-autocommit']);
+    expect(d.emit && d.text).toBe(`vfkb handoff status: ${THIRD_MAIN}.${COND_UNCOMMITTED}`);
+  });
+  it('detached-head with ≥ 1 new id → [no-autocommit], detached wording', () => {
+    const d = decidePromptNudge(typed, ctx({ ...quiet, branch: null, commitOutcome: 'detached-head' }), undefined);
+    expect(d.emit && d.reasons).toEqual(['no-autocommit']);
+    expect(d.emit && d.text).toContain('uncommitted entries on a detached HEAD');
+  });
+  it('can fail: a topic branch, not-a-repo, a clean brain, an unknown outcome or 0 new ids → no reason', () => {
+    for (const commitOutcome of ['topic', 'not-a-repo', 'brain-clean', undefined] as const) {
+      expect(decidePromptNudge(typed, ctx({ ...quiet, commitOutcome }), undefined).emit, String(commitOutcome)).toBe(false);
+    }
+    expect(decidePromptNudge(typed, ctx({ ...quiet, newEntries: 0, commitOutcome: 'on-default-branch' }), undefined).emit).toBe(false);
+  });
+  it('reason order is stale, b1, no-autocommit', () => {
+    const d = decidePromptNudge(typed, ctx({ stale: true, b1: true, branch: 'main', newEntries: 3, commitOutcome: 'on-default-branch' }), undefined);
+    expect(d.emit && d.reasons).toEqual(['stale', 'b1', 'no-autocommit']);
+  });
+  it('cadence: {stale} delivered, then no-autocommit becomes true under the same base → re-emits once', () => {
+    const k = `${ctx().key}|stale`;
+    const c = ctx({ stale: true, branch: 'main', newEntries: 1, commitOutcome: 'on-default-branch' });
+    const d = decidePromptNudge(typed, c, k);
+    expect(d.emit && d.reasons).toEqual(['stale', 'no-autocommit']);
+    expect(d.emit && d.key).toBe(`${ctx().key}|no-autocommit+stale`);
+    expect(decidePromptNudge(typed, c, d.emit ? d.key : undefined)).toEqual({ emit: false, why: 'same-key' });
   });
 });

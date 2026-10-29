@@ -21,6 +21,13 @@
 //     quiet on Stop for the rest of the session, compaction included (decide Q8).
 //   - Q12: an in-process budget. Every git child gets a timeout bounded by the deadline;
 //     past it the handler emits nothing.
+//
+// ADR-0085 (vfkb#395; the #395 decide step, ruling 54802539cda7) adds the third reason,
+// `no-autocommit`: ADR-0033's default-branch / detached-HEAD warning, whose SessionEnd
+// systemMessage is never displayed, decided by SessionEnd's own `brainCommitOutcome` and
+// counted in new ids. The cadence key gains the delivered reason set, and the stage-1 fast
+// path is gone (a reason that becomes true under an unchanged HEAD must still be seen).
+// Built, NOT yet verified until the on-main arms of the record are DEMONSTRATED.
 
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
@@ -29,11 +36,11 @@ import { isHarnessPrompt } from './harness-prompt.js';
 import { storageBackend } from './backend.js';
 import { boundedCommits, truncateSubject, type StaleCommit } from './engine.js';
 import { cachedPinStaleness } from './pin-staleness.js';
+import { boundedGit, brainCommitOutcome, classifyBranch, newEntriesSinceHead, type BrainCommitOutcomeKind, type GitRunner } from './session-end.js';
 import {
   handoffNudgeDue,
   hasUncommittedWork,
   isHandoff,
-  newBrainEntriesSinceHead,
   pinnedHandoff,
 } from './stop-reminder.js';
 
@@ -43,7 +50,10 @@ export const PROMPT_NUDGE_LEADIN = 'vfkb handoff status:';
 /** Whole-handler wall budget, node boot included (Q12; same figure as the stdin watchdog). */
 export const PROMPT_NUDGE_BUDGET_MS = 2000;
 
-export type PromptNudgeReason = 'stale' | 'b1';
+export type PromptNudgeReason = 'stale' | 'b1' | 'no-autocommit';
+
+/** Render and key order (ADR-0085 §3): stale, then b1, then no-autocommit. */
+const REASON_ORDER: readonly PromptNudgeReason[] = ['stale', 'b1', 'no-autocommit'];
 
 export interface PinFacts {
   id: string;
@@ -51,7 +61,7 @@ export interface PinFacts {
 }
 
 export interface PromptNudgeContext {
-  /** `promptNudgeKey(pin, HEAD)` */
+  /** the cadence BASE, `promptNudgeKey(pin, HEAD)`; the emitted key appends the reason set */
   key: string;
   /** the pinned handoff predates a later non-brain commit (RFC-043 Part 0: S non-empty) */
   stale: boolean;
@@ -62,8 +72,10 @@ export interface PromptNudgeContext {
   pin?: PinFacts;
   /** current branch, or null on a detached HEAD */
   branch: string | null;
-  /** entries appended to the brain since HEAD */
+  /** the session's new brain ids since HEAD (ADR-0085 §2: one id-based count) */
   newEntries: number;
+  /** SessionEnd's verdict on the brain right now (`brainCommitOutcome`); undefined = unknown */
+  commitOutcome?: BrainCommitOutcomeKind;
   /** the SessionState is backed by a session record (a session id was known) */
   persisted: boolean;
   /** the session's turnCount (completed turns) when this prompt arrived */
@@ -74,8 +86,20 @@ export type PromptNudgeDecision =
   | { emit: false; why: 'harness-turn' | 'first-prompt' | 'same-key' | 'no-reason' }
   | { emit: true; text: string; reasons: PromptNudgeReason[]; key: string };
 
-export function promptNudgeKey(pin: PinFacts | undefined, head: string): string {
-  return `${pin?.id ?? '-'}|${pin?.created ?? '-'}|${head}`;
+/**
+ * The cadence key (ADR-0084 §2.5 as amended by ADR-0085 §4). Without `reasons`, the BASE
+ * `(pin id, created, HEAD)`; with them, the base plus the sorted reason set as a fourth part.
+ */
+export function promptNudgeKey(pin: PinFacts | undefined, head: string, reasons?: readonly PromptNudgeReason[]): string {
+  const base = `${pin?.id ?? '-'}|${pin?.created ?? '-'}|${head}`;
+  return reasons === undefined ? base : `${base}|${[...reasons].sort().join('+')}`;
+}
+
+/** A stored key split into its base and its delivered reasons. An old three-part key has none. */
+function parseStoredKey(k: string): { base: string; reasons: string[] } {
+  const parts = k.split('|');
+  if (parts.length < 4) return { base: k, reasons: [] };
+  return { base: parts.slice(0, 3).join('|'), reasons: parts.slice(3).join('|').split('+').filter(Boolean) };
 }
 
 const validTurn = (t: unknown): t is number => typeof t === 'number' && Number.isFinite(t) && t >= 0;
@@ -93,7 +117,12 @@ export function promptNudgeSkip(
   return null;
 }
 
-/** The pure decision (ADR-0084 §2.2, §2.5, §2.6; Q2). */
+/**
+ * The pure decision (ADR-0084 §2.2, §2.5, §2.6; Q2; ADR-0085 §1, §4). Emit iff a reason
+ * holds AND (the base differs from the stored base OR a current reason is not among those
+ * already delivered under it). A reason that disappears never re-emits. The emitted key is
+ * the base plus the union of reasons delivered under it.
+ */
 export function decidePromptNudge(
   input: { prompt?: unknown },
   ctx: PromptNudgeContext,
@@ -101,12 +130,19 @@ export function decidePromptNudge(
 ): PromptNudgeDecision {
   const skip = promptNudgeSkip(input, ctx);
   if (skip) return { emit: false, why: skip };
-  if (storedKey !== undefined && storedKey === ctx.key) return { emit: false, why: 'same-key' };
   const reasons: PromptNudgeReason[] = [];
   if (ctx.stale && ctx.pin) reasons.push('stale');
   if (ctx.b1) reasons.push('b1');
+  // ADR-0085 §1: SessionEnd's own branch guard would refuse entries this session added.
+  const refused = ctx.commitOutcome === 'on-default-branch' || ctx.commitOutcome === 'detached-head';
+  if (refused && ctx.newEntries >= 1) reasons.push('no-autocommit');
   if (reasons.length === 0) return { emit: false, why: 'no-reason' };
-  return { emit: true, text: renderPromptNudge(reasons, ctx), reasons, key: ctx.key };
+  const stored = storedKey !== undefined ? parseStoredKey(storedKey) : undefined;
+  const sameBase = stored !== undefined && stored.base === ctx.key;
+  if (sameBase && reasons.every((r) => stored.reasons.includes(r))) return { emit: false, why: 'same-key' };
+  const delivered = sameBase ? REASON_ORDER.filter((r) => reasons.includes(r) || stored.reasons.includes(r)) : reasons;
+  const key = `${ctx.key}|${[...delivered].sort().join('+')}`;
+  return { emit: true, text: renderPromptNudge(reasons, ctx), reasons, key };
 }
 
 /**
@@ -140,11 +176,39 @@ export function renderPromptNudge(
   if (reasons.includes('b1')) {
     clauses.push(`this session has recorded ${facts.newEntries} entries and no handoff/next entry`);
   }
+  const third = reasons.includes('no-autocommit');
+  if (third) {
+    // ADR-0085 §3 (decide Q3): the REASON is a fact, so it lives in the fact clause.
+    const n = facts.newEntries;
+    const where = facts.branch ? facts.branch : 'a detached HEAD';
+    clauses.push(
+      `the brain has ${n} uncommitted entr${n === 1 ? 'y' : 'ies'} on ${where}, ` +
+        'which SessionEnd will not auto-commit (it commits only on a topic branch)',
+    );
+  }
+  const tail = `otherwise nothing is needed now${listed ? ' — the next session sees this same list at start' : ''}.`;
+  const handoff = reasons.includes('stale') || reasons.includes('b1');
+  if (third && !handoff) {
+    return (
+      `${PROMPT_NUDGE_LEADIN} ${clauses.join('; ')}.` +
+      ' If this prompt ends the session, committing .vfkb/entries.jsonl on a topic branch is worth doing before ' +
+      `finishing; ${tail}`
+    );
+  }
+  if (third) {
+    return (
+      `${PROMPT_NUDGE_LEADIN} ${clauses.join('; ')}.` +
+      ' If this prompt ends the session, two things are worth doing before finishing: a fresh handoff/next entry ' +
+      '(kb_add type=fact, tags=handoff,next, role=human) naming what changed and what is next, then committing ' +
+      `.vfkb/entries.jsonl on a topic branch; ${tail}`
+    );
+  }
+  // Without the third reason: ADR-0084 §2.4's text, byte-identical.
   return (
     `${PROMPT_NUDGE_LEADIN} ${clauses.join('; ')}.` +
     ' If this prompt ends the session, a fresh handoff/next entry (kb_add type=fact, tags=handoff,next, ' +
     'role=human) naming what changed and what is next is the one thing worth recording before finishing; ' +
-    `otherwise nothing is needed now${listed ? ' — the next session sees this same list at start' : ''}.`
+    tail
   );
 }
 
@@ -234,40 +298,43 @@ function git(args: string[], cwd: string, timeout: number): string | null {
 }
 
 /**
- * Gather the context in two stages (RFC-047 §4.3): the key first (one `git rev-parse` plus
- * the pin lookup); when it equals `storedKey`, return without the staleness or B1 work.
- * `deadline` is a `performance.now()` instant; every git child is bounded by it.
+ * Gather the whole context on every non-skipped prompt (ADR-0085 §4, decide Q4: no stage-1
+ * fast path — a reason can become true under an unchanged HEAD). `deadline` is a
+ * `performance.now()` instant; every git child is bounded by it, and a timed-out child
+ * fails open (the shell then emits nothing once past the deadline).
  */
 export function gatherPromptContext(
   cwd: string,
   brain: string,
   s: { persisted: boolean; turn?: number },
-  storedKey: string | undefined,
   deadline: number,
 ): PromptNudgeContext {
   const left = () => deadline - performance.now();
+  const bg: GitRunner = (args, dir) => boundedGit(left())(args, dir);
   const head = git(['rev-parse', 'HEAD'], cwd, left()) ?? '-';
   const p = pinnedHandoff(brain);
   const pin = p ? { id: p.id, created: p.created } : undefined;
-  const key = promptNudgeKey(pin, head);
-  const base: PromptNudgeContext = {
-    key,
-    stale: false,
-    b1: false,
-    pin,
-    branch: null,
-    newEntries: 0,
-    persisted: s.persisted,
-    turn: s.turn,
-  };
-  if (storedKey !== undefined && storedKey === key) return base;
   // RFC-043 Part 0 for the pin already selected above, inside this handler's deadline (Q12)
   // and through the shared per-brain cache (decide D1), so Stop and Part A agree with it.
   const staleCommits = p ? (cachedPinStaleness(cwd, brain, pin!, { deadline })?.commits ?? []) : [];
   const stale = staleCommits.length > 0;
-  const fresh = newBrainEntriesSinceHead(brain, cwd, { timeout: ms(left()) });
+  // ADR-0085 §1: SessionEnd's own predicate. It reads HEAD's brain once (new ids) and the
+  // branch; for `not-a-repo` / `brain-clean` it stops early, so read the count separately.
+  const oc = brainCommitOutcome(bg, cwd, brain);
+  const fresh = oc.fresh ?? newEntriesSinceHead(bg, cwd, join(brain, 'entries.jsonl'));
   const work = hasUncommittedWork(cwd, brain, { timeout: ms(left()) });
   const b1 = handoffNudgeDue({ uncommittedWork: work, newEntries: fresh.length, newHandoffs: fresh.filter(isHandoff).length });
-  const branch = git(['symbolic-ref', '--short', '-q', 'HEAD'], cwd, left()) || null;
-  return { ...base, stale, staleCommits, b1, branch, newEntries: fresh.length };
+  const branch = oc.branch !== undefined ? oc.branch : stale ? classifyBranch(bg, cwd).branch : null;
+  return {
+    key: promptNudgeKey(pin, head),
+    stale,
+    staleCommits,
+    b1,
+    pin,
+    branch,
+    newEntries: fresh.length,
+    commitOutcome: oc.outcome,
+    persisted: s.persisted,
+    turn: s.turn,
+  };
 }
