@@ -66,12 +66,12 @@ const V0_RE = new RegExp(
 export const isV0Shape = (line) => typeof line === 'string' && V0_RE.test(line);
 
 /** Run-level precondition (README): [] when the variants are well-defined on the fixture. */
-export function preconditions(fixture = FIXTURE_E2AC6E9) {
+export function preconditions(fixture = FIXTURE_E2AC6E9, transform = transformText) {
   const out = [];
   if (count(fixture, TAIL) !== 1) out.push(`tail found ${count(fixture, TAIL)}× (want 1)`);
   const lists = [...fixture.matchAll(LIST_RE)].length;
   if (lists !== 1) out.push(`inline list found ${lists}× (want 1)`);
-  const texts = VARIANTS.map((v) => transformText(v, fixture));
+  const texts = VARIANTS.map((v) => transform(v, fixture));
   if (texts.some((t) => t === null)) out.push('a transform missed on the fixture');
   else if (new Set(texts).size !== texts.length) out.push('variants are not pairwise distinct');
   return out;

@@ -56,6 +56,11 @@ describe('transformText — one variable per variant', () => {
     expect(transformText('V1', FIXTURE_E2AC6E9 + TAIL)).toBeNull(); // twice → miss
     expect(transformText('V9' as never, FIXTURE_E2AC6E9)).toBeNull();
   });
+  it('V2 misses when the inline list appears twice (exactly-once, like V1)', () => {
+    const twice = FIXTURE_E2AC6E9.replace('docs: release checklist.', 'docs: release checklist; this session has recorded 3 entries and no handoff/next entry; predates 1 commit on feat/work: 1234567 x.');
+    expect([...twice.matchAll(/predates 1 commit on feat\/work: /g)].length).toBe(2);
+    expect(transformText('V2', twice)).toBeNull();
+  });
 });
 
 describe('applyVariant — the hook rewrite contract', () => {
@@ -91,6 +96,10 @@ describe('isV0Shape and the run-level precondition', () => {
     expect(isV0Shape(FIXTURE_E2AC6E9)).toBe(true);
     expect(isV0Shape(FIXTURE_E2AC6E9.replace('b14f4ed4150b', '1ac1b2a7c6c8').replace('e657c56', '2cb69a8'))).toBe(true);
   });
+  it('is anchored at both ends: leading or trailing extra text is not V0', () => {
+    expect(isV0Shape(FIXTURE_E2AC6E9 + ' extra')).toBe(false);
+    expect(isV0Shape('x ' + FIXTURE_E2AC6E9)).toBe(false);
+  });
   it('rejects a variant, the b5f0fef shape and a B1 line', () => {
     expect(isV0Shape(transformText('V1', FIXTURE_E2AC6E9)!)).toBe(false);
     expect(isV0Shape(transformText('V2', FIXTURE_E2AC6E9)!)).toBe(false);
@@ -104,6 +113,15 @@ describe('isV0Shape and the run-level precondition', () => {
     expect(preconditions(FIXTURE_E2AC6E9.replace(TAIL, '')).length).toBeGreaterThan(0);
     expect(preconditions(FIXTURE_E2AC6E9.replace(': e657c56 docs: release checklist', '')).length).toBeGreaterThan(0);
     expect(preconditions(FIXTURE_E2AC6E9 + TAIL).length).toBeGreaterThan(0);
+  });
+  it('fails on a doubled list alone (tail still once)', () => {
+    const twice = FIXTURE_E2AC6E9.replace('docs: release checklist.', 'docs: release checklist; this session has recorded 3 entries and no handoff/next entry; predates 1 commit on feat/work: 1234567 x.');
+    expect(preconditions(twice)).toContain('inline list found 2× (want 1)');
+  });
+  it('fails when two variants coincide (pairwise-distinct check)', () => {
+    // A line whose tail and list removals are no-ops cannot be built from transformText, so the
+    // check is driven through its injectable transform: an identity transform makes V1 == V0.
+    expect(preconditions(FIXTURE_E2AC6E9, (v: string, t: string) => t)).toContain('variants are not pairwise distinct');
   });
 });
 
