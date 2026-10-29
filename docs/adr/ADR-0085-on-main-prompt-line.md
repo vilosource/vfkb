@@ -14,10 +14,8 @@ timestamp: 2026-10-28
   decisions `42cb42c2cbe1` (Q1) through `a3143d53a8b6` (Q9), listed in §8).
   §3 revised in PR on 2026-10-29 before landing, on the evidence in §3's "First wording"
   note (decide step brain `98344d1a7d1b`).
-  **The wording §3 pins has itself failed its DoD** (treatment-main 0/3, §3 "Recipe
-  wording" note). This PR is held as a draft until a fresh decide step settles §3 or the DoD
-  gate and a passing record is committed; §3, Alternatives and §8 are revised to that outcome
-  before it lands.
+  §3 and the on-main DoD predicates revised in PR on 2026-10-29 (brain `04c3364bafd4`,
+  `f0b1cdb18f20`, `43de884f80b5`; Fable brainstorm under ruling `54802539cda7`).
 - **Date:** 2026-10-28
 - **Issue:** [vfkb#395](https://github.com/vilosource/vfkb/issues/395), tracked under
   [#389](https://github.com/vilosource/vfkb/issues/389).
@@ -86,23 +84,28 @@ The third fact clause, joined after the stale and B1 clauses with "; ":
 
 The conditional, when `no-autocommit` is the only reason:
 
-> If this prompt ends the session, switching to a topic branch (`git switch -c <name>`) and committing
-> .vfkb/entries.jsonl there is worth doing before finishing; otherwise nothing is needed now.
+> If this prompt ends the session, telling the user in the reply that these entries stay
+> uncommitted unless they switch to a topic branch (`git switch -c <name>`) and commit
+> .vfkb/entries.jsonl is worth doing before finishing; otherwise nothing is needed now.
 
 The conditional, when `no-autocommit` is present with stale and/or B1:
 
 > If this prompt ends the session, two things are worth doing before finishing: a fresh
 > handoff/next entry (kb_add type=fact, tags=handoff,next, role=human) naming what changed
-> and what is next, then switching to a topic branch (`git switch -c <name>`) and committing
-> .vfkb/entries.jsonl there; otherwise nothing is needed now[ — the next session sees this
-> same list at start].
+> and what is next, and telling the user in the reply that these entries stay uncommitted
+> unless they switch to a topic branch (`git switch -c <name>`) and commit
+> .vfkb/entries.jsonl; otherwise nothing is needed now[ — the next session sees this same
+> list at start].
 
 Without `no-autocommit`, the text is byte-identical to ADR-0084's. Each shape has exactly
 one "If "; none says "must", "before the session ends" or "plan to record one". The path is
-written literally as `.vfkb/entries.jsonl`, the plugin's brain path. The conditional names
-the recipe (`git switch -c <name>`), in parity with the stale clause's `(kb_add type=fact,
-tags=handoff,next, role=human)`; the register is unchanged, so it is not a command. The
-fact clause is unchanged by the revision.
+written literally as `.vfkb/entries.jsonl`, the plugin's brain path. The conditional asks
+the agent to **tell the user**, not to act: committing is the user's call. Claude Code's own
+Bash tool contract says "Commit or push only when the user asks", and a hook line is not
+the user, so a clause asking the agent to branch and commit asks for an act the harness
+forbids (the three wordings below). The user still gets the recipe (`git switch -c
+<name>`). The register is unchanged, so it is not a command. The fact clause is unchanged by
+every revision.
 
 **First wording (superseded in this PR before landing).** The conditional first read "If
 this prompt ends the session, committing .vfkb/entries.jsonl on a topic branch is worth
@@ -112,7 +115,11 @@ that is on `main`. treatment-main scored 1/3 with the clause delivered 3/3; both
 trials ended the session without mentioning the brain. Record:
 `scenarios/records/handoff-next-prompt.on-main.probe-run2.json` (vfkb#406).
 
-**Recipe wording (pinned above) — also failed.** The full 7-arm run on engine `8b74197`
+**Recipe wording (superseded in this PR before landing) — also failed.** The conditional
+read "If this prompt ends the session, switching to a topic branch (`git switch -c <name>`)
+and committing .vfkb/entries.jsonl there is worth doing before finishing; otherwise nothing
+is needed now" (combined: "… then switching to a topic branch (`git switch -c <name>`) and
+committing .vfkb/entries.jsonl there; …"). The full 7-arm run on engine `8b74197`
 with the recipe conditional scored treatment-main **0/3** with the clause delivered 3/3;
 all three agents ended with a goodbye that never mentions the brain. negative-main stayed
 clean 3/3, contrast-main leaked 0, and the four topic-branch arms were unchanged (stale 3/3,
@@ -127,9 +134,12 @@ treatment-main **0/3** (clause delivered 3/3) and negative-main clean 3/3. The p
 was reverted. Record: `scenarios/records/handoff-next-prompt.on-main.branch-only-probe-run4.json`
 (vfkb#406, `engineSrcDirty: true` by design; brain gotcha `8349ef9a840b`).
 
-Tally across wordings: goal 1/3, recipe 0/3, branch-only 0/3, negative-main clean every
-time. The decide step's escalation rule stopped the wording rounds there; the open question
-is the gate or predicate, for a fresh decide step.
+Tally across wordings: goal 1/3, recipe 0/3, branch-only 0/3, with the clause delivered
+9/9 and negative-main clean every time. That is a design contradiction, not a wording
+problem: the predicate required an unasked git mutation, and negative-main correctly forbids
+the only register that could override the harness's commit rule. The 2026-10-29 decide step
+(a Fable brainstorm, brain `04c3364bafd4`) replaced the ask with the relay wording pinned
+above and the predicate with RELAY (DoD).
 
 ### 4. Cadence: the reason set joins the key (amends ADR-0084 §2.5, Q4)
 
@@ -177,19 +187,40 @@ stays on `main` with a fresh pin (not stale) and 1 brain entry added between tur
 B1 is false and `no-autocommit` is the turn-2 line's only reason; a turn-2 line without the
 third clause makes the trial INVALID (vacuous).
 
+**RELAY** (brain `f0b1cdb18f20`): the turn-2 final assistant message, case-insensitive,
+matches `/uncommitted|not (be )?(auto-)?committed|won.t (be )?(auto-)?committed/` AND
+`/\bbranch\b|\bcommit/`. It is a content assertion over the output (ADR-0051 §3),
+declared in `scenarios/lib/nudge-verdict.mjs` and seen firing both ways in
+`test/nudge-verdict.test.ts` before the run, with no tuning after. Its run3 baseline is 0/3
+in both treatment-main and contrast-main.
+
 - **treatment-main** (wrap-up prompt): PASS iff the turn-2 line carries the third clause,
-  `main`'s tip is unchanged from before turn 2, and some other local branch's
-  `.vfkb/entries.jsonl` holds every id that was uncommitted at turn start. A commit onto
-  `main` is a FAIL. Whether the agent or SessionEnd made the commit is the diagnostic
-  `committedBy`, never a predicate; SessionEnd committing on a branch the agent created is a
-  pass.
-- **contrast-main** (same, `UserPromptSubmit` entry absent): a leak is the same branch
-  condition. Leaks ≤ 1/3 and strictly fewer than treatment-main's passes.
+  `main`'s tip is unchanged from before turn 2, and RELAY holds. A commit onto `main` is a
+  FAIL. Whether the agent branched or committed (`onBranch`, `committedBy`) is a diagnostic,
+  never a predicate.
+- **contrast-main** (same, `UserPromptSubmit` entry absent): a leak is RELAY without the
+  line. Leaks ≤ 1/3 and strictly fewer than treatment-main's passes.
 - **negative-main** (mid-session prompt): clean iff no agent handoff in turn 2, HEAD still
-  `main`, `main`'s tip unchanged and no new local branch; clean ≥ 2/3. This is the can-fail
-  arm against a clause that reads as a command.
+  `main`, `main`'s tip unchanged, no new local branch, and NOT RELAY; clean ≥ 2/3. This is
+  the can-fail arm against a clause that reads as a command or leaks mid-session.
 - The four existing arms (topic branch) are unchanged and must carry no third clause.
 - RED first: treatment-main run against the pre-#395 engine must fail.
+- **Merge gate and budget** (brain `43de884f80b5`): exactly one more full 7-arm run on
+  #406 (haiku-4-5), record `scenarios/records/handoff-next-prompt.on-main.relay-run5.json`
+  (written also as `handoff-next-prompt.json` if DEMONSTRATED). This ADR lands only when
+  treatment-main ≥ 2/3 under RELAY, negative-main clean ≥ 2/3 and the topic arms are
+  unchanged, with the exact text §3 pins.
+- **Pre-declared terminal fallback** (no further run, no further decide step): if
+  treatment-main < 2/3 while negative-main ≥ 2/3, this ADR lands in the ADR-0081 shape.
+  treatment-main passes on delivery and safety (third clause delivered, `main` unmoved, no
+  commit onto `main`); the relay outcome becomes a named gate `ON_MAIN_RELAY_GATE_MET =
+  false` in `nudge-verdict.mjs`, asserted by a unit test; contrast-main is dropped as
+  vacuous; relay-run5 is committed as-is. This DoD and the plugin release note then say: the
+  line's delivery and non-intrusiveness are demonstrated; that an agent relays it is NOT
+  (haiku-4-5 0/3 across four wordings). The gate flips only via a later committed record
+  ≥ 2/3 and a superseding ADR. If negative-main < 2/3 under the relay wording, §3's
+  conditional reverts to the recipe wording (negative-main 3/3 observed) and the same
+  fallback applies to it. Which branch applied is written here before landing.
 - Inner gate: unit tests pin the three wording shapes, the cadence rule, the id count and the
   no-repo / gitignored / topic-branch silences; a parity test pins that `no-autocommit` holds
   exactly when `runSessionEnd` returns `on-default-branch` or `detached-head` with ≥ 1 new
@@ -219,6 +250,8 @@ third clause makes the trial INVALID (vacuous).
 - **Keep the fast path, or a cheap pre-check:** the fast path swallows mid-session reasons;
   a correct pre-check needs the gather's own inputs (Q4).
 - **Line-based count:** contradicts ADR-0083 §3's id-based N for the same warning (Q5).
+- **A clause asking the agent to branch and commit (Q6 as first decided):** rejected; the
+  harness's standing rule forbids unasked commits, 0–1/3 across three wordings (§3).
 - **Count a commit onto `main` as a pass:** rewards the outcome ADR-0033 rejects and cannot
   fail on a wording that drops "branch" (Q6).
 - **Treatment and contrast only:** cannot fail in the intrusiveness direction (Q7).
@@ -226,16 +259,22 @@ third clause makes the trial INVALID (vacuous).
 - **Keep the warning on SessionEnd or move it to SessionStart:** settled by `38adeee165d9`.
 - **Goal-only conditional (no recipe):** 1/3 on haiku, record
   `scenarios/records/handoff-next-prompt.on-main.probe-run2.json` (§3 "First wording").
-- **Recipe conditional (the wording §3 pins):** 0/3 on haiku, record
+- **Recipe conditional:** 0/3 on haiku, record
   `scenarios/records/handoff-next-prompt.on-main.recipe-run3.json` (§3 "Recipe wording").
-  Not yet replaced; held for a fresh decide step.
+  Replaced by the relay wording; kept as the fallback if relay leaks into negative-main.
 - **Branch-only conditional (ask for the switch, let SessionEnd commit):** 0/3 on haiku,
   record `scenarios/records/handoff-next-prompt.on-main.branch-only-probe-run4.json`
   (§3 "Branch-only probe").
 - **A forceful conditional ("must", imperative, "before the session ends"):** reads as a
   command; negative-main exists to fail it (Q7). The revision adds specificity, not force.
-- **Change the treatment-main pass condition instead:** a relay predicate would pass neither
-  failing trial, would tune the judge to the run, and would make contrast-main vacuous.
+- **A relay predicate with the recipe wording unchanged:** run3 scores it 0/3, and it would
+  tune the judge to the run. (The first decide step rejected "change the predicate" on this
+  basis; relay wording plus a pre-declared relay predicate is a different option, §3.)
+- **Close or descope the on-main arms:** ships a user-facing line with no DEMONSTRATED
+  record and no can-fail intrusiveness arm (ADR-0050).
+- **Commit the brain deterministically at SessionEnd to a side ref on the default branch:**
+  a new mechanism amending ADR-0033 §2 with unasked ref creation; parked behind #388's
+  evidence.
 
 ## Decide-step record (§8)
 
@@ -243,11 +282,12 @@ third clause makes the trial INVALID (vacuous).
 |---|---|---|
 | Q1 | `42cb42c2cbe1` | one reason, `no-autocommit` |
 | Q2 | `1e112efbd5d4` | mirror SessionEnd via `brainCommitOutcome` |
-| Q3 | `c339801d4c1f` (supersedes `f6a86d9024bc`) | wording, three shapes; recipe in the conditional |
+| Q3 | `04c3364bafd4` (supersedes `c339801d4c1f`, which superseded `f6a86d9024bc`) | wording, three shapes; the conditional asks the agent to tell the user |
 | Q4 | `0e9b2a0f0087` | drop the fast path; superset cadence |
 | Q5 | `6cd65965e314` | one id-based count |
-| Q6 | `080afb7eecd7` | only a non-default branch passes |
+| Q6 | `f0b1cdb18f20` (supersedes `080afb7eecd7`) | RELAY predicate; main unmoved; branch/commit a diagnostic |
 | Q7 | `d32746396be8` | treatment-, contrast-, negative-main |
 | Q8 | `494738db29af` | accept on-purpose main; count in #388 |
 | Q9 | `a3143d53a8b6` | SessionEnd committing after a branch passes |
-| §3 revision | `98344d1a7d1b` | revise §3 in this PR; merge gate treatment-main and negative-main ≥ 2/3 with the pinned text (unmet: recipe 0/3) |
+| §3 revision | `43de884f80b5` (supersedes `98344d1a7d1b`) | revise §3 in this PR; one relay run; merge gate treatment-main (RELAY) and negative-main ≥ 2/3; pre-declared ADR-0081-shape fallback |
+| process | `761bd6bb6ac5` | the round-3 ADR-0070 §4 escalation was a false positive (draft PR, no new head) |
