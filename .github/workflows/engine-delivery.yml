@@ -8,7 +8,7 @@
 # records), by design: automation proposes, evidence ships (ADR-0050/0051).
 #
 # Auth: PLUGIN_DISPATCH_TOKEN — fine-grained PAT scoped to the plugin repo only
-# (Contents/PR/Actions RW; expires 2026-10-14 — brain fact e8b0b341e2b0). A user
+# (Contents/PR/Actions RW; renewed 2026-10-29, expires 2027-10-30 — vfkb#404). A user
 # PAT, deliberately: GITHUB_TOKEN cannot push cross-repo, and PRs it creates get
 # no CI runs (observed, vfkb#120/#129).
 #
