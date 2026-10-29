@@ -1,0 +1,113 @@
+{
+  "recordVersion": 1,
+  "sha": "55a2bddf0480ee569e024c9cc2c71bf0268a99e4",
+  "governing": [
+    "docs/research/probes/ups-wording-2026-10-29/README.md",
+    "docs/adr/ADR-0084-handoff-nudge-next-prompt.md",
+    "docs/adr/ADR-0051-delivery-honesty.md"
+  ],
+  "reviewer": {
+    "agent": "headless claude -p fresh session (no Agent tool in the spawning workflow subagent)",
+    "model": "opus",
+    "rounds": 2
+  },
+  "generated": "2026-10-29T12:31:27.344Z",
+  "note": "Round 1 read 0a719e6 (FIX-FIRST: 1 major, 3 minor). Round 2 read aa0a427 (MERGE: 4 minor). The delta aa0a427..55a2bdd is docs and brain only (README wording for round-2 m1/m2/m4, plus a replacing gotcha). It does not touch any implementation path, and it was not re-read by a reviewer. The final commit adds only the review-outcome brain fact.",
+  "findings": [
+    {
+      "id": "R1-M1",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "README said the failing 1/3 record was on a different day; it was 10:34 UTC the same day",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-m1",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "three mutations survived (V2 exactly-once, V0_RE $ anchor, pairwise-distinct precondition); guards added, each observed red",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-m2",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "README omitted the gate run on c975291 and the in-place overwrite",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-m3",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "gotcha unit-suite numbers unartifacted; relabelled as session observation in replacing gotcha 4610a6879b19",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-m1",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "README claimed no install-path record exists; plugin has one bound to 0.21.0; reworded",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-m2",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "correction gotcha labelled the npm-test overlap as observed in observed.json and omitted trials 4-5; replaced by 4610a6879b19 and README reworded",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-m3",
+      "severity": "minor",
+      "status": "open",
+      "summary": "preconditions(transform) is a test-only seam guarding a pairwise-distinct branch unreachable under the real transforms; kept and disclosed in the test comment",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-m4",
+      "severity": "minor",
+      "status": "open",
+      "summary": "gate record has no MCP-bundle hash (README now says so); two low-value mutants survive (V0_RE pin-id class loosened; tail-count precondition removed, near-equivalent)",
+      "acceptedBy": null
+    }
+  ],
+  "mutations": [
+    {
+      "guard": "test/ups-wording.test.ts > V2 misses when the inline list appears twice",
+      "mutation": "ups-wording.mjs V2 m.length !== 1 -> < 1",
+      "observedRed": true
+    },
+    {
+      "guard": "test/ups-wording.test.ts > is anchored at both ends",
+      "mutation": "V0_RE end anchor '$' dropped",
+      "observedRed": true
+    },
+    {
+      "guard": "test/ups-wording.test.ts > fails when two variants coincide",
+      "mutation": "pairwise-distinct check replaced by false",
+      "observedRed": true
+    },
+    {
+      "guard": "test/ups-wording.test.ts > ADOPT-V1 when both separate",
+      "mutation": "both-separate routed to ADOPT-V2 (reviewer)",
+      "observedRed": true
+    },
+    {
+      "guard": "test/ups-wording.test.ts > VOID when a variant has fewer than 5 valid",
+      "mutation": "VOID branch removed (reviewer)",
+      "observedRed": true
+    },
+    {
+      "guard": "test/ups-wording.test.ts > a miss prints nothing and reports the miss",
+      "mutation": "applyVariant returns V0 text on a miss (reviewer)",
+      "observedRed": true
+    },
+    {
+      "guard": "test/ups-wording.test.ts > skips a variant that already has 5 valid",
+      "mutation": "nextVariant no skip at 5 valid (reviewer)",
+      "observedRed": true
+    }
+  ],
+  "verdict": "MERGE",
+  "findingsCount": 8
+}
