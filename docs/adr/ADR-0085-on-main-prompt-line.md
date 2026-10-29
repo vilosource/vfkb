@@ -14,6 +14,10 @@ timestamp: 2026-10-28
   decisions `42cb42c2cbe1` (Q1) through `a3143d53a8b6` (Q9), listed in §8).
   §3 revised in PR on 2026-10-29 before landing, on the evidence in §3's "First wording"
   note (decide step brain `98344d1a7d1b`).
+  **The wording §3 pins has itself failed its DoD** (treatment-main 0/3, §3 "Recipe
+  wording" note). This PR is held as a draft until a fresh decide step settles §3 or the DoD
+  gate and a passing record is committed; §3, Alternatives and §8 are revised to that outcome
+  before it lands.
 - **Date:** 2026-10-28
 - **Issue:** [vfkb#395](https://github.com/vilosource/vfkb/issues/395), tracked under
   [#389](https://github.com/vilosource/vfkb/issues/389).
@@ -107,6 +111,25 @@ doing before finishing; otherwise nothing is needed now" (combined: "… then co
 that is on `main`. treatment-main scored 1/3 with the clause delivered 3/3; both failing
 trials ended the session without mentioning the brain. Record:
 `scenarios/records/handoff-next-prompt.on-main.probe-run2.json` (vfkb#406).
+
+**Recipe wording (pinned above) — also failed.** The full 7-arm run on engine `8b74197`
+with the recipe conditional scored treatment-main **0/3** with the clause delivered 3/3;
+all three agents ended with a goodbye that never mentions the brain. negative-main stayed
+clean 3/3, contrast-main leaked 0, and the four topic-branch arms were unchanged (stale 3/3,
+b1 3/3, contrast 0, negative 3/3); `demonstrated: false`. Record:
+`scenarios/records/handoff-next-prompt.on-main.recipe-run3.json` (vfkb#406; brain gotcha
+`2de7017f34a8`).
+
+**Branch-only probe — also failed.** An uncommitted probe conditional, "switching to a
+topic branch (`git switch -c <name>`) is worth doing before finishing, so SessionEnd commits
+.vfkb/entries.jsonl there", run on treatment-main and negative-main only, scored
+treatment-main **0/3** (clause delivered 3/3) and negative-main clean 3/3. The probe wording
+was reverted. Record: `scenarios/records/handoff-next-prompt.on-main.branch-only-probe-run4.json`
+(vfkb#406, `engineSrcDirty: true` by design; brain gotcha `8349ef9a840b`).
+
+Tally across wordings: goal 1/3, recipe 0/3, branch-only 0/3, negative-main clean every
+time. The decide step's escalation rule stopped the wording rounds there; the open question
+is the gate or predicate, for a fresh decide step.
 
 ### 4. Cadence: the reason set joins the key (amends ADR-0084 §2.5, Q4)
 
@@ -203,6 +226,12 @@ third clause makes the trial INVALID (vacuous).
 - **Keep the warning on SessionEnd or move it to SessionStart:** settled by `38adeee165d9`.
 - **Goal-only conditional (no recipe):** 1/3 on haiku, record
   `scenarios/records/handoff-next-prompt.on-main.probe-run2.json` (§3 "First wording").
+- **Recipe conditional (the wording §3 pins):** 0/3 on haiku, record
+  `scenarios/records/handoff-next-prompt.on-main.recipe-run3.json` (§3 "Recipe wording").
+  Not yet replaced; held for a fresh decide step.
+- **Branch-only conditional (ask for the switch, let SessionEnd commit):** 0/3 on haiku,
+  record `scenarios/records/handoff-next-prompt.on-main.branch-only-probe-run4.json`
+  (§3 "Branch-only probe").
 - **A forceful conditional ("must", imperative, "before the session ends"):** reads as a
   command; negative-main exists to fail it (Q7). The revision adds specificity, not force.
 - **Change the treatment-main pass condition instead:** a relay predicate would pass neither
@@ -221,3 +250,4 @@ third clause makes the trial INVALID (vacuous).
 | Q7 | `d32746396be8` | treatment-, contrast-, negative-main |
 | Q8 | `494738db29af` | accept on-purpose main; count in #388 |
 | Q9 | `a3143d53a8b6` | SessionEnd committing after a branch passes |
+| §3 revision | `98344d1a7d1b` | revise §3 in this PR; merge gate treatment-main and negative-main ≥ 2/3 with the pinned text (unmet: recipe 0/3) |
