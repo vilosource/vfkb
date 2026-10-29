@@ -1,0 +1,696 @@
+{
+  "scenario": "handoff-next-prompt",
+  "recordVersion": 1,
+  "model": "claude-haiku-4-5",
+  "generated": "2026-10-29T07:45:09.824Z",
+  "red": false,
+  "engineCli": "/Users/jasonviloria/GitHub/vfkb-wt-395/dist/cli.js",
+  "engineRev": "fafcbe2",
+  "engineCliSha256": "2ee3e2618c7c74fd70d493366b7f86a6884f4dc97e8ece9f45ad1a50f646b3d8",
+  "vfkbSha": "fafcbe29750fe5b9599eb03999984c64bd11c6c0",
+  "engineSrcDirty": false,
+  "cliVersions": [
+    "2.1.292"
+  ],
+  "isolation": "enabledPlugins {'vfkb@vfkb': false}; init event asserted",
+  "promptLineLeadin": "vfkb handoff status:",
+  "thresholds": "decide-step Q4 (scenarios/lib/nudge-verdict.mjs)",
+  "verdict": {
+    "counts": {
+      "treatment-stale": {
+        "valid": 3,
+        "attempts": 3,
+        "pass": 3
+      },
+      "treatment-b1": {
+        "valid": 3,
+        "attempts": 3,
+        "pass": 3
+      },
+      "contrast": {
+        "valid": 3,
+        "attempts": 3,
+        "pass": 0
+      },
+      "negative": {
+        "valid": 3,
+        "attempts": 3,
+        "pass": 3
+      },
+      "treatment-main": {
+        "valid": 3,
+        "attempts": 3,
+        "pass": 0
+      },
+      "contrast-main": {
+        "valid": 3,
+        "attempts": 3,
+        "pass": 0
+      },
+      "negative-main": {
+        "valid": 3,
+        "attempts": 3,
+        "pass": 3
+      }
+    },
+    "invalidTrials": 0,
+    "deterministicFailures": 0,
+    "complete": true,
+    "demonstrated": false,
+    "reasons": [
+      "treatment-main 0/3 < 2",
+      "contrast-main 0 not strictly below treatment-main 0"
+    ]
+  },
+  "trials": {
+    "treatment-stale": [
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "sentinel": "greeter-b154b5",
+        "upsEmitted": true,
+        "thirdClause": false,
+        "upsLine": "vfkb handoff status: the pinned handoff (7f701133936f, 2026-10-29) predates 1 commit on feat/work: 723bc5e docs: release checklist. If this prompt ends the session, a fresh handoff/next entry (kb_add type=fact, tags=handoff,next, role=human) naming what changed and what is next is the one thing worth recording before finishing; otherwise nothing is needed now — the next session sees this same list at start.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [
+          {
+            "tags": [
+              "handoff",
+              "next"
+            ],
+            "text": "handoff: greeter module complete (src/greeter-b154b5.ts with greet function). next: integrate into app or proceed with additional modules."
+          },
+          {
+            "tags": [
+              "handoff",
+              "next",
+              "retired-by:d91d77780d66"
+            ],
+            "text": "handoff: the app scaffold is in place. next: add a greeter module."
+          }
+        ],
+        "finalAnswer": "Handoff recorded. See you next time!",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "sentinel": "greeter-cdaf37",
+        "upsEmitted": true,
+        "thirdClause": false,
+        "upsLine": "vfkb handoff status: the pinned handoff (25498a985f29, 2026-10-29) predates 1 commit on feat/work: f1c8cd5 docs: release checklist. If this prompt ends the session, a fresh handoff/next entry (kb_add type=fact, tags=handoff,next, role=human) naming what changed and what is next is the one thing worth recording before finishing; otherwise nothing is needed now — the next session sees this same list at start.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [
+          {
+            "tags": [
+              "handoff",
+              "next"
+            ],
+            "text": "handoff: greeter module added (src/greeter-cdaf37.ts). next: test the module and integrate into app."
+          }
+        ],
+        "finalAnswer": "All set. Handoff recorded for the next session. 👋",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "sentinel": "greeter-d704ac",
+        "upsEmitted": true,
+        "thirdClause": false,
+        "upsLine": "vfkb handoff status: the pinned handoff (17c4d73a1d04, 2026-10-29) predates 1 commit on feat/work: 34ead18 docs: release checklist. If this prompt ends the session, a fresh handoff/next entry (kb_add type=fact, tags=handoff,next, role=human) naming what changed and what is next is the one thing worth recording before finishing; otherwise nothing is needed now — the next session sees this same list at start.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [
+          {
+            "tags": [
+              "handoff",
+              "next"
+            ],
+            "text": "handoff: greeter module created. src/greeter-d704ac.ts written with greet(name: string) function, on disk but not yet committed. next: commit and integrate greeter module."
+          },
+          {
+            "tags": [
+              "handoff",
+              "next",
+              "retired-by:d1611201274c"
+            ],
+            "text": "handoff: the app scaffold is in place. next: add a greeter module."
+          }
+        ],
+        "finalAnswer": "Done. I've recorded the handoff for the next session — greeter module created on disk, ready for commit and integration.",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      }
+    ],
+    "treatment-b1": [
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "sentinel": "greeter-3bf74d",
+        "upsEmitted": true,
+        "thirdClause": false,
+        "upsLine": "vfkb handoff status: this session has recorded 3 entries and no handoff/next entry. If this prompt ends the session, a fresh handoff/next entry (kb_add type=fact, tags=handoff,next, role=human) naming what changed and what is next is the one thing worth recording before finishing; otherwise nothing is needed now.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [
+          {
+            "tags": [
+              "handoff",
+              "next"
+            ],
+            "text": "greeter module created: src/greeter-3bf74d.ts exports greet(name: string). next: integrate into app or add more modules."
+          }
+        ],
+        "finalAnswer": "Done. Handoff recorded — greeter module created and ready for integration.",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "sentinel": "greeter-bdb613",
+        "upsEmitted": true,
+        "thirdClause": false,
+        "upsLine": "vfkb handoff status: this session has recorded 3 entries and no handoff/next entry. If this prompt ends the session, a fresh handoff/next entry (kb_add type=fact, tags=handoff,next, role=human) naming what changed and what is next is the one thing worth recording before finishing; otherwise nothing is needed now.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [
+          {
+            "tags": [
+              "handoff",
+              "next"
+            ],
+            "text": "handoff: greeter module added to src/greeter-bdb613.ts. next: awaiting direction.\n\nWhy: Completed the greeter module task from prior handoff. Ready for next work item."
+          },
+          {
+            "tags": [
+              "handoff",
+              "next",
+              "retired-by:2a543db207c1"
+            ],
+            "text": "handoff: the app scaffold is in place. next: add a greeter module."
+          }
+        ],
+        "finalAnswer": "All set. Handoff recorded—the greeter module is done, and the next session can pick up from there.",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "sentinel": "greeter-2e0e36",
+        "upsEmitted": true,
+        "thirdClause": false,
+        "upsLine": "vfkb handoff status: this session has recorded 3 entries and no handoff/next entry. If this prompt ends the session, a fresh handoff/next entry (kb_add type=fact, tags=handoff,next, role=human) naming what changed and what is next is the one thing worth recording before finishing; otherwise nothing is needed now.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [
+          {
+            "tags": [
+              "handoff",
+              "next"
+            ],
+            "text": "greeter module created at src/greeter-2e0e36.ts. next: integrate the greeter into the app or add tests."
+          }
+        ],
+        "finalAnswer": "Handoff recorded. See you next time!",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      }
+    ],
+    "contrast": [
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": false,
+        "sentinel": "greeter-cc8743",
+        "upsEmitted": false,
+        "thirdClause": false,
+        "upsLine": null,
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "finalAnswer": "Got it. The greeter module is in place at `src/greeter-cc8743.ts`. See you next time!",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": false,
+        "sentinel": "greeter-1b8dd9",
+        "upsEmitted": false,
+        "thirdClause": false,
+        "upsLine": null,
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "finalAnswer": "Got it. The greeter module file is created and ready. See you next time!",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": false,
+        "sentinel": "greeter-8dc645",
+        "upsEmitted": false,
+        "thirdClause": false,
+        "upsLine": null,
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "finalAnswer": "Thanks! The greeter module is in place at `src/greeter-8dc645.ts`. See you next time.",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      }
+    ],
+    "negative": [
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "sentinel": "greeter-4b040e",
+        "upsEmitted": true,
+        "thirdClause": false,
+        "upsLine": "vfkb handoff status: the pinned handoff (6e58f26007c4, 2026-10-29) predates 1 commit on feat/work: f867295 docs: release checklist. If this prompt ends the session, a fresh handoff/next entry (kb_add type=fact, tags=handoff,next, role=human) naming what changed and what is next is the one thing worth recording before finishing; otherwise nothing is needed now — the next session sees this same list at start.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "finalAnswer": "done",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "sentinel": "greeter-f5b764",
+        "upsEmitted": true,
+        "thirdClause": false,
+        "upsLine": "vfkb handoff status: the pinned handoff (2d838123d965, 2026-10-29) predates 1 commit on feat/work: dd18b53 docs: release checklist. If this prompt ends the session, a fresh handoff/next entry (kb_add type=fact, tags=handoff,next, role=human) naming what changed and what is next is the one thing worth recording before finishing; otherwise nothing is needed now — the next session sees this same list at start.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "finalAnswer": "done",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "sentinel": "greeter-1903fb",
+        "upsEmitted": true,
+        "thirdClause": false,
+        "upsLine": "vfkb handoff status: the pinned handoff (a118c737dbdd, 2026-10-29) predates 1 commit on feat/work: 87649f5 docs: release checklist. If this prompt ends the session, a fresh handoff/next entry (kb_add type=fact, tags=handoff,next, role=human) naming what changed and what is next is the one thing worth recording before finishing; otherwise nothing is needed now — the next session sees this same list at start.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "finalAnswer": "done",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      }
+    ],
+    "treatment-main": [
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": false,
+        "sentinel": "greeter-ae3ecb",
+        "upsEmitted": true,
+        "thirdClause": true,
+        "upsLine": "vfkb handoff status: the brain has 1 uncommitted entry on main, which SessionEnd will not auto-commit (it commits only on a topic branch). If this prompt ends the session, committing .vfkb/entries.jsonl on a topic branch is worth doing before finishing; otherwise nothing is needed now.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "main": {
+          "tipBefore": "0fa62b7772f059bc36beabed4a78e0383df755d8",
+          "tipAfter": "0fa62b7772f059bc36beabed4a78e0383df755d8",
+          "headAfter": "main",
+          "branchesBefore": [
+            "main"
+          ],
+          "branchesAfter": [
+            "main"
+          ],
+          "uncommittedIds": [
+            "e0573fbcdec1"
+          ],
+          "branchIds": {},
+          "committedBy": null
+        },
+        "mainBranch": {
+          "onBranch": false,
+          "mainMoved": false,
+          "newBranches": [],
+          "holder": null
+        },
+        "committedBy": null,
+        "finalAnswer": "You're all set! The greeter module is created. If you'd like to persist that work note to the knowledge base, just commit the `.vfkb/` changes on a topic branch. See you next time.",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": false,
+        "sentinel": "greeter-03236a",
+        "upsEmitted": true,
+        "thirdClause": true,
+        "upsLine": "vfkb handoff status: the brain has 1 uncommitted entry on main, which SessionEnd will not auto-commit (it commits only on a topic branch). If this prompt ends the session, committing .vfkb/entries.jsonl on a topic branch is worth doing before finishing; otherwise nothing is needed now.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "main": {
+          "tipBefore": "4fd18ff1ad7f3f5fa802d9cbe4dabc11f3ead5d9",
+          "tipAfter": "4fd18ff1ad7f3f5fa802d9cbe4dabc11f3ead5d9",
+          "headAfter": "main",
+          "branchesBefore": [
+            "main"
+          ],
+          "branchesAfter": [
+            "main"
+          ],
+          "uncommittedIds": [
+            "ae0220b010b5"
+          ],
+          "branchIds": {},
+          "committedBy": null
+        },
+        "mainBranch": {
+          "onBranch": false,
+          "mainMoved": false,
+          "newBranches": [],
+          "holder": null
+        },
+        "committedBy": null,
+        "finalAnswer": "Got it! To recap this session:\n- Created `src/greeter-03236a.ts` with a `greet(name: string)` function that returns \"Hello, <name>!\"\n- File is on disk, uncommitted as requested\n\nSee you next time!",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": false,
+        "sentinel": "greeter-10082d",
+        "upsEmitted": true,
+        "thirdClause": true,
+        "upsLine": "vfkb handoff status: the brain has 1 uncommitted entry on main, which SessionEnd will not auto-commit (it commits only on a topic branch). If this prompt ends the session, committing .vfkb/entries.jsonl on a topic branch is worth doing before finishing; otherwise nothing is needed now.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "main": {
+          "tipBefore": "75b7910afb63a30ea5762ed3d45688b69fa04cbd",
+          "tipAfter": "75b7910afb63a30ea5762ed3d45688b69fa04cbd",
+          "headAfter": "main",
+          "branchesBefore": [
+            "main"
+          ],
+          "branchesAfter": [
+            "main"
+          ],
+          "uncommittedIds": [
+            "cbc776182b7e"
+          ],
+          "branchIds": {},
+          "committedBy": null
+        },
+        "mainBranch": {
+          "onBranch": false,
+          "mainMoved": false,
+          "newBranches": [],
+          "holder": null
+        },
+        "committedBy": null,
+        "finalAnswer": "You're welcome! See you next time.",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      }
+    ],
+    "contrast-main": [
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": false,
+        "sentinel": "greeter-54cc35",
+        "upsEmitted": false,
+        "thirdClause": false,
+        "upsLine": null,
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "main": {
+          "tipBefore": "2b8e054cd3a4ba81e022b0b51b9d9d1ec1ead758",
+          "tipAfter": "2b8e054cd3a4ba81e022b0b51b9d9d1ec1ead758",
+          "headAfter": "main",
+          "branchesBefore": [
+            "main"
+          ],
+          "branchesAfter": [
+            "main"
+          ],
+          "uncommittedIds": [
+            "3dad8724a655"
+          ],
+          "branchIds": {},
+          "committedBy": null
+        },
+        "mainBranch": {
+          "onBranch": false,
+          "mainMoved": false,
+          "newBranches": [],
+          "holder": null
+        },
+        "committedBy": null,
+        "finalAnswer": "Got it. The greeter module is in place. See you next time!",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": false,
+        "sentinel": "greeter-9a04d1",
+        "upsEmitted": false,
+        "thirdClause": false,
+        "upsLine": null,
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "main": {
+          "tipBefore": "8c05cb1505976655f62a2468432e98d7d7650d89",
+          "tipAfter": "8c05cb1505976655f62a2468432e98d7d7650d89",
+          "headAfter": "main",
+          "branchesBefore": [
+            "main"
+          ],
+          "branchesAfter": [
+            "main"
+          ],
+          "uncommittedIds": [
+            "4113aaaf4307"
+          ],
+          "branchIds": {},
+          "committedBy": null
+        },
+        "mainBranch": {
+          "onBranch": false,
+          "mainMoved": false,
+          "newBranches": [],
+          "holder": null
+        },
+        "committedBy": null,
+        "finalAnswer": "All set! The greeter module is in place. See you next time.",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": false,
+        "sentinel": "greeter-69f4a6",
+        "upsEmitted": false,
+        "thirdClause": false,
+        "upsLine": null,
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "main": {
+          "tipBefore": "d1ab6a04a9aab400909993e1626d01c506b52327",
+          "tipAfter": "d1ab6a04a9aab400909993e1626d01c506b52327",
+          "headAfter": "main",
+          "branchesBefore": [
+            "main"
+          ],
+          "branchesAfter": [
+            "main"
+          ],
+          "uncommittedIds": [
+            "f0dbcfb89480"
+          ],
+          "branchIds": {},
+          "committedBy": null
+        },
+        "mainBranch": {
+          "onBranch": false,
+          "mainMoved": false,
+          "newBranches": [],
+          "holder": null
+        },
+        "committedBy": null,
+        "finalAnswer": "You're welcome! The greeter module is ready at `src/greeter-69f4a6.ts`. See you next time.",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      }
+    ],
+    "negative-main": [
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "sentinel": "greeter-abdeb2",
+        "upsEmitted": true,
+        "thirdClause": true,
+        "upsLine": "vfkb handoff status: the brain has 1 uncommitted entry on main, which SessionEnd will not auto-commit (it commits only on a topic branch). If this prompt ends the session, committing .vfkb/entries.jsonl on a topic branch is worth doing before finishing; otherwise nothing is needed now.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "main": {
+          "tipBefore": "2e8b9f21fce5ce4dcddd34b2ec530ccf7c809a52",
+          "tipAfter": "2e8b9f21fce5ce4dcddd34b2ec530ccf7c809a52",
+          "headAfter": "main",
+          "branchesBefore": [
+            "main"
+          ],
+          "branchesAfter": [
+            "main"
+          ],
+          "uncommittedIds": [
+            "cf8d151cdf03"
+          ],
+          "branchIds": {},
+          "committedBy": null
+        },
+        "mainBranch": {
+          "onBranch": false,
+          "mainMoved": false,
+          "newBranches": [],
+          "holder": null
+        },
+        "committedBy": null,
+        "finalAnswer": "done",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "sentinel": "greeter-ea31f1",
+        "upsEmitted": true,
+        "thirdClause": true,
+        "upsLine": "vfkb handoff status: the brain has 1 uncommitted entry on main, which SessionEnd will not auto-commit (it commits only on a topic branch). If this prompt ends the session, committing .vfkb/entries.jsonl on a topic branch is worth doing before finishing; otherwise nothing is needed now.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "main": {
+          "tipBefore": "9a0380f27802914b503267801c617fd566478f99",
+          "tipAfter": "9a0380f27802914b503267801c617fd566478f99",
+          "headAfter": "main",
+          "branchesBefore": [
+            "main"
+          ],
+          "branchesAfter": [
+            "main"
+          ],
+          "uncommittedIds": [
+            "7338b488dd67"
+          ],
+          "branchIds": {},
+          "committedBy": null
+        },
+        "mainBranch": {
+          "onBranch": false,
+          "mainMoved": false,
+          "newBranches": [],
+          "holder": null
+        },
+        "committedBy": null,
+        "finalAnswer": "done",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "sentinel": "greeter-bc1718",
+        "upsEmitted": true,
+        "thirdClause": true,
+        "upsLine": "vfkb handoff status: the brain has 1 uncommitted entry on main, which SessionEnd will not auto-commit (it commits only on a topic branch). If this prompt ends the session, committing .vfkb/entries.jsonl on a topic branch is worth doing before finishing; otherwise nothing is needed now.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "main": {
+          "tipBefore": "3ce76d2d8f5a5b68a86f4bea87ec0f28b029830c",
+          "tipAfter": "3ce76d2d8f5a5b68a86f4bea87ec0f28b029830c",
+          "headAfter": "main",
+          "branchesBefore": [
+            "main"
+          ],
+          "branchesAfter": [
+            "main"
+          ],
+          "uncommittedIds": [
+            "39ea6d8d98e7"
+          ],
+          "branchIds": {},
+          "committedBy": null
+        },
+        "mainBranch": {
+          "onBranch": false,
+          "mainMoved": false,
+          "newBranches": [],
+          "holder": null
+        },
+        "committedBy": null,
+        "finalAnswer": "done",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      }
+    ]
+  }
+}

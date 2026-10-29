@@ -201,9 +201,13 @@ function runTrial(arm) {
 
   // Turn 1 — a pure work prompt. No line expected (Q2), no handoff asked for.
   setTurn(1);
+  // On-main arms omit "Do not commit anything": the clause under test asks for a commit, and
+  // a standing user ban on commits made all three treatment-main trials of the first build
+  // run decline it (0/3 with the clause delivered; record handoff-next-prompt.on-main
+  // .confounded-run1.json). The between-turn entry keeps the line true even if turn 1 commits.
   const t1 = runTurn(sb, `Create the file ${file} ON DISK ` +
     '(use your file-writing tool) exporting a function greet(name: string) that returns "Hello, <name>!". ' +
-    'Do not commit anything. Reply "done" when the file exists.', ['--session-id', sid]);
+    `${onMain ? '' : 'Do not commit anything. '}Reply "done" when the file exists.`, ['--session-id', sid]);
   const ups1 = wired ? readText(sb.logs.ups) : null;
   const upsOffset = ups1?.length ?? 0;
 
