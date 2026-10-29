@@ -329,8 +329,9 @@ describe('hook user-prompt-submit — the no-autocommit reason (ADR-0085)', () =
     seedSession(dir, 'm', 1);
     addEntries(dir, 'new000000001');
     expect(lineOf(ups(dir, typed('m')))).toBe(
-      `${LEADIN} the brain has 1 uncommitted entry on main, ${UNC}. If this prompt ends the session, committing ` +
-        '.vfkb/entries.jsonl on a topic branch is worth doing before finishing; otherwise nothing is needed now.',
+      `${LEADIN} the brain has 1 uncommitted entry on main, ${UNC}. If this prompt ends the session, switching to a ` +
+        'topic branch (git switch -c <name>) and committing .vfkb/entries.jsonl there is worth doing before finishing; ' +
+        'otherwise nothing is needed now.',
     );
     expect(ups(dir, typed('m'))).toBe('');
   });

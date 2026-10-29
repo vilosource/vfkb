@@ -178,7 +178,8 @@ export function renderPromptNudge(
   }
   const third = reasons.includes('no-autocommit');
   if (third) {
-    // ADR-0085 §3 (decide Q3): the REASON is a fact, so it lives in the fact clause.
+    // ADR-0085 §3 (decide Q3, recipe revision): the REASON is a fact, so it lives in the fact clause;
+    // the conditional names the recipe (git switch -c), in parity with the stale clause's kb_add.
     const n = facts.newEntries;
     const where = facts.branch ? facts.branch : 'a detached HEAD';
     clauses.push(
@@ -191,16 +192,16 @@ export function renderPromptNudge(
   if (third && !handoff) {
     return (
       `${PROMPT_NUDGE_LEADIN} ${clauses.join('; ')}.` +
-      ' If this prompt ends the session, committing .vfkb/entries.jsonl on a topic branch is worth doing before ' +
-      `finishing; ${tail}`
+      ' If this prompt ends the session, switching to a topic branch (git switch -c <name>) and committing ' +
+      `.vfkb/entries.jsonl there is worth doing before finishing; ${tail}`
     );
   }
   if (third) {
     return (
       `${PROMPT_NUDGE_LEADIN} ${clauses.join('; ')}.` +
       ' If this prompt ends the session, two things are worth doing before finishing: a fresh handoff/next entry ' +
-      '(kb_add type=fact, tags=handoff,next, role=human) naming what changed and what is next, then committing ' +
-      `.vfkb/entries.jsonl on a topic branch; ${tail}`
+      '(kb_add type=fact, tags=handoff,next, role=human) naming what changed and what is next, then switching to a ' +
+      `topic branch (git switch -c <name>) and committing .vfkb/entries.jsonl there; ${tail}`
     );
   }
   // Without the third reason: ADR-0084 §2.4's text, byte-identical.

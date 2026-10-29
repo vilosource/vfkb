@@ -292,12 +292,12 @@ describe('compaction (decide Q8): the prompt line re-arms, B3 stays quiet for th
 
 const THIRD_MAIN = 'the brain has 2 uncommitted entries on main, which SessionEnd will not auto-commit (it commits only on a topic branch)';
 const COND_UNCOMMITTED =
-  ' If this prompt ends the session, committing .vfkb/entries.jsonl on a topic branch is worth doing before finishing; ' +
-  'otherwise nothing is needed now.';
+  ' If this prompt ends the session, switching to a topic branch (git switch -c <name>) and committing ' +
+  '.vfkb/entries.jsonl there is worth doing before finishing; otherwise nothing is needed now.';
 const COND_BOTH =
   ' If this prompt ends the session, two things are worth doing before finishing: a fresh handoff/next entry ' +
-  '(kb_add type=fact, tags=handoff,next, role=human) naming what changed and what is next, then committing ' +
-  '.vfkb/entries.jsonl on a topic branch; otherwise nothing is needed now.';
+  '(kb_add type=fact, tags=handoff,next, role=human) naming what changed and what is next, then switching to a ' +
+  'topic branch (git switch -c <name>) and committing .vfkb/entries.jsonl there; otherwise nothing is needed now.';
 
 describe('renderPromptNudge — the no-autocommit clause (ADR-0085 §3)', () => {
   it('alone, on the default branch', () => {
