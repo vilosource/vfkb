@@ -1,0 +1,316 @@
+{
+  "scenario": "handoff-next-prompt",
+  "recordVersion": 1,
+  "model": "claude-haiku-4-5",
+  "generated": "2026-10-29T08:20:41.201Z",
+  "red": false,
+  "engineCli": "/Users/jasonviloria/GitHub/vfkb-wt-395/dist/cli.js",
+  "engineRev": "8b74197+round2-probe",
+  "engineCliSha256": "2ee3e2618c7c74fd70d493366b7f86a6884f4dc97e8ece9f45ad1a50f646b3d8",
+  "vfkbSha": "248142bbe211ceeff0bdf2c7d99249382a8174d0",
+  "engineSrcDirty": true,
+  "cliVersions": [
+    "2.1.292"
+  ],
+  "isolation": "enabledPlugins {'vfkb@vfkb': false}; init event asserted",
+  "promptLineLeadin": "vfkb handoff status:",
+  "thresholds": "decide-step Q4 (scenarios/lib/nudge-verdict.mjs)",
+  "verdict": {
+    "counts": {
+      "treatment-stale": {
+        "valid": 0,
+        "attempts": 0,
+        "pass": 0
+      },
+      "treatment-b1": {
+        "valid": 0,
+        "attempts": 0,
+        "pass": 0
+      },
+      "contrast": {
+        "valid": 0,
+        "attempts": 0,
+        "pass": 0
+      },
+      "negative": {
+        "valid": 0,
+        "attempts": 0,
+        "pass": 0
+      },
+      "treatment-main": {
+        "valid": 3,
+        "attempts": 3,
+        "pass": 0
+      },
+      "contrast-main": {
+        "valid": 0,
+        "attempts": 0,
+        "pass": 0
+      },
+      "negative-main": {
+        "valid": 3,
+        "attempts": 3,
+        "pass": 3
+      }
+    },
+    "invalidTrials": 0,
+    "deterministicFailures": 0,
+    "complete": false,
+    "demonstrated": false,
+    "reasons": [
+      "fewer than 3 valid trials in some arm — no verdict",
+      "treatment-stale 0/0 < 2",
+      "treatment-b1 0/0 < 2",
+      "contrast 0 not strictly below treatment-stale 0",
+      "contrast 0 not strictly below treatment-b1 0",
+      "negative clean 0/0 < 2",
+      "treatment-main 0/3 < 2",
+      "contrast-main 0 not strictly below treatment-main 0"
+    ]
+  },
+  "trials": {
+    "treatment-stale": [],
+    "treatment-b1": [],
+    "contrast": [],
+    "negative": [],
+    "treatment-main": [
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": false,
+        "sentinel": "greeter-5b9e00",
+        "upsEmitted": true,
+        "thirdClause": true,
+        "upsLine": "vfkb handoff status: the brain has 1 uncommitted entry on main, which SessionEnd will not auto-commit (it commits only on a topic branch). If this prompt ends the session, switching to a topic branch (git switch -c <name>) is worth doing before finishing, so SessionEnd commits .vfkb/entries.jsonl there; otherwise nothing is needed now.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "main": {
+          "tipBefore": "7037a2375c0f8eb3a3563cc4c5582e4878413917",
+          "tipAfter": "7037a2375c0f8eb3a3563cc4c5582e4878413917",
+          "headAfter": "main",
+          "branchesBefore": [
+            "main"
+          ],
+          "branchesAfter": [
+            "main"
+          ],
+          "uncommittedIds": [
+            "b86713dd7ac4"
+          ],
+          "branchIds": {},
+          "committedBy": null
+        },
+        "mainBranch": {
+          "onBranch": false,
+          "mainMoved": false,
+          "newBranches": [],
+          "holder": null
+        },
+        "committedBy": null,
+        "finalAnswer": "Thanks! The greeter module is in place. See you next time.",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": false,
+        "sentinel": "greeter-1b477a",
+        "upsEmitted": true,
+        "thirdClause": true,
+        "upsLine": "vfkb handoff status: the brain has 1 uncommitted entry on main, which SessionEnd will not auto-commit (it commits only on a topic branch). If this prompt ends the session, switching to a topic branch (git switch -c <name>) is worth doing before finishing, so SessionEnd commits .vfkb/entries.jsonl there; otherwise nothing is needed now.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "main": {
+          "tipBefore": "7a323cf13d54b114956ff7a71d853e053fdb1f62",
+          "tipAfter": "7a323cf13d54b114956ff7a71d853e053fdb1f62",
+          "headAfter": "main",
+          "branchesBefore": [
+            "main"
+          ],
+          "branchesAfter": [
+            "main"
+          ],
+          "uncommittedIds": [
+            "90ea909fbe1d"
+          ],
+          "branchIds": {},
+          "committedBy": null
+        },
+        "mainBranch": {
+          "onBranch": false,
+          "mainMoved": false,
+          "newBranches": [],
+          "holder": null
+        },
+        "committedBy": null,
+        "finalAnswer": "Got it — wrapping up. The greeter module is in place. Have a good one!",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": false,
+        "sentinel": "greeter-3f1c59",
+        "upsEmitted": true,
+        "thirdClause": true,
+        "upsLine": "vfkb handoff status: the brain has 1 uncommitted entry on main, which SessionEnd will not auto-commit (it commits only on a topic branch). If this prompt ends the session, switching to a topic branch (git switch -c <name>) is worth doing before finishing, so SessionEnd commits .vfkb/entries.jsonl there; otherwise nothing is needed now.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "main": {
+          "tipBefore": "e9f072b96f1110cbe5876c3f7777463e8cca1701",
+          "tipAfter": "e9f072b96f1110cbe5876c3f7777463e8cca1701",
+          "headAfter": "main",
+          "branchesBefore": [
+            "main"
+          ],
+          "branchesAfter": [
+            "main"
+          ],
+          "uncommittedIds": [
+            "ed0cb60f769a"
+          ],
+          "branchIds": {},
+          "committedBy": null
+        },
+        "mainBranch": {
+          "onBranch": false,
+          "mainMoved": false,
+          "newBranches": [],
+          "holder": null
+        },
+        "committedBy": null,
+        "finalAnswer": "Thanks for the work! All set. 👋",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      }
+    ],
+    "contrast-main": [],
+    "negative-main": [
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "sentinel": "greeter-d5f520",
+        "upsEmitted": true,
+        "thirdClause": true,
+        "upsLine": "vfkb handoff status: the brain has 1 uncommitted entry on main, which SessionEnd will not auto-commit (it commits only on a topic branch). If this prompt ends the session, switching to a topic branch (git switch -c <name>) is worth doing before finishing, so SessionEnd commits .vfkb/entries.jsonl there; otherwise nothing is needed now.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "main": {
+          "tipBefore": "c42171279272b8433ccc5e804969f0f7c194e028",
+          "tipAfter": "c42171279272b8433ccc5e804969f0f7c194e028",
+          "headAfter": "main",
+          "branchesBefore": [
+            "main"
+          ],
+          "branchesAfter": [
+            "main"
+          ],
+          "uncommittedIds": [
+            "4934b6a4e496"
+          ],
+          "branchIds": {},
+          "committedBy": null
+        },
+        "mainBranch": {
+          "onBranch": false,
+          "mainMoved": false,
+          "newBranches": [],
+          "holder": null
+        },
+        "committedBy": null,
+        "finalAnswer": "done",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "sentinel": "greeter-6aaa51",
+        "upsEmitted": true,
+        "thirdClause": true,
+        "upsLine": "vfkb handoff status: the brain has 1 uncommitted entry on main, which SessionEnd will not auto-commit (it commits only on a topic branch). If this prompt ends the session, switching to a topic branch (git switch -c <name>) is worth doing before finishing, so SessionEnd commits .vfkb/entries.jsonl there; otherwise nothing is needed now.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "main": {
+          "tipBefore": "704d9b7ae4e97dff2a0f84fd1adfb9af4efce2d8",
+          "tipAfter": "704d9b7ae4e97dff2a0f84fd1adfb9af4efce2d8",
+          "headAfter": "main",
+          "branchesBefore": [
+            "main"
+          ],
+          "branchesAfter": [
+            "main"
+          ],
+          "uncommittedIds": [
+            "4c827a596eb2"
+          ],
+          "branchIds": {},
+          "committedBy": null
+        },
+        "mainBranch": {
+          "onBranch": false,
+          "mainMoved": false,
+          "newBranches": [],
+          "holder": null
+        },
+        "committedBy": null,
+        "finalAnswer": "done",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      },
+      {
+        "invalid": [],
+        "deterministicFail": [],
+        "pass": true,
+        "sentinel": "greeter-0ebbb7",
+        "upsEmitted": true,
+        "thirdClause": true,
+        "upsLine": "vfkb handoff status: the brain has 1 uncommitted entry on main, which SessionEnd will not auto-commit (it commits only on a topic branch). If this prompt ends the session, switching to a topic branch (git switch -c <name>) is worth doing before finishing, so SessionEnd commits .vfkb/entries.jsonl there; otherwise nothing is needed now.",
+        "turn1Line": false,
+        "stopRuns": 3,
+        "stopBlocked": true,
+        "turn2Handoffs": [],
+        "main": {
+          "tipBefore": "2ff15102d94f478a1636ef63f158335f828d9b9c",
+          "tipAfter": "2ff15102d94f478a1636ef63f158335f828d9b9c",
+          "headAfter": "main",
+          "branchesBefore": [
+            "main"
+          ],
+          "branchesAfter": [
+            "main"
+          ],
+          "uncommittedIds": [
+            "14a0abe266c9"
+          ],
+          "branchIds": {},
+          "committedBy": null
+        },
+        "mainBranch": {
+          "onBranch": false,
+          "mainMoved": false,
+          "newBranches": [],
+          "holder": null
+        },
+        "committedBy": null,
+        "finalAnswer": "done",
+        "errors": [],
+        "cliVersion": "2.1.292"
+      }
+    ]
+  }
+}
