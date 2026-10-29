@@ -595,18 +595,20 @@ async function dispatch() {
     return;
   }
 
-  // supersede <oldId> <text...> [--role r] [--why w]
+  // supersede <oldId> <text...> [--role r] [--why w] [--tag a,b]
   if (cmd === 'supersede') {
     if (!sub || sub.startsWith('--')) {
-      throw new UsageError('usage: vfkb supersede <oldId> <text…> [--role r] [--why w]');
+      throw new UsageError('usage: vfkb supersede <oldId> <text…> [--role r] [--why w] [--tag a,b]');
     }
-    const p = parseArgs('supersede', rest, { role: 'value', why: 'value' });
+    const p = parseArgs('supersede', rest, { role: 'value', why: 'value', tag: 'value' });
     const newText = p.positionals.join(' ').trim();
     if (!newText) throw new UsageError('supersede: missing new text');
     try {
       const e = supersede(sub, newText, {
         role: (flagValue(p, 'role') as AuthorRole) || 'human',
         why: flagValue(p, 'why'),
+        // absent → the engine inherits the predecessor's tags
+        tags: flagList(p, 'tag'),
       });
       process.stdout.write(`${e.id}\tsupersedes ${sub}\t${e.text}\n`);
     } catch (err) {

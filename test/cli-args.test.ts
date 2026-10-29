@@ -222,6 +222,25 @@ describe('other verbs — the same strictness everywhere', () => {
     expect(run(b, ['resume', 'p1', 'p2']).err).toMatch(/at most one/);
   });
 
+  // 52e9ea680e0e follow-up: the CLI face of #127. `vfkb supersede` had no --tag,
+  // so every CLI successor landed untagged; it now takes --tag, and a successor
+  // without --tag inherits its predecessor's tags (engine default).
+  it('supersede accepts --tag, and inherits the predecessor tags without it', () => {
+    const b = fresh();
+    const add = run(b, ['add', 'decision', 'use Python', '--role', 'human', '--status', 'accepted', '--tag', 'lang,old']);
+    expect(add.code).toBe(0);
+    const oldId = add.out.split('\t')[0];
+    const s1 = run(b, ['supersede', oldId, 'use TypeScript', '--tag', 'lang,ts']);
+    expect(s1.code).toBe(0);
+    expect(s1.err).not.toMatch(/unknown flag/);
+    const newId = s1.out.split('\t')[0];
+    expect(entries(b).find((e) => e.id === newId)!.tags).toEqual(['lang', 'ts']);
+    const s2 = run(b, ['supersede', newId, 'use TypeScript strictly']);
+    expect(s2.code).toBe(0);
+    const thirdId = s2.out.split('\t')[0];
+    expect(entries(b).find((e) => e.id === thirdId)!.tags).toEqual(['lang', 'ts']);
+  });
+
   // ADR-0058/RFC-030 — `doctor` gains the `--check-remote` boolean flag; a bare
   // positional after it is still rejected the same as any other doctor arg.
   it('doctor accepts --check-remote as a known boolean flag (not "unknown flag")', () => {

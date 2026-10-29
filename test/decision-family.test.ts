@@ -63,6 +63,28 @@ describe('supersession is an additive edge (ADR-0004)', () => {
   });
 });
 
+describe('supersede carries tags forward (52e9ea680e0e follow-up; #127 CLI face)', () => {
+  it('a successor with no caller-supplied tags inherits the predecessor tags', () => {
+    const old = addEntry('decision', 'cut v0.22.0 with #395', {
+      role: 'human',
+      status: 'accepted',
+      tags: ['nudge', 'release'],
+    });
+    const neu = supersede(old.id, 'cut v0.22.0 without #395', { role: 'human' });
+    expect(neu.tags).toEqual(['nudge', 'release']);
+  });
+
+  it('explicit tags win and are not merged with the predecessor tags', () => {
+    const old = addEntry('decision', 'use Python', {
+      role: 'human',
+      status: 'accepted',
+      tags: ['lang', 'old'],
+    });
+    const neu = supersede(old.id, 'use TypeScript', { role: 'human', tags: ['lang', 'ts'] });
+    expect(neu.tags).toEqual(['lang', 'ts']);
+  });
+});
+
 describe('lifecycle transitions vs content-immutability', () => {
   it('proposed → accepted preserves content', () => {
     const d = addEntry('decision', 'adopt ADRs', { role: 'human' });

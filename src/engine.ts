@@ -378,7 +378,11 @@ export function supersede(oldId: string, text: string, opts: AddOpts = {}): Know
     return addEntry('decision', text, {
       role: opts.role ?? 'human',
       why: opts.why,
-      tags: opts.tags,
+      // A successor inherits its predecessor's tags unless the caller supplies
+      // its own (explicit wins, no merge). Same shape as `constitutional` below;
+      // without it every successor written without tags (CLI, or a model that
+      // omits them) fell out of `--tag` listings (#127; 52e9ea680e0e).
+      tags: opts.tags ?? old.tags,
       status: opts.status ?? 'accepted',
       constitutional: opts.constitutional ?? old.constitutional,
       supersedes: oldId,
