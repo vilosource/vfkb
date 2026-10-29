@@ -1,0 +1,19 @@
+{
+  "recordVersion": 1,
+  "sha": "ff21f0af03419c7b7816d1bcc986da82c31abc66",
+  "governing": ["docs/adr/ADR-0062-engine-delivery-signal.md", "docs/adr/ADR-0052-review-gate.md"],
+  "reviewer": { "agent": "general-purpose", "model": "opus", "rounds": 1 },
+  "generated": "2026-10-29T11:55:00Z",
+  "findings": [],
+  "findingsCount": 0,
+  "ruledOut": [
+    "diff vs PR body: exactly the engine-delivery.yml header comment (expiry 2026-10-14 -> renewed 2026-10-29, expires 2027-10-30) plus one appended brain fact d5ceadb9d35e; no executable workflow line changed",
+    "brain integrity: .vfkb/entries.jsonl parses line-by-line (710 lines); diff removes 0 lines and appends 1; d5ceadb9d35e appears once; the repeated ids in the file already exist on origin/main",
+    "claims: gh run view 40866885943 = engine-delivery, completed/success; vilosource/vfkb-claude-plugin#69 exists, head re-vendor/probe, state CLOSED, mergedAt null, release-gate check run SUCCESS; e8b0b341e2b0 exists in the brain",
+    "secrets: no github_pat_/ghp_/gho_/ghs_ or token literal in the diff; the fact names only the 1Password item location, not a value; GitGuardian check passed",
+    "attribution: commit ff21f0a message and PR body carry no Co-Authored-By/Anthropic/Claude/robot marker",
+    "tests: test (20/22/24) green on ff21f0a"
+  ],
+  "mutations": [],
+  "mutationsNote": "No guard added or changed: the only workflow edit is a YAML comment; the other change is a records-only brain append."
+}
