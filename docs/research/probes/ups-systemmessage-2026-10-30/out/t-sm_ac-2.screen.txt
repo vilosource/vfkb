@@ -1,0 +1,10 @@
+ �������   Claude Code v2.1.292
+���������  Haiku 4.5 � Claude API
+ ��   ��   /private/var/folders/j2/fp21t39n14j9ls2q7yr3vbbw0000gn/T/vfkb-ups-probe-cdY7Nr/trial-LrvYPm/proj
+  Get to finished work sooner with Opus 5.5. Switch anytime with /model.
+o Reply with exactly one word: pineapple
+  � �UserPromptSubmit says: VFKBSM089BBF55
+� pineapple
+; Brewed for 1s � done 11:27 AM
+o�
+  � manual mode on � ? for shortcuts � � for agents

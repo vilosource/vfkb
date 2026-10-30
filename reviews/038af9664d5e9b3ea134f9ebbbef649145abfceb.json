@@ -1,0 +1,83 @@
+{
+  "recordVersion": 1,
+  "sha": "038af9664d5e9b3ea134f9ebbbef649145abfceb",
+  "governing": [
+    "docs/research/probes/ups-systemmessage-2026-10-30/README.md",
+    "docs/adr/ADR-0051-delivery-honesty.md"
+  ],
+  "reviewer": {
+    "agent": "spawned adversarial-reviewer agent (general-purpose subagent, fresh context, no claude spawned)",
+    "model": "opus",
+    "rounds": 1
+  },
+  "generated": "2026-10-30T09:39:08.408Z",
+  "note": "Round 1 read c38fa17 (MERGE: 0 blocking, 9 minor). Fixes landed in 038af96: README wording, NUL stripped from the committed screen captures and from compact(), unobserved scope labelled. The delta c38fa17..038af96 is a README, a capture-file cleanup, and a one-token change to compact(), which writes the evidence file and is not in any predicate. A reviewer did not re-read it.",
+  "verdict": "MERGE",
+  "findings": [
+    {
+      "id": "R1-m1",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "trial table and results.json label p-json stdout hits RENDERS; README now says that means present-on-stdout as a system/informational event",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-m2",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "screen captures were binary (NUL padding); NUL stripped in the committed files and in compact()",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-m3",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "README now states the only probe.mjs change since the run is compact(); predicates unchanged",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-m4",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "pineapple-every-time and the session-local details (screen version, no tmux, 60-min refusal) qualified as transcript-regex or session observations",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-m5",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "-p text observed only without --verbose; listed as not observed",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-m6",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "PATH shim cannot see an absolute-path or native Keychain call; scope stated, and dialog absence labelled not observed",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-m7",
+      "severity": "minor",
+      "status": "accepted",
+      "summary": "no try/finally: a crash in arm T can leave a detached screen with the env token in memory; documented as a known limit with the cleanup command (probe-only harness, not shipped)",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-m8",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "project-settings hook, not plugin hook: README routes the plugin-label proof to the #395 ADR scenario",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-m9",
+      "severity": "minor",
+      "status": "accepted",
+      "summary": "captures contain the macOS per-user temp path; not a secret, documented",
+      "acceptedBy": null
+    }
+  ],
+  "mutations": [],
+  "mutationsNote": "Docs, probe and brain only; no guard, test or src path changed. The probe is a one-off Tier-0 harness, not a guard. Its can-fail property is shown in the data: in the same sm+ac runs the contrast marker is absent while the systemMessage marker is present."
+}
