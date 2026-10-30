@@ -334,6 +334,41 @@ describe('exit report', () => {
     expect(lib.formatShimReport(lib.keychainShimReport())).toMatch(/calls=0 refusedWrites=0 \(shim never built/);
   });
 
+  // Divergence #2 (brain 0f95298d09c5, ADR-0051 cl.3) is that the line is PRINTED at
+  // exit, not that formatShimReport() can build it. Only a real process exit observes
+  // that: run the lib in a child node and read its stderr (review B1 on PR #424).
+  function runLib(body: string, token?: string) {
+    const env: Record<string, string | undefined> = { ...process.env };
+    for (const k of ['CLAUDE_CODE_OAUTH_TOKEN', 'ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'VFKB_L4_AUTH', 'VFKB_L4_MIN_TOKEN_MINUTES']) delete env[k];
+    if (token) env.CLAUDE_CODE_OAUTH_TOKEN = token;
+    const libUrl = new URL(LIB, import.meta.url).href;
+    const r = spawnSync(process.execPath, ['--input-type=module', '-e', `const lib = await import(${JSON.stringify(libUrl)});\n${body}`], {
+      env: env as NodeJS.ProcessEnv,
+      encoding: 'utf8',
+      timeout: 20000,
+    });
+    return r;
+  }
+
+  it('the line is printed to stderr at process exit after a spawn-env build (calls=0 refusedWrites=0, shim built)', () => {
+    const r = runLib(`lib.claudeEnv({ PATH: '/usr/bin' }, { platform: 'linux' });`, FAKE);
+    expect(r.status).toBe(0);
+    expect(r.stderr).toContain('claude-auth: keychain shim calls=0 refusedWrites=0');
+    expect(r.stderr).not.toContain('never built');
+    expect(r.stderr).not.toContain(FAKE);
+  });
+
+  it('the line is printed on the Background refusal path too, saying the shim was never built', () => {
+    const r = runLib(
+      `try { lib.assertClaudeAuthReady({ platform: 'darwin', manager: 'Background' }); console.log('NOT-REFUSED'); }\n` +
+        `catch (e) { console.log('refused: ' + /not "Aqua"/.test(e.message)); }`,
+    );
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain('refused: true');
+    expect(r.stderr).toContain('claude-auth: keychain shim calls=0 refusedWrites=0');
+    expect(r.stderr).toContain('(shim never built');
+  });
+
   it('a built shim with no calls yet reports calls=0 refusedWrites=0', async () => {
     const lib = await load({ CLAUDE_CODE_OAUTH_TOKEN: FAKE });
     lib.claudeEnv({ PATH: '/usr/bin' }, LINUX);
