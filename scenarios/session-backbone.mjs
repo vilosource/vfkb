@@ -19,11 +19,14 @@
 //   node scenarios/session-backbone.mjs --arm fixed    [--dist <path/to/dist>]
 //   node scenarios/session-backbone.mjs --arm baseline  --dist <path/to/prefix-dist>
 
-import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertClaudeAuthReady, claudeSync } from './lib/claude-auth.mjs';
+
+// vfkb#422: refuse before anything metered if a claude child could touch the macOS Keychain.
+assertClaudeAuthReady();
 
 const args = process.argv.slice(2);
 const flag = (n) => { const i = args.indexOf(`--${n}`); return i >= 0 ? args[i + 1] : undefined; };
@@ -56,7 +59,7 @@ delete env.VFKB_DATA_DIR; // hooks carry their own; the harness process needs ne
 function claude(prompt, resumeId) {
   const a = ['-p', prompt, '--model', MODEL, '--allowedTools', 'Bash', '--output-format', 'json'];
   if (resumeId) a.push('--resume', resumeId);
-  const out = execFileSync('claude', a, { cwd: sb, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 300_000 });
+  const out = claudeSync(a, { cwd: sb, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 300_000 });
   const j = JSON.parse(out.slice(out.indexOf('{')));
   return j.session_id;
 }

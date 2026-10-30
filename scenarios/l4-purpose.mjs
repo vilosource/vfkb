@@ -29,6 +29,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
 import { tmpdir, homedir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { assertClaudeAuthReady, claudeSync } from './lib/claude-auth.mjs';
 
 const REPO = resolve(process.argv[1], '../..');
 const CLI = join(REPO, 'dist', 'cli.js');
@@ -80,6 +81,10 @@ const PI_IMAGE = process.env.VFKB_L4_PI_IMAGE || 'vfkb-l4-pi:dev';
 // claude harness substrate (T5b): docker by default; VFKB_L4_CLAUDE_MODE=host runs the
 // legacy host claude (used to regenerate the known-good host baseline records).
 const CLAUDE_MODE = process.env.VFKB_L4_CLAUDE_MODE || 'docker';
+// vfkb#422: host-mode claude children go through the Keychain-safe seam; refuse before
+// anything metered if one could touch the macOS Keychain. (The docker arm runs claude
+// inside a Linux container and keeps its own credential path, tracked separately.)
+if (HARNESS === 'claude' && CLAUDE_MODE !== 'docker') assertClaudeAuthReady();
 const CLAUDE_IMAGE = process.env.VFKB_L4_CLAUDE_IMAGE || 'vfkb-l4-claude:dev';
 const UID = typeof process.getuid === 'function' ? process.getuid() : 0;
 const GID = typeof process.getgid === 'function' ? process.getgid() : 0;
@@ -235,7 +240,7 @@ function run({ harness = HARNESS, brain, prompt, inject = 'vfkb', mcp = false, c
           args.push('--disallowedTools', FS_DENY); // qa: no tools at all
         }
       }
-      if (!cdocker) return sh('claude', args, { cwd: tmpdir(), timeout: TIMEOUT, env: { ...process.env } }).trim();
+      if (!cdocker) return claudeSync(args, { cwd: tmpdir(), timeout: TIMEOUT, env: { ...process.env } }).trim();
       // Dockerized (T5b): uid-matched brain bind-mount (writes persist to host /brain) +
       // a throwaway subscription-creds copy mounted at /work/.claude. No host creds/FS/MCP
       // reach the sandbox beyond these two scoped mounts (the no-leak property).

@@ -23,6 +23,10 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { assertClaudeAuthReady, claudeSync } from './lib/claude-auth.mjs';
+
+// vfkb#422: refuse before anything metered if a claude child could touch the macOS Keychain.
+assertClaudeAuthReady();
 
 const REPO = resolve(process.argv[1], '../..');
 const CLI = join(REPO, 'dist', 'cli.js');
@@ -66,7 +70,7 @@ function runArm(bundle) {
   let out = '';
   let err = '';
   try {
-    out = sh('claude', ['-p', QUESTION, '--strict-mcp-config', '--dangerously-skip-permissions', '--model', MODEL], {
+    out = claudeSync(['-p', QUESTION, '--strict-mcp-config', '--dangerously-skip-permissions', '--model', MODEL], {
       cwd: dir,
       timeout: TIMEOUT,
       stdio: ['ignore', 'pipe', 'pipe'],

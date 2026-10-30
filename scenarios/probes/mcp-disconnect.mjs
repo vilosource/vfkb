@@ -24,11 +24,14 @@
 //
 //   node scenarios/probes/mcp-disconnect.mjs [--model <m>] [--keep]
 // ============================================================================
-import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs';
-import { tmpdir, homedir } from 'node:os';
+import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertClaudeAuthReady, claudeSync, claudeVersion } from '../lib/claude-auth.mjs';
+
+// vfkb#422: refuse before anything metered if a claude child could touch the macOS Keychain.
+assertClaudeAuthReady();
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const WRAPPER = join(REPO, 'scenarios', 'probes', 'mcp-disconnect-server.mjs');
@@ -52,10 +55,10 @@ function sandbox() {
   mkdirSync(brain, { recursive: true });
   writeFileSync(join(brain, 'entries.jsonl'), '');
 
-  // Real credential, copied into the sandbox — same shape the L4 scenarios use.
-  const all = JSON.parse(readFileSync(join(homedir(), '.claude', '.credentials.json'), 'utf8'));
-  if (!all.claudeAiOauth) throw new Error('no claudeAiOauth block in ~/.claude/.credentials.json');
-  writeFileSync(join(cfg, '.credentials.json'), JSON.stringify({ claudeAiOauth: all.claudeAiOauth }));
+  // No credential is staged here (vfkb#422): the fresh config dir gets the OAuth access
+  // token through claudeSync()'s env (CLAUDE_CODE_OAUTH_TOKEN) and a no-op `security`
+  // shim, so no refresh token ever lands in the sandbox and the child cannot write the
+  // macOS Keychain from a fresh profile.
 
   const mcpConfig = join(root, 'mcp.json');
   writeFileSync(
@@ -101,7 +104,7 @@ function run() {
   try {
     return probe(s);
   } finally {
-    // The sandbox holds a real OAuth credential — remove it even if we threw.
+    // The sandbox may hold the child's session state — remove it even if we threw.
     if (!KEEP) rmSync(s.root, { recursive: true, force: true });
   }
 }
@@ -111,8 +114,7 @@ function probe(s) {
   let raw = '';
   let spawnError = null;
   try {
-    raw = execFileSync(
-      'claude',
+    raw = claudeSync(
       [
         '-p', PROMPT,
         '--mcp-config', s.mcpConfig,
@@ -122,7 +124,7 @@ function probe(s) {
         '--output-format', 'stream-json',
         '--verbose',
       ],
-      { cwd: s.proj, encoding: 'utf8', timeout: 300_000, maxBuffer: 64 * 1024 * 1024, env: { ...process.env, CLAUDE_CONFIG_DIR: s.cfg } },
+      { cwd: s.proj, timeout: 300_000, maxBuffer: 64 * 1024 * 1024, env: { ...process.env, CLAUDE_CONFIG_DIR: s.cfg } },
     );
   } catch (e) {
     // A non-zero exit is itself an observation worth recording, not a crash.
@@ -195,7 +197,7 @@ function probe(s) {
     recordVersion: 2,
     adr: 'ADR-0065 §0',
     generated: started,
-    cliVersion: (() => { try { return execFileSync('claude', ['--version'], { encoding: 'utf8' }).trim(); } catch { return 'unknown'; } })(),
+    cliVersion: (() => { try { return claudeVersion(); } catch { return 'unknown'; } })(),
     model: MODEL,
     mode: MODE,
     method:

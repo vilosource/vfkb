@@ -52,6 +52,10 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { ARMS, MAX_ATTEMPTS_PER_ARM, RUN_MARKER, TURNS, VALID_PER_ARM, recordName, runVerdict, scoreTrial, invocations, B3_LEADIN } from './lib/anchor-verdict.mjs';
 import { baselineEngine, defaultBaselineRev, sha256 } from './lib/baseline-engine.mjs';
+import { assertClaudeAuthReady, claudeSync } from './lib/claude-auth.mjs';
+
+// vfkb#422: refuse before anything metered if a claude child could touch the macOS Keychain.
+assertClaudeAuthReady();
 
 const REPO = resolve(process.argv[1], '../..');
 const RED = process.env.VFKB_SHA_RED === '1';
@@ -170,7 +174,7 @@ function runTurn(sb, prompt, sessionArgs) {
   let stdout = '';
   let err = '';
   try {
-    stdout = sh('claude', args, { cwd: sb.dir, timeout: TIMEOUT, stdio: ['ignore', 'pipe', 'pipe'] });
+    stdout = claudeSync(args, { cwd: sb.dir, timeout: TIMEOUT, stdio: ['ignore', 'pipe', 'pipe'] });
   } catch (e) {
     err = String(e.stderr || e.message || '').replace(/\s+/g, ' ').slice(0, 200);
     stdout = String(e.stdout || '');

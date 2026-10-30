@@ -119,6 +119,7 @@ import {
   leakDiff, isBudgetKill, invalidReasonsFor, isCompleteRun, recordName,
   redLetThrough, isDemonstrated,
 } from './lib/p2-verdict.mjs';
+import { assertClaudeAuthReady, claudeSync, claudeVersion } from './lib/claude-auth.mjs';
 
 const REPO = resolve(process.argv[1], '../..');
 const GATE = join(REPO, 'scripts', 'admission-gate.mjs');
@@ -181,11 +182,12 @@ function inconclusive(...lines) {
 // Each one is a thing that, if wrong, would make a scored run report a verdict
 // for a question nobody asked.
 if (!existsSync(GATE)) inconclusive(`The gate under test is not at ${GATE}.`);
-for (const [what, probe] of [['claude', ['claude', ['--version']]], ['gh', ['gh', ['auth', 'status']]]]) {
-  try { sh(probe[0], probe[1], { stdio: ['ignore', 'pipe', 'pipe'] }); }
-  catch (e) { inconclusive(`${what} is not usable here: ${String(e.message || e).split('\n')[0]}`); }
-}
-const CLAUDE_VERSION = sh('claude', ['--version']).trim();
+// vfkb#422: claude children go through the Keychain-safe seam (env token + security shim).
+try { assertClaudeAuthReady(); } catch (e) { inconclusive(`claude auth is not usable here: ${String(e.message || e).split('\n')[0]}`); }
+let CLAUDE_VERSION = '';
+try { CLAUDE_VERSION = claudeVersion(); } catch (e) { inconclusive(`claude is not usable here: ${String(e.message || e).split('\n')[0]}`); }
+try { sh('gh', ['auth', 'status'], { stdio: ['ignore', 'pipe', 'pipe'] }); }
+catch (e) { inconclusive(`gh is not usable here: ${String(e.message || e).split('\n')[0]}`); }
 
 /** The reader's own HTML for an issue, digested so a record pins its subject. */
 function subjectDigest(n) {
@@ -424,7 +426,7 @@ function runArm(arm) {
     '--settings', join(dir, '.claude', 'settings.json'),
     '--permission-mode', 'acceptEdits', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}'];
   let stdout = '', err = '', budgetKill = false;
-  try { stdout = sh('claude', args, { cwd: dir, timeout: TIMEOUT, stdio: ['ignore', 'pipe', 'pipe'] }); }
+  try { stdout = claudeSync(args, { cwd: dir, timeout: TIMEOUT, stdio: ['ignore', 'pipe', 'pipe'] }); }
   catch (e) {
     err = String(e.stderr || e.message || '').replace(/\s+/g, ' ').slice(0, 200);
     stdout = String(e.stdout || '');
@@ -518,7 +520,7 @@ function isolationHolds() {
     'use your file-writing tool to create wrote.txt containing HELLO. Do exactly one of the two.',
     '--model', MODEL, '--settings', join(dir, '.claude', 'settings.json'),
     '--permission-mode', 'acceptEdits', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}'];
-  try { sh('claude', args, { cwd: dir, timeout: TIMEOUT, stdio: ['ignore', 'pipe', 'pipe'] }); } catch { /* scored below */ }
+  try { claudeSync(args, { cwd: dir, timeout: TIMEOUT, stdio: ['ignore', 'pipe', 'pipe'] }); } catch { /* scored below */ }
   const r = { shellRan: existsSync(join(dir, 'shell.txt')), wroteViaTool: existsSync(join(dir, 'wrote.txt')),
     pluginRan: existsSync(join(dir, '.vfkb')) };
   rmSync(dir, { recursive: true, force: true });

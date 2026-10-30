@@ -41,6 +41,10 @@ import { randomUUID, randomBytes } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { ARMS, MAX_ATTEMPTS_PER_ARM, VALID_PER_ARM, RUN_MARKER, PROMPT_LINE_LEADIN, scoreTrial, runVerdict, recordName, hasLine } from './lib/nudge-verdict.mjs';
+import { assertClaudeAuthReady, claudeSync } from './lib/claude-auth.mjs';
+
+// vfkb#422: refuse before anything metered if a claude child could touch the macOS Keychain.
+assertClaudeAuthReady();
 
 const REPO = resolve(process.argv[1], '../..');
 const CLI = resolve(process.env.VFKB_HNP_CLI || join(REPO, 'dist', 'cli.js'));
@@ -132,7 +136,7 @@ function runTurn(sb, prompt, sessionArgs) {
     '--settings', join(sb.dir, '.claude/settings.json'), '--dangerously-skip-permissions', '--model', MODEL,
     '--output-format', 'stream-json', '--verbose'];
   let stdout = '', err = '';
-  try { stdout = sh('claude', args, { cwd: sb.dir, timeout: TIMEOUT, stdio: ['ignore', 'pipe', 'pipe'] }); }
+  try { stdout = claudeSync(args, { cwd: sb.dir, timeout: TIMEOUT, stdio: ['ignore', 'pipe', 'pipe'] }); }
   catch (e) { err = String(e.stderr || e.message || '').replace(/\s+/g, ' ').slice(0, 200); stdout = String(e.stdout || ''); }
   return { stdout, err, ...inspectStream(stdout) };
 }

@@ -43,7 +43,7 @@
 // Scenario usage:
 //   import { assertClaudeAuthReady, claudeSync, redactSecrets } from './lib/claude-auth.mjs';
 //   assertClaudeAuthReady();                 // top of file, before anything metered
-//   const out = claudeSync(args, { cwd, timeout, stdio });  // = execFileSync('claude', …)
+//   const out = claudeSync(args, { cwd, timeout, stdio });  // runs the claude binary under claudeEnv()
 //   // claudeSync() already redacts what it returns or throws; use redactSecrets()
 //   // for any other text bound for a record.
 //
