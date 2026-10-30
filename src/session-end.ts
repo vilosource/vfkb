@@ -25,6 +25,21 @@ export const realGit: GitRunner = (args, cwd) =>
   execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: GIT_READ_MAX_BUFFER });
 
 /**
+ * A GitRunner bounded by `timeout` (ms), stderr discarded, with SessionEnd's buffer: the
+ * shape the UserPromptSubmit budget (decide Q12) and Stop's reads need (ADR-0085).
+ */
+export function boundedGit(timeout?: number): GitRunner {
+  return (args, cwd) =>
+    execFileSync('git', args, {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      maxBuffer: GIT_READ_MAX_BUFFER,
+      timeout: timeout === undefined ? undefined : Math.max(1, Math.floor(timeout)),
+    });
+}
+
+/**
  * The auto-commit subject's fixed prefix — ONE definition, shared with `vfkb doctor`'s
  * session-end check so the two cannot drift (vfkb#384).
  */
@@ -63,14 +78,18 @@ export interface SessionEndResult {
   branch?: string;
   added?: number; // new entry lines this commit covers
   message?: string; // the commit message used (when committed)
-  systemMessage?: string; // surfaced to the user at exit (the main-branch warning)
+  // ADR-0033's warning text (renderNoAutocommitMessage). Emitted by the hook, but Claude Code
+  // discards a SessionEnd systemMessage on `claude -p` (probe #384 arm F, 3/3; TUI
+  // unobserved). The user-facing surface is the UserPromptSubmit systemMessage (ADR-0085).
+  systemMessage?: string;
   autoHandoff?: boolean; // GAP 1 (B2): a fallback handoff entry was written this run
   curated?: number; // ADR-0083 §3: entries the Tier-1 rule archived or repaired this run
   curationSkipped?: 'deadline'; // vfkb#384: curation not run, or stopped early, at the deadline
 }
 
-interface BrainEntry {
+export interface BrainEntry {
   id?: string;
+  created?: string;
   updated?: string;
   type?: string;
   text?: string;
@@ -95,12 +114,63 @@ export function brainHeadSpec(cwd: string, absEntries: string): string {
   return `HEAD:./${relativeReal(cwd, absEntries).replace(/\\/g, '/')}`;
 }
 
+/**
+ * A git read whose answer was NOT observed: the child timed out, was killed, or never
+ * started (ADR-0085 §5, decide D7). tryGit maps an ordinary non-zero exit to null (a git
+ * "no"), but lets this through, so a caller with a deadline can tell "detached HEAD" or
+ * "brain not in HEAD" apart from "ran out of time". realGit never throws it, so
+ * SessionEnd's behaviour is unchanged.
+ */
+export class GitUnobserved extends Error {}
+
 function tryGit(git: GitRunner, args: string[], cwd: string): string | null {
   try {
     return git(args, cwd).trim();
-  } catch {
+  } catch (e) {
+    if (e instanceof GitUnobserved) throw e;
     return null;
   }
+}
+
+/**
+ * A GitRunner bounded by an absolute `deadline` on the performance.now() clock: each child
+ * gets what is left of it, and a child that is killed (timeout/signal) or cannot spawn
+ * throws GitUnobserved instead of an ordinary failure. Past the deadline nothing spawns.
+ */
+export function deadlineGit(deadline: number): GitRunner {
+  return (args, cwd) => {
+    const left = Math.floor(deadline - performance.now());
+    if (left < 1) throw new GitUnobserved('deadline');
+    try {
+      return execFileSync('git', args, {
+        cwd,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        maxBuffer: GIT_READ_MAX_BUFFER,
+        timeout: left,
+      });
+    } catch (e) {
+      const err = e as { signal?: unknown; status?: unknown };
+      if (err && (err.signal || typeof err.status !== 'number')) throw new GitUnobserved(String(err.signal ?? 'spawn'));
+      throw e;
+    }
+  };
+}
+
+/** The warning's stable lead-in: shared by the unit pins and the L4's content assertion. */
+export const NO_AUTOCOMMIT_LEADIN = 'vfkb will not auto-commit';
+
+/**
+ * ADR-0033's default-branch / detached-HEAD warning — ONE text, used by the UserPromptSubmit
+ * `systemMessage` (the surface the user sees, ADR-0085 §3) and by SessionEnd's own
+ * `systemMessage` (decide D5). Tense-neutral, so it is true at the prompt and at exit;
+ * printable ASCII with no markdown, because the TUI renders it literally. `added` is the
+ * id count since HEAD; an edit-only diff (0 new ids) still warns and says so (decide D2).
+ */
+export function renderNoAutocommitMessage(kind: 'default' | 'detached', branch: string | null, added: number): string {
+  const what = added >= 1 ? `the ${added} new brain entr${added === 1 ? 'y' : 'ies'}` : 'the edits to existing brain entries';
+  const where = kind === 'detached' || !branch ? 'a detached HEAD' : `${branch} (the default branch)`;
+  return `${NO_AUTOCOMMIT_LEADIN} ${what} on ${where}. Fix: git switch -c <name>; vfkb then commits the brain on exit.`;
 }
 
 // Entries NEW since HEAD (ADR-0083 §3): records whose id is absent from the committed
@@ -122,7 +192,15 @@ function parseLines(text: string): BrainEntry[] {
     .filter((e): e is BrainEntry => e !== null);
 }
 
-function newEntriesSinceHead(git: GitRunner, cwd: string, absEntries: string): BrainEntry[] {
+/**
+ * The ONE "new entries since HEAD" count (ADR-0085 §2, decide D9): shared by SessionEnd,
+ * the UserPromptSubmit line and Stop (stop-reminder.ts `newBrainEntriesSinceHead`), so the
+ * three surfaces print one N for one brain state. `git` must carry GIT_READ_MAX_BUFFER (the
+ * HEAD brain can exceed 1 MiB, vfkb#384); a bounded caller passes a runner with a timeout.
+ * When `git show` fails (no repo, brain not in HEAD) every id reads as new — callers that
+ * must stay quiet outside the committed-brain model gate on `brainCommitOutcome`.
+ */
+export function newEntriesSinceHead(git: GitRunner, cwd: string, absEntries: string): BrainEntry[] {
   let current: BrainEntry[];
   try {
     current = parseLines(readFileSync(absEntries, 'utf8'));
@@ -219,6 +297,38 @@ export function isOnDefaultBranch(git: GitRunner, cwd: string): boolean {
   }
 }
 
+export type BrainCommitOutcomeKind = 'not-a-repo' | 'brain-clean' | 'detached-head' | 'on-default-branch' | 'topic';
+
+export interface BrainCommitOutcome {
+  outcome: BrainCommitOutcomeKind;
+  /** the branch name (null on a detached HEAD); undefined when the classifier did not run */
+  branch?: string | null;
+  /** the session's new ids since HEAD; undefined for `not-a-repo` / `brain-clean` */
+  fresh?: BrainEntry[];
+}
+
+/**
+ * ADR-0033 §1–§3's preconditions as ONE predicate (ADR-0085 §1, decide D2): what SessionEnd
+ * would do with the brain right now. `runSessionEnd` consumes it, and the UserPromptSubmit
+ * line's `no-autocommit` reason reads it, so the two cannot disagree. The git sequence is
+ * SessionEnd's own, unchanged: work-tree check, pathspec status, ONE read of HEAD's brain,
+ * then the branch classifier. Never throws (every git read fails open through tryGit).
+ */
+export function brainCommitOutcome(git: GitRunner, cwd: string, dataDir: string): BrainCommitOutcome {
+  // 1) Must be inside a git work tree (committed-brain model). Otherwise no-op.
+  if (tryGit(git, ['rev-parse', '--is-inside-work-tree'], cwd) !== 'true') return { outcome: 'not-a-repo' };
+  // 2) Nothing staged or unstaged for the brain file (or it is ignored / outside the tree).
+  if (!tryGit(git, ['status', '--porcelain', '--', brainEntriesRelPath(dataDir)], cwd)) return { outcome: 'brain-clean' };
+  const absBrain = isAbsolute(dataDir) ? dataDir : join(cwd, dataDir);
+  // ONE read of HEAD's brain per run (vfkb#384): each `git show` of a >1 MiB blob costs
+  // tens of ms against the 1.5 s SessionEnd budget, and nothing below changes HEAD.
+  const fresh = newEntriesSinceHead(git, cwd, join(absBrain, 'entries.jsonl'));
+  // 3) Branch guard — never commit on a detached HEAD or the default branch.
+  const cls = classifyBranch(git, cwd);
+  const outcome = cls.kind === 'detached' ? 'detached-head' : cls.kind === 'default' ? 'on-default-branch' : 'topic';
+  return { outcome, branch: cls.branch, fresh };
+}
+
 export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
   const git = opts.git ?? realGit;
   const now = opts.now ?? (() => performance.now());
@@ -228,40 +338,26 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
   const entries = brainEntriesRelPath(dataDir);
 
   try {
-    // 1) Must be inside a git work tree (committed-brain model). Otherwise no-op.
-    if (tryGit(git, ['rev-parse', '--is-inside-work-tree'], cwd) !== 'true') {
-      return { committed: false, reason: 'not-a-repo' };
-    }
-    // 2) Nothing staged or unstaged for the brain file → nothing to do (silent).
-    const status = tryGit(git, ['status', '--porcelain', '--', entries], cwd);
-    if (!status) return { committed: false, reason: 'brain-clean' };
+    // 1)–3) ADR-0033's preconditions, through the predicate the prompt line shares (ADR-0085).
+    const oc = brainCommitOutcome(git, cwd, dataDir);
+    if (oc.outcome === 'not-a-repo' || oc.outcome === 'brain-clean') return { committed: false, reason: oc.outcome };
 
     const tag = sessionId ? `, session ${sessionId.slice(0, 8)}` : '';
     const absBrain = isAbsolute(dataDir) ? dataDir : join(cwd, dataDir);
-    // ONE read of HEAD's brain per run (vfkb#384): each `git show` of a >1 MiB blob costs
-    // tens of ms against the 1.5 s SessionEnd budget, and nothing below changes HEAD.
-    const fresh = newEntriesSinceHead(git, cwd, join(absBrain, 'entries.jsonl'));
-
-    // 3) Branch guard — never commit on a detached HEAD or the default branch.
-    const cls = classifyBranch(git, cwd);
-    if (cls.kind === 'detached') {
+    const fresh = oc.fresh ?? [];
+    if (oc.outcome === 'detached-head') {
       const added = fresh.length;
-      return {
-        committed: false,
-        reason: 'detached-head',
-        added,
-        systemMessage: `vfkb: brain changes uncommitted (${added} new entr${added === 1 ? 'y' : 'ies'}, detached HEAD) — check out a branch and commit to preserve continuity.`,
-      };
+      return { committed: false, reason: 'detached-head', added, systemMessage: renderNoAutocommitMessage('detached', null, added) };
     }
-    const branch = cls.branch ?? '';
-    if (cls.kind === 'default') {
+    const branch = oc.branch ?? '';
+    if (oc.outcome === 'on-default-branch') {
       const added = fresh.length;
       return {
         committed: false,
         reason: 'on-default-branch',
         branch,
         added,
-        systemMessage: `vfkb: brain changes on \`${branch}\` left uncommitted (${added} new entr${added === 1 ? 'y' : 'ies'}) — branch + commit to preserve continuity (vfkb never auto-commits the default branch).`,
+        systemMessage: renderNoAutocommitMessage('default', branch, added),
       };
     }
 

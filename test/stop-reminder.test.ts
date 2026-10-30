@@ -804,7 +804,7 @@ describe('cli hook stop — emits the verified Stop contract', () => {
   it('does NOT block when an uncommitted decision entry exists', () => {
     const dir = gitRepo();
     writeFileSync(join(dir, 'src', 'foo.ts'), 'export const x = 1;\n');
-    writeFileSync(join(dir, '.vfkb', 'entries.jsonl'), JSON.stringify({ type: 'decision', text: 'd' }) + '\n');
+    writeFileSync(join(dir, '.vfkb', 'entries.jsonl'), JSON.stringify({ id: 'd1', type: 'decision', text: 'd' }) + '\n');
     expect(runStop(dir, { stop_hook_active: false })).toBe('{}');
   });
 
@@ -823,7 +823,7 @@ describe('cli hook stop — emits the verified Stop contract', () => {
     // decision nudge stays silent — isolating the handoff nudge.
     writeFileSync(
       join(dir, '.vfkb', 'entries.jsonl'),
-      jsonl({ type: 'fact', text: 'a' }, { type: 'fact', text: 'b' }, { type: 'decision', text: 'c' }),
+      jsonl({ id: 'a1', type: 'fact', text: 'a' }, { id: 'b1', type: 'fact', text: 'b' }, { id: 'c1', type: 'decision', text: 'c' }),
     );
     expect(runStop(dir, { stop_hook_active: false })).toBe('{}');
   });
@@ -834,9 +834,9 @@ describe('cli hook stop — emits the verified Stop contract', () => {
     writeFileSync(
       join(dir, '.vfkb', 'entries.jsonl'),
       jsonl(
-        { type: 'decision', text: 'c' }, // silences the decision nudge
-        { type: 'fact', text: 'a' },
-        { type: 'fact', text: 'h', tags: ['handoff', 'next'] }, // silences the handoff nudge
+        { id: 'c1', type: 'decision', text: 'c' }, // silences the decision nudge
+        { id: 'a1', type: 'fact', text: 'a' },
+        { id: 'h1', type: 'fact', text: 'h', tags: ['handoff', 'next'] }, // silences the handoff nudge
       ),
     );
     expect(runStop(dir, { stop_hook_active: false })).toBe('{}');
@@ -1056,9 +1056,9 @@ describe('cli hook user-prompt-submit — B1 self-silence', () => {
     writeFileSync(
       join(dir, '.vfkb', 'entries.jsonl'),
       [
-        { type: 'fact', text: 'a' },
-        { type: 'fact', text: 'b' },
-        { type: 'fact', text: 'h', tags: ['handoff', 'next'] },
+        { id: 'a1', type: 'fact', text: 'a' },
+        { id: 'b1', type: 'fact', text: 'b' },
+        { id: 'h1', type: 'fact', text: 'h', tags: ['handoff', 'next'] },
       ]
         .map((o) => JSON.stringify(o))
         .join('\n') + '\n',
@@ -1077,6 +1077,8 @@ describe('cli hook user-prompt-submit — B1 self-silence', () => {
       env: { ...process.env, VFKB_DATA_DIR: '.vfkb', VFKB_DIR: '', KB_SESSION_ID: '' },
       encoding: 'utf8',
     });
-    expect(out).toBe('');
+    // The fixture sits on `main` with an uncommitted brain, so ADR-0085's systemMessage (for
+    // the user) fires; the agent-facing line must still carry no B1 clause.
+    expect(out === '' ? undefined : JSON.parse(out).hookSpecificOutput).toBeUndefined();
   });
 });

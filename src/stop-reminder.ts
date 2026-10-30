@@ -28,13 +28,12 @@
 // line and RFC-043 Part A's render under `## Last handoff` carry what they suppress.
 
 import { execFileSync } from 'node:child_process';
-import { GIT_READ_MAX_BUFFER } from './git-buffer.js';
 import { readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { brainDir, materialize, type StoredRecord } from './storage.js';
 import { latestHandoff, renderCommitsSince, supersededIds, type StaleCommit } from './engine.js';
 import { cachedPinStaleness, type PinStalenessOpts } from './pin-staleness.js';
-import { isOnDefaultBranch, realGit } from './session-end.js';
+import { boundedGit, isOnDefaultBranch, newEntriesSinceHead, realGit } from './session-end.js';
 import type { KnowledgeEntry } from './types.js';
 
 export interface StopHookInput {
@@ -229,8 +228,8 @@ export function decideStop(input: StopHookInput, ctx: StopContext): StopDecision
   // `newEntries` must be exactly 0 (undefined = not established → fire); the probe runs last.
   // Disclosed gap (decide Q4): `uncommittedWork` counts only src/ and docs/ (the same field
   // B1 and the decision nudge read), so a test/- or scenarios/-only edit on main reads clean.
-  // `newEntries` is the brain LINE count since HEAD (decide Q5): under the append-only brain
-  // it is never below SessionEnd's id count, so the two can only disagree toward firing.
+  // `newEntries` is SessionEnd's own id count since HEAD (ADR-0085 §2, decide D9, which
+  // supersedes #387 Q5's line count), so 1c and SessionEnd read one N for one brain state.
   const stale = ctx.staleCommits ?? [];
   if (stale.length > 0 && !(turnValid && ctx.turn! < STALE_HANDOFF_MIN_TURN) && !cooling('staleHandoff')) {
     const defaultBranchIdle =
@@ -284,6 +283,7 @@ export function hasUncommittedWork(
 }
 
 interface BrainLine {
+  id?: string;
   type?: string;
   tags?: string[];
   updated?: string;
@@ -291,47 +291,20 @@ interface BrainLine {
 }
 
 /**
- * Entries appended to the brain since HEAD, parsed. The brain is append-only
- * (ADR-0019), so fresh entries are exactly the lines beyond the committed line count —
- * no per-session state (KB_SESSION_ID) needed, and it aligns with the "record then commit"
- * workflow: uncommitted entries are exactly this session's captures.
+ * Entries NEW since HEAD, parsed: the ids absent from HEAD's brain, each judged by its
+ * newest line, tombstones dropped (ADR-0085 §2, decide D9). The ONE count — SessionEnd's
+ * `newEntriesSinceHead`, called here with a bounded runner — so Stop, the UserPromptSubmit
+ * line and SessionEnd print one N for one brain state. An edit, retag or curation-archive
+ * copy of a committed id is not new (the line counter this replaced read it as new, and an
+ * archived handoff copy silenced B1). No per-session state (KB_SESSION_ID) needed. Outside
+ * a repo, or with the brain absent from HEAD, every id reads as new (as before).
  */
 export function newBrainEntriesSinceHead(
   brain: string = brainDir(),
   cwd: string = process.cwd(),
   opts: GitOpts = {},
 ): BrainLine[] {
-  const file = join(brain, 'entries.jsonl');
-  let current: string[];
-  try {
-    current = readFileSync(file, 'utf8').split('\n').filter(Boolean);
-  } catch {
-    return []; // no brain file yet
-  }
-  const rel = relative(cwd, file).replace(/\\/g, '/');
-  let headCount = 0;
-  try {
-    const head = execFileSync('git', ['show', `HEAD:${rel}`], {
-      cwd,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      maxBuffer: GIT_READ_MAX_BUFFER, // vfkb#384: a >1 MiB brain threw ENOBUFS here
-      timeout: opts.timeout,
-    });
-    headCount = head.split('\n').filter(Boolean).length;
-  } catch {
-    headCount = 0; // file not in HEAD / no repo → treat all current as fresh
-  }
-  return current
-    .slice(headCount)
-    .map((l) => {
-      try {
-        return JSON.parse(l) as BrainLine;
-      } catch {
-        return null;
-      }
-    })
-    .filter((e): e is BrainLine => e !== null);
+  return newEntriesSinceHead(boundedGit(opts.timeout), cwd, join(brain, 'entries.jsonl'));
 }
 
 /** Count `decision` entries appended to the brain since HEAD (ADR-0027 nudge trigger). */

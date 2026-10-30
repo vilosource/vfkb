@@ -35,6 +35,14 @@ const RAW = [
   new RegExp(`\\b(?:${SPAWN_FNS})\\s*\\(${GAP}(['"\`])claude\\1`, 'g'), // sh('claude', …)
   new RegExp(`\\b(?:${SPAWN_FNS})\\s*\\(${GAP}(['"\`])claude\\s[^'"\`]*\\1`, 'g'), // execSync('claude -p …')
   new RegExp(`\\[${GAP}(['"\`])claude\\1\\s*,\\s*\\[`, 'g'), // ['claude', ['--version']] argv tuples
+  // vfkb#395: claude carried inside a SHELL STRING handed to a non-claude spawn
+  // (sh -c, screen/tmux/script wrappers). Any quoted string that runs `exec claude`:
+  /(['"`])[^'"`\n]*\bexec\s+claude\b[^'"`\n]*\1/g,
+  // …or a shell -c whose command starts with claude: 'sh', '-c', 'claude …' / "sh -c 'claude …'"
+  /\b(?:sh|bash|zsh)['"`]?\s*,\s*['"`]-c['"`]\s*,\s*['"`]\s*claude\b/g,
+  /\b(?:sh|bash|zsh)\s+-c\s+\\?['"]?\s*claude\b/g,
+  // …or claude as a bare argv element after a terminal wrapper: spawn('screen', [..., 'claude', ...])
+  /\b(?:screen|tmux|script)['"`]\s*,\s*\[[^\]]*['"`]claude['"`]/g,
 ];
 
 // Comments are scanned like code, on purpose (#424 review rounds 1-3). Two comment
@@ -71,6 +79,19 @@ describe('the scanner itself (can it fail?)', () => {
     expect(rawClaudeSpawns('spawn(`claude`, args)')).toBe(1);
     expect(rawClaudeSpawns(`execSync('claude -p hello')`)).toBe(1);
     expect(rawClaudeSpawns(`for (const p of [['claude', ['--version']], ['gh', ['auth']]])`)).toBe(1);
+  });
+  it('flags claude inside a shell string or a terminal wrapper (vfkb#395)', () => {
+    // the #408 probe's launch, verbatim
+    expect(rawClaudeSpawns('const launch = `stty cols 200 rows 50; exec claude --model ${MODEL} --strict-mcp-config`;')).toBe(1);
+    expect(rawClaudeSpawns(`spawnSync('screen', ['-U', '-dmS', 'p', 'sh', '-c', 'claude -p hi'])`)).toBeGreaterThanOrEqual(1);
+    expect(rawClaudeSpawns(`execSync('sh -c "claude -p hi"')`)).toBe(1);
+    expect(rawClaudeSpawns(`spawn('tmux', ['new-session', '-d', 'claude'])`)).toBe(1);
+    expect(rawClaudeSpawns(`spawn('script', ['-q', '/dev/null', 'claude', '-p', 'x'])`)).toBe(1);
+  });
+  it('does not flag the routed TUI call or driver commands that never name claude', () => {
+    expect(rawClaudeSpawns(`const h = claudeInScreen({ cwd, args: ['--model', MODEL], screenDir, screenrc, name });`)).toBe(0);
+    expect(rawClaudeSpawns(`h.stuff('Reply with exactly one word: pineapple'); h.hardcopy(file);`)).toBe(0);
+    expect(rawClaudeSpawns(`spawnSync('screen', ['-S', name, '-X', 'quit'])`)).toBe(0);
   });
   it('does not flag labels, the seam, or a docker argv', () => {
     expect(rawClaudeSpawns(`if (harness === 'claude') {}`)).toBe(0);
@@ -114,8 +135,8 @@ describe('host claude spawns go through scenarios/lib/claude-auth.mjs', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('the seam is where the one raw spawn lives', () => {
-    expect(rawClaudeSpawns(files.find((f) => f.rel === SEAM)!.src)).toBe(1);
+  it('the seam is where the raw spawns live: claudeSync, and the claudeInScreen launch', () => {
+    expect(rawClaudeSpawns(files.find((f) => f.rel === SEAM)!.src)).toBe(2);
   });
 
   // Only a non-vacuity floor. Whether each spawn runs the auth preconditions is not a
@@ -125,7 +146,7 @@ describe('host claude spawns go through scenarios/lib/claude-auth.mjs', () => {
     let routed = 0;
     for (const f of files) {
       if (exempt(f.rel)) continue;
-      routed += (f.src.match(/\bclaude(?:Sync|Version)\s*\(/g) ?? []).length;
+      routed += (f.src.match(/\bclaude(?:Sync|Version|InScreen)\s*\(/g) ?? []).length;
     }
     expect(routed).toBeGreaterThanOrEqual(MIN_ROUTED_SITES);
   });

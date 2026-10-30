@@ -47,10 +47,15 @@
 //   // claudeSync() already redacts what it returns or throws; use redactSecrets()
 //   // for any other text bound for a record.
 //
+// Interactive TUI (vfkb#395): claudeInScreen() launches claude inside a detached GNU
+// `screen` session under the same env (token, shim, session guard) and returns a handle
+// whose screen commands run under that env too. The `exec claude` launch string lives
+// here only; driving code that never names claude can live anywhere.
+//
 // The Brake is test/claude-spawn-audit.test.ts: no file under scenarios/ other
-// than this one may spawn `claude` itself.
+// than this one may spawn `claude` itself, directly or inside a shell string.
 // ============================================================================
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, rmSync, writeSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import * as upstream from './vendor/plugin-auth.mjs';
@@ -209,4 +214,51 @@ export function formatShimReport({ built = true, calls, refusedWrites }) {
   const line = `claude-auth: keychain shim calls=${calls} refusedWrites=${refusedWrites}`;
   if (!built) return `${line} (shim never built: no claude child was spawned)`;
   return refusedWrites > 0 ? `WARNING — ${line}` : line;
+}
+
+// ---------------------------------------------------------------------------- TUI
+const liveScreens = new Set();
+let screenExitHook = false;
+
+const shQuote = (a) => `'${String(a).replace(/'/g, `'\\''`)}'`;
+
+/**
+ * Launch `claude <args>` in a detached GNU screen session (vfkb#395): `-U`, the caller's
+ * screenrc, `-L` (the rc names the raw pty logfile), a private SCREENDIR. The child runs
+ * under claudeEnv(env) (token in env, no-Keychain shim first on PATH, session guard), and
+ * every later `screen -X` command runs under the same env. The session is quit on
+ * handle.quit() and, as a backstop, on process exit, so a crash cannot leave a detached
+ * claude holding the token after the shim dir is removed.
+ * Returns { name, cmd(...a), stuff(text), hardcopy(file), quit() }.
+ */
+export function claudeInScreen({ cwd, args = [], env: baseEnv = process.env, screenDir, screenrc, name, cols = 200, rows = 50 }) {
+  if (!screenDir || !screenrc || !name) throw new Error('claudeInScreen: screenDir, screenrc and name are required');
+  const env = { ...claudeEnv(baseEnv), SCREENDIR: screenDir };
+  const launch = `stty cols ${cols} rows ${rows}; exec claude ${args.map(shQuote).join(' ')}`;
+  execFileSync('screen', ['-U', '-c', screenrc, '-dmS', name, '-L', 'sh', '-c', launch], { cwd, env, stdio: 'ignore' });
+  const cmd = (...a) => spawnSync('screen', ['-S', name, '-p', '0', '-X', ...a], { env, encoding: 'utf8' });
+  let open = true;
+  const handle = {
+    name,
+    cmd,
+    stuff: (text) => cmd('stuff', text),
+    hardcopy: (file) => cmd('hardcopy', '-h', file),
+    quit: () => {
+      if (!open) return;
+      open = false;
+      liveScreens.delete(handle);
+      cmd('quit');
+    },
+  };
+  liveScreens.add(handle);
+  if (!screenExitHook) {
+    screenExitHook = true;
+    process.on('exit', () => {
+      for (const h of [...liveScreens]) {
+        try { h.quit(); } catch { /* best effort */ }
+      }
+    });
+  }
+  cmd('width', '-w', String(cols), String(rows));
+  return handle;
 }

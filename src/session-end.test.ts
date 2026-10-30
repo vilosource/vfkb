@@ -84,7 +84,7 @@ describe('SessionEnd auto-commit (GAP 2)', () => {
     expect(r.committed).toBe(false);
     expect(r.reason).toBe('on-default-branch');
     expect(r.systemMessage).toContain('main');
-    expect(r.systemMessage).toContain('branch + commit');
+    expect(r.systemMessage).toContain('Fix: git switch -c <name>');
     expect(git(['rev-parse', 'HEAD'])).toBe(head); // no new commit
     expect(git(['status', '--porcelain', '--', ENTRIES])).not.toBe(''); // still dirty
   });
@@ -285,7 +285,7 @@ describe('SessionEnd background curation (ADR-0083 §3)', () => {
     addEntry(full('n1', '2026-02-01T00:00:00.000Z', { updated: '2026-03-01T00:00:00.000Z', tags: ['handoff', 'next', 'x'] }));
     const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb', now: BEFORE_DEADLINE });
     expect(r.reason).toBe('on-default-branch');
-    expect(r.systemMessage).toMatch(/^vfkb: brain changes on `main` left uncommitted/);
+    expect(r.systemMessage).toMatch(/^vfkb will not auto-commit the edits to existing brain entries on main /);
   });
 
   it('an id the session added then deleted is not a new entry', () => {

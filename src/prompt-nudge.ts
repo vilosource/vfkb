@@ -30,6 +30,13 @@ import { storageBackend } from './backend.js';
 import { boundedCommits, truncateSubject, type StaleCommit } from './engine.js';
 import { cachedPinStaleness } from './pin-staleness.js';
 import {
+  brainCommitOutcome,
+  deadlineGit,
+  renderNoAutocommitMessage,
+  type BrainCommitOutcomeKind,
+  type BrainEntry,
+} from './session-end.js';
+import {
   handoffNudgeDue,
   hasUncommittedWork,
   isHandoff,
@@ -155,6 +162,11 @@ export interface PromptNudgeSignal {
   key?: string;
   /** the session turnCount at which a line carrying the stale reason was delivered */
   staleAtTurn?: number;
+  /**
+   * ADR-0085 §4: the last emitted no-autocommit warning key (`outcome|branch`). Its own
+   * lifecycle: cleared when the condition goes false, NEVER on compaction (decide D6).
+   */
+  smKey?: string;
 }
 
 const safeKey = (id: string): string => id.replace(/[^A-Za-z0-9_-]/g, '_');
@@ -168,6 +180,7 @@ export function readPromptNudgeSignal(brain: string, sessionId: string | undefin
     const out: PromptNudgeSignal = {};
     if (typeof raw.key === 'string' && raw.key) out.key = raw.key;
     if (validTurn(raw.staleAtTurn)) out.staleAtTurn = raw.staleAtTurn;
+    if (typeof raw.smKey === 'string' && raw.smKey) out.smKey = raw.smKey;
     return out;
   } catch {
     return {}; // absent or malformed → unset (emit while the trigger holds)
@@ -182,17 +195,83 @@ export function writePromptNudgeSignal(brain: string, sessionId: string, sig: Pr
   renameSync(tmp, f);
 }
 
-/** SessionStart `source: "compact"` evicts the line, so the key resets (ADR-0084 §2.5). */
+/** True when the signal carries nothing worth a file. */
+const emptySignal = (sig: PromptNudgeSignal): boolean =>
+  sig.key === undefined && sig.staleAtTurn === undefined && sig.smKey === undefined;
+
+/** Write the signal, or remove the file when nothing is left in it. */
+export function savePromptNudgeSignal(brain: string, sessionId: string, sig: PromptNudgeSignal): void {
+  if (emptySignal(sig)) rmSync(signalPath(brain, sessionId), { force: true });
+  else writePromptNudgeSignal(brain, sessionId, sig);
+}
+
+/**
+ * SessionStart `source: "compact"` evicts the line, so the key resets (ADR-0084 §2.5). The
+ * warning's smKey survives: compaction removes nothing from the user's screen (ADR-0085 §4,
+ * decide D6).
+ */
 export function clearPromptNudgeKey(brain: string, sessionId: string | undefined): void {
   if (!sessionId) return;
   const sig = readPromptNudgeSignal(brain, sessionId);
   if (sig.key === undefined) return;
   delete sig.key;
   try {
-    if (sig.staleAtTurn === undefined) rmSync(signalPath(brain, sessionId), { force: true });
-    else writePromptNudgeSignal(brain, sessionId, sig);
+    savePromptNudgeSignal(brain, sessionId, sig);
   } catch {
     /* fail-open: a stale key only suppresses one line */
+  }
+}
+
+// ── ADR-0085: ADR-0033's warning as a UserPromptSubmit systemMessage ───────────────────
+
+/** What the warning stage observed: SessionEnd's own predicate, plus the id count. */
+export interface UpsWarningFacts {
+  outcome: BrainCommitOutcomeKind;
+  branch: string | null;
+  added: number;
+  /** the new-since-HEAD entries, when the outcome read them (handed to the line stage) */
+  fresh?: BrainEntry[];
+}
+
+export type UpsWarningDecision = { emit: true; text: string; smKey: string } | { emit: false; clear?: true };
+
+/** The cadence key (ADR-0085 §4, decide D4): the state the warning describes, no HEAD, no count. */
+export function upsWarningKey(f: { outcome: BrainCommitOutcomeKind; branch: string | null }): string {
+  return `${f.outcome}|${f.branch ?? ''}`;
+}
+
+/**
+ * The pure decision (ADR-0085 §1, §4). Fires iff SessionEnd would refuse to commit
+ * (`on-default-branch` | `detached-head`) — one predicate, so they cannot disagree (D2).
+ * `facts` undefined = a read was not observed (budget, killed child): say nothing, keep
+ * the key (D7). The harness-turn skip applies; the first-prompt skip does not (D3).
+ */
+export function decideUpsWarning(
+  input: { prompt?: unknown },
+  facts: UpsWarningFacts | undefined,
+  storedSmKey: string | undefined,
+): UpsWarningDecision {
+  if (isHarnessPrompt(input?.prompt) || !facts) return { emit: false };
+  const kind = facts.outcome === 'on-default-branch' ? 'default' : facts.outcome === 'detached-head' ? 'detached' : null;
+  if (!kind) return storedSmKey !== undefined ? { emit: false, clear: true } : { emit: false };
+  const smKey = upsWarningKey(facts);
+  if (storedSmKey === smKey) return { emit: false };
+  return { emit: true, text: renderNoAutocommitMessage(kind, facts.branch, facts.added), smKey };
+}
+
+/**
+ * The warning stage's git reads (ADR-0085 §5, decide D7): SessionEnd's own
+ * `brainCommitOutcome`, through a runner bounded by the handler's deadline that throws
+ * GitUnobserved for a killed or unspawned child. Any such throw → undefined (no warning):
+ * a timed-out `symbolic-ref` must not read as a detached HEAD, nor a timed-out `git show`
+ * make every id read as new.
+ */
+export function gatherUpsWarning(cwd: string, brain: string, deadline: number): UpsWarningFacts | undefined {
+  try {
+    const oc = brainCommitOutcome(deadlineGit(deadline), cwd, brain);
+    return { outcome: oc.outcome, branch: oc.branch ?? null, added: oc.fresh?.length ?? 0, fresh: oc.fresh };
+  } catch {
+    return undefined;
   }
 }
 
@@ -244,6 +323,7 @@ export function gatherPromptContext(
   s: { persisted: boolean; turn?: number },
   storedKey: string | undefined,
   deadline: number,
+  pre?: UpsWarningFacts,
 ): PromptNudgeContext {
   const left = () => deadline - performance.now();
   const head = git(['rev-parse', 'HEAD'], cwd, left()) ?? '-';
@@ -265,9 +345,15 @@ export function gatherPromptContext(
   // and through the shared per-brain cache (decide D1), so Stop and Part A agree with it.
   const staleCommits = p ? (cachedPinStaleness(cwd, brain, pin!, { deadline })?.commits ?? []) : [];
   const stale = staleCommits.length > 0;
-  const fresh = newBrainEntriesSinceHead(brain, cwd, { timeout: ms(left()) });
+  // The warning stage already read these (ADR-0085 §5): a strict prefix, not a second read.
+  // Only an outcome that READ the brain hands over its ids. `brain-clean` is not "nothing new":
+  // a gitignored or out-of-tree brain is brain-clean too, so it keeps the line's own read.
+  const fresh = pre?.fresh ?? newBrainEntriesSinceHead(brain, cwd, { timeout: ms(left()) });
   const work = hasUncommittedWork(cwd, brain, { timeout: ms(left()) });
   const b1 = handoffNudgeDue({ uncommittedWork: work, newEntries: fresh.length, newHandoffs: fresh.filter(isHandoff).length });
-  const branch = git(['symbolic-ref', '--short', '-q', 'HEAD'], cwd, left()) || null;
+  const branch =
+    pre && pre.outcome !== 'not-a-repo' && pre.outcome !== 'brain-clean'
+      ? pre.branch
+      : git(['symbolic-ref', '--short', '-q', 'HEAD'], cwd, left()) || null;
   return { ...base, stale, staleCommits, b1, branch, newEntries: fresh.length };
 }
