@@ -199,14 +199,21 @@ describe('token rules', () => {
     expect(() => lib.assertClaudeAuthReady(LINUX)).toThrow(new RegExp(`looked in: ${cfg}/\\.credentials\\.json`));
   });
 
-  it.runIf(process.platform === 'darwin')('Aqua path: the Keychain service is keyed by sha256(config dir)[:8]', async () => {
+  // Not skipped on Linux (a skipped test reads as tamper): the Keychain branch only exists
+  // on darwin, so each platform asserts what its lookup actually tried.
+  it('Aqua path: the Keychain service is keyed by sha256(config dir)[:8] (darwin), file-only elsewhere', async () => {
     const cfg = '/Users/jasonviloria/.claude-cldp-not-a-real-dir';
     const lib = await load({ CLAUDE_CONFIG_DIR: cfg });
-    expect(() => lib.assertClaudeAuthReady({ platform: 'darwin', manager: 'Aqua' })).toThrow(/Claude Code-credentials-/);
     const svc = `Claude Code-credentials-${createHash('sha256').update(cfg).digest('hex').slice(0, 8)}`;
-    // Read-only lookup, and it reached the fake on this process's PATH, never the real Keychain.
-    expect(hostSecurityCalls().some((l) => l.startsWith('find-generic-password') && l.includes(svc))).toBe(true);
-    expect(hostSecurityCalls().every((l) => l.startsWith('find-generic-password'))).toBe(true);
+    if (process.platform === 'darwin') {
+      expect(() => lib.assertClaudeAuthReady({ platform: 'darwin', manager: 'Aqua' })).toThrow(svc);
+      // Read-only lookup, and it reached the fake on this process's PATH, never the real Keychain.
+      expect(hostSecurityCalls().some((l) => l.startsWith('find-generic-password') && l.includes(svc))).toBe(true);
+      expect(hostSecurityCalls().every((l) => l.startsWith('find-generic-password'))).toBe(true);
+    } else {
+      expect(() => lib.assertClaudeAuthReady(LINUX)).toThrow(`looked in: ${cfg}/.credentials.json`);
+      expect(hostSecurityCalls()).toEqual([]);
+    }
     // The machine fixture, as a computed expectation only: ~/.claude-cldp -> 7993e3dd.
     expect(createHash('sha256').update('/Users/jasonviloria/.claude-cldp').digest('hex').slice(0, 8)).toBe('7993e3dd');
   });
