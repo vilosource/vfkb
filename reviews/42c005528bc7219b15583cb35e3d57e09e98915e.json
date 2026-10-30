@@ -1,0 +1,94 @@
+{
+  "recordVersion": 1,
+  "sha": "42c005528bc7219b15583cb35e3d57e09e98915e",
+  "governing": [
+    "docs/adr/ADR-0085-ups-systemmessage-warning.md",
+    "docs/adr/ADR-0033-session-end-continuity.md",
+    "docs/adr/ADR-0084-handoff-nudge-next-prompt.md",
+    "docs/adr/ADR-0070-guards-that-can-fail.md"
+  ],
+  "reviewer": {
+    "agent": "adversarial-reviewer workflow subagent (rounds 1-2, PR #426 comments 6524198574 and 6524731827); round-2 merge-precondition fixes applied by the fix subagent",
+    "model": "claude-opus-5-5",
+    "rounds": 2
+  },
+  "generated": "2026-10-30T15:10:00Z",
+  "findings": [
+    {
+      "id": "R1-B1",
+      "severity": "blocking",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "gatherPromptContext's brain-clean -> [] shortcut zeroed the ADR-0084 B1 count for a gitignored or out-of-tree brain; now reuses only pre.fresh and otherwise reads newBrainEntriesSinceHead (5644c8d)"
+    },
+    {
+      "id": "R1-B2",
+      "severity": "blocking",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "ups-warning-tui raw channel admitted SessionEnd's same-lead-in text printed after /exit; raw is now cut at the byte size measured before /exit, logfile flush 0 (598ffc0)"
+    },
+    {
+      "id": "R1-m1",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "D7 deadlineGit guards cover the left<1 pre-check and the signal/spawn -> GitUnobserved mapping only as a pair (mutations C and C3 each survive; C2 goes red); recorded in mutations below"
+    },
+    {
+      "id": "R1-m2",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "the e2e D6 test never runs the clear path with a line key set (mutation B survives the e2e; the unit test covers it)"
+    },
+    {
+      "id": "R1-m3",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "brainCommitOutcome docstring says 'Never throws'; under deadlineGit it throws GitUnobserved by design"
+    },
+    {
+      "id": "R1-m4",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "a claudeInScreen launch failure aborts the whole L4 run instead of scoring a VOID row"
+    },
+    {
+      "id": "R2-B1",
+      "severity": "blocking",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "no ADR-0052 review record for the head; this record"
+    },
+    {
+      "id": "R2-B2",
+      "severity": "blocking",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "PR conflicted with main on .vfkb/entries.jsonl (merge=union is not applied by GitHub); origin/main merged in 42c0055, brain is valid JSONL, no implementation path changed by the merge"
+    }
+  ],
+  "findingsCount": 8,
+  "ruledOut": [
+    "SessionEnd parity: both call one brainCommitOutcome; e2e parity table discriminates (mutation A)",
+    "Keychain: claudeInScreen routes through claudeEnv (token, shim, guard); audit Brake regexes have can-fail rows",
+    "Install path: marketplace add + install, never --plugin-dir (ADR-0051 clause 1)",
+    "DoD honesty: PR body and brain say built, NOT yet verified; no AI attribution in commits or PR body"
+  ],
+  "mutations": [
+    { "guard": "test/ups-warning.test.ts > D3 harness-turn skip", "mutation": "if (skip === 'harness-turn') return -> if (skip) return", "observedRed": true },
+    { "guard": "prompt-nudge unit D6 test", "mutation": "clearPromptNudgeKey also deletes smKey", "observedRed": true },
+    { "guard": "test/ups-warning.test.ts > signal compaction (unit + e2e)", "mutation": "compaction removes the whole signal file", "observedRed": true },
+    { "guard": "test/ups-warning.test.ts > D7 stalled-git tests (cover the pre-check and the GitUnobserved mapping only as a PAIR)", "mutation": "deadlineGit: both the left<1 pre-check and the signal/spawn -> GitUnobserved mapping removed (each alone survives: see R1-m1)", "observedRed": true },
+    { "guard": "test/ups-warning.test.ts > smKey cadence", "mutation": "storedSmKey === smKey cadence check removed", "observedRed": true },
+    { "guard": "test/ups-warning.test.ts > re-arm", "mutation": "never return clear", "observedRed": true },
+    { "guard": "test/new-entries-count.test.ts", "mutation": "Stop count reverted to the line count", "observedRed": true },
+    { "guard": "test/ups-warning.test.ts > the ADR-0084 line is unchanged outside the committed-brain model (gitignored + out-of-tree)", "mutation": "restored 40ecac3 src/prompt-nudge.ts (brain-clean -> [] shortcut) and rebuilt; 2 failed, green again at head", "observedRed": true },
+    { "guard": "test/ups-warning-verdict.test.ts > the raw channel stops at /exit", "mutation": "restored 40ecac3 scenarios/lib/ups-warning-verdict.mjs (no rawBeforeExit cut); 1 failed, green again at head", "observedRed": true }
+  ],
+  "mutationsNote": null,
+  "verdict": "MERGE"
+}
