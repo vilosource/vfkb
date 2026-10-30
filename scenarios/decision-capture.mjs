@@ -44,6 +44,10 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { assertClaudeAuthReady, claudeSync } from './lib/claude-auth.mjs';
+
+// vfkb#422: refuse before anything metered if a claude child could touch the macOS Keychain.
+assertClaudeAuthReady();
 
 const REPO = resolve(process.argv[1], '../..');
 // ABSOLUTE paths into the repo's built artifacts — the sandbox holds NO symlink/breadcrumb
@@ -188,7 +192,7 @@ function runArm(stop) {
     '--settings', join(dir, '.claude/settings.json'), '--dangerously-skip-permissions', '--model', MODEL,
     '--output-format', 'stream-json', '--verbose'];
   let err = '', stdout = '';
-  try { stdout = sh('claude', args, { cwd: dir, timeout: TIMEOUT, stdio: ['ignore', 'pipe', 'pipe'] }); }
+  try { stdout = claudeSync(args, { cwd: dir, timeout: TIMEOUT, stdio: ['ignore', 'pipe', 'pipe'] }); }
   catch (e) { err = String(e.stderr || e.message || '').replace(/\s+/g, ' ').slice(0, 160); stdout = String(e.stdout || ''); }
   if (process.env.VFKB_DC_DEBUG) {
     writeFileSync(join(REPO, `scenarios/records/decision-capture.debug.${stop ? 'vfkb' : 'baseline'}.txt`), stdout + '\n--- ERR ---\n' + err);

@@ -1,0 +1,45 @@
+{
+  "recordVersion": 1,
+  "sha": "aad0134de6e854cbc9b2a62e4826f05457b8b61e",
+  "governing": [
+    "docs/adr/ADR-0022-l4-evaluation-methodology.md",
+    "docs/adr/ADR-0067-hybrid-credential-model.md",
+    "docs/adr/ADR-0051-delivery-honesty.md",
+    "docs/adr/ADR-0070-guards-that-can-fail.md"
+  ],
+  "reviewer": { "agent": "claude -p fresh-eyes adversarial reviewer (spawned through scenarios/lib/claude-auth.mjs; shim calls=2 refusedWrites=0 each round)", "model": "claude-opus-5-5", "rounds": 3 },
+  "generated": "2026-10-30T12:20:00Z",
+  "findings": [
+    { "id": "R1-F1", "severity": "blocking", "status": "fixed", "acceptedBy": null, "summary": "session-before-Keychain-read guard was shaped to miss (a readable .credentials.json served a reordered read); now tested with no credentials file and zero security calls; reorder in assertClaudeAuthReady and in claudeEnv each observed red (darwin; upstream only reads the Keychain on darwin)" },
+    { "id": "R1-F2", "severity": "major", "status": "fixed", "acceptedBy": null, "summary": "VFKB_L4_AUTH=deepseek-env silently disabled the shim and token; wrapper now refuses non-oauth and verifies the shim is PATH[0]" },
+    { "id": "R1-F3", "severity": "major", "status": "fixed", "acceptedBy": null, "summary": "source-regex 'every file calls assertClaudeAuthReady' check replaced by behaviour: claudeEnv runs the token preconditions itself before the first spawn" },
+    { "id": "R1-F4", "severity": "minor", "status": "open", "acceptedBy": null, "summary": "audit flags a comment that quotes a raw claude spawn. Deliberately kept after rounds 2-3 showed both comment strippers could hide real spawns; the false positive is the accepted cost" },
+    { "id": "R1-F5", "severity": "minor", "status": "fixed", "acceptedBy": null, "summary": "claudeSync now also redacts Buffer output and e.output" },
+    { "id": "R1-F6", "severity": "minor", "status": "fixed", "acceptedBy": null, "summary": "author mutation log missing; this record carries it" },
+    { "id": "R2-F1", "severity": "major", "status": "fixed", "acceptedBy": null, "summary": "introduced by the R1-F4 fix: the regex comment stripper was not string-aware ('/*' in a string hid a later spawn); stripper removed" },
+    { "id": "R2-F2", "severity": "minor", "status": "fixed", "acceptedBy": null, "summary": "PATH[0] shim verification had no red mutation; vi.doMock test added, observed red" },
+    { "id": "R2-F4", "severity": "minor", "status": "fixed", "acceptedBy": null, "summary": "whole scenarios/lib/vendor/ dir was exempt; now only the blob-pinned file" },
+    { "id": "R3-F1", "severity": "major", "status": "fixed", "acceptedBy": null, "summary": "introduced by the R2-F1 fix: the line-based stripper hid spawns with a comment between '(' and 'claude' or on '*'-leading lines; scanner now scans comments as code and tolerates comments inside the call (fix NOT re-reviewed by fresh eyes: 3-round ceiling reached)" },
+    { "id": "R3-F2", "severity": "minor", "status": "fixed", "acceptedBy": null, "summary": "exact vendor exemption had no can-fail test; exempt() is now tested, observed red under the prefix form" },
+    { "id": "R3-F3", "severity": "minor", "status": "fixed", "acceptedBy": null, "summary": "stale PR body test counts and missing review record; both updated" }
+  ],
+  "findingsCount": 12,
+  "ruledOut": [],
+  "mutations": [
+    { "guard": "test/claude-auth.test.ts > ... NO credentials file: the check comes before any read", "mutation": "upstream.assertAuthReady() moved before assertNoKeychainDialogs in assertClaudeAuthReady", "observedRed": true },
+    { "guard": "test/claude-auth.test.ts > ... NO credentials file: the check comes before any read", "mutation": "claudeEnv calls upstream.authEnv before the session guard", "observedRed": true },
+    { "guard": "test/claude-auth.test.ts > VFKB_L4_AUTH=deepseek-env is refused", "mutation": "oauth-only condition -> false", "observedRed": true },
+    { "guard": "test/claude-auth.test.ts > claudeEnv runs the token checks itself", "mutation": "removed if (!ready) assertClaudeAuthReady(probe)", "observedRed": true },
+    { "guard": "test/claude-auth.test.ts > encoding buffer and e.output are redacted too", "mutation": "Buffer branch disabled; separately e.output map removed", "observedRed": true },
+    { "guard": "test/claude-auth.test.ts > claudeEnv refuses when ... PATH whose first entry is not the shim", "mutation": "PATH[0] shim check -> if (false)", "observedRed": true },
+    { "guard": "test/claude-auth.test.ts > vendored upstream blob pin", "mutation": "one-byte edit of scenarios/lib/vendor/plugin-auth.mjs (reviewer rounds 1-3)", "observedRed": true },
+    { "guard": "test/claude-auth.test.ts > security shim refuses writes", "mutation": "vendored shim exit 44 -> exit 0 (reviewer rounds 1-3)", "observedRed": true },
+    { "guard": "test/claude-auth.test.ts > exit report", "mutation": "formatShimReport returns '' when refusedWrites=0 (reviewer rounds 1-2)", "observedRed": true },
+    { "guard": "test/claude-spawn-audit.test.ts > no file outside the seam spawns claude itself", "mutation": "reintroduced sh('claude', ...) in decision-capture.mjs / admission-gate-l4.mjs (reviewer rounds 1-3); planted scenarios/lib/vendor/x.mjs spawn", "observedRed": true },
+    { "guard": "test/claude-spawn-audit.test.ts > no comment shape hides a spawn", "mutation": "GAP reverted to \\s* (comment between '(' and 'claude' no longer tolerated)", "observedRed": true },
+    { "guard": "test/claude-spawn-audit.test.ts > only the pinned vendored file is exempt", "mutation": "exempt() reverted to startsWith('scenarios/lib/vendor/')", "observedRed": true },
+    { "guard": "test/claude-spawn-audit.test.ts (whole file, commit eb27fa0)", "mutation": "unmigrated tree (no seam, 16 raw-spawn files)", "observedRed": true }
+  ],
+  "mutationsNote": null,
+  "verdict": "FIX-FIRST"
+}

@@ -32,6 +32,10 @@ import { mkdtempSync, mkdirSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { buildBundles } from '../scripts/build-bundles.mjs';
+import { assertClaudeAuthReady, claudeSync } from './lib/claude-auth.mjs';
+
+// vfkb#422: refuse before anything metered if a claude child could touch the macOS Keychain.
+assertClaudeAuthReady();
 
 const REPO = resolve(process.argv[1], '../..');
 const TIMEOUT = 180_000;
@@ -73,7 +77,7 @@ function ask(dir, BUNDLES, { wired }) {
   const args = ['-p', QUESTION, '--dangerously-skip-permissions'];
   if (wired) args.push('--settings', join(dir, '.claude/settings.json'));
   try {
-    return sh('claude', args, { cwd: dir, timeout: TIMEOUT, env: { ...process.env, VFKB_BUNDLE_DIR: BUNDLES } });
+    return claudeSync(args, { input: '', cwd: dir, timeout: TIMEOUT, env: { ...process.env, VFKB_BUNDLE_DIR: BUNDLES } });
   } catch (e) {
     return String(e.stdout || '') + String(e.stderr || '');
   }
