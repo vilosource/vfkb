@@ -49,7 +49,9 @@ import {
   promptNudgeSkip,
   readPromptNudgeSignal,
   readSessionTurn,
-  writePromptNudgeSignal,
+  savePromptNudgeSignal,
+  decideUpsWarning,
+  gatherUpsWarning,
   PROMPT_NUDGE_BUDGET_MS,
 } from './prompt-nudge.js';
 import { save } from './git.js';
@@ -858,11 +860,15 @@ async function dispatch() {
       return;
     }
 
-    // UserPromptSubmit — ADR-0084 §2 (vfkb#385): the standing handoff reminder as ONE
-    // non-blocking additionalContext line, at the moment the user's prompt is in hand.
+    // UserPromptSubmit — two independent outputs in ONE JSON object:
+    //  - ADR-0085 (vfkb#395): ADR-0033's default-branch / detached-HEAD warning as a top-level
+    //    `systemMessage`, for the USER (rendered in the interactive TUI; not on `claude -p`
+    //    text, probe #408). Computed FIRST (decide D7): it has no other live surface.
+    //  - ADR-0084 §2 (vfkb#385): the handoff line as `additionalContext`, for the agent.
     // Contract: plain stdout on UserPromptSubmit is INJECTED as context, so whenever nothing
     // is emitted this writes NOTHING (not even `{}`). Fail-silent throughout. Read-only
-    // against the session record (decide step Q10); bounded by an in-process budget (Q12).
+    // against the session record (decide step Q10); bounded by one in-process deadline
+    // (Q12): a completed stage is emitted, nothing starts past the deadline.
     if (sub === 'user-prompt-submit') {
       const deadline = PROMPT_NUDGE_BUDGET_MS - 200; // performance.now() counts from process start
       try {
@@ -876,28 +882,49 @@ async function dispatch() {
         }
         const sessionId = effectiveSessionId(typeof input.session_id === 'string' ? input.session_id : undefined);
         const s = readSessionTurn(sessionId); // read-only: the session record is never saved here
-        if (promptNudgeSkip(input, s)) return; // harness turn / first prompt: no git work, no bookkeeping
+        const skip = promptNudgeSkip(input, s);
+        if (skip === 'harness-turn') return; // no git work, no bookkeeping (ADR-0084 §2.6)
         if (performance.now() > deadline) return;
         const brain = brainDir();
+        const cwd = process.cwd(); // like the Stop hook: the brain path resolves against it
         const stored = s.persisted ? readPromptNudgeSignal(brain, sessionId) : {};
-        // process.cwd(), like the Stop hook: the brain path (VFKB_DATA_DIR) resolves against it.
-        const ctx = gatherPromptContext(process.cwd(), brain, s, stored.key, deadline);
-        if (performance.now() > deadline) return; // over budget → quiet (Q12)
-        const d = decidePromptNudge(input, ctx, stored.key);
-        if (!d.emit) return;
-        if (s.persisted && sessionId) {
+        const next = { ...stored };
+        const out: { systemMessage?: string; hookSpecificOutput?: unknown } = {};
+
+        // Stage 1 — the warning (ADR-0085). The first-prompt skip does not apply (D3).
+        const facts = gatherUpsWarning(cwd, brain, deadline);
+        const w = decideUpsWarning(input, facts, stored.smKey);
+        if (w.emit) {
+          out.systemMessage = w.text;
+          next.smKey = w.smKey;
+        } else if (w.clear) {
+          delete next.smKey;
+        }
+
+        // Stage 2 — the handoff line (ADR-0084 §2), unchanged; it skips the first prompt (Q2).
+        if (!skip && performance.now() <= deadline) {
+          const ctx = gatherPromptContext(cwd, brain, s, stored.key, deadline, facts);
+          if (performance.now() <= deadline) {
+            const d = decidePromptNudge(input, ctx, stored.key);
+            if (d.emit) {
+              out.hookSpecificOutput = { hookEventName: 'UserPromptSubmit', additionalContext: d.text };
+              next.key = d.key;
+              next.staleAtTurn = d.reasons.includes('stale') && s.turn !== undefined ? s.turn : stored.staleAtTurn;
+            }
+          } // over budget → the line is dropped and its key not written (Q12)
+        }
+
+        const changed = next.key !== stored.key || next.staleAtTurn !== stored.staleAtTurn || next.smKey !== stored.smKey;
+        if (s.persisted && sessionId && changed) {
           try {
-            writePromptNudgeSignal(brain, sessionId, {
-              key: d.key,
-              staleAtTurn: d.reasons.includes('stale') && s.turn !== undefined ? s.turn : stored.staleAtTurn,
-            });
+            savePromptNudgeSignal(brain, sessionId, next);
           } catch {
-            /* failed save → key unset → the line simply re-emits next prompt */
+            /* failed save → keys unset → each output simply re-emits next prompt */
           }
         }
-        process.stdout.write(
-          JSON.stringify({ hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: d.text } }),
-        );
+        if (out.systemMessage !== undefined || out.hookSpecificOutput !== undefined) {
+          process.stdout.write(JSON.stringify(out));
+        }
       } catch {
         /* fail-silent: no turn is at stake */
       }
@@ -906,8 +933,10 @@ async function dispatch() {
 
     // SessionEnd — GAP 2 (RFC-011 / ADR-0033): auto-commit the brain so `/exit` is
     // safe by default. Cannot block exit / inject context (verified contract, gotcha
-    // f0e913b97824) → fire-and-forget; only a `systemMessage` (the main-branch warning)
-    // is surfaced. Fail-open: never throw, always exit 0.
+    // f0e913b97824) → fire-and-forget. The `systemMessage` (ADR-0033's warning) is emitted
+    // but discarded by Claude Code on `claude -p` (probe #384 arm F; TUI unobserved); the
+    // user-facing surface is the UserPromptSubmit systemMessage (ADR-0085, decide D10).
+    // Fail-open: never throw, always exit 0.
     if (sub === 'session-end') {
       const raw = await readStdin();
       let cwd: string | undefined;

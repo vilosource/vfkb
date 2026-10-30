@@ -78,7 +78,10 @@ export interface SessionEndResult {
   branch?: string;
   added?: number; // new entry lines this commit covers
   message?: string; // the commit message used (when committed)
-  systemMessage?: string; // surfaced to the user at exit (the main-branch warning)
+  // ADR-0033's warning text (renderNoAutocommitMessage). Emitted by the hook, but Claude Code
+  // discards a SessionEnd systemMessage on `claude -p` (probe #384 arm F, 3/3; TUI
+  // unobserved). The user-facing surface is the UserPromptSubmit systemMessage (ADR-0085).
+  systemMessage?: string;
   autoHandoff?: boolean; // GAP 1 (B2): a fallback handoff entry was written this run
   curated?: number; // ADR-0083 §3: entries the Tier-1 rule archived or repaired this run
   curationSkipped?: 'deadline'; // vfkb#384: curation not run, or stopped early, at the deadline
@@ -111,12 +114,63 @@ export function brainHeadSpec(cwd: string, absEntries: string): string {
   return `HEAD:./${relativeReal(cwd, absEntries).replace(/\\/g, '/')}`;
 }
 
+/**
+ * A git read whose answer was NOT observed: the child timed out, was killed, or never
+ * started (ADR-0085 §5, decide D7). tryGit maps an ordinary non-zero exit to null (a git
+ * "no"), but lets this through, so a caller with a deadline can tell "detached HEAD" or
+ * "brain not in HEAD" apart from "ran out of time". realGit never throws it, so
+ * SessionEnd's behaviour is unchanged.
+ */
+export class GitUnobserved extends Error {}
+
 function tryGit(git: GitRunner, args: string[], cwd: string): string | null {
   try {
     return git(args, cwd).trim();
-  } catch {
+  } catch (e) {
+    if (e instanceof GitUnobserved) throw e;
     return null;
   }
+}
+
+/**
+ * A GitRunner bounded by an absolute `deadline` on the performance.now() clock: each child
+ * gets what is left of it, and a child that is killed (timeout/signal) or cannot spawn
+ * throws GitUnobserved instead of an ordinary failure. Past the deadline nothing spawns.
+ */
+export function deadlineGit(deadline: number): GitRunner {
+  return (args, cwd) => {
+    const left = Math.floor(deadline - performance.now());
+    if (left < 1) throw new GitUnobserved('deadline');
+    try {
+      return execFileSync('git', args, {
+        cwd,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        maxBuffer: GIT_READ_MAX_BUFFER,
+        timeout: left,
+      });
+    } catch (e) {
+      const err = e as { signal?: unknown; status?: unknown };
+      if (err && (err.signal || typeof err.status !== 'number')) throw new GitUnobserved(String(err.signal ?? 'spawn'));
+      throw e;
+    }
+  };
+}
+
+/** The warning's stable lead-in: shared by the unit pins and the L4's content assertion. */
+export const NO_AUTOCOMMIT_LEADIN = 'vfkb will not auto-commit';
+
+/**
+ * ADR-0033's default-branch / detached-HEAD warning — ONE text, used by the UserPromptSubmit
+ * `systemMessage` (the surface the user sees, ADR-0085 §3) and by SessionEnd's own
+ * `systemMessage` (decide D5). Tense-neutral, so it is true at the prompt and at exit;
+ * printable ASCII with no markdown, because the TUI renders it literally. `added` is the
+ * id count since HEAD; an edit-only diff (0 new ids) still warns and says so (decide D2).
+ */
+export function renderNoAutocommitMessage(kind: 'default' | 'detached', branch: string | null, added: number): string {
+  const what = added >= 1 ? `the ${added} new brain entr${added === 1 ? 'y' : 'ies'}` : 'the edits to existing brain entries';
+  const where = kind === 'detached' || !branch ? 'a detached HEAD' : `${branch} (the default branch)`;
+  return `${NO_AUTOCOMMIT_LEADIN} ${what} on ${where}. Fix: git switch -c <name>; vfkb then commits the brain on exit.`;
 }
 
 // Entries NEW since HEAD (ADR-0083 §3): records whose id is absent from the committed
@@ -293,12 +347,7 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
     const fresh = oc.fresh ?? [];
     if (oc.outcome === 'detached-head') {
       const added = fresh.length;
-      return {
-        committed: false,
-        reason: 'detached-head',
-        added,
-        systemMessage: `vfkb: brain changes uncommitted (${added} new entr${added === 1 ? 'y' : 'ies'}, detached HEAD) — check out a branch and commit to preserve continuity.`,
-      };
+      return { committed: false, reason: 'detached-head', added, systemMessage: renderNoAutocommitMessage('detached', null, added) };
     }
     const branch = oc.branch ?? '';
     if (oc.outcome === 'on-default-branch') {
@@ -308,7 +357,7 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
         reason: 'on-default-branch',
         branch,
         added,
-        systemMessage: `vfkb: brain changes on \`${branch}\` left uncommitted (${added} new entr${added === 1 ? 'y' : 'ies'}) — branch + commit to preserve continuity (vfkb never auto-commits the default branch).`,
+        systemMessage: renderNoAutocommitMessage('default', branch, added),
       };
     }
 
