@@ -141,6 +141,20 @@ describe('the security shim', () => {
   });
 });
 
+describe('mode and precondition hardening (review F2/F3)', () => {
+  it('VFKB_L4_AUTH=deepseek-env is refused: it would strip the token and drop the shim', async () => {
+    const lib = await load({ VFKB_L4_AUTH: 'deepseek-env', DEEPSEEK_TOKEN: 'sk-deepseekdeepseek1234', CLAUDE_CODE_OAUTH_TOKEN: FAKE });
+    expect(() => lib.claudeEnv({ PATH: '/usr/bin' }, LINUX)).toThrow(/VFKB_L4_AUTH=deepseek-env is not supported/);
+    expect(() => lib.assertClaudeAuthReady(LINUX)).toThrow(/VFKB_L4_AUTH=deepseek-env/);
+    delete process.env.DEEPSEEK_TOKEN;
+  });
+
+  it('claudeEnv runs the token checks itself: a scenario that skips assertClaudeAuthReady still cannot spawn on a 59-min token', async () => {
+    const lib = await load({ CLAUDE_CONFIG_DIR: storeDir(59) });
+    expect(() => lib.claudeEnv({ PATH: '/usr/bin' }, LINUX)).toThrow(/expires in 59 min/);
+  });
+});
+
 describe('claudeSync (the spawn seam)', () => {
   it('the child resolves the shim, its Keychain write is refused, and the token never comes back out', async () => {
     const lib = await load({ CLAUDE_CODE_OAUTH_TOKEN: FAKE });
@@ -161,6 +175,18 @@ describe('claudeSync (the spawn seam)', () => {
     expect(err?.status).toBe(3);
     expect(String(err.stderr)).toContain('boom ***REDACTED***');
     expect(`${err.stdout}${err.stderr}${err.message}`).not.toContain(FAKE);
+  });
+
+  it('encoding buffer and e.output are redacted too (review F5)', async () => {
+    const lib = await load({ CLAUDE_CODE_OAUTH_TOKEN: FAKE });
+    const buf = lib.claudeSync(['-p', 'x'], { encoding: 'buffer', stdio: ['ignore', 'pipe', 'pipe'] });
+    expect(Buffer.isBuffer(buf)).toBe(true);
+    expect(buf.toString()).toContain('token=***REDACTED***');
+    expect(buf.toString()).not.toContain(FAKE);
+    let err: any;
+    try { lib.claudeSync(['--fail'], { stdio: ['ignore', 'pipe', 'pipe'] }); } catch (e) { err = e; }
+    expect(err.output.map(String).join('')).toContain('***REDACTED***');
+    expect(err.output.map(String).join('')).not.toContain(FAKE);
   });
 
   it('claudeVersion goes through the same seam', async () => {
@@ -226,6 +252,15 @@ describe('session guard (no Keychain access outside Aqua)', () => {
     expect(() => lib.assertClaudeAuthReady(BACKGROUND)).toThrow(/not "Aqua"/);
     expect(() => lib.claudeEnv({ PATH: '/usr/bin' }, BACKGROUND)).toThrow(/not "Aqua"/);
     // Even with a readable stored token: the guard runs before any credential read.
+    expect(hostSecurityCalls()).toEqual([]);
+  });
+
+  it('darwin + Background + no env token + NO credentials file: the check comes before any read (no security call at all)', async () => {
+    // No file to serve a read from: if anything read credentials before the session
+    // check, the read would fall through to `security` and land in hostSecurityCalls().
+    const lib = await load({ CLAUDE_CONFIG_DIR: storeDir(null) });
+    expect(() => lib.assertClaudeAuthReady(BACKGROUND)).toThrow(/not "Aqua"/);
+    expect(() => lib.claudeEnv({ PATH: '/usr/bin' }, BACKGROUND)).toThrow(/not "Aqua"/);
     expect(hostSecurityCalls()).toEqual([]);
   });
 

@@ -51,7 +51,7 @@
 // than this one may spawn `claude` itself.
 // ============================================================================
 import { execFileSync } from 'node:child_process';
-import { readFileSync, rmSync, writeSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import * as upstream from './vendor/plugin-auth.mjs';
 
@@ -110,27 +110,63 @@ function noteUse() {
   });
 }
 
+function assertOAuthMode() {
+  // The vendored seam also has a deepseek-env mode (VFKB_L4_AUTH, an env var shared with
+  // the plugin repo) that strips CLAUDE* vars and adds NO shim. No vfkb host scenario
+  // uses it; inherited by accident it would turn the whole seam off while the exit line
+  // still reported a built shim. Refuse it.
+  if (upstream.AUTH_MODE !== 'oauth') {
+    throw new Error(
+      `claude-auth: VFKB_L4_AUTH=${upstream.AUTH_MODE} is not supported for vfkb host claude spawns — ` +
+        'only oauth carries the env token and the no-Keychain shim. Unset VFKB_L4_AUTH and re-run.',
+    );
+  }
+}
+
+let ready = false;
+
 /**
  * Preconditions, at the top of every scenario that spawns claude, before anything
- * metered: the session guard (this file), then upstream's token checks (present,
- * not expired, at least VFKB_L4_MIN_TOKEN_MINUTES (default 60) left on a stored token).
+ * metered: oauth mode, the session guard (this file) BEFORE any credential read, then
+ * upstream's token checks (present, not expired, at least VFKB_L4_MIN_TOKEN_MINUTES
+ * (default 60) left on a stored token). claudeEnv() runs this itself before the first
+ * spawn, so a scenario that forgets the top-of-file call still gets every check.
  */
 export function assertClaudeAuthReady(probe = {}) {
   noteUse();
+  assertOAuthMode();
   assertNoKeychainDialogs(process.env, probe);
   upstream.assertAuthReady();
+  ready = true;
 }
 
 /** The env a host `claude` child runs under: token in env, shim first on PATH. */
 export function claudeEnv(baseEnv = process.env, probe = {}) {
   noteUse();
+  assertOAuthMode();
   assertNoKeychainDialogs(process.env, probe);
+  if (!ready) assertClaudeAuthReady(probe);
   const env = upstream.authEnv(baseEnv);
-  shimDir = env.PATH.split(':')[0];
+  const first = env.PATH.split(':')[0];
+  // Verify, don't assume: the shim must really be PATH[0] before anything is spawned.
+  if (!first.includes('vfkb-l4-nokeychain-') || !existsSync(join(first, 'security'))) {
+    throw new Error(`claude-auth: the no-Keychain security shim is not first on the child PATH (got "${first}") — refusing to spawn`);
+  }
+  shimDir = first;
   return env;
 }
 
-const redactIfText = (v) => (typeof v === 'string' ? redactSecrets(v) : v);
+// Strings and Buffers (encoding: 'buffer') alike; a Buffer is only rebuilt when a
+// secret was actually present, so binary-clean output passes through untouched.
+function redactAny(v) {
+  if (typeof v === 'string') return redactSecrets(v);
+  if (Buffer.isBuffer(v)) {
+    const text = v.toString('utf8');
+    const red = redactSecrets(text);
+    return red === text ? v : Buffer.from(red, 'utf8');
+  }
+  return v;
+}
 
 /**
  * The claude binary run synchronously under claudeEnv(); same defaults as the
@@ -142,12 +178,13 @@ const redactIfText = (v) => (typeof v === 'string' ? redactSecrets(v) : v);
 export function claudeSync(args, opts = {}) {
   const env = claudeEnv(opts.env ?? process.env);
   try {
-    return redactIfText(execFileSync('claude', args, { encoding: 'utf8', ...opts, env }));
+    return redactAny(execFileSync('claude', args, { encoding: 'utf8', ...opts, env }));
   } catch (e) {
     if (e && typeof e === 'object') {
       for (const k of ['stdout', 'stderr', 'message']) {
-        try { if (typeof e[k] === 'string') e[k] = redactSecrets(e[k]); } catch { /* read-only field */ }
+        try { e[k] = redactAny(e[k]); } catch { /* read-only field */ }
       }
+      if (Array.isArray(e.output)) e.output = e.output.map(redactAny);
     }
     throw e;
   }
@@ -172,9 +209,4 @@ export function formatShimReport({ built = true, calls, refusedWrites }) {
   const line = `claude-auth: keychain shim calls=${calls} refusedWrites=${refusedWrites}`;
   if (!built) return `${line} (shim never built: no claude child was spawned)`;
   return refusedWrites > 0 ? `WARNING — ${line}` : line;
-}
-
-/** Test seam only. */
-export function __setSessionManagerForTests(name) {
-  managerName = name;
 }

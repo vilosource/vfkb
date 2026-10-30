@@ -24,7 +24,7 @@ const VENDOR = 'scenarios/lib/vendor/';
 
 // The routed call sites this PR migrated. A floor, not an exact count: a new scenario
 // adds to it; a scan that silently finds nothing (bad glob, renamed helper) fails.
-const MIN_ROUTED_SITES = 20;
+const MIN_ROUTED_SITES = 19;
 
 const SPAWN_FNS = 'sh|run|exec|execSync|execFile|execFileSync|spawn|spawnSync';
 const RAW = [
@@ -33,8 +33,16 @@ const RAW = [
   /\[\s*(['"`])claude\1\s*,\s*\[/g, // ['claude', ['--version']] argv tuples
 ];
 
+// Comments are not spawns: drop block comments and `//` line comments (only where `//`
+// starts a line or follows whitespace, so a URL inside a string such as 'http://x'
+// is left alone).
+export function stripComments(src: string): string {
+  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|\s)\/\/.*$/gm, '$1');
+}
+
 export function rawClaudeSpawns(src: string): number {
-  return RAW.reduce((n, re) => n + (src.match(re)?.length ?? 0), 0);
+  const code = stripComments(src);
+  return RAW.reduce((n, re) => n + (code.match(re)?.length ?? 0), 0);
 }
 
 function walk(dir: string): string[] {
@@ -65,6 +73,11 @@ describe('the scanner itself (can it fail?)', () => {
     expect(rawClaudeSpawns(`const H = process.env.H || 'claude';`)).toBe(0);
     expect(rawClaudeSpawns(`claudeSync(['-p', q], { cwd })`)).toBe(0);
     expect(rawClaudeSpawns(`dargs.push('-v', x, CLAUDE_IMAGE, 'claude', ...args)`)).toBe(0);
+    expect(rawClaudeSpawns(`// formerly: sh('claude', args)\nconst x = 1;`)).toBe(0);
+    expect(rawClaudeSpawns(`/* was execFileSync('claude', a) */`)).toBe(0);
+  });
+  it('a trailing comment does not hide a real spawn on the same line', () => {
+    expect(rawClaudeSpawns(`sh('claude', ['-p', 'http://x']); // run it`)).toBe(1);
   });
 });
 
@@ -86,19 +99,15 @@ describe('host claude spawns go through scenarios/lib/claude-auth.mjs', () => {
     expect(rawClaudeSpawns(files.find((f) => f.rel === SEAM)!.src)).toBe(1);
   });
 
-  it(`at least ${MIN_ROUTED_SITES} routed call sites, and every routing file checks auth first`, () => {
+  // Only a non-vacuity floor. Whether each spawn runs the auth preconditions is not a
+  // source-text question: claudeEnv() runs them itself before the first spawn
+  // (test/claude-auth.test.ts covers that behaviourally).
+  it(`at least ${MIN_ROUTED_SITES} routed call sites`, () => {
     let routed = 0;
-    const missingPrecondition: string[] = [];
     for (const f of files) {
       if (f.rel === SEAM || f.rel.startsWith(VENDOR)) continue;
-      const n = (f.src.match(/\bclaude(?:Sync|Version)\s*\(/g) ?? []).length;
-      routed += n;
-      if (n > 0) {
-        if (!/from '\.{1,2}\/(?:\.\.\/)?(?:scenarios\/)?lib\/claude-auth\.mjs'/.test(f.src)) missingPrecondition.push(`${f.rel}: no import`);
-        if (!/\bassertClaudeAuthReady\s*\(/.test(f.src)) missingPrecondition.push(`${f.rel}: no assertClaudeAuthReady()`);
-      }
+      routed += (stripComments(f.src).match(/\bclaude(?:Sync|Version)\s*\(/g) ?? []).length;
     }
-    expect(missingPrecondition).toEqual([]);
     expect(routed).toBeGreaterThanOrEqual(MIN_ROUTED_SITES);
   });
 });
