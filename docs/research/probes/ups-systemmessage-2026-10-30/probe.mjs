@@ -27,7 +27,7 @@
 // The token is never printed or written; every captured text is redacted anyway.
 //
 // Usage (one claude at a time): [PROBE_TRIALS=3] [PROBE_ARMS=t:sm,p-json:ac] node probe.mjs
-// Writes out/results.json, out/shim-attempts.log and out/t-*.screen.txt next to this file.
+// Writes out/results.json, out/shim-attempts.txt and out/t-*.screen.txt next to this file.
 // ============================================================================
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
@@ -300,7 +300,7 @@ const shim = shimLines();
 meta.shim = { attempts: shim.length, refusedWrites: shim.filter(isWrite).length, lines: shim };
 const name = process.env.PROBE_TAG ? `results-${process.env.PROBE_TAG}.json` : 'results.json';
 writeFileSync(join(OUT, name), redact(JSON.stringify({ meta, results }, null, 2)) + '\n');
-writeFileSync(join(OUT, process.env.PROBE_TAG ? `shim-attempts-${process.env.PROBE_TAG}.log` : 'shim-attempts.log'), shim.join('\n') + (shim.length ? '\n' : ''));
+writeFileSync(join(OUT, process.env.PROBE_TAG ? `shim-attempts-${process.env.PROBE_TAG}.txt` : 'shim-attempts.txt'), shim.join('\n') + (shim.length ? '\n' : ''));
 console.log(`shim: ${shim.length} attempt(s), ${meta.shim.refusedWrites} refused write(s)`);
 rmSync(RUN_ROOT, { recursive: true, force: true });
 console.log('wrote', join(OUT, name));

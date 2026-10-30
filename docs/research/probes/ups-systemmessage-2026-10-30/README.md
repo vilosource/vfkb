@@ -45,7 +45,7 @@ The approach is copied from vfkb-claude-plugin#71 (`scenarios/auth.mjs`):
 - The probe refuses to start if the token expires in under 60 minutes. That refusal fired once during this work: the token had 25 minutes left, so the run waited for the live session to refresh it.
 - Every spawned claude gets the token as `CLAUDE_CODE_OAUTH_TOKEN`, plus a `security` shim first on `PATH`. The shim logs only `<subcommand>|<service>` and exits 44.
 
-**Shim result:** 54 attempts, all `find-generic-password`, which is 2 reads per trial: `Claude Code-credentials-<sandbox hash>` and `Claude Code-<sandbox hash>`. **0 refused writes** (`out/shim-attempts.log`). The token is never printed or written. Every captured text is passed through a redactor, and the committed files were grepped for `sk-ant-` before committing; the only hit is the redactor's own regex in `probe.mjs`.
+**Shim result:** 54 attempts, all `find-generic-password`, which is 2 reads per trial: `Claude Code-credentials-<sandbox hash>` and `Claude Code-<sandbox hash>`. **0 refused writes** (`out/shim-attempts.txt`). The token is never printed or written. Every captured text is passed through a redactor, and the committed files were grepped for `sk-ant-` before committing; the only hit is the redactor's own regex in `probe.mjs`.
 
 ## Trial table
 
@@ -82,7 +82,7 @@ The raw per-trial rows are in `out/results.json`, which also holds `meta`: the C
 - `ups-hook.mjs`: the marker hook.
 - `out/results.json`: every trial row, plus `meta`.
 - `out/t-*.screen.txt`: the rendered TUI buffer with scrollback for each T trial, captured before `/exit`. They are saved **compacted**: trailing whitespace is trimmed and empty lines are dropped, because `hardcopy -h` pads about 20,000 empty scrollback lines. The probe's assertions ran on the full buffer. The committed copies were compacted after the run with the same transform that `probe.mjs` now applies (`compact()`). Re-grepping them gives the marker `VFKBSM…` in all 6 `sm`/`sm+ac` files and `VFKBAC…` in none.
-- `out/shim-attempts.log`: what the `security` shim saw.
+- `out/shim-attempts.txt`: what the `security` shim saw.
 
 To reproduce (27 short haiku turns, one claude at a time, about 12 minutes):
 
