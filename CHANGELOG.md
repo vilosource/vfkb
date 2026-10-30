@@ -1,5 +1,57 @@
 # Changelog
 
+## [0.10.0](https://github.com/vilosource/vfkb/compare/v0.9.1...v0.10.0) (2026-10-30)
+
+
+### Features
+
+* **curation:** background curation Tier 1, engine half (ADR-0083) ([#379](https://github.com/vilosource/vfkb/issues/379)) ([d672946](https://github.com/vilosource/vfkb/commit/d672946655f69294ced1656c78a360fd04f33d04))
+* **curation:** R7 engine half (ADR-0082) — created-ordered fact pin, one selector, retires, read-only reports ([#371](https://github.com/vilosource/vfkb/issues/371)) ([db26126](https://github.com/vilosource/vfkb/commit/db261263a3aa5766063069d93d881d0cbd611dd6))
+* **nudge:** ADR-0033's default-branch warning as a UserPromptSubmit systemMessage ([#395](https://github.com/vilosource/vfkb/issues/395)) ([#426](https://github.com/vilosource/vfkb/issues/426)) ([7a9348a](https://github.com/vilosource/vfkb/commit/7a9348aa21a207b0ff0279f8ef55c78818de3ea1))
+* **nudge:** deterministic Stop WHEN-rules for B3 and paused stops (ADR-0084 §1) ([#393](https://github.com/vilosource/vfkb/issues/393)) ([8eb5f2d](https://github.com/vilosource/vfkb/commit/8eb5f2d8ca859e58acf543f4779007c28b8d3bbf))
+* **nudge:** phase 3 — the handoff reminder moves to a non-blocking UserPromptSubmit line ([#385](https://github.com/vilosource/vfkb/issues/385)) ([#399](https://github.com/vilosource/vfkb/issues/399)) ([aa4a33c](https://github.com/vilosource/vfkb/commit/aa4a33c550aacdd3d1d8234ddeaed6c493b22b84))
+* **nudge:** phase 4 — RFC-043 Parts 0 and A: first-parent anchor, commits since the pin under Last handoff ([#386](https://github.com/vilosource/vfkb/issues/386)) ([#401](https://github.com/vilosource/vfkb/issues/401)) ([51728fa](https://github.com/vilosource/vfkb/commit/51728fad612ed6dcd18fbe8c0490364855e3e4d4))
+* **nudge:** phase 5 — B3 once per session (1e) and quiet on the default branch with nothing to commit (1c) ([#387](https://github.com/vilosource/vfkb/issues/387)) ([#402](https://github.com/vilosource/vfkb/issues/402)) ([e2cb3c1](https://github.com/vilosource/vfkb/commit/e2cb3c1c9b279f44c9955b1863dae5e3b43f91e1))
+* **search:** stage-1 BM25 + query stopword pruning (ADR-0080 step 1) — recall@5 0.014 → 0.565 ([#364](https://github.com/vilosource/vfkb/issues/364)) ([0e806aa](https://github.com/vilosource/vfkb/commit/0e806aa17c9683d50db8472db09b27b8b2ef1865))
+
+
+### Bug Fixes
+
+* **#422:** host-run claude spawns never touch the macOS Keychain ([#424](https://github.com/vilosource/vfkb/issues/424)) ([7535241](https://github.com/vilosource/vfkb/commit/75352411c22be7410d689f870a45cb128b74580c))
+* capture-fallback hint advertised --tags, which add rejects — now --tag ([#355](https://github.com/vilosource/vfkb/issues/355)) ([b0afd71](https://github.com/vilosource/vfkb/commit/b0afd716fb1c3ff423417b9daff6386dfdd5860a))
+* **session-end:** keep the B2 floor and the commit inside the 1.5 s SessionEnd budget; doctor session-end check ([#384](https://github.com/vilosource/vfkb/issues/384)) ([#397](https://github.com/vilosource/vfkb/issues/397)) ([f87bd9c](https://github.com/vilosource/vfkb/commit/f87bd9c903eb84037fd9e74ab381b6dc2b35e2c6))
+* **supersede:** successors inherit predecessor tags; CLI supersede gains --tag ([#389](https://github.com/vilosource/vfkb/issues/389)) ([#410](https://github.com/vilosource/vfkb/issues/410)) ([e2ac6e9](https://github.com/vilosource/vfkb/commit/e2ac6e9539be284d411f9de455bb9d8a07cfa6ea))
+
+
+### Documentation
+
+* **adr:** ADR-0077 — the compaction re-injection is a guarantee (accepts RFC-042, v3 R2) ([#351](https://github.com/vilosource/vfkb/issues/351)) ([f7a9a11](https://github.com/vilosource/vfkb/commit/f7a9a117e94490b25589cecd4c31c81cf5c9572c))
+* **adr:** ADR-0078 — a compaction trial is valid only if a compaction actually happened (amends ADR-0077 clause 3) ([#356](https://github.com/vilosource/vfkb/issues/356)) ([a5c39dc](https://github.com/vilosource/vfkb/commit/a5c39dc0701123a8ef604b34a43ba078b1f54bb0))
+* **adr:** ADR-0079 — instruct the summariser by scope, never by naming what to hide (amends ADR-0077 clause 3) ([#359](https://github.com/vilosource/vfkb/issues/359)) ([e626147](https://github.com/vilosource/vfkb/commit/e6261472153f1afaf67bb002a8dc96587d3a1e02))
+* **adr:** ADR-0080 — query-time injection rides on BM25; S1 first resort un-gated for R1 (accepts RFC-044) ([#363](https://github.com/vilosource/vfkb/issues/363)) ([78ef975](https://github.com/vilosource/vfkb/commit/78ef975bd3949607a47a242b7852108db6759e55))
+* **adr:** ADR-0082 — propose-only curation (accepts RFC-045, v3 R7; amends ADR-0049) ([#368](https://github.com/vilosource/vfkb/issues/368)) ([9c04944](https://github.com/vilosource/vfkb/commit/9c049446ac0e3aa9a630b9956c7f5895857cfc54))
+* **adr:** ADR-0083 — background curation (accepts RFC-046) ([#378](https://github.com/vilosource/vfkb/issues/378)) ([57dbb9b](https://github.com/vilosource/vfkb/commit/57dbb9bff07332d9203eb2265790a3a6e532460d))
+* **adr:** ADR-0085 - ADR-0033's warning as a UserPromptSubmit systemMessage ([#395](https://github.com/vilosource/vfkb/issues/395)) ([#425](https://github.com/vilosource/vfkb/issues/425)) ([e2a446e](https://github.com/vilosource/vfkb/commit/e2a446e71567040ce0d3ba5c5a38d3a51cf915a2))
+* **adr:** RFC-047 + ADR-0084 — the handoff nudge moves to the next prompt ([#390](https://github.com/vilosource/vfkb/issues/390)) ([c2ecca5](https://github.com/vilosource/vfkb/commit/c2ecca508f229e830d785c8dfe09637607a091c0))
+* **probe:** Jev calibration spike — RFC-043 Part B gate 2 FAILS on the pre-registered bar, underpowered ([#370](https://github.com/vilosource/vfkb/issues/370)) ([1e39c4e](https://github.com/vilosource/vfkb/commit/1e39c4e70aa65622b402db9056709078dcc7898b))
+* **probe:** Jev re-spike — RFC-043 Part B gate 2 PASSES (cross-project corpus, AI labels, locked variant) ([#372](https://github.com/vilosource/vfkb/issues/372)) ([6b2d69e](https://github.com/vilosource/vfkb/commit/6b2d69ee08deb5abb9a60392f2f498b21944c53e))
+* **probe:** Tier-0 probe of the SessionEnd 1.5 s budget ([#384](https://github.com/vilosource/vfkb/issues/384)) ([#398](https://github.com/vilosource/vfkb/issues/398)) ([505deb1](https://github.com/vilosource/vfkb/commit/505deb174500ea384099ce5231cb1c51870e1485))
+* **research:** handoff-nudge review + operator delegation; refreshed handoff ([#381](https://github.com/vilosource/vfkb/issues/381)) ([dd23f40](https://github.com/vilosource/vfkb/commit/dd23f4060e74b826036c05f4ed393ef94c5ff886))
+* **rfc:** RFC-042 — the compaction re-injection exists by accident; make it a guarantee (v3 R2) ([#350](https://github.com/vilosource/vfkb/issues/350)) ([9306f18](https://github.com/vilosource/vfkb/commit/9306f183cb1d7218c59e1081146007b594b16d67))
+* **rfc:** RFC-043 — stale-handoff nudge (B3): Part 0 anchor chosen by prototype, read-only stale-pin floor, decision model gated (Proposed) ([#357](https://github.com/vilosource/vfkb/issues/357)) ([96b05bb](https://github.com/vilosource/vfkb/commit/96b05bb11abd41d4d86356631a1f0861da625e4f))
+* **rfc:** RFC-044 — query-time injection needs a ranker that can rank (v3 R1) ([#362](https://github.com/vilosource/vfkb/issues/362)) ([b179e39](https://github.com/vilosource/vfkb/commit/b179e3989d1c0ed49363199b47673d236f9a75b3))
+* **rfc:** RFC-045 — propose-only curation: a stable pin, confirmed handoff retirement, a backlog report (v3 R7) ([#366](https://github.com/vilosource/vfkb/issues/366)) ([2ca075c](https://github.com/vilosource/vfkb/commit/2ca075c3ab65a13620a8990995b2df1122845c05))
+* **rfc:** RFC-046 — background curation (amends ADR-0082 §6) ([#376](https://github.com/vilosource/vfkb/issues/376)) ([8b4901e](https://github.com/vilosource/vfkb/commit/8b4901ec910bec7ff103442a30461ecf283e975b))
+* small fixes — CLAUDE.md --tag, ADR index backfill, H4 §4 re-ratified (v3 supersedes P12) ([#354](https://github.com/vilosource/vfkb/issues/354)) ([7d1429c](https://github.com/vilosource/vfkb/commit/7d1429c70fa790ca91ba6d11697512fbf5d96167))
+* **v3:** adopt both metrics (Ruling 3) — and the baseline decays on its own ([#346](https://github.com/vilosource/vfkb/issues/346)) ([d2acbf4](https://github.com/vilosource/vfkb/commit/d2acbf419461238a26658accd984167f8b61ad01))
+* **v3:** brain compatibility — read-compat is the floor, not one of two options ([#344](https://github.com/vilosource/vfkb/issues/344)) ([5c82f44](https://github.com/vilosource/vfkb/commit/5c82f44727551837fcc92d2c23a6689421802f04))
+* **v3:** open the v3 research/planning directory — Claude Code harness survey + PRD ([#340](https://github.com/vilosource/vfkb/issues/340)) ([6b3de16](https://github.com/vilosource/vfkb/commit/6b3de16c6f29415d2128d892bf264c125f191620))
+* **v3:** probe results + Rulings 4–5 — priority order, decision models optional, R5 already delivered ([#347](https://github.com/vilosource/vfkb/issues/347)) ([480e5bc](https://github.com/vilosource/vfkb/commit/480e5bc16d5d1b8292d3fa371c1fd0e461b55267))
+* **v3:** R1 step 1 landed (BM25), step 2 gated — status, ruling, follow-ups, handoff ([#365](https://github.com/vilosource/vfkb/issues/365)) ([c224878](https://github.com/vilosource/vfkb/commit/c224878c611bc2f4d04d0f006e7461f3034f43bf))
+* **v3:** R2 compaction probe — vfkb already re-injects after compaction, by accident ([#349](https://github.com/vilosource/vfkb/issues/349)) ([cf6343a](https://github.com/vilosource/vfkb/commit/cf6343a69acb20f9e20152edcba63f072ac3d466))
+* **v3:** R2 verified for manual compaction — compaction-survival L4 DEMONSTRATED; next R1 ([#361](https://github.com/vilosource/vfkb/issues/361)) ([9095dc4](https://github.com/vilosource/vfkb/commit/9095dc4270c91a2ea5ee7b49aa4d0ac8cb77fa42))
+* **v3:** R7 built and verified — plugin v0.21.0, handoff-retires DEMONSTRATED ([#375](https://github.com/vilosource/vfkb/issues/375)) ([97e796e](https://github.com/vilosource/vfkb/commit/97e796e283c01d093bd892769b159d144174ca8e))
+
 ## [0.9.1](https://github.com/vilosource/vfkb/compare/v0.9.0...v0.9.1) (2026-10-05)
 
 
