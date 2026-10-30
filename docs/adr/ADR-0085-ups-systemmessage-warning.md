@@ -40,9 +40,9 @@ warning reaches nobody:
    [#406](https://github.com/vilosource/vfkb/pull/406) put the fact into the ADR-0084
    `additionalContext` line and asked the agent to tell the user. Five L4 records on the
    #406 branch (`f391c82`), `scenarios/records/handoff-next-prompt.on-main.*.json`:
-   `red-baseline` 0/3 (pre-change engine), then treatment-main **1/3, 0/3, 0/3, 0/3** across
-   four wordings (`confounded-run1`, `probe-run2`, `recipe-run3`, `branch-only-probe-run4`).
-   The clause was delivered every time; the agent did not act on it.
+   treatment-main passes `red-baseline` 0/3 (pre-change engine), then across four wordings
+   `confounded-run1` 0/3, `probe-run2` **1/3**, `recipe-run3` 0/3 and `branch-only-probe-run4`
+   0/3 (read from each record's `verdict.counts.treatment-main`). The agent did not act on it.
 
 The **#408 Tier-0 probe** (docs/research/probes/ups-systemmessage-2026-10-30/, PR #421, brain
 `e05a71ae3246`; CLI 2.1.292, haiku, N=3 per arm, 0 void) then asked whether a
