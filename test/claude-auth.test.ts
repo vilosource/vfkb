@@ -38,6 +38,7 @@ beforeAll(() => {
   writeFileSync(join(bin, 'claude'), [
     '#!/bin/sh',
     'echo "token=$CLAUDE_CODE_OAUTH_TOKEN"',
+    'echo "argc=$#"',
     'echo "security=$(command -v security)"',
     'security add-generic-password -U -a a -s svc-child -w S >/dev/null 2>&1; echo "write-exit=$?"',
     '[ "$1" = "--fail" ] && { echo "boom $CLAUDE_CODE_OAUTH_TOKEN" >&2; exit 3; }',
@@ -45,6 +46,18 @@ beforeAll(() => {
     '',
   ].join('\n'));
   chmodSync(join(bin, 'claude'), 0o755);
+  // A fake GNU `screen` (vfkb#395): logs each invocation with the env it got; a `-dmS`
+  // launch runs its trailing `sh -c` command (the claude above) and logs that output too.
+  writeFileSync(join(bin, 'screen'), [
+    '#!/bin/sh',
+    `LOG='${join(root, 'screen.log')}'`,
+    'tok=0; [ -n "$CLAUDE_CODE_OAUTH_TOKEN" ] && tok=1',
+    'printf "screen %s|SCREENDIR=%s|token=%s|first=%s\\n" "$*" "$SCREENDIR" "$tok" "${PATH%%:*}" >> "$LOG"',
+    'case " $* " in *" -dmS "*) for last; do :; done; sh -c "$last" >> "$LOG" 2>/dev/null ;; esac',
+    'exit 0',
+    '',
+  ].join('\n'));
+  chmodSync(join(bin, 'screen'), 0o755);
   process.env.PATH = `${bin}:${saved.PATH}`;
   // Every shim dir the seam builds lands under root (os.tmpdir() reads TMPDIR per call),
   // so afterAll removes them even though a vitest worker may never fire 'exit'.
@@ -209,6 +222,41 @@ describe('claudeSync (the spawn seam)', () => {
   it('claudeVersion goes through the same seam', async () => {
     const lib = await load({ CLAUDE_CODE_OAUTH_TOKEN: FAKE });
     expect(lib.claudeVersion()).toContain('write-exit=44');
+  });
+});
+
+describe('claudeInScreen (the TUI seam, vfkb#395)', () => {
+  it('the screen launch and every screen command carry the token, the shim first on PATH and SCREENDIR', async () => {
+    const lib = await load({ CLAUDE_CODE_OAUTH_TOKEN: FAKE });
+    const screenLog = join(root, 'screen.log');
+    if (existsSync(screenLog)) rmSync(screenLog);
+    const screenDir = mkdtempSync(join(root, 'screens-'));
+    const h = lib.claudeInScreen({ cwd: root, args: ['--model', 'two words'], env: { ...process.env }, screenDir, screenrc: join(root, 'rc'), name: 't1' });
+    h.stuff('hello');
+    h.quit();
+    h.quit(); // idempotent
+    const log = readFileSync(screenLog, 'utf8');
+    const calls = log.split('\n').filter((l) => l.startsWith('screen '));
+    expect(calls.length).toBe(4); // launch, width, stuff, quit (once)
+    for (const c of calls) {
+      expect(c).toContain(`SCREENDIR=${screenDir}`);
+      expect(c).toContain('token=1');
+      expect(c).toMatch(/first=[^|]*vfkb-l4-nokeychain-/);
+    }
+    expect(calls[0]).toContain('-dmS t1');
+    expect(calls.filter((c) => / -X quit/.test(c))).toHaveLength(1);
+    // the claude child itself: the shim resolved, its Keychain write refused, args quoted intact
+    expect(log).toMatch(/security=.*vfkb-l4-nokeychain-[^/]+\/security/);
+    expect(log).toContain('write-exit=44');
+    expect(log).toContain('argc=2');
+    expect(hostSecurityCalls()).toEqual([]);
+  });
+  it('with no usable token it refuses before launching anything', async () => {
+    const lib = await load({});
+    const screenLog = join(root, 'screen.log');
+    if (existsSync(screenLog)) rmSync(screenLog);
+    expect(() => lib.claudeInScreen({ cwd: root, screenDir: root, screenrc: join(root, 'rc'), name: 't2' })).toThrow();
+    expect(existsSync(screenLog)).toBe(false);
   });
 });
 
