@@ -182,7 +182,7 @@ function runP(sb, format) {
 
 const ANSI = /\x1b\[[0-9;?<>=]*[ -\/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[()][A-Za-z0-9]|\x1b[=>78DEHMc]/g;
 const stripAnsi = (s) => s.replace(ANSI, '');
-const compact = (s) => s.split('\n').map((l) => l.replace(/\s+$/, '')).filter(Boolean).join('\n') + '\n';
+const compact = (s) => s.replace(/\0/g, '').split('\n').map((l) => l.replace(/\s+$/, '')).filter(Boolean).join('\n') + '\n';
 
 function screenCmd(sb, ...a) {
   return spawnSync('screen', ['-S', 'probe', '-p', '0', '-X', ...a], { env: { ...childEnv(sb.home), SCREENDIR: join(sb.root, 'screens') }, encoding: 'utf8' });

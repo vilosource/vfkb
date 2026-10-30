@@ -13,7 +13,7 @@
 | **`claude -p`, text output** (arm P) | **does not render**, 0/6 in stdout and 0/6 in stderr | absent 3/3 | 0/9 |
 | **`claude -p --output-format stream-json --verbose`** (arm P) | **emitted on stdout as a `system`/`informational` event**, 6/6. It is a structured event, so it reaches the user only if the consumer chooses to display it | absent 3/3 | 0/9 |
 
-The model never repeated either marker in its reply (0/27; the reply was `pineapple` every time). So every hit above comes from the harness, not from the model relaying the text.
+The model never repeated either marker in its reply (0/27, read from the sandbox transcript; every reply matched `/pineapple/i`, and the TUI captures show `pineapple`). So every hit above comes from the harness, not from the model relaying the text.
 
 **Routing (brain `88a019587878`):** the result is **positive for the interactive surface**, which is where ADR-0033's default-branch and detached-HEAD warning has to reach a person. That sends #395 to a redesign on the UserPromptSubmit `systemMessage`, under a new ADR. On `claude -p` text output the message is invisible. A headless run has no person watching, so that surface needs no warning; but the new ADR has to say this rather than claim that the warning shows everywhere.
 
@@ -49,7 +49,7 @@ The approach is copied from vfkb-claude-plugin#71 (`scenarios/auth.mjs`):
 
 ## Trial table
 
-`RENDERS` means the marker was in user-visible output and not in the model's text. `absent` means it was not found in any captured channel.
+`RENDERS` means the marker was in a captured output channel and not in the model's text. `absent` means it was not found in any captured channel. **For p-json, `RENDERS` (here and in `results.json`) only means "present on stdout"**: there it is a `system`/`informational` JSON event, not text shown to a person (see the verdict table).
 
 | Surface | Mode | Trial 1 | Trial 2 | Trial 3 | Channels hit |
 |---|---|---|---|---|---|
@@ -75,13 +75,17 @@ The raw per-trial rows are in `out/results.json`, which also holds `meta`: the C
 - **`--include-hook-events`** was not passed. The `system`/`informational` event appears without it.
 - **The real vfkb hook.** The marker hook stood in for vfkb's UPS hook. Whether the plugin-provided UPS hook (`--plugin-dir` or an installed plugin) renders the same way was not run; this probe used a project-settings hook.
 - **Other CLI versions.** Only 2.1.292 was run.
+- **`-p` text with `--verbose`.** The text-mode arm ran without `--verbose`, so "does not render on `-p` text" is observed only for that flag set.
+- **The extent of "no Keychain".** The shim is a `PATH` shim. It sees every `security` call resolved through `PATH`, which is how 2.1.292 reaches the Keychain (vfkb-claude-plugin#71). It would not see `/usr/bin/security` called by absolute path, or a native Keychain API call. "0 refused writes" covers only what went through the shim. Whether any dialog appeared on the operator's screen was not observed from here.
+- **Session-local details.** The `screen` version (4.00.03), the absence of tmux, and the one 60-minute refusal are from this session's shell. They are not recorded in `meta`.
+- **Known limits.** If `probe.mjs` crashes during arm T, there is no `finally`, so a detached `screen` session with the env token can be left running (it lives in memory only; nothing is written to disk); run `screen -ls` with that run's `SCREENDIR`. The committed captures include the macOS per-user temp path (not a secret). The hook here came from project settings: how a **plugin**-provided UPS hook's message is labelled is unproven (ADR-0051 clause 1), so the #395 ADR's scenario has to observe it on the installed plugin.
 
 ## Files
 
 - `probe.mjs`: the harness (arms P and T, the control, the contrast, the no-Keychain shim). It writes `out/`.
 - `ups-hook.mjs`: the marker hook.
 - `out/results.json`: every trial row, plus `meta`.
-- `out/t-*.screen.txt`: the rendered TUI buffer with scrollback for each T trial, captured before `/exit`. They are saved **compacted**: trailing whitespace is trimmed and empty lines are dropped, because `hardcopy -h` pads about 20,000 empty scrollback lines. The probe's assertions ran on the full buffer. The committed copies were compacted after the run with the same transform that `probe.mjs` now applies (`compact()`). Re-grepping them gives the marker `VFKBSM…` in all 6 `sm`/`sm+ac` files and `VFKBAC…` in none.
+- `out/t-*.screen.txt`: the rendered TUI buffer with scrollback for each T trial, captured before `/exit`. They are saved **compacted**: trailing whitespace is trimmed and empty lines are dropped, because `hardcopy -h` pads about 20,000 empty scrollback lines. NUL padding is also removed, so GitHub shows them as text. The probe's assertions ran on the full buffer. The committed copies were compacted after the run with the same transform that `probe.mjs` now applies (`compact()`). That is the only change to `probe.mjs` since the run: the predicates, arms and control logic that produced `results.json` are unchanged. Re-grepping them gives the marker `VFKBSM…` in all 6 `sm`/`sm+ac` files and `VFKBAC…` in none.
 - `out/shim-attempts.txt`: what the `security` shim saw.
 
 To reproduce (27 short haiku turns, one claude at a time, about 12 minutes):
