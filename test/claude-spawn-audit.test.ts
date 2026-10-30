@@ -20,7 +20,8 @@ import { join, relative, resolve } from 'node:path';
 const REPO = resolve(__dirname, '..');
 const SCEN = join(REPO, 'scenarios');
 const SEAM = 'scenarios/lib/claude-auth.mjs';
-const VENDOR = 'scenarios/lib/vendor/';
+// Exempt only the blob-pinned vendored file, not the whole vendor/ dir (round-2 F4).
+const VENDOR = 'scenarios/lib/vendor/plugin-auth.mjs';
 
 // The routed call sites this PR migrated. A floor, not an exact count: a new scenario
 // adds to it; a scan that silently finds nothing (bad glob, renamed helper) fails.
@@ -33,11 +34,25 @@ const RAW = [
   /\[\s*(['"`])claude\1\s*,\s*\[/g, // ['claude', ['--version']] argv tuples
 ];
 
-// Comments are not spawns: drop block comments and `//` line comments (only where `//`
-// starts a line or follows whitespace, so a URL inside a string such as 'http://x'
-// is left alone).
+// Comments are not spawns, but a comment stripper that is not string-aware can hide
+// code (a '/*' inside a string such as 'records/*.json' would swallow everything up to
+// the next '*/'). So drop only WHOLE lines that are unambiguously comments: a line that
+// starts with '//', or starts with '*' or '/*' and has no code after a closing '*/'.
+// Inline and trailing comments are kept and scanned (conservative: they can only add
+// a false positive, never hide a spawn).
 export function stripComments(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|\s)\/\/.*$/gm, '$1');
+  return src
+    .split('\n')
+    .filter((line) => {
+      const t = line.trimStart();
+      if (t.startsWith('//')) return false;
+      if (t.startsWith('*') || t.startsWith('/*')) {
+        const close = t.indexOf('*/');
+        return close >= 0 && t.slice(close + 2).trim() !== '';
+      }
+      return true;
+    })
+    .join('\n');
 }
 
 export function rawClaudeSpawns(src: string): number {
@@ -76,6 +91,11 @@ describe('the scanner itself (can it fail?)', () => {
     expect(rawClaudeSpawns(`// formerly: sh('claude', args)\nconst x = 1;`)).toBe(0);
     expect(rawClaudeSpawns(`/* was execFileSync('claude', a) */`)).toBe(0);
   });
+  it('a /* inside a string cannot hide a later spawn (round-2 F1)', () => {
+    const src = `const GLOB = join(REPO, 'scenarios/records/*.json');\nfunction arm(q) { return sh('claude', ['-p', q]); }\n/** doc */`;
+    expect(rawClaudeSpawns(src)).toBe(1);
+    expect(rawClaudeSpawns(`/* note */ sh('claude', ['-p', q]);`)).toBe(1);
+  });
   it('a trailing comment does not hide a real spawn on the same line', () => {
     expect(rawClaudeSpawns(`sh('claude', ['-p', 'http://x']); // run it`)).toBe(1);
   });
@@ -89,7 +109,7 @@ describe('host claude spawns go through scenarios/lib/claude-auth.mjs', () => {
 
   it('no file outside the seam spawns `claude` itself', () => {
     const offenders = files
-      .filter((f) => f.rel !== SEAM && !f.rel.startsWith(VENDOR))
+      .filter((f) => f.rel !== SEAM && f.rel !== VENDOR)
       .map((f) => ({ file: f.rel, raw: rawClaudeSpawns(f.src) }))
       .filter((o) => o.raw > 0);
     expect(offenders).toEqual([]);
@@ -105,7 +125,7 @@ describe('host claude spawns go through scenarios/lib/claude-auth.mjs', () => {
   it(`at least ${MIN_ROUTED_SITES} routed call sites`, () => {
     let routed = 0;
     for (const f of files) {
-      if (f.rel === SEAM || f.rel.startsWith(VENDOR)) continue;
+      if (f.rel === SEAM || f.rel === VENDOR) continue;
       routed += (stripComments(f.src).match(/\bclaude(?:Sync|Version)\s*\(/g) ?? []).length;
     }
     expect(routed).toBeGreaterThanOrEqual(MIN_ROUTED_SITES);

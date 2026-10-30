@@ -155,6 +155,23 @@ describe('mode and precondition hardening (review F2/F3)', () => {
   });
 });
 
+describe('shim placement is verified, not assumed (round-2 F2)', () => {
+  it('claudeEnv refuses when the vendored authEnv returns a PATH whose first entry is not the shim', async () => {
+    await load({ CLAUDE_CODE_OAUTH_TOKEN: FAKE });
+    vi.doMock('../scenarios/lib/vendor/plugin-auth.mjs', async (orig) => {
+      const real: any = await orig();
+      return { ...real, authEnv: (base: any) => ({ ...real.authEnv(base), PATH: '/usr/bin:/bin' }) };
+    });
+    try {
+      vi.resetModules();
+      const lib = await import(LIB);
+      expect(() => lib.claudeEnv({ PATH: '/usr/bin' }, LINUX)).toThrow(/not first on the child PATH/);
+    } finally {
+      vi.doUnmock('../scenarios/lib/vendor/plugin-auth.mjs');
+    }
+  });
+});
+
 describe('claudeSync (the spawn seam)', () => {
   it('the child resolves the shim, its Keychain write is refused, and the token never comes back out', async () => {
     const lib = await load({ CLAUDE_CODE_OAUTH_TOKEN: FAKE });
