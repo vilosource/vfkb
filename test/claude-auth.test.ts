@@ -46,6 +46,10 @@ beforeAll(() => {
   ].join('\n'));
   chmodSync(join(bin, 'claude'), 0o755);
   process.env.PATH = `${bin}:${saved.PATH}`;
+  // Every shim dir the seam builds lands under root (os.tmpdir() reads TMPDIR per call),
+  // so afterAll removes them even though a vitest worker may never fire 'exit'.
+  mkdirSync(join(root, 'tmp'));
+  process.env.TMPDIR = join(root, 'tmp');
 });
 afterAll(() => {
   process.env = { ...saved };
@@ -142,6 +146,7 @@ describe('claudeSync (the spawn seam)', () => {
     const lib = await load({ CLAUDE_CODE_OAUTH_TOKEN: FAKE });
     const out: string = lib.claudeSync(['-p', 'x'], { env: { ...process.env }, stdio: ['ignore', 'pipe', 'pipe'] });
     expect(out).toMatch(/security=.*vfkb-l4-nokeychain-[^/]+\/security/);
+    expect(out).toContain(join(root, 'tmp'));
     expect(out).toContain('write-exit=44');
     expect(out).toContain('token=***REDACTED***');
     expect(out).not.toContain(FAKE);

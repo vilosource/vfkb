@@ -125,6 +125,10 @@ this is a **deliberate discipline**:
 
 ## L4 evaluation harness (ADR-0022)
 
+- **Host `claude` spawns go through `scenarios/lib/claude-auth.mjs` (vfkb#422)**: `claudeSync()` / `claudeVersion()`, never a raw
+  `claude` spawn (Brake: `test/claude-spawn-audit.test.ts`). Each child gets an env token plus a no-op `security` shim, so it
+  cannot touch the macOS Keychain. From a non-Aqua pane (herdr, tmux, ssh), export `CLAUDE_CODE_OAUTH_TOKEN` first or the
+  scenario refuses. Each run ends with `claude-auth: keychain shim calls=N refusedWrites=M`.
 - `scenarios/l4-purpose.mjs` — dockerized, reproducible, N=3, **dual-harness** (pi + claude). Images
   `vfkb-l4-pi:dev` + `vfkb-l4-claude:dev` (rebuild: `bash scenarios/docker/build.sh`;
   `docker build -t vfkb-l4-claude:dev -f scenarios/docker/claude.Dockerfile .`).
