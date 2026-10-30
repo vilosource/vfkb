@@ -6,6 +6,7 @@ import {
   warningChannels,
   screenCount,
   observedLabel,
+  rawBeforeExit,
   voidReason,
   trialPass,
   armVerdict,
@@ -33,6 +34,18 @@ describe('ups-warning verdict', () => {
     expect(warningChannels({ screen: wrapped })).toEqual(['screenJoined']);
     expect(warningChannels({ raw: `\x1b[2mvfkb will not \x1b[0mauto-commit`.replace('\x1b[0m', '') })).toEqual(['raw']);
     expect(warningChannels({ screen: 'vfkb handoff status: x', raw: 'nothing' })).toEqual([]);
+  });
+  it('the raw channel stops at /exit: SessionEnd\'s same-lead-in message after it cannot pass treatment-main', () => {
+    const before = 'prompt 1 reply\nprompt 2 reply\n';
+    const log = Buffer.from(before + `/exit\n${MSG}\n`, 'utf8');
+    const mark = Buffer.byteLength(before, 'utf8');
+    expect(warningChannels({ screen: '', raw: log.toString('utf8') })).toEqual(['raw']); // the hole
+    expect(rawBeforeExit(log, mark)).toBe(before);
+    expect(warningChannels({ screen: '', raw: rawBeforeExit(log, mark) })).toEqual([]);
+    expect(trialPass('present', { ...ok, screen: '', raw: rawBeforeExit(log, mark) })).toBe(false);
+    expect(trialPass('present', { ...ok, screen: '', raw: rawBeforeExit(Buffer.from(MSG + '\n/exit'), MSG.length) })).toBe(true);
+    expect(rawBeforeExit(log, 0)).toBe(''); // no mark (prompt never reached) → nothing
+    expect(rawBeforeExit(log, undefined)).toBe('');
   });
   it('observedLabel reads the text before the lead-in on its line', () => {
     expect(observedLabel(`  ⎿  UserPromptSubmit says: ${MSG}`)).toBe('UserPromptSubmit says:');

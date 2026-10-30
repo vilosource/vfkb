@@ -1,7 +1,7 @@
 // Pure verdict library for scenarios/ups-warning-tui.mjs (vfkb#395, ADR-0085 §8).
 // Every predicate is a CONTENT assertion over captured output (ADR-0051 clause 3):
 // the rendered TUI buffer with scrollback, the same buffer with line breaks removed,
-// and the ANSI-stripped raw pty log. Exit codes are never read. Unit-tested in
+// and the ANSI-stripped raw pty log up to /exit (rawBeforeExit). Exit codes are never read. Unit-tested in
 // test/ups-warning-verdict.test.ts, where each predicate is observed failing.
 
 /** The warning's stable lead-in (src/session-end.ts NO_AUTOCOMMIT_LEADIN). */
@@ -24,7 +24,19 @@ const ANSI = /\x1b\[[0-9;?<>=]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1
 export const stripAnsi = (s) => String(s ?? '').replace(ANSI, '');
 const joined = (s) => String(s ?? '').replace(/\s*\n/g, '');
 
-/** Where the lead-in was seen: any of screen, screenJoined, raw. */
+/**
+ * The raw pty log as it stood BEFORE /exit: its first `preExitBytes` bytes. SessionEnd runs
+ * after /exit and its systemMessage carries the same lead-in (decide D5), so a log read past
+ * this mark could pass treatment-main on the exit message with no UserPromptSubmit
+ * systemMessage on screen. No mark (the TUI never reached the prompt) → nothing.
+ */
+export function rawBeforeExit(raw, preExitBytes) {
+  if (!Number.isInteger(preExitBytes) || preExitBytes <= 0) return '';
+  const buf = Buffer.isBuffer(raw) ? raw : Buffer.from(String(raw ?? ''), 'utf8');
+  return buf.subarray(0, preExitBytes).toString('utf8');
+}
+
+/** Where the lead-in was seen: any of screen, screenJoined, raw (the pre-/exit log only). */
 export function warningChannels({ screen = '', raw = '' } = {}) {
   const hits = [];
   if (screen.includes(WARNING_LEADIN)) hits.push('screen');

@@ -63,6 +63,7 @@ import {
   WARNING_LEADIN,
   armVerdict,
   observedLabel,
+  rawBeforeExit,
   runVerdict,
   screenCount,
   stripAnsi,
@@ -230,6 +231,7 @@ function runTui(sb) {
   let h;
   let reachedPrompt = false;
   let screen = '';
+  let preExitBytes = 0; // the raw log's length at /exit: SessionEnd's message lands after it
   try {
     h = claudeInScreen({
       cwd: sb.proj,
@@ -259,6 +261,7 @@ function runTui(sb) {
       }
       sleep(6000);
       screen = snap(); // rendered buffer incl. scrollback, BEFORE /exit
+      preExitBytes = existsSync(rawLog) ? statSync(rawLog).size : 0;
     }
     h.stuff('/exit');
     sleep(800);
@@ -268,7 +271,7 @@ function runTui(sb) {
     h?.quit();
     sleep(500);
   }
-  const raw = existsSync(rawLog) ? readFileSync(rawLog, 'utf8') : '';
+  const raw = existsSync(rawLog) ? rawBeforeExit(readFileSync(rawLog), preExitBytes) : '';
   return { reachedPrompt, screen: redactSecrets(screen), raw: redactSecrets(stripAnsi(raw)) };
 }
 
