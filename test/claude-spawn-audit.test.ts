@@ -28,37 +28,26 @@ const VENDOR = 'scenarios/lib/vendor/plugin-auth.mjs';
 const MIN_ROUTED_SITES = 19;
 
 const SPAWN_FNS = 'sh|run|exec|execSync|execFile|execFileSync|spawn|spawnSync';
+// Whitespace OR comments may sit between '(' / '[' and 'claude' — a comment there must
+// not hide the spawn (review round 3 F1).
+const GAP = String.raw`(?:\s|//[^\n]*\n|/\*[\s\S]*?\*/)*`;
 const RAW = [
-  new RegExp(`\\b(?:${SPAWN_FNS})\\s*\\(\\s*(['"\`])claude\\1`, 'g'), // sh('claude', …)
-  new RegExp(`\\b(?:${SPAWN_FNS})\\s*\\(\\s*(['"\`])claude\\s[^'"\`]*\\1`, 'g'), // execSync('claude -p …')
-  /\[\s*(['"`])claude\1\s*,\s*\[/g, // ['claude', ['--version']] argv tuples
+  new RegExp(`\\b(?:${SPAWN_FNS})\\s*\\(${GAP}(['"\`])claude\\1`, 'g'), // sh('claude', …)
+  new RegExp(`\\b(?:${SPAWN_FNS})\\s*\\(${GAP}(['"\`])claude\\s[^'"\`]*\\1`, 'g'), // execSync('claude -p …')
+  new RegExp(`\\[${GAP}(['"\`])claude\\1\\s*,\\s*\\[`, 'g'), // ['claude', ['--version']] argv tuples
 ];
 
-// Comments are not spawns, but a comment stripper that is not string-aware can hide
-// code (a '/*' inside a string such as 'records/*.json' would swallow everything up to
-// the next '*/'). So drop only WHOLE lines that are unambiguously comments: a line that
-// starts with '//', or starts with '*' or '/*' and has no code after a closing '*/'.
-// Inline and trailing comments are kept and scanned (conservative: they can only add
-// a false positive, never hide a spawn).
-export function stripComments(src: string): string {
-  return src
-    .split('\n')
-    .filter((line) => {
-      const t = line.trimStart();
-      if (t.startsWith('//')) return false;
-      if (t.startsWith('*') || t.startsWith('/*')) {
-        const close = t.indexOf('*/');
-        return close >= 0 && t.slice(close + 2).trim() !== '';
-      }
-      return true;
-    })
-    .join('\n');
+// Comments are scanned like code, on purpose (#424 review rounds 1-3). Two comment
+// strippers in a row each opened a way to HIDE a spawn: a '/*' inside a string, then a
+// comment between '(' and 'claude', and lines starting with '*'. A comment that quotes
+// a raw spawn is a false positive, which is cheap: reword the comment. A hidden spawn
+// is a Keychain dialog on the operator's screen. The scanner takes the false positive.
+export function rawClaudeSpawns(src: string): number {
+  return RAW.reduce((n, re) => n + (src.match(re)?.length ?? 0), 0);
 }
 
-export function rawClaudeSpawns(src: string): number {
-  const code = stripComments(src);
-  return RAW.reduce((n, re) => n + (code.match(re)?.length ?? 0), 0);
-}
+// Only the blob-pinned vendored file is exempt, never the whole vendor/ dir.
+export const exempt = (rel: string) => rel === SEAM || rel === VENDOR;
 
 function walk(dir: string): string[] {
   const out: string[] = [];
@@ -88,8 +77,18 @@ describe('the scanner itself (can it fail?)', () => {
     expect(rawClaudeSpawns(`const H = process.env.H || 'claude';`)).toBe(0);
     expect(rawClaudeSpawns(`claudeSync(['-p', q], { cwd })`)).toBe(0);
     expect(rawClaudeSpawns(`dargs.push('-v', x, CLAUDE_IMAGE, 'claude', ...args)`)).toBe(0);
-    expect(rawClaudeSpawns(`// formerly: sh('claude', args)\nconst x = 1;`)).toBe(0);
-    expect(rawClaudeSpawns(`/* was execFileSync('claude', a) */`)).toBe(0);
+  });
+  it('no comment shape hides a spawn (review rounds 2-3)', () => {
+    expect(rawClaudeSpawns(`execFileSync( // run the model\n  'claude', ['-p', q])`)).toBe(1);
+    expect(rawClaudeSpawns(`execFileSync(/* bin */ 'claude', ['-p', q])`)).toBe(1);
+    expect(rawClaudeSpawns(`class A {\n  *arms() { yield sh('claude', ['-p']); }\n}`)).toBe(1);
+    // The accepted cost: a comment quoting a raw spawn is flagged too.
+    expect(rawClaudeSpawns(`// formerly: sh('claude', args)`)).toBe(1);
+  });
+  it('only the pinned vendored file is exempt (review round 3 F2)', () => {
+    expect(exempt('scenarios/lib/vendor/plugin-auth.mjs')).toBe(true);
+    expect(exempt('scenarios/lib/claude-auth.mjs')).toBe(true);
+    expect(exempt('scenarios/lib/vendor/evil.mjs')).toBe(false);
   });
   it('a /* inside a string cannot hide a later spawn (round-2 F1)', () => {
     const src = `const GLOB = join(REPO, 'scenarios/records/*.json');\nfunction arm(q) { return sh('claude', ['-p', q]); }\n/** doc */`;
@@ -109,7 +108,7 @@ describe('host claude spawns go through scenarios/lib/claude-auth.mjs', () => {
 
   it('no file outside the seam spawns `claude` itself', () => {
     const offenders = files
-      .filter((f) => f.rel !== SEAM && f.rel !== VENDOR)
+      .filter((f) => !exempt(f.rel))
       .map((f) => ({ file: f.rel, raw: rawClaudeSpawns(f.src) }))
       .filter((o) => o.raw > 0);
     expect(offenders).toEqual([]);
@@ -125,8 +124,8 @@ describe('host claude spawns go through scenarios/lib/claude-auth.mjs', () => {
   it(`at least ${MIN_ROUTED_SITES} routed call sites`, () => {
     let routed = 0;
     for (const f of files) {
-      if (f.rel === SEAM || f.rel === VENDOR) continue;
-      routed += (stripComments(f.src).match(/\bclaude(?:Sync|Version)\s*\(/g) ?? []).length;
+      if (exempt(f.rel)) continue;
+      routed += (f.src.match(/\bclaude(?:Sync|Version)\s*\(/g) ?? []).length;
     }
     expect(routed).toBeGreaterThanOrEqual(MIN_ROUTED_SITES);
   });
