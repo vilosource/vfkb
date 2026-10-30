@@ -373,3 +373,49 @@ describe('hook user-prompt-submit — budget and order (D7)', () => {
     expect(ups(dir, say('w1'), { PATH: `${bin}:${process.env.PATH}` })).toBe('');
   }, 20000);
 });
+
+describe('hook user-prompt-submit — the ADR-0084 line is unchanged outside the committed-brain model (§3)', () => {
+  // brainCommitOutcome returns `brain-clean` for a gitignored brain (empty status) and for a
+  // brain outside the repo (status exits 128). Neither means "nothing new since HEAD", so the
+  // B1 count must be the line's own read, as before ADR-0085 (and as Stop counts it).
+  /** feat/x, src modified, 3 new entries with no handoff; the brain dir is the caller's. */
+  function b1Repo(brainDir: (dir: string) => string): { dir: string; brain: string } {
+    const dir = mkdtempSync(join(tmpdir(), 'vfkb-upsw-b1-'));
+    g(dir, ['init', '-q', '-b', 'main']);
+    g(dir, ['config', 'user.email', 't@t']);
+    g(dir, ['config', 'user.name', 't']);
+    writeFileSync(join(dir, '.gitignore'), '.vfkb/\n');
+    mkdirSync(join(dir, 'src'));
+    writeFileSync(join(dir, 'src', 'a.ts'), 'a\n');
+    g(dir, ['add', '.']);
+    g(dir, ['commit', '-qm', 'seed']);
+    g(dir, ['checkout', '-qb', 'feat/x']);
+    writeFileSync(join(dir, 'src', 'a.ts'), 'wip\n');
+    const brain = brainDir(dir);
+    mkdirSync(brain, { recursive: true });
+    writeFileSync(join(brain, 'entries.jsonl'), entry('e00000000001') + entry('e00000000002') + entry('e00000000003'));
+    mkdirSync(join(brain, '.sessions'), { recursive: true });
+    writeFileSync(
+      join(brain, '.sessions', 'g1.json'),
+      JSON.stringify({ sessionId: 'g1', startedAt: 'x', lastAt: 'x', turnCount: 3, injectedIds: [], capturedIds: [] }),
+    );
+    return { dir, brain };
+  }
+  const B1 = 'this session has recorded 3 entries and no handoff/next entry';
+
+  it('a gitignored brain keeps the B1 clause', () => {
+    const { dir } = b1Repo((d) => join(d, '.vfkb'));
+    const o = JSON.parse(ups(dir, say('g1')));
+    expect(o.systemMessage).toBeUndefined();
+    expect(o.hookSpecificOutput.additionalContext).toContain(LINE_LEADIN);
+    expect(o.hookSpecificOutput.additionalContext).toContain(B1);
+  });
+
+  it('a brain outside the repo keeps the B1 clause', () => {
+    const outside = mkdtempSync(join(tmpdir(), 'vfkb-upsw-out-'));
+    const { dir, brain } = b1Repo(() => join(outside, '.vfkb'));
+    const o = JSON.parse(ups(dir, say('g1'), { VFKB_DATA_DIR: brain }));
+    expect(o.systemMessage).toBeUndefined();
+    expect(o.hookSpecificOutput.additionalContext).toContain(B1);
+  });
+});

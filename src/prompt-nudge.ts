@@ -346,9 +346,9 @@ export function gatherPromptContext(
   const staleCommits = p ? (cachedPinStaleness(cwd, brain, pin!, { deadline })?.commits ?? []) : [];
   const stale = staleCommits.length > 0;
   // The warning stage already read these (ADR-0085 §5): a strict prefix, not a second read.
-  // `brain-clean` in a repo means nothing is new since HEAD; `not-a-repo` keeps today's read.
-  const preFresh = pre?.fresh ?? (pre?.outcome === 'brain-clean' ? [] : undefined);
-  const fresh = preFresh ?? newBrainEntriesSinceHead(brain, cwd, { timeout: ms(left()) });
+  // Only an outcome that READ the brain hands over its ids. `brain-clean` is not "nothing new":
+  // a gitignored or out-of-tree brain is brain-clean too, so it keeps the line's own read.
+  const fresh = pre?.fresh ?? newBrainEntriesSinceHead(brain, cwd, { timeout: ms(left()) });
   const work = hasUncommittedWork(cwd, brain, { timeout: ms(left()) });
   const b1 = handoffNudgeDue({ uncommittedWork: work, newEntries: fresh.length, newHandoffs: fresh.filter(isHandoff).length });
   const branch =
