@@ -71,6 +71,7 @@ import {
   voidReason,
   warningChannels,
 } from './lib/ups-warning-verdict.mjs';
+import { observedModels } from './lib/observed-models.mjs';
 
 assertClaudeAuthReady(); // before anything metered
 
@@ -205,9 +206,11 @@ function transcript(sb) {
   let turnDurations = 0;
   let hookControl = false;
   let warningRecords = 0;
+  let cliSeen = null;
   for (const l of lines) {
     let j;
     try { j = JSON.parse(l); } catch { continue; }
+    if (!cliSeen && typeof j.version === 'string') cliSeen = j.version;
     if (j.type === 'assistant') {
       for (const c of j.message?.content || []) if (c.type === 'text') assistantText += c.text + '\n';
       if (j.message?.stop_reason === 'end_turn') endTurns++;
@@ -216,7 +219,8 @@ function transcript(sb) {
     if (l.includes('hook_additional_context') && l.includes('UserPromptSubmit') && l.includes(LINE_LEADIN)) hookControl = true;
     if (j.type !== 'assistant' && l.includes(WARNING_LEADIN)) warningRecords++;
   }
-  return { assistantText, replies: Math.max(endTurns, turnDurations), hookControl, warningRecords };
+  const om = observedModels(lines, MODEL);
+  return { assistantText, replies: Math.max(endTurns, turnDurations), hookControl, warningRecords, om, cliSeen };
 }
 
 // ------------------------------------------------------------------ the TUI
@@ -288,6 +292,7 @@ function trial(armName, arm, n) {
       replies: tr.replies,
       prompts: PROMPTS.length,
       hookControl: tr.hookControl,
+      modelInvalid: tr.om.invalidReasons,
       relayedByModel: tr.assistantText.includes(WARNING_LEADIN),
       screen: tui.screen,
       raw: tui.raw,
@@ -310,6 +315,9 @@ function trial(armName, arm, n) {
         relayedByModel: obs.relayedByModel,
         replies: tr.replies,
         hookControl: tr.hookControl,
+        observedModels: tr.om.models,
+        syntheticLines: tr.om.synthetic,
+        transcriptCli: tr.cliSeen,
         mainTipUnchanged: gitOr(sb.proj, ['rev-parse', 'main']) === sb.mainTip,
         sessionEndCommitted: (gitOr(sb.proj, ['log', '--oneline', '-1']) || '').includes('session-end auto-commit'),
         installErr: sb.installErr,
@@ -327,7 +335,7 @@ const isolationBefore = operatorDigest();
 const pluginJson = JSON.parse(readFileSync(join(PLUGIN_ROOT, 'plugin', '.claude-plugin', 'plugin.json'), 'utf8'));
 const meta = {
   scenario: 'ups-warning-tui', issue: 'vilosource/vfkb#395', adr: 'ADR-0085', mode: MODE,
-  date: new Date().toISOString(), cli: claudeVersion(), model: MODEL, trials: TRIALS,
+  date: new Date().toISOString(), cli: claudeVersion(), pinnedModel: MODEL, trials: TRIALS,
   vfkbSha: gitOr(REPO, ['rev-parse', 'HEAD']),
   plugin: {
     version: pluginJson.version,
@@ -336,6 +344,8 @@ const meta = {
     bundleSha256: sha256(BUNDLE),
     bundleHasWarning: readFileSync(BUNDLE, 'utf8').includes(WARNING_LEADIN),
   },
+  // decide Q4: the install source is a recorded fact, quoted by the release note.
+  installSource: 'directory-marketplace (claude plugin marketplace add <checkout> + plugin install --scope user)',
   prompts: PROMPTS,
   platform: `${process.platform} ${process.arch} node ${process.version}`,
 };

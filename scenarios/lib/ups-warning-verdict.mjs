@@ -68,6 +68,10 @@ export function voidReason(o) {
   if (!o.reachedPrompt) return 'TUI never reached the input prompt';
   if (!(o.replies >= o.prompts)) return `turns incomplete (${o.replies ?? 0}/${o.prompts} replies)`;
   if (!o.hookControl) return 'control: no UserPromptSubmit additionalContext with the line lead-in in the transcript';
+  // ADR-0050: the pin is observed in the transcript (scenarios/lib/observed-models.mjs), never
+  // assumed from --model. A missing check is VOID, not a pass (decide Q2).
+  if (!Array.isArray(o.modelInvalid)) return 'model: the observed-model check did not run';
+  if (o.modelInvalid.length) return `model: ${o.modelInvalid.join('; ')}`;
   return null;
 }
 
