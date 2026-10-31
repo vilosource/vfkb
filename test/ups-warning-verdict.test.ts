@@ -15,7 +15,7 @@ import {
 import { NO_AUTOCOMMIT_LEADIN, renderNoAutocommitMessage } from '../src/session-end.js';
 
 const MSG = renderNoAutocommitMessage('default', 'main', 1);
-const ok = { pluginInstalled: true, reachedPrompt: true, replies: 3, prompts: 3, hookControl: true, relayedByModel: false };
+const ok = { pluginInstalled: true, reachedPrompt: true, replies: 3, prompts: 3, hookControl: true, modelInvalid: [], relayedByModel: false };
 
 describe('ups-warning verdict', () => {
   it('the lead-in is the engine constant', () => {
