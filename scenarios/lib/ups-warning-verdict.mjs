@@ -68,6 +68,10 @@ export function voidReason(o) {
   if (!o.reachedPrompt) return 'TUI never reached the input prompt';
   if (!(o.replies >= o.prompts)) return `turns incomplete (${o.replies ?? 0}/${o.prompts} replies)`;
   if (!o.hookControl) return 'control: no UserPromptSubmit additionalContext with the line lead-in in the transcript';
+  // ADR-0050: the pin is observed in the transcript (scenarios/lib/observed-models.mjs), never
+  // assumed from --model. A missing check is VOID, not a pass (decide Q2).
+  if (!Array.isArray(o.modelInvalid)) return 'model: the observed-model check did not run';
+  if (o.modelInvalid.length) return `model: ${o.modelInvalid.join('; ')}`;
   return null;
 }
 
@@ -93,4 +97,30 @@ export function runVerdict(arms) {
   if (vs.length === 0) return 'INCOMPLETE';
   if (vs.includes('INCOMPLETE')) return 'INCOMPLETE';
   return vs.every((v) => v === 'DEMONSTRATED') ? 'DEMONSTRATED' : 'NOT-DEMONSTRATED';
+}
+
+/**
+ * RED baseline verdict (vfkb#395 decide, Q2 shape). The named expected failure for the
+ * pre-#395 plugin: `warning-absent` on treatment-main — the bundle has no lead-in, so no
+ * valid trial can show the warning. Confirmed only when that is OBSERVED: at least
+ * `trials` valid (non-VOID) trials, none with a warning channel, and the bundle under
+ * test really lacks WARNING_LEADIN. A run that is all VOID is broken, not RED.
+ */
+export function redVerdict({ rows = [], trials = 3, bundleHasWarning }) {
+  const valid = rows.filter((r) => !r.void);
+  const observed = valid.length >= trials && valid.every((r) => (r.channels || []).length === 0);
+  return {
+    expected: { 'treatment-main': 'warning-absent' },
+    observed: { 'treatment-main': observed },
+    validTrials: valid.length,
+    bundleLacksWarning: bundleHasWarning === false,
+    confirmed: observed && bundleHasWarning === false,
+    note: 'pre-#395 engine (plugin v0.22.0): no default-branch systemMessage, so the warning cannot be emitted',
+  };
+}
+
+/** An unconfirmed RED goes to <base>.partial.json and never overwrites committed evidence. */
+export function recordFile(base, record) {
+  if (record && record.red && record.red.confirmed !== true) return base.replace(/\.json$/, '.partial.json');
+  return base;
 }

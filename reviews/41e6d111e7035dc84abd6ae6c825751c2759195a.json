@@ -1,0 +1,51 @@
+{
+  "recordVersion": 1,
+  "sha": "41e6d111e7035dc84abd6ae6c825751c2759195a",
+  "governing": [
+    "docs/adr/ADR-0085-ups-systemmessage-warning.md",
+    "docs/adr/ADR-0052-review-gate.md"
+  ],
+  "reviewer": {
+    "agent": "adversarial-reviewer workflow subagent, round 1 at 211a1b9 (PR #428 comment, 10/10 mutations red); rounds 2-3 were null rounds on the unchanged head; round 4 at bc6c0e5829b9eb68bb393f33593d5118465aae2f (code-identical to 41e6d111e7035dc84abd6ae6c825751c2759195a; the commit after it is brain-only) by a workflow subagent that did not author the code diff (re-ran 27/27 and 5 mutations); the only commit since 211a1b9 is brain-only (.vfkb/, exempt)",
+    "model": "claude-opus-5-5",
+    "rounds": 4
+  },
+  "generated": "2026-11-01T06:56:35Z",
+  "findings": [
+    {
+      "id": "R1-B2",
+      "severity": "blocking",
+      "status": "fixed",
+      "acceptedBy": null,
+      "summary": "required review-gate check red: no reviews/<head>.json for the PR head; fixed by this record, filed against bc6c0e5829b9eb68bb393f33593d5118465aae2f after the descope brain commit"
+    },
+    {
+      "id": "R4-m1",
+      "severity": "minor",
+      "status": "open",
+      "acceptedBy": null,
+      "summary": "redVerdict counts every non-VOID row, not only arm === 'treatment-main'; harmless today because ARM_PLAN in red mode holds only treatment-main (scenarios/ups-warning-tui.mjs:94-95), latent if the red plan ever adds an arm"
+    }
+  ],
+  "findingsCount": 2,
+  "ruledOut": [
+    "R1-B1 'no ADR-0085 §8 L4 record' re-classified, not waived: it is #395's open DoD debt, not a defect of this diff. #428 is descoped (brain decision eae83d12bae9, Fable brainstorm decide step under operator ruling 54802539cda7) to harness hardening + decide Q1-Q6; the RED and GREEN records land in a records-only follow-up PR (scenarios/records/ is exempt from this gate). #395 stays open, status built, NOT yet verified. Precedent: scenarios/ups-warning-tui.mjs itself landed harness-first in 7a9348a (#426).",
+    "DoD honesty: the PR body and commits make no done/shipped/verified claim",
+    "no sk-ant- in any changed file; no AI attribution in any commit on the branch (the only Co-authored-by is the human author)",
+    "red-mode arm scoping: ARM_PLAN is treatment-main only in red mode, so redVerdict's unfiltered rows are the treatment-main rows",
+    "scenarios/records/*.partial.json is gitignored (round 1, .gitignore:40)"
+  ],
+  "mutations": [
+    { "guard": "test/observed-models.test.ts > <synthetic> only / pinned plus <synthetic>", "mutation": "observed-models.mjs: stop 'continue' after counting a <synthetic> line (re-run round 4)", "observedRed": true },
+    { "guard": "test/observed-models.test.ts > an absent model check is VOID too", "mutation": "ups-warning-verdict.mjs voidReason: delete the Array.isArray(o.modelInvalid) check (re-run round 4)", "observedRed": true },
+    { "guard": "test/observed-models.test.ts > a trial whose observed models are not exactly the pin is VOID", "mutation": "voidReason: drop the modelInvalid.length check (round 1)", "observedRed": true },
+    { "guard": "test/observed-models.test.ts > pinned plus another model", "mutation": "observedModels: drop the !== pinned / length !== 1 checks (round 1)", "observedRed": true },
+    { "guard": "test/ups-warning-verdict.test.ts > a broken run (all VOID) is not a RED baseline", "mutation": "redVerdict: valid = rows (stop filtering VOID rows) (re-run round 4)", "observedRed": true },
+    { "guard": "test/ups-warning-verdict.test.ts > the bundle already carries the warning", "mutation": "redVerdict: drop the bundleHasWarning === false conjunct (round 1)", "observedRed": true },
+    { "guard": "test/ups-warning-verdict.test.ts > confirms when every valid trial lacks the warning", "mutation": "redVerdict: drop the valid.length >= trials floor (round 1)", "observedRed": true },
+    { "guard": "test/ups-warning-verdict.test.ts > routes an unconfirmed RED to .partial.json", "mutation": "recordFile: condition replaced with false (never route to .partial.json) (re-run round 4)", "observedRed": true },
+    { "guard": "test/engine-rev.test.ts > returns null for a bundle without a stamp, or a dev-only stamp", "mutation": "engineRevFromBundle: widen [0-9a-f]{7,40} to [0-9a-z]{3,40} so 'dev' passes (re-run round 4)", "observedRed": true }
+  ],
+  "mutationsNote": null,
+  "verdict": "MERGE"
+}

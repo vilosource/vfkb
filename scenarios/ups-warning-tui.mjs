@@ -67,10 +67,14 @@ import {
   runVerdict,
   screenCount,
   stripAnsi,
+  recordFile,
+  redVerdict,
   trialPass,
   voidReason,
   warningChannels,
 } from './lib/ups-warning-verdict.mjs';
+import { observedModels } from './lib/observed-models.mjs';
+import { engineRevFromBundle } from './lib/engine-rev.mjs';
 
 assertClaudeAuthReady(); // before anything metered
 
@@ -205,9 +209,11 @@ function transcript(sb) {
   let turnDurations = 0;
   let hookControl = false;
   let warningRecords = 0;
+  let cliSeen = null;
   for (const l of lines) {
     let j;
     try { j = JSON.parse(l); } catch { continue; }
+    if (!cliSeen && typeof j.version === 'string') cliSeen = j.version;
     if (j.type === 'assistant') {
       for (const c of j.message?.content || []) if (c.type === 'text') assistantText += c.text + '\n';
       if (j.message?.stop_reason === 'end_turn') endTurns++;
@@ -216,7 +222,8 @@ function transcript(sb) {
     if (l.includes('hook_additional_context') && l.includes('UserPromptSubmit') && l.includes(LINE_LEADIN)) hookControl = true;
     if (j.type !== 'assistant' && l.includes(WARNING_LEADIN)) warningRecords++;
   }
-  return { assistantText, replies: Math.max(endTurns, turnDurations), hookControl, warningRecords };
+  const om = observedModels(lines, MODEL);
+  return { assistantText, replies: Math.max(endTurns, turnDurations), hookControl, warningRecords, om, cliSeen };
 }
 
 // ------------------------------------------------------------------ the TUI
@@ -288,6 +295,7 @@ function trial(armName, arm, n) {
       replies: tr.replies,
       prompts: PROMPTS.length,
       hookControl: tr.hookControl,
+      modelInvalid: tr.om.invalidReasons,
       relayedByModel: tr.assistantText.includes(WARNING_LEADIN),
       screen: tui.screen,
       raw: tui.raw,
@@ -310,6 +318,9 @@ function trial(armName, arm, n) {
         relayedByModel: obs.relayedByModel,
         replies: tr.replies,
         hookControl: tr.hookControl,
+        observedModels: tr.om.models,
+        syntheticLines: tr.om.synthetic,
+        transcriptCli: tr.cliSeen,
         mainTipUnchanged: gitOr(sb.proj, ['rev-parse', 'main']) === sb.mainTip,
         sessionEndCommitted: (gitOr(sb.proj, ['log', '--oneline', '-1']) || '').includes('session-end auto-commit'),
         installErr: sb.installErr,
@@ -324,11 +335,17 @@ function trial(armName, arm, n) {
 
 // ------------------------------------------------------------------ main
 const isolationBefore = operatorDigest();
+const ENGINE_REV = engineRevFromBundle(readFileSync(BUNDLE, 'utf8'));
 const pluginJson = JSON.parse(readFileSync(join(PLUGIN_ROOT, 'plugin', '.claude-plugin', 'plugin.json'), 'utf8'));
 const meta = {
   scenario: 'ups-warning-tui', issue: 'vilosource/vfkb#395', adr: 'ADR-0085', mode: MODE,
-  date: new Date().toISOString(), cli: claudeVersion(), model: MODEL, trials: TRIALS,
+  date: new Date().toISOString(), cli: claudeVersion(), pinnedModel: MODEL, trials: TRIALS,
   vfkbSha: gitOr(REPO, ['rev-parse', 'HEAD']),
+  // decide: the engine commit actually under test, read off the vendored bundle's
+  // ENGINE_COMMIT stamp (observed), never the main tip at run time. vfkbSha stays the
+  // scenario-script revision. engineRevOnMain is a diagnostic, never a predicate.
+  engineRev: ENGINE_REV,
+  engineRevOnMain: ENGINE_REV ? (() => { try { sh('git', ['merge-base', '--is-ancestor', ENGINE_REV, 'origin/main'], { cwd: REPO }); return true; } catch { return false; } })() : null,
   plugin: {
     version: pluginJson.version,
     gitSha: gitOr(PLUGIN_ROOT, ['rev-parse', 'HEAD']),
@@ -336,6 +353,8 @@ const meta = {
     bundleSha256: sha256(BUNDLE),
     bundleHasWarning: readFileSync(BUNDLE, 'utf8').includes(WARNING_LEADIN),
   },
+  // decide Q4: the install source is a recorded fact, quoted by the release note.
+  installSource: 'directory-marketplace (claude plugin marketplace add <checkout> + plugin install --scope user)',
   prompts: PROMPTS,
   platform: `${process.platform} ${process.arch} node ${process.version}`,
 };
@@ -357,12 +376,15 @@ const shim = keychainShimReport();
 const record = {
   ...meta,
   verdict: runVerdict(arms),
+  // decide (Q2 shape): RED is the named expected failure, observed per trial.
+  ...(MODE === 'red' ? { red: redVerdict({ rows, trials: TRIALS, bundleHasWarning: meta.plugin.bundleHasWarning }) } : {}),
   arms,
   isolation: { operatorInstalledPluginsUnchanged: operatorDigest() === isolationBefore },
   keychain: { ...shim, line: formatShimReport(shim) },
   rows,
 };
+const OUT_FILE = join(dirname(OUT), recordFile(OUT.split('/').pop(), record));
 mkdirSync(dirname(OUT), { recursive: true });
-writeFileSync(OUT, redactSecrets(JSON.stringify(record, null, 2)) + '\n');
+writeFileSync(OUT_FILE, redactSecrets(JSON.stringify(record, null, 2)) + '\n');
 console.log(`verdict: ${record.verdict}`, JSON.stringify(arms));
-console.log('wrote', OUT);
+console.log('wrote', OUT_FILE);
