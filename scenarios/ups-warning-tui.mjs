@@ -67,11 +67,14 @@ import {
   runVerdict,
   screenCount,
   stripAnsi,
+  recordFile,
+  redVerdict,
   trialPass,
   voidReason,
   warningChannels,
 } from './lib/ups-warning-verdict.mjs';
 import { observedModels } from './lib/observed-models.mjs';
+import { engineRevFromBundle } from './lib/engine-rev.mjs';
 
 assertClaudeAuthReady(); // before anything metered
 
@@ -332,11 +335,17 @@ function trial(armName, arm, n) {
 
 // ------------------------------------------------------------------ main
 const isolationBefore = operatorDigest();
+const ENGINE_REV = engineRevFromBundle(readFileSync(BUNDLE, 'utf8'));
 const pluginJson = JSON.parse(readFileSync(join(PLUGIN_ROOT, 'plugin', '.claude-plugin', 'plugin.json'), 'utf8'));
 const meta = {
   scenario: 'ups-warning-tui', issue: 'vilosource/vfkb#395', adr: 'ADR-0085', mode: MODE,
   date: new Date().toISOString(), cli: claudeVersion(), pinnedModel: MODEL, trials: TRIALS,
   vfkbSha: gitOr(REPO, ['rev-parse', 'HEAD']),
+  // decide: the engine commit actually under test, read off the vendored bundle's
+  // ENGINE_COMMIT stamp (observed), never the main tip at run time. vfkbSha stays the
+  // scenario-script revision. engineRevOnMain is a diagnostic, never a predicate.
+  engineRev: ENGINE_REV,
+  engineRevOnMain: ENGINE_REV ? (() => { try { sh('git', ['merge-base', '--is-ancestor', ENGINE_REV, 'origin/main'], { cwd: REPO }); return true; } catch { return false; } })() : null,
   plugin: {
     version: pluginJson.version,
     gitSha: gitOr(PLUGIN_ROOT, ['rev-parse', 'HEAD']),
@@ -367,12 +376,15 @@ const shim = keychainShimReport();
 const record = {
   ...meta,
   verdict: runVerdict(arms),
+  // decide (Q2 shape): RED is the named expected failure, observed per trial.
+  ...(MODE === 'red' ? { red: redVerdict({ rows, trials: TRIALS, bundleHasWarning: meta.plugin.bundleHasWarning }) } : {}),
   arms,
   isolation: { operatorInstalledPluginsUnchanged: operatorDigest() === isolationBefore },
   keychain: { ...shim, line: formatShimReport(shim) },
   rows,
 };
+const OUT_FILE = join(dirname(OUT), recordFile(OUT.split('/').pop(), record));
 mkdirSync(dirname(OUT), { recursive: true });
-writeFileSync(OUT, redactSecrets(JSON.stringify(record, null, 2)) + '\n');
+writeFileSync(OUT_FILE, redactSecrets(JSON.stringify(record, null, 2)) + '\n');
 console.log(`verdict: ${record.verdict}`, JSON.stringify(arms));
-console.log('wrote', OUT);
+console.log('wrote', OUT_FILE);

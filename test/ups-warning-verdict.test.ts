@@ -83,3 +83,29 @@ describe('ups-warning verdict', () => {
     expect(runVerdict({})).toBe('INCOMPLETE');
   });
 });
+
+// vfkb#395 decide (Q2 shape): a RED record is RED because the named expected failure
+// is OBSERVED per trial, not because VFKB_UPSW_MODE=red was set.
+import { redVerdict, recordFile } from '../scenarios/lib/ups-warning-verdict.mjs';
+describe('redVerdict (named expected failure, observed not asserted)', () => {
+  const valid = (channels: string[] = []) => ({ void: null, channels });
+  it('confirms when every valid trial lacks the warning and the bundle lacks the lead-in', () => {
+    const r = redVerdict({ rows: [valid(), valid(), valid()], trials: 3, bundleHasWarning: false });
+    expect(r).toMatchObject({ expected: { 'treatment-main': 'warning-absent' }, observed: { 'treatment-main': true }, confirmed: true });
+  });
+  it('mutation: one valid trial shows the warning → not confirmed', () => {
+    expect(redVerdict({ rows: [valid(), valid(['screen']), valid()], trials: 3, bundleHasWarning: false }).confirmed).toBe(false);
+  });
+  it('mutation: the bundle already carries the warning → not confirmed (wrong RED target)', () => {
+    expect(redVerdict({ rows: [valid(), valid(), valid()], trials: 3, bundleHasWarning: true }).confirmed).toBe(false);
+  });
+  it('a broken run (all VOID) is not a RED baseline', () => {
+    const v = { void: 'hook control missing', channels: [] };
+    expect(redVerdict({ rows: [v, v, v], trials: 3, bundleHasWarning: false }).confirmed).toBe(false);
+  });
+  it('routes an unconfirmed RED to .partial.json so it cannot overwrite committed evidence', () => {
+    expect(recordFile('ups-warning-tui.red-baseline.json', { red: { confirmed: false } })).toBe('ups-warning-tui.red-baseline.partial.json');
+    expect(recordFile('ups-warning-tui.red-baseline.json', { red: { confirmed: true } })).toBe('ups-warning-tui.red-baseline.json');
+    expect(recordFile('ups-warning-tui.json', {})).toBe('ups-warning-tui.json');
+  });
+});
