@@ -1,0 +1,137 @@
+{
+  "scenario": "ups-warning-tui",
+  "issue": "vilosource/vfkb#395",
+  "adr": "ADR-0085",
+  "mode": "red",
+  "date": "2026-11-03T07:33:39.712Z",
+  "cli": "2.1.292 (Claude Code)",
+  "pinnedModel": "claude-haiku-4-5-20251001",
+  "trials": 3,
+  "vfkbSha": "be1ecc5f86fce0d7af3a172dc9628da5d18efbf2",
+  "engineRev": "e2ac6e9",
+  "engineRevOnMain": true,
+  "plugin": {
+    "version": "0.22.0",
+    "gitSha": "6b065b468684354047a4ac3e497eb0bfe8391ab0",
+    "treeHash": "627a5916fdd7ddb78b5887ef10f1a0c951dc4c22a98155851ac8b4056a0e8ef3",
+    "bundleSha256": "78d04610854813bd297ec18575138696149d3b9c4ffc0324947419ef36ff4c21",
+    "bundleHasWarning": false
+  },
+  "installSource": "directory-marketplace (claude plugin marketplace add <checkout> + plugin install --scope user)",
+  "prompts": [
+    "Reply with exactly one word: pineapple",
+    "Reply with exactly one word: mango",
+    "Reply with exactly one word: kiwi"
+  ],
+  "platform": "darwin arm64 node v22.23.2",
+  "verdict": "DEMONSTRATED",
+  "red": {
+    "expected": {
+      "treatment-main": "warning-absent"
+    },
+    "observed": {
+      "treatment-main": true
+    },
+    "validTrials": 3,
+    "bundleLacksWarning": true,
+    "confirmed": true,
+    "note": "pre-#395 engine (plugin v0.22.0): no default-branch systemMessage, so the warning cannot be emitted"
+  },
+  "arms": {
+    "treatment-main": {
+      "expect": "absent",
+      "valid": 3,
+      "hits": 3,
+      "verdict": "DEMONSTRATED"
+    }
+  },
+  "isolation": {
+    "operatorInstalledPluginsUnchanged": true
+  },
+  "keychain": {
+    "built": true,
+    "calls": 18,
+    "refusedWrites": 0,
+    "line": "claude-auth: keychain shim calls=18 refusedWrites=0"
+  },
+  "rows": [
+    {
+      "arm": "treatment-main",
+      "trial": 1,
+      "expect": "absent",
+      "void": null,
+      "pass": true,
+      "channels": [],
+      "diagnostics": {
+        "label": null,
+        "screenCount": 0,
+        "transcriptWarningRecords": 0,
+        "smKeyStored": [],
+        "relayedByModel": false,
+        "replies": 6,
+        "hookControl": true,
+        "observedModels": [
+          "claude-haiku-4-5-20251001"
+        ],
+        "syntheticLines": 0,
+        "transcriptCli": "2.1.292",
+        "mainTipUnchanged": true,
+        "sessionEndCommitted": false,
+        "installErr": null,
+        "screenEvidence": []
+      }
+    },
+    {
+      "arm": "treatment-main",
+      "trial": 2,
+      "expect": "absent",
+      "void": null,
+      "pass": true,
+      "channels": [],
+      "diagnostics": {
+        "label": null,
+        "screenCount": 0,
+        "transcriptWarningRecords": 0,
+        "smKeyStored": [],
+        "relayedByModel": false,
+        "replies": 6,
+        "hookControl": true,
+        "observedModels": [
+          "claude-haiku-4-5-20251001"
+        ],
+        "syntheticLines": 0,
+        "transcriptCli": "2.1.292",
+        "mainTipUnchanged": true,
+        "sessionEndCommitted": false,
+        "installErr": null,
+        "screenEvidence": []
+      }
+    },
+    {
+      "arm": "treatment-main",
+      "trial": 3,
+      "expect": "absent",
+      "void": null,
+      "pass": true,
+      "channels": [],
+      "diagnostics": {
+        "label": null,
+        "screenCount": 0,
+        "transcriptWarningRecords": 0,
+        "smKeyStored": [],
+        "relayedByModel": false,
+        "replies": 6,
+        "hookControl": true,
+        "observedModels": [
+          "claude-haiku-4-5-20251001"
+        ],
+        "syntheticLines": 0,
+        "transcriptCli": "2.1.292",
+        "mainTipUnchanged": true,
+        "sessionEndCommitted": false,
+        "installErr": null,
+        "screenEvidence": []
+      }
+    }
+  ]
+}
