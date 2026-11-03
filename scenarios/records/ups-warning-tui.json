@@ -1,0 +1,317 @@
+{
+  "scenario": "ups-warning-tui",
+  "issue": "vilosource/vfkb#395",
+  "adr": "ADR-0085",
+  "mode": "capability",
+  "date": "2026-11-03T07:35:20.165Z",
+  "cli": "2.1.292 (Claude Code)",
+  "pinnedModel": "claude-haiku-4-5-20251001",
+  "trials": 3,
+  "vfkbSha": "be1ecc5f86fce0d7af3a172dc9628da5d18efbf2",
+  "engineRev": "7a9348a",
+  "engineRevOnMain": true,
+  "plugin": {
+    "version": "0.23.0",
+    "gitSha": "99b55145366e87f407aad41d2fa6f7c6fb2dc035",
+    "treeHash": "1aabda74fbe3a866da7d0358c96cba2e9790733012cc1ee6bde5d7d3059420b4",
+    "bundleSha256": "3ff92c21cfd58750200587c326d527f1722be0132db443abb02800aa0a28f71a",
+    "bundleHasWarning": true
+  },
+  "installSource": "directory-marketplace (claude plugin marketplace add <checkout> + plugin install --scope user)",
+  "prompts": [
+    "Reply with exactly one word: pineapple",
+    "Reply with exactly one word: mango",
+    "Reply with exactly one word: kiwi"
+  ],
+  "platform": "darwin arm64 node v22.23.2",
+  "verdict": "DEMONSTRATED",
+  "arms": {
+    "treatment-main": {
+      "expect": "present",
+      "valid": 3,
+      "hits": 3,
+      "verdict": "DEMONSTRATED"
+    },
+    "contrast-topic": {
+      "expect": "absent",
+      "valid": 3,
+      "hits": 3,
+      "verdict": "DEMONSTRATED"
+    },
+    "contrast-clean": {
+      "expect": "absent",
+      "valid": 3,
+      "hits": 3,
+      "verdict": "DEMONSTRATED"
+    }
+  },
+  "isolation": {
+    "operatorInstalledPluginsUnchanged": true
+  },
+  "keychain": {
+    "built": true,
+    "calls": 54,
+    "refusedWrites": 0,
+    "line": "claude-auth: keychain shim calls=54 refusedWrites=0"
+  },
+  "rows": [
+    {
+      "arm": "treatment-main",
+      "trial": 1,
+      "expect": "present",
+      "void": null,
+      "pass": true,
+      "channels": [
+        "screen",
+        "screenJoined",
+        "raw"
+      ],
+      "diagnostics": {
+        "label": "� �UserPromptSubmit says:",
+        "screenCount": 1,
+        "transcriptWarningRecords": 1,
+        "smKeyStored": [
+          "on-default-branch|main"
+        ],
+        "relayedByModel": false,
+        "replies": 6,
+        "hookControl": true,
+        "observedModels": [
+          "claude-haiku-4-5-20251001"
+        ],
+        "syntheticLines": 0,
+        "transcriptCli": "2.1.292",
+        "mainTipUnchanged": true,
+        "sessionEndCommitted": false,
+        "installErr": null,
+        "screenEvidence": [
+          "  � �UserPromptSubmit says: vfkb will not auto-commit the 1 new brain entry on main (the default branch). Fix: git switch -c <name>; vfkb then commits the brain on exit."
+        ]
+      }
+    },
+    {
+      "arm": "treatment-main",
+      "trial": 2,
+      "expect": "present",
+      "void": null,
+      "pass": true,
+      "channels": [
+        "screen",
+        "screenJoined",
+        "raw"
+      ],
+      "diagnostics": {
+        "label": "� �UserPromptSubmit says:",
+        "screenCount": 1,
+        "transcriptWarningRecords": 1,
+        "smKeyStored": [
+          "on-default-branch|main"
+        ],
+        "relayedByModel": false,
+        "replies": 6,
+        "hookControl": true,
+        "observedModels": [
+          "claude-haiku-4-5-20251001"
+        ],
+        "syntheticLines": 0,
+        "transcriptCli": "2.1.292",
+        "mainTipUnchanged": true,
+        "sessionEndCommitted": false,
+        "installErr": null,
+        "screenEvidence": [
+          "  � �UserPromptSubmit says: vfkb will not auto-commit the 1 new brain entry on main (the default branch). Fix: git switch -c <name>; vfkb then commits the brain on exit."
+        ]
+      }
+    },
+    {
+      "arm": "treatment-main",
+      "trial": 3,
+      "expect": "present",
+      "void": null,
+      "pass": true,
+      "channels": [
+        "screen",
+        "screenJoined",
+        "raw"
+      ],
+      "diagnostics": {
+        "label": "� �UserPromptSubmit says:",
+        "screenCount": 1,
+        "transcriptWarningRecords": 1,
+        "smKeyStored": [
+          "on-default-branch|main"
+        ],
+        "relayedByModel": false,
+        "replies": 6,
+        "hookControl": true,
+        "observedModels": [
+          "claude-haiku-4-5-20251001"
+        ],
+        "syntheticLines": 0,
+        "transcriptCli": "2.1.292",
+        "mainTipUnchanged": true,
+        "sessionEndCommitted": false,
+        "installErr": null,
+        "screenEvidence": [
+          "  � �UserPromptSubmit says: vfkb will not auto-commit the 1 new brain entry on main (the default branch). Fix: git switch -c <name>; vfkb then commits the brain on exit."
+        ]
+      }
+    },
+    {
+      "arm": "contrast-topic",
+      "trial": 1,
+      "expect": "absent",
+      "void": null,
+      "pass": true,
+      "channels": [],
+      "diagnostics": {
+        "label": null,
+        "screenCount": 0,
+        "transcriptWarningRecords": 0,
+        "smKeyStored": [],
+        "relayedByModel": false,
+        "replies": 6,
+        "hookControl": true,
+        "observedModels": [
+          "claude-haiku-4-5-20251001"
+        ],
+        "syntheticLines": 0,
+        "transcriptCli": "2.1.292",
+        "mainTipUnchanged": true,
+        "sessionEndCommitted": true,
+        "installErr": null,
+        "screenEvidence": []
+      }
+    },
+    {
+      "arm": "contrast-topic",
+      "trial": 2,
+      "expect": "absent",
+      "void": null,
+      "pass": true,
+      "channels": [],
+      "diagnostics": {
+        "label": null,
+        "screenCount": 0,
+        "transcriptWarningRecords": 0,
+        "smKeyStored": [],
+        "relayedByModel": false,
+        "replies": 6,
+        "hookControl": true,
+        "observedModels": [
+          "claude-haiku-4-5-20251001"
+        ],
+        "syntheticLines": 0,
+        "transcriptCli": "2.1.292",
+        "mainTipUnchanged": true,
+        "sessionEndCommitted": true,
+        "installErr": null,
+        "screenEvidence": []
+      }
+    },
+    {
+      "arm": "contrast-topic",
+      "trial": 3,
+      "expect": "absent",
+      "void": null,
+      "pass": true,
+      "channels": [],
+      "diagnostics": {
+        "label": null,
+        "screenCount": 0,
+        "transcriptWarningRecords": 0,
+        "smKeyStored": [],
+        "relayedByModel": false,
+        "replies": 6,
+        "hookControl": true,
+        "observedModels": [
+          "claude-haiku-4-5-20251001"
+        ],
+        "syntheticLines": 0,
+        "transcriptCli": "2.1.292",
+        "mainTipUnchanged": true,
+        "sessionEndCommitted": true,
+        "installErr": null,
+        "screenEvidence": []
+      }
+    },
+    {
+      "arm": "contrast-clean",
+      "trial": 1,
+      "expect": "absent",
+      "void": null,
+      "pass": true,
+      "channels": [],
+      "diagnostics": {
+        "label": null,
+        "screenCount": 0,
+        "transcriptWarningRecords": 0,
+        "smKeyStored": [],
+        "relayedByModel": false,
+        "replies": 6,
+        "hookControl": true,
+        "observedModels": [
+          "claude-haiku-4-5-20251001"
+        ],
+        "syntheticLines": 0,
+        "transcriptCli": "2.1.292",
+        "mainTipUnchanged": true,
+        "sessionEndCommitted": false,
+        "installErr": null,
+        "screenEvidence": []
+      }
+    },
+    {
+      "arm": "contrast-clean",
+      "trial": 2,
+      "expect": "absent",
+      "void": null,
+      "pass": true,
+      "channels": [],
+      "diagnostics": {
+        "label": null,
+        "screenCount": 0,
+        "transcriptWarningRecords": 0,
+        "smKeyStored": [],
+        "relayedByModel": false,
+        "replies": 6,
+        "hookControl": true,
+        "observedModels": [
+          "claude-haiku-4-5-20251001"
+        ],
+        "syntheticLines": 0,
+        "transcriptCli": "2.1.292",
+        "mainTipUnchanged": true,
+        "sessionEndCommitted": false,
+        "installErr": null,
+        "screenEvidence": []
+      }
+    },
+    {
+      "arm": "contrast-clean",
+      "trial": 3,
+      "expect": "absent",
+      "void": null,
+      "pass": true,
+      "channels": [],
+      "diagnostics": {
+        "label": null,
+        "screenCount": 0,
+        "transcriptWarningRecords": 0,
+        "smKeyStored": [],
+        "relayedByModel": false,
+        "replies": 6,
+        "hookControl": true,
+        "observedModels": [
+          "claude-haiku-4-5-20251001"
+        ],
+        "syntheticLines": 0,
+        "transcriptCli": "2.1.292",
+        "mainTipUnchanged": true,
+        "sessionEndCommitted": false,
+        "installErr": null,
+        "screenEvidence": []
+      }
+    }
+  ]
+}
