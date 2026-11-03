@@ -68,6 +68,9 @@ export const UPSTREAM = Object.freeze({
 });
 
 export const redactSecrets = upstream.redactSecrets;
+// Pins HOME and CLAUDE_CONFIG_DIR to a sandbox home, so a child cannot write the
+// operator's registry (vfkb#416). Pass the result as claudeSync's opts.env.
+export const sandboxEnv = upstream.sandboxEnv;
 
 let managerName;
 function sessionManager() {

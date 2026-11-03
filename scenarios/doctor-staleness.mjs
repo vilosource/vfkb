@@ -28,6 +28,14 @@
 // own model API. Nothing is installed into the sandbox, so the plugin's own
 // hooks never fire there.
 //
+// ISOLATION (vfkb#416): the agent runs under its own sandbox HOME and
+// CLAUDE_CONFIG_DIR (sandboxEnv). It used to inherit the operator's config dir,
+// read the project's `enabledPlugins: {vfkb@vfkb}` and record a project-scope
+// install for the temp sandbox in the operator's real installed_plugins.json
+// (and load the operator's vfkb plugin into the trial). The run digests that
+// file before and after; a change voids the verdict. Content assertion over the
+// file, not an exit code (ADR-0051 clause 3).
+//
 // VERDICT: recomputed per ADR-0022 — wired >= ceil(2n/3), contrast <= floor(n/3).
 // RED-FIRST: against the pre-RFC-024 engine doctor has no currency check at all,
 // so the wired arm cannot report stale — the recorded RED baseline.
@@ -35,10 +43,11 @@
 //   VFKB_DS_TRIALS=1 node scenarios/doctor-staleness.mjs
 // ============================================================================
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { assertClaudeAuthReady, claudeSync } from './lib/claude-auth.mjs';
+import { assertClaudeAuthReady, claudeSync, sandboxEnv } from './lib/claude-auth.mjs';
 
 // vfkb#422: refuse before anything metered if a claude child could touch the macOS Keychain.
 assertClaudeAuthReady();
@@ -50,6 +59,12 @@ const MODEL = process.env.VFKB_DS_MODEL || 'claude-haiku-4-5';
 const TIMEOUT = parseInt(process.env.VFKB_DS_TIMEOUT || '240000', 10);
 
 const sh = (c, a, o = {}) => execFileSync(c, a, { encoding: 'utf8', ...o });
+
+// The operator's own registry must not change (vfkb#416).
+const OPERATOR_CFG = process.env.CLAUDE_CONFIG_DIR || join(process.env.HOME || '', '.claude');
+const operatorPluginsFile = join(OPERATOR_CFG, 'plugins', 'installed_plugins.json');
+const operatorDigest = () =>
+  existsSync(operatorPluginsFile) ? createHash('sha256').update(readFileSync(operatorPluginsFile)).digest('hex') : 'absent';
 const git = (cwd, ...args) =>
   sh('git', ['-c', 'user.email=l4@vfkb.test', '-c', 'user.name=l4', '-c', 'commit.gpgsign=false', ...args], {
     cwd,
@@ -104,6 +119,8 @@ function buildSandbox(stale) {
   const clone = join(root, 'marketplaces', 'vfkb');
   const proj = join(root, 'project');
   const cfg = join(root, 'cfg');
+  const home = join(root, 'home'); // the agent's own HOME + CLAUDE_CONFIG_DIR (vfkb#416)
+  mkdirSync(join(home, '.claude'), { recursive: true });
 
   // A marketplace repo with two commits: v0.3.0 then v0.4.0.
   mkdirSync(join(work, '.claude-plugin'), { recursive: true });
@@ -149,11 +166,11 @@ function buildSandbox(stale) {
   writeFileSync(join(proj, '.claude', 'settings.json'), JSON.stringify({ enabledPlugins: { 'vfkb@vfkb': true } }, null, 2));
   writeFileSync(join(proj, '.vfkb', 'entries.jsonl'), '');
 
-  return { root, proj, cfg };
+  return { root, proj, cfg, home };
 }
 
 function runArm(stale) {
-  const { root, proj, cfg } = buildSandbox(stale);
+  const { root, proj, cfg, home } = buildSandbox(stale);
   const cmd = `CLAUDE_CONFIG_DIR=${cfg} VFKB_DATA_DIR=.vfkb node ${CLI} doctor`;
   const prompt = QUESTION.replace('{CMD}', cmd);
 
@@ -179,6 +196,7 @@ function runArm(stale) {
   try {
     out = claudeSync(['-p', prompt, '--strict-mcp-config', '--dangerously-skip-permissions', '--model', MODEL], {
       cwd: proj,
+      env: sandboxEnv(process.env, home),
       timeout: TIMEOUT,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -260,6 +278,7 @@ if (process.env.VFKB_DS_DRYRUN) {
 }
 
 console.log(`vfkb doctor-staleness L4  (model=${MODEL}, trials=${TRIALS})`);
+const isolationBefore = operatorDigest();
 console.log('only variable = whether the marketplace clone is one commit behind its remote\n');
 
 const arms = {
@@ -282,19 +301,22 @@ const hits = (a) => a.trials.filter((x) => a.predicate.every((p) => x[p] === tru
 const wiredN = hits(arms.wired);
 const contrastN = hits(arms.contrast);
 const need = Math.ceil((2 * TRIALS) / 3);
-const demonstrated = wiredN >= need && contrastN <= Math.floor(TRIALS / 3);
+const operatorInstalledPluginsUnchanged = operatorDigest() === isolationBefore;
+const demonstrated = wiredN >= need && contrastN <= Math.floor(TRIALS / 3) && operatorInstalledPluginsUnchanged;
 
 console.log(`\nwired: ${wiredN}/${TRIALS} (stale+remedy)   |   contrast leaks: ${contrastN}/${TRIALS}`);
+console.log(`isolation: operator installed_plugins.json ${operatorInstalledPluginsUnchanged ? 'unchanged' : 'CHANGED (vfkb#416 leak) — verdict void'} (${operatorPluginsFile})`);
 console.log(demonstrated
   ? `DEMONSTRATED — \`vfkb doctor\` names the stale clone and its remedy (ADR-0022, recomputed)`
-  : `NOT demonstrated (need wired >=${need}/${TRIALS} AND contrast <=${Math.floor(TRIALS / 3)})`);
+  : `NOT demonstrated (need wired >=${need}/${TRIALS} AND contrast <=${Math.floor(TRIALS / 3)} AND an unchanged operator registry)`);
 
 const vfkbSha = sh('git', ['rev-parse', 'HEAD'], { cwd: REPO }).trim();
 mkdirSync(join(REPO, 'scenarios/records'), { recursive: true });
 writeFileSync(
   join(REPO, 'scenarios/records/doctor-staleness.json'),
   JSON.stringify({ scenario: 'doctor-staleness', recordVersion: 2, vfkbSha, model: MODEL,
-    trials: TRIALS, generated: new Date().toISOString(), arms }, null, 2) + '\n',
+    trials: TRIALS, generated: new Date().toISOString(),
+    isolation: { operatorInstalledPluginsUnchanged }, arms }, null, 2) + '\n',
 );
 console.log(`record → scenarios/records/doctor-staleness.json (vfkbSha=${vfkbSha.slice(0, 7)})`);
 process.exit(demonstrated ? 0 : 1);
