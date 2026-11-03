@@ -1,0 +1,35 @@
+{
+  "recordVersion": 1,
+  "sha": "e913ea4920977c0c526cab518dda80cf35c9c98d",
+  "governing": [
+    "docs/adr/ADR-0051-delivery-honesty.md",
+    "docs/adr/ADR-0050-l4-dod-constitutional-brake.md",
+    "docs/adr/ADR-0070-guards-that-can-fail.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "opus", "rounds": 1 },
+  "generated": "2026-11-03T17:20:00Z",
+  "findings": [
+    { "id": "F1", "severity": "minor", "status": "open", "summary": "Whole-file digest can void an honest run if a concurrent operator session writes installed_plugins.json mid-run (fails closed: costs a re-run, never hides a leak); #416 allows comparing only vfkb-ds- rows instead", "acceptedBy": null },
+    { "id": "F2", "severity": "minor", "status": "open", "summary": "Record stores only a boolean; before/after digests and new vfkb-ds- paths would make a voided run diagnosable", "acceptedBy": null },
+    { "id": "F3", "severity": "minor", "status": "open", "summary": "No unmetered unit-level guard; the fake-claude-on-PATH harness from this review could become a deterministic behaviour test", "acceptedBy": null },
+    { "id": "F4", "severity": "minor", "status": "open", "summary": "Same leak shape may exist in other scenarios; author narrowed it to cross-repo-record.mjs:131 (others set vfkb@vfkb false), filed as #437, leak UNVERIFIED", "acceptedBy": null },
+    { "id": "F5", "severity": "minor", "status": "open", "summary": "Empty HOME with unset CLAUDE_CONFIG_DIR resolves the guard path to relative .claude (negligible)", "acceptedBy": null }
+  ],
+  "findingsCount": 5,
+  "ruledOut": [
+    "DRYRUN bypass (never spawns the agent)",
+    "post-compare async write (execFileSync blocks; empty sandbox config loads no plugin hooks)",
+    "sandbox home leftover (inside root, rmSync'd; no vfkb-ds-* left in TMPDIR)",
+    "agent breakage from HOME change (node/git from unchanged PATH, absolute CLI path)",
+    "vendored plugin-auth.mjs drift (blob 79eb6d09 matches pin)",
+    "secrets in record, AI attribution in commit",
+    "record schema consumers (none parse doctor-staleness.json)"
+  ],
+  "mutations": [
+    { "guard": "scenarios/doctor-staleness.mjs operator-registry digest check", "mutation": "fake claude on PATH writes a row directly to the operator installed_plugins.json (R2)", "observedRed": true },
+    { "guard": "scenarios/doctor-staleness.mjs operator-registry digest check + sandboxEnv", "mutation": "deleted the env: sandboxEnv(...) line; fake claude writes to its inherited CLAUDE_CONFIG_DIR (R3)", "observedRed": true },
+    { "guard": "scenarios/doctor-staleness.mjs digest check $HOME/.claude fallback", "mutation": "CLAUDE_CONFIG_DIR unset, fake claude leaks into $HOME/.claude (R5)", "observedRed": true }
+  ],
+  "mutationsNote": null,
+  "verdict": "MERGE"
+}
