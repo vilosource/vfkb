@@ -1,0 +1,180 @@
+{
+ "recordVersion": 1,
+ "sha": "e39a5ab7d24bf83df0cbe621dd404d87e9d002df",
+ "governing": [
+  "docs/adr/ADR-0051-delivery-honesty.md",
+  "docs/adr/ADR-0022-l4-evaluation-methodology.md"
+ ],
+ "reviewer": {
+  "agent": "general-purpose",
+  "model": "claude-opus-5-5",
+  "rounds": 2
+ },
+ "generated": "2026-11-04T11:19:18Z",
+ "findings": [
+  {
+   "id": "R1-M1",
+   "severity": "major",
+   "status": "fixed",
+   "summary": "Mount probe matched any 'No such file': docker's daemon-connect error (socket missing) got the VFKB_L4_BRAIN_ROOT remedy. Now anchored on cat's own message (e39a5ab)",
+   "acceptedBy": null
+  },
+  {
+   "id": "R1-M2",
+   "severity": "major",
+   "status": "fixed",
+   "summary": "is_error result with modelUsage and a non-auth service error (usage limit) was scored: fake gave no-secrets DEMONSTRATED 3/3. AUTH_ERROR widened to HTTP error/usage/rate limit/overload (e39a5ab)",
+   "acceptedBy": null
+  },
+  {
+   "id": "R1-m1",
+   "severity": "minor",
+   "status": "fixed",
+   "summary": "Earlier-trial timeouts invisible (only last trial's rows kept). Per-scenario timeouts count + md note (e39a5ab)",
+   "acceptedBy": null
+  },
+  {
+   "id": "R1-m2",
+   "severity": "minor",
+   "status": "fixed",
+   "summary": "Second refusal dropped previous; now carries old.previous (e39a5ab)",
+   "acceptedBy": null
+  },
+  {
+   "id": "R1-m3",
+   "severity": "minor",
+   "status": "fixed",
+   "summary": "Refused entry stamped trials_n=TRIALS and fed header uniformity; now trials_n 0 and excluded (e39a5ab)",
+   "acceptedBy": null
+  },
+  {
+   "id": "R1-m4",
+   "severity": "minor",
+   "status": "fixed",
+   "summary": "Permission-denied probe branch and exit/stderr fault text untested; tests added (e39a5ab)",
+   "acceptedBy": null
+  },
+  {
+   "id": "R1-m5",
+   "severity": "minor",
+   "status": "fixed",
+   "summary": "Probe docker run had no timeout; timeout text said 'no signal'. 120 s probe timeout; text names exit status (e39a5ab)",
+   "acceptedBy": null
+  },
+  {
+   "id": "R1-m6",
+   "severity": "minor",
+   "status": "open",
+   "summary": "pi docker and host claude arms still score any error as __ERROR__, passing no-secrets: out of scope, filed #445",
+   "acceptedBy": null
+  },
+  {
+   "id": "R2-n1",
+   "severity": "minor",
+   "status": "open",
+   "summary": "Header refused-entry filter (X8) and all-refused undefined (X7) are untested: both mutations survive",
+   "acceptedBy": null
+  },
+  {
+   "id": "R2-n2",
+   "severity": "minor",
+   "status": "open",
+   "summary": "All-refused record prints 'undefined' for vfkb/N/digest in md and compare.mjs: cosmetic",
+   "acceptedBy": null
+  }
+ ],
+ "findingsCount": 10,
+ "ruledOut": [
+  "header 'mixed' readers: only scenarios/compare.mjs:42 interpolates it; no breakage",
+  "AUTH_ERROR false positives: applied only when is_error; scored error results (error_during_execution, max-turns) carry no result text",
+  "anchored cat regex: both images are node:20-slim (GNU coreutils); real docker wording matches",
+  "killed docker run client: real claude exits on proxied SIGTERM, no leftover container (docker ps -a)",
+  "brain cleanup after a timeout: run() returns __ERROR__, scenario rmSync still runs",
+  "timeout as scored miss cannot produce a false green: it only lowers the pass rate",
+  "protocols: no AI attribution in commits, no secrets, tests write records to a temp dir"
+ ],
+ "mutations": [
+  {
+   "guard": "test/docker-claude.test.ts timeout",
+   "mutation": "forced-miss removed (if (trialTimeout) -> false)",
+   "observedRed": true
+  },
+  {
+   "guard": "test/docker-claude.test.ts probe",
+   "mutation": "--user dropped from probe",
+   "observedRed": true
+  },
+  {
+   "guard": "test/docker-claude.test.ts record",
+   "mutation": "header = last-run values",
+   "observedRed": true
+  },
+  {
+   "guard": "test/docker-claude.test.ts record",
+   "mutation": "refused entry not written",
+   "observedRed": true
+  },
+  {
+   "guard": "test/docker-claude.test.ts 401-after-turn",
+   "mutation": "AUTH_ERROR clause removed",
+   "observedRed": true
+  },
+  {
+   "guard": "test/docker-claude.test.ts skipped",
+   "mutation": "probe runs even when all scenarios skipped",
+   "observedRed": true
+  },
+  {
+   "guard": "test/docker-claude.test.ts timeout",
+   "mutation": "no skip of remaining runs after timeout",
+   "observedRed": true
+  },
+  {
+   "guard": "test/docker-claude.test.ts noimage",
+   "mutation": "probe error unclassified",
+   "observedRed": true
+  },
+  {
+   "guard": "test/docker-claude.test.ts probe",
+   "mutation": "probe image = PI_IMAGE",
+   "observedRed": true
+  },
+  {
+   "guard": "test/docker-claude.test.ts nodaemon",
+   "mutation": "unanchored /No such file/",
+   "observedRed": true
+  },
+  {
+   "guard": "test/docker-claude.test.ts perm",
+   "mutation": "Permission-denied branch off",
+   "observedRed": true
+  },
+  {
+   "guard": "test/docker-claude.test.ts crash",
+   "mutation": "exit/stderr detail dropped from fault",
+   "observedRed": true
+  },
+  {
+   "guard": "test/docker-claude.test.ts limit",
+   "mutation": "usage/rate/overload removed from AUTH_ERROR",
+   "observedRed": true
+  },
+  {
+   "guard": "test/docker-claude.test.ts record",
+   "mutation": "second refusal drops previous",
+   "observedRed": true
+  },
+  {
+   "guard": "test/docker-claude.test.ts record",
+   "mutation": "timeouts++ removed",
+   "observedRed": true
+  },
+  {
+   "guard": "test/docker-claude.test.ts record",
+   "mutation": "refused entry keeps trials_n",
+   "observedRed": true
+  }
+ ],
+ "verdict": "MERGE",
+ "governingNote": "Issue #442 is the spec (review-round-2 follow-ups of #441)"
+}
