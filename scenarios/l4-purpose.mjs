@@ -101,8 +101,10 @@ let harnessFault = null;
 // holds trivially for a run that never ran). The rest of the trial's runs are skipped.
 let trialTimeout = null;
 const CLAUDE_IMAGE = process.env.VFKB_L4_CLAUDE_IMAGE || 'vfkb-l4-claude:dev';
-// An error result whose text names an auth failure (vfkb#442).
-const AUTH_ERROR = /\bAPI Error: 40[13]\b|Failed to authenticate|OAuth token has expired|Not logged in|Invalid API key/i;
+// An error result whose text names an auth or service failure (vfkb#442).
+// Also the service-side failures (an HTTP error, a usage or rate limit, overload): none of them
+// is the model's answer, and a single-arm "nothing stored" predicate would pass on any of them.
+const AUTH_ERROR = /\bAPI Error: \d{3}\b|Failed to authenticate|OAuth token has expired|Not logged in|Invalid API key|usage limit|rate limit|overloaded/i;
 const UID = typeof process.getuid === 'function' ? process.getuid() : 0;
 const GID = typeof process.getgid === 'function' ? process.getgid() : 0;
 // Fixed in-container paths (must match scenarios/docker/{pi,claude}.Dockerfile).
@@ -141,19 +143,21 @@ function checkDockerMount() {
   let seen = '', err = '', status = 0;
   try {
     seen = sh('docker', ['run', '--rm', '--user', `${UID}:${GID}`, '-v', `${probe}:${C_BRAIN}`,
-      HARNESS === 'pi' ? PI_IMAGE : CLAUDE_IMAGE, 'cat', `${C_BRAIN}/mount-probe`], { stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+      HARNESS === 'pi' ? PI_IMAGE : CLAUDE_IMAGE, 'cat', `${C_BRAIN}/mount-probe`], { stdio: ['ignore', 'pipe', 'pipe'], timeout: 120000 }).trim();
   } catch (e) {
     err = String(e.stderr || e.message || '').trim();
     status = e.status ?? e.code ?? 'error';
   }
   rmSync(probe, { recursive: true, force: true });
   if (seen === token) return;
-  if (/No such file/i.test(err) || (!err && !status)) {
+  // Anchored on cat's own message: docker's daemon-connect error also says "no such file".
+  const catSays = (what) => new RegExp(`cat: ${C_BRAIN}/mount-probe: ${what}`, 'i').test(err);
+  if (catSays('No such file') || (!err && !status)) {
     console.error(
       `the docker VM cannot see brains under ${BRAIN_ROOT} (a file written there was not visible at ${C_BRAIN}).\n` +
         'Refusing: every run would fail and score as a miss. Set VFKB_L4_BRAIN_ROOT to a shared path (e.g. ~/.cache/vfkb-l4).',
     );
-  } else if (/Permission denied/i.test(err)) {
+  } else if (catSays('Permission denied')) {
     console.error(
       `the brain mount under ${BRAIN_ROOT} is visible but not readable as uid ${UID}:${GID} in the container (${sample(err)}).\n` +
         'Refusing: every run would fail and score as a miss. Use a VFKB_L4_BRAIN_ROOT this uid owns.',
@@ -293,7 +297,7 @@ function run({ harness = HARNESS, brain, prompt, inject = 'vfkb', mcp = false, c
       catch (e) {
         stdout = String(e.stdout || '');
         if (e.code === 'ETIMEDOUT') {
-          trialTimeout = `docker run timed out after ${DOCKER_TIMEOUT} ms (ETIMEDOUT, ${e.signal || 'no signal'})`;
+          trialTimeout = `docker run timed out after ${DOCKER_TIMEOUT} ms (ETIMEDOUT, exit ${e.status ?? '-'}${e.signal ? `, ${e.signal}` : ''})`;
           throw new Error(trialTimeout);
         }
         how = `exit ${e.status ?? '-'}${e.signal ? ` ${e.signal}` : ''}${e.code ? ` ${e.code}` : ''}: ${sample(String(e.stderr || '')) || '(no stderr)'}`;
@@ -962,12 +966,14 @@ for (const s of toRun) {
   console.log(`# ${s.id}  [${s.dim}]  (N=${TRIALS})`);
   const trialVerdicts = [];
   let lastRows = [];
+  let timeouts = 0; // only the last trial's rows are kept, so count timeouts across all trials
   observedModels = new Set();
   for (let t = 0; t < TRIALS; t++) {
     let r;
     trialTimeout = null;
     try { r = s.exec(); } catch (e) { r = { rows: [{ label: 'ERROR', pass: false, detail: String(e.message || e), sample: '' }], demonstrated: false }; }
     if (trialTimeout) {
+      timeouts++;
       r = { rows: [...r.rows, { label: 'TIMEOUT', pass: false, detail: 'trial scored as a miss', output: trialTimeout, sample: trialTimeout }], demonstrated: false };
     }
     if (harnessFault) {
@@ -988,7 +994,7 @@ for (const s of toRun) {
   if (CLAUDE_DOCKER) console.log(`  observed models: ${[...observedModels].sort().join(', ') || 'none'}`);
   console.log(`  -> ${demonstrated ? 'DEMONSTRATED' : 'INCONCLUSIVE'}  (${passes}/${TRIALS} trials)\n`);
   results.push({ id: s.id, dim: s.dim, demonstrated, passes, trials: TRIALS, passRate, rows: lastRows,
-    ...(CLAUDE_DOCKER ? { observedModels: [...observedModels].sort() } : {}) });
+    ...(CLAUDE_DOCKER ? { observedModels: [...observedModels].sort(), timeouts } : {}) });
 }
 
 // ---- Record this model's behavior (merge per scenario, keyed by model) ----
@@ -1034,21 +1040,24 @@ function writeRecord(refused) {
       ...prov,
       rows: r.rows.map((x) => ({ label: x.label, pass: x.pass, detail: x.detail, prompt: x.prompt, output: x.output })),
       ...(r.observedModels ? { observedModels: r.observedModels } : {}),
+      ...(r.timeouts ? { timeouts: r.timeouts } : {}),
     };
   }
   // A refused scenario's latest attempt could not score: its old verdict no longer stands.
   if (refused) {
     const old = rec.scenarios[refused.id];
     rec.scenarios[refused.id] = {
-      dim: refused.dim, demonstrated: false, trials: 'refused', refused: refused.fault, ...prov, rows: [],
-      ...(old && old.trials !== 'refused' ? { previous: { demonstrated: old.demonstrated, trials: old.trials, vfkb_sha: old.vfkb_sha } } : {}),
+      // No trial finished, so trials_n is 0; the header ignores refused entries.
+      dim: refused.dim, demonstrated: false, trials: 'refused', refused: refused.fault, ...prov, trials_n: 0, rows: [],
+      // A second refusal carries the last scored verdict forward, not the first refusal.
+      ...(old ? { previous: old.trials === 'refused' ? old.previous : { demonstrated: old.demonstrated, trials: old.trials, vfkb_sha: old.vfkb_sha } } : {}),
     };
   }
-  const entries = Object.values(rec.scenarios);
+  const entries = Object.values(rec.scenarios).filter((e) => e.trials !== 'refused');
   rec.generated = now; // when the file was last written
   for (const k of PROV.filter((x) => x !== 'generated')) {
     const vals = [...new Set(entries.map((e) => e[k]))];
-    rec[k] = vals.length === 1 ? vals[0] : 'mixed';
+    rec[k] = vals.length === 1 ? vals[0] : (vals.length ? 'mixed' : undefined);
   }
   writeFileSync(jsonPath, JSON.stringify(rec, null, 2));
   // human-readable companion
@@ -1067,7 +1076,7 @@ function writeRecord(refused) {
     ...ids.map((i) => {
       const s = rec.scenarios[i];
       const cells = s.refused ? `REFUSED: ${s.refused.replace(/\|/g, '/')}` : s.rows.map((x) => `${x.label}=${x.pass ? 'PASS' : 'fail'}`).join(', ');
-      return `| ${i} | ${s.dim} | ${s.demonstrated ? 'YES' : 'no'} | ${s.trials || '-'} | ${s.vfkb_sha || '-'} N=${s.trials_n ?? '-'}${s.provenance_inferred ? ' (inferred)' : ''} | ${cells} |`;
+      return `| ${i} | ${s.dim} | ${s.demonstrated ? 'YES' : 'no'} | ${s.trials || '-'}${s.timeouts ? ` (${s.timeouts} timed out)` : ''} | ${s.vfkb_sha || '-'} N=${s.trials_n ?? '-'}${s.provenance_inferred ? ' (inferred)' : ''} | ${cells} |`;
     }),
   ].join('\n');
   writeFileSync(join(dir, `${slug}.md`), md + '\n');

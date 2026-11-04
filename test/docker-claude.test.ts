@@ -84,12 +84,20 @@ if (a[0] === 'image') { console.log('sha256:fake'); process.exit(0); }
 const cat = a.indexOf('cat');
 if (cat > 0) {
   if (process.env.FAKE_DOCKER_PROBE === 'noimage') { console.error("Unable to find image 'x' locally"); process.exit(125); }
+  // What real docker printed with Colima's socket missing (review of #444).
+  if (process.env.FAKE_DOCKER_PROBE === 'nodaemon') { console.error('failed to connect to the docker API at unix:///x/docker.sock; check if the path is correct and if the daemon is running: dial unix /x/docker.sock: connect: no such file or directory'); process.exit(1); }
+  if (process.env.FAKE_DOCKER_PROBE === 'perm') { console.error('cat: /brain/mount-probe: Permission denied'); process.exit(1); }
   if (process.env.FAKE_DOCKER_MOUNT === 'empty') { console.error('cat: /brain/mount-probe: No such file or directory'); process.exit(1); }
   const [host, cont] = a[a.indexOf('-v') + 1].split(':');
   process.stdout.write(fs.readFileSync(a[cat + 1].replace(cont, host), 'utf8'));
   process.exit(0);
 }
 if (process.env.FAKE_DOCKER_MODE === 'hang') setTimeout(() => {}, 600000);
+else if (process.env.FAKE_DOCKER_MODE === 'crash') { console.error('container crashed: boom'); process.exit(137); }
+else if (process.env.FAKE_DOCKER_MODE === 'limit') {
+  console.log(JSON.stringify({ type: 'result', is_error: true, result: 'Claude AI usage limit reached|1767225600', modelUsage: { 'claude-haiku-4-5-20251001': {} } }));
+  process.exit(1);
+}
 else if (process.env.FAKE_DOCKER_MODE === '401-after-turn') {
   console.log(JSON.stringify({ type: 'result', is_error: true, result: 'Failed to authenticate. API Error: 401', modelUsage: { 'claude-haiku-4-5-20251001': {} } }));
   process.exit(1);
@@ -144,6 +152,36 @@ else console.log(JSON.stringify({ type: 'result', result: 'db-prod-9c814.interna
     expect(r.stderr).toContain('could not run the mount probe (exit 125)');
     expect(r.stderr).toContain('Unable to find image');
     expect(r.stderr).not.toContain('cannot see brains under');
+  });
+
+  it('a stopped docker daemon names docker, not the brain root (#444 review M1)', () => {
+    writeFileSync(log, '');
+    const r = runL4({ FAKE_DOCKER_PROBE: 'nodaemon' });
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain('could not run the mount probe (exit 1)');
+    expect(r.stderr).not.toContain('cannot see brains under');
+  });
+
+  it('an unreadable mount names the uid (vfkb#442)', () => {
+    writeFileSync(log, '');
+    const r = runL4({ FAKE_DOCKER_PROBE: 'perm' });
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain(`not readable as uid ${process.getuid!()}:${process.getgid!()}`);
+  });
+
+  it('a run that dies with no output refuses, naming its exit status and stderr (vfkb#442)', () => {
+    writeFileSync(log, '');
+    const r = runL4({ FAKE_DOCKER_MODE: 'crash' }, 'no-secrets');
+    expect(r.status, r.stdout + r.stderr).toBe(3);
+    expect(r.stderr).toContain('exit 137');
+    expect(r.stderr).toContain('container crashed: boom');
+  });
+
+  it('a usage-limit error result refuses even with a model key (#444 review M2)', () => {
+    writeFileSync(log, '');
+    const r = runL4({ FAKE_DOCKER_MODE: 'limit', VFKB_L4_TRIALS: '3' }, 'no-secrets');
+    expect(r.status, r.stdout + r.stderr).toBe(3);
+    expect(r.stdout).not.toMatch(/DEMONSTRATED/);
   });
 
   it('no probe when every selected scenario is skipped on this harness (vfkb#442)', () => {
@@ -214,6 +252,17 @@ else console.log(JSON.stringify({ type: 'result', result: 'db-prod-9c814.interna
         demonstrated: false, trials: 'refused', previous: { demonstrated: true, trials: '3/3', vfkb_sha: 'oldsha1' },
       });
       expect(rec.scenarios['no-secrets'].refused).toContain('401');
+      // Refused: no trial finished, and the header ignores it.
+      expect(rec.scenarios['no-secrets'].trials_n).toBe(0);
+      // A second refusal keeps the last scored verdict (#444 review m2).
+      expect(runL4({ ...env, FAKE_DOCKER_MODE: '401' }, 'no-secrets', true).status).toBe(3);
+      rec = JSON.parse(readFileSync(path, 'utf8'));
+      expect(rec.scenarios['no-secrets'].previous).toEqual({ demonstrated: true, trials: '3/3', vfkb_sha: 'oldsha1' });
+      // A timeout is counted on the entry, since only the last trial's rows are kept (#444 review m1).
+      expect(runL4({ ...env, FAKE_DOCKER_MODE: 'hang', VFKB_L4_DOCKER_TIMEOUT: '1500' }, 'stale-supersession', true).status).toBe(1);
+      rec = JSON.parse(readFileSync(path, 'utf8'));
+      expect(rec.scenarios['stale-supersession'].timeouts).toBe(1);
+      expect(readFileSync(join(recDir, `${slug}.md`), 'utf8')).toContain('0/1 (1 timed out)');
       expect(readFileSync(join(recDir, `${slug}.md`), 'utf8')).toMatch(/\| no-secrets \|.*\| no \| refused \|.*REFUSED: /);
     } finally {
       rmSync(recDir, { recursive: true, force: true });
