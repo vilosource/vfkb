@@ -223,6 +223,10 @@ this is a **deliberate discipline**:
 - **NO AI attribution in ANY commit** — never `Co-Authored-By: Claude/Anthropic`,
   `noreply@anthropic.com`, 🤖, or "Generated with Claude Code". (A global commit-msg hook enforces
   this; honor it — a blocked commit pushes nothing, so verify `git log` after committing.)
+- **Commit as vilosource, never the OneIO work identity.** The global `~/.gitconfig` carries
+  `jason.viloria@oneio.cloud`; each clone sets `user.email 126692+vilosource@users.noreply.github.com`
+  (name `Jason Viloria`) locally. `.githooks/pre-commit` refuses any other author or committer;
+  `npm install` wires it (`core.hooksPath=.githooks`, via `scripts/install-git-hooks.mjs`).
 - **Always work on a branch — NEVER commit or push directly to `main`.** Every change (code *and*
   docs, incl. RFCs/ADRs) lands on a topic branch and is delivered as a **PR** for the operator to read
   on GitHub. **Definition of Done = the branch is mergeable to `main`** (green tests, review-ready).

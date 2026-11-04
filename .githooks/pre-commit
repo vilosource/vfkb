@@ -1,0 +1,21 @@
+#!/bin/sh
+# Commit identity guard: every commit in vfkb is authored AND committed as vilosource.
+# The operator's global ~/.gitconfig carries a work (OneIO) identity; without a repo-local
+# override, commits here silently went out under it. Set the identity once per clone:
+#   git config user.name "Jason Viloria"
+#   git config user.email 126692+vilosource@users.noreply.github.com
+# Installed by `npm install` (scripts/install-git-hooks.mjs sets core.hooksPath=.githooks).
+ALLOWED='126692+vilosource@users.noreply.github.com'
+
+email_of() { git var "$1" 2>/dev/null | sed -n 's/.*<\(.*\)>.*/\1/p'; }
+author=$(email_of GIT_AUTHOR_IDENT)
+committer=$(email_of GIT_COMMITTER_IDENT)
+
+if [ "$author" != "$ALLOWED" ] || [ "$committer" != "$ALLOWED" ]; then
+  echo "vfkb pre-commit: refusing to commit as author <$author>, committer <$committer>." >&2
+  echo "Commits in this repo must use <$ALLOWED> (vilosource). Fix with:" >&2
+  echo "  git config user.name \"Jason Viloria\"" >&2
+  echo "  git config user.email $ALLOWED" >&2
+  exit 1
+fi
+exit 0
