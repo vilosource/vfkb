@@ -1,0 +1,148 @@
+{
+ "recordVersion": 1,
+ "sha": "9212dfe03d1bbac61b2cf4e2c9e46bbf326bdeb5",
+ "governing": [
+  "CLAUDE.md"
+ ],
+ "governingNote": "CLAUDE.md commit rules (the identity rule this PR adds), plus the operator's request: 'commits should be as vilosource, not the oneio account; ensure there is a git hook to ensure it'.",
+ "reviewer": {
+  "agent": "general-purpose",
+  "model": "claude-opus-5-5",
+  "rounds": 2
+ },
+ "generated": "2026-11-04T15:04:12Z",
+ "findings": [
+  {
+   "id": "R1-m1",
+   "severity": "minor",
+   "status": "fixed",
+   "summary": "merge, cherry-pick, revert, rebase and commit-tree never run pre-commit, so OneIO commits could still be made: pre-push checks every outgoing commit; pre-merge-commit runs the pre-commit check (9212dfe)",
+   "acceptedBy": null
+  },
+  {
+   "id": "R1-m3",
+   "severity": "minor",
+   "status": "fixed",
+   "summary": "case-sensitive email match: now case-insensitive (9212dfe)",
+   "acceptedBy": null
+  },
+  {
+   "id": "R1-m5",
+   "severity": "minor",
+   "status": "fixed",
+   "summary": "outside contributors blocked with no opt-out: git config vfkb.identityGuard off (9212dfe)",
+   "acceptedBy": null
+  },
+  {
+   "id": "R1-m6",
+   "severity": "minor",
+   "status": "fixed",
+   "summary": "stale CLAUDE.md claim of a global commit-msg hook corrected (9212dfe)",
+   "acceptedBy": null
+  },
+  {
+   "id": "R1-m2",
+   "severity": "minor",
+   "status": "open",
+   "summary": "branches/worktrees without .githooks are unguarded until rebased onto main (the local user.email still protects them)",
+   "acceptedBy": null
+  },
+  {
+   "id": "R1-m4",
+   "severity": "minor",
+   "status": "open",
+   "summary": "scripts/install-git-hooks.mjs has no test (probed by hand)",
+   "acceptedBy": null
+  },
+  {
+   "id": "R2-m1",
+   "severity": "minor",
+   "status": "open",
+   "summary": "new-branch push falls back to 'not on any remote-tracking ref'; with origin/main >~179 commits stale, main's historical optiscan / old-noreply commits are refused",
+   "acceptedBy": null
+  },
+  {
+   "id": "R2-m2",
+   "severity": "minor",
+   "status": "open",
+   "summary": "bot-author allowance untested (M5 survives); the release-chain new-branch push relies on it",
+   "acceptedBy": null
+  },
+  {
+   "id": "R2-m3",
+   "severity": "minor",
+   "status": "open",
+   "summary": "annotated tag's tagger identity not checked",
+   "acceptedBy": null
+  }
+ ],
+ "findingsCount": 9,
+ "ruledOut": [
+  "--amend: git hands the amended commit's original author to pre-commit, so amending a OneIO commit is refused",
+  "SessionEnd auto-commit (git commit -o) as OneIO is refused; session-end fails open (reason 'error'), brain stays staged",
+  "relative core.hooksPath resolves per worktree root; works from subdirectories and linked worktrees",
+  "git var strips angle brackets from names, so a crafted name cannot spoof the email; a git var failure fails closed",
+  "installer is a no-op under CI (npm ci/pack/publish in workflows); 'files: [dist]' keeps it out of the package",
+  "pre-push: outer read loop keeps state; empty list passes; multi-ref pushes name the offending ref; force-push rsha..lsha includes rewritten commits; tags peel to commits",
+  "real push shapes pass: topic push to a URL, release-chain empty commit, branch rebased on stale-by-30 main"
+ ],
+ "mutations": [
+  {
+   "guard": "test/commit-identity-hook.test.ts pre-commit",
+   "mutation": "author check dropped",
+   "observedRed": true
+  },
+  {
+   "guard": "test/commit-identity-hook.test.ts pre-commit",
+   "mutation": "committer check dropped",
+   "observedRed": true
+  },
+  {
+   "guard": "test/commit-identity-hook.test.ts pre-commit",
+   "mutation": "exit 0 on mismatch",
+   "observedRed": true
+  },
+  {
+   "guard": "test/commit-identity-hook.test.ts pre-push",
+   "mutation": "exit 0 on bad commits",
+   "observedRed": true
+  },
+  {
+   "guard": "test/commit-identity-hook.test.ts pre-push",
+   "mutation": "no range scanned",
+   "observedRed": true
+  },
+  {
+   "guard": "test/commit-identity-hook.test.ts pre-push URL",
+   "mutation": "remote-tip range replaced by --not --remotes",
+   "observedRed": true
+  },
+  {
+   "guard": "test/commit-identity-hook.test.ts pre-merge-commit",
+   "mutation": "hook replaced by exit 0",
+   "observedRed": true
+  },
+  {
+   "guard": "test/commit-identity-hook.test.ts case",
+   "mutation": "lower() removed",
+   "observedRed": true
+  },
+  {
+   "guard": "test/commit-identity-hook.test.ts github committer",
+   "mutation": "noreply@github.com not allowed",
+   "observedRed": true
+  },
+  {
+   "guard": "test/commit-identity-hook.test.ts opt-out",
+   "mutation": "vfkb.identityGuard ignored",
+   "observedRed": true
+  },
+  {
+   "guard": "test/commit-identity-hook.test.ts pre-push",
+   "mutation": "outer loop in a subshell loses state",
+   "observedRed": true
+  }
+ ],
+ "mutationsNote": "The bot-author allowance mutation survives (open finding R2-m2).",
+ "verdict": "MERGE"
+}

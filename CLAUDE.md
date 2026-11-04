@@ -227,8 +227,16 @@ this is a **deliberate discipline**:
 ## Commit rules
 
 - **NO AI attribution in ANY commit** — never `Co-Authored-By: Claude/Anthropic`,
-  `noreply@anthropic.com`, 🤖, or "Generated with Claude Code". (A global commit-msg hook enforces
-  this; honor it — a blocked commit pushes nothing, so verify `git log` after committing.)
+  `noreply@anthropic.com`, 🤖, or "Generated with Claude Code". (No hook enforces this on the
+  operator's Mac — checked 2026-11-04, there is no global commit-msg hook — so it is a discipline
+  rule: check `git log` after committing.)
+- **Commit as vilosource, never the OneIO work identity.** The global `~/.gitconfig` carries
+  `jason.viloria@oneio.cloud`; each clone sets `user.email 126692+vilosource@users.noreply.github.com`
+  (name `Jason Viloria`) locally. `.githooks/` enforces it: `pre-commit` and `pre-merge-commit`
+  refuse any other author or committer, and `pre-push` checks every outgoing commit (so cherry-picks,
+  reverts, rebases and `--no-verify` commits are caught before they leave). `npm install` wires it
+  (`core.hooksPath=.githooks`, via `scripts/install-git-hooks.mjs`; a no-op in CI). Opt-out for
+  an outside contributor: `git config vfkb.identityGuard off`.
 - **Always work on a branch — NEVER commit or push directly to `main`.** Every change (code *and*
   docs, incl. RFCs/ADRs) lands on a topic branch and is delivered as a **PR** for the operator to read
   on GitHub. **Definition of Done = the branch is mergeable to `main`** (green tests, review-ready).
