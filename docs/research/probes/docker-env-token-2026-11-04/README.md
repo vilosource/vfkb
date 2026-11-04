@@ -23,7 +23,8 @@ the container is unauthenticated, so no other credential path is reaching it.
 
 **Not observed.**
 - What happens when the access token expires mid-run inside the container. The
-  harness instead refuses before each trial when a stored token is under the
-  `VFKB_L4_MIN_TOKEN_MINUTES` margin (`assertClaudeTokenFresh`).
+  harness does not try to predict it. Any docker claude run with no `modelUsage`
+  model (a 401 included) refuses the whole run, and that is tested with a fake 401
+  (`test/docker-claude.test.ts`). No real expiry was forced.
 - Whether a container-side refresh would have rotated the operator's refresh token.
   Nobody forced one, and the refresh token no longer enters the container.
