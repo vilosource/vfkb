@@ -371,8 +371,13 @@ function run({ harness = HARNESS, brain, prompt, inject = 'vfkb', mcp = false, c
     // The docker claude arm has already set harnessFault or trialTimeout before throwing.
     if (!harnessFault && !trialTimeout) {
       const what = `${harness}${harness === 'pi' ? ` (${PI_MODE})` : ` (${CLAUDE_MODE})`} run`;
+      // Host claude prints its errors on STDOUT (observed, CLI 2.1.311); pi on stderr.
+      const said = sample(String(e?.stderr || '')) || sample(String(e?.stdout || ''));
       if (e && e.code === 'ETIMEDOUT') trialTimeout = `${what} timed out (ETIMEDOUT, exit ${e.status ?? '-'}${e.signal ? `, ${e.signal}` : ''})`;
-      else trialError ||= `${what} failed (exit ${e?.status ?? '-'}${e?.signal ? ` ${e.signal}` : ''}${e?.code ? ` ${e.code}` : ''}): ${sample(String(e?.stderr || '')) || sample(String(e?.message || e)) || '(no detail)'}`;
+      // An auth or service failure is not a capability result: refuse, as the docker claude
+      // arm does, so an expired token aborts a re-pin instead of recording misses over it.
+      else if (AUTH_ERROR.test(`${e?.stdout || ''}\n${e?.stderr || ''}`)) harnessFault ||= `${what} failed: ${said}`;
+      else trialError ||= `${what} failed (exit ${e?.status ?? '-'}${e?.signal ? ` ${e.signal}` : ''}${e?.code ? ` ${e.code}` : ''}): ${said || sample(String(e?.message || e)) || '(no detail)'}`;
     }
     return `__ERROR__ ${(e && e.message) || e}`;
   }
@@ -995,7 +1000,7 @@ for (const s of toRun) {
       r = { rows: [...r.rows, { label: 'RUN-ERROR', pass: false, detail: 'trial scored as a miss', output: trialError, sample: trialError }], demonstrated: false };
     }
     if (harnessFault) {
-      console.error(`\nREFUSING: a docker claude run in ${s.id} had no model answer (${harnessFault}).\n` +
+      console.error(`\nREFUSING: a run in ${s.id} had no model answer or failed to authenticate (${harnessFault}).\n` +
         'An auth failure (401, expired token), timeout or harness fault is not a capability result (ADR-0051 cl. 3).\n' +
         `Scenarios completed before ${s.id} are recorded; re-run from ${s.id} by id once the cause is fixed.`);
       writeRecord({ id: s.id, dim: s.dim, fault: harnessFault });

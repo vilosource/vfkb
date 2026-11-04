@@ -17,10 +17,13 @@ const ANSWER = 'db-prod-9c814.internal.example';
 
 // One fake, installed as `pi`, `claude` and `docker`. FAKE_MODE:
 //   ok        answer the prompt (the vfkb arm's right answer)
-//   fail      exit 1 with an auth error on stderr (every run)
+//   fail      exit 1 with a non-auth error (every run)
+//   auth      exit 1 with a 401 (every run)
 //   baseline  fail only the naive-baseline run (pi: --append-system-prompt; claude: a
 //             settings file whose hook is the naive dump), answer the vfkb run
+//   mcpfail   fail only the MCP run (mcp-pull's first run: its prompt names the kb_search MCP tool)
 //   hang      never answer (the caller's timeout kills it)
+// Errors go where the real CLIs put them: claude on STDOUT (observed, 2.1.311), others on stderr.
 const FAKE = `#!/usr/bin/env node
 const fs = require('fs');
 const a = process.argv.slice(2);
@@ -34,10 +37,12 @@ if (cat > 0) {
   process.exit(0);
 }
 const mode = process.env.FAKE_MODE || 'ok';
+const say = (m) => (require('path').basename(process.argv[1]) === 'claude' || a.includes('claude') ? console.log(m) : console.error(m));
 const naive = a.includes('--append-system-prompt') ||
   a.some((x, i) => a[i - 1] === '--settings' && /naive/.test(fs.existsSync(x) ? fs.readFileSync(x, 'utf8') : ''));
 if (mode === 'hang') setTimeout(() => {}, 600000);
-else if (mode === 'fail' || (mode === 'baseline' && naive)) { console.error('Error: 401 Unauthorized (fake)'); process.exit(1); }
+else if (mode === 'auth') { say('Failed to authenticate. API Error: 401 OAuth access token is invalid. (fake)'); process.exit(1); }
+else if (mode === 'fail' || (mode === 'baseline' && naive) || (mode === 'mcpfail' && a.some((x) => x.includes('kb_search MCP tool')))) { say('Error: the fake agent crashed (exit 1)'); process.exit(1); }
 else console.log('${ANSWER}');
 `;
 
@@ -77,7 +82,7 @@ describe.each(['pi-host', 'pi-docker', 'claude-host'] as Arm[])('%s arm: an erro
     const r = runL4(arm, 'no-secrets', { FAKE_MODE: 'fail' });
     expect(r.status, r.stdout + r.stderr).toBe(1);
     expect(r.stdout).toContain('RUN-ERROR');
-    expect(r.stdout).toContain('401 Unauthorized');
+    expect(r.stdout).toContain('the fake agent crashed'); // the error text, from stdout (claude) or stderr (pi)
     expect(r.stdout).toContain('INCONCLUSIVE');
     expect(r.stdout).not.toMatch(/-> DEMONSTRATED/);
   });
@@ -88,6 +93,21 @@ describe.each(['pi-host', 'pi-docker', 'claude-host'] as Arm[])('%s arm: an erro
     expect(r.stdout).toContain('RUN-ERROR');
     expect(r.stdout).toContain('INCONCLUSIVE');
     expect(agentRuns().length).toBe(2); // vfkb arm, then the baseline that failed
+  });
+
+  it('a run that fails to authenticate refuses the run instead of scoring a miss', () => {
+    const r = runL4(arm, 'no-secrets', { FAKE_MODE: 'auth' });
+    expect(r.status, r.stdout + r.stderr).toBe(3);
+    expect(r.stderr).toContain('failed to authenticate');
+    expect(r.stderr).toContain('401 OAuth access token is invalid');
+    expect(r.stdout).not.toMatch(/-> DEMONSTRATED|RUN-ERROR/);
+  });
+
+  it('a run error skips the rest of its trial (mcp-pull: the MCP run fails first)', () => {
+    const r = runL4(arm, 'mcp-pull', { FAKE_MODE: 'mcpfail' });
+    expect(r.status, r.stdout + r.stderr).toBe(1);
+    expect(r.stdout).toContain('RUN-ERROR');
+    expect(agentRuns().length).toBe(1); // the no-memory run never started
   });
 
   it('a healthy run still scores normally (the can-pass arm)', () => {

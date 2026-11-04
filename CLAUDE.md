@@ -150,8 +150,9 @@ this is a **deliberate discipline**:
 - **Other arms (vfkb#445):** on the pi (docker and host) and host claude arms, a run that throws
   (non-zero exit, timeout, spawn failure) forces its trial to a scored miss (a `RUN-ERROR` or
   `TIMEOUT` row) and skips the trial's remaining runs. Before, its `__ERROR__` text was scored,
-  so `no-secrets` passed 3/3 with a pi that never ran. These arms report no model, so there is
-  no refusal; a run that exits 0 with an error message is still scored as text.
+  so `no-secrets` passed 3/3 with a pi that never ran. A failed run whose output names an auth
+  or service error (the `AUTH_ERROR` pattern) refuses the run (exit 3) instead. A run that exits
+  0 with an error message is still scored as text.
 - Records → `scenarios/records/<slug>__docker.{json,md}`; **≥2/3 trials = DEMONSTRATED** (ADR-0022).
   Run **one** docker agent run at a time.
 
