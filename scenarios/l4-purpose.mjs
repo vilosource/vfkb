@@ -112,7 +112,31 @@ const sh = (cmd, args, opts = {}) => execFileSync(cmd, args, { encoding: 'utf8',
 const agentBrain = (brain) => (HARNESS === 'pi' && PI_MODE === 'docker') ? C_BRAIN : brain;
 const kb = (brain, args) => sh('node', [CLI, ...args], { env: { ...process.env, VFKB_DIR: brain } }).trim();
 const idOf = (line) => line.split('\t')[0];
-const newBrain = (tag) => mkdtempSync(join(tmpdir(), `vfkb-l4-${tag}-`));
+// Brain root (vfkb#423). The docker arms bind-mount each brain, so its host path must be one
+// the docker VM shares. Colima shares only $HOME by default: a /var/folders or /tmp brain
+// mounts EMPTY, every run fails ("Settings file not found"), and run() scores the error as a
+// miss. VFKB_L4_BRAIN_ROOT moves the brains (e.g. ~/.cache/vfkb-l4); the docker modes check
+// the mount below, before anything metered.
+const BRAIN_ROOT = process.env.VFKB_L4_BRAIN_ROOT || tmpdir();
+const newBrain = (tag) => { mkdirSync(BRAIN_ROOT, { recursive: true }); return mkdtempSync(join(BRAIN_ROOT, `vfkb-l4-${tag}-`)); };
+if (CLAUDE_DOCKER || (HARNESS === 'pi' && PI_MODE === 'docker')) {
+  const probe = newBrain('mountcheck');
+  const token = `mount-${process.pid}-${Date.now()}`;
+  writeFileSync(join(probe, 'mount-probe'), token);
+  let seen = '';
+  try {
+    seen = sh('docker', ['run', '--rm', '-v', `${probe}:${C_BRAIN}`, HARNESS === 'pi' ? PI_IMAGE : CLAUDE_IMAGE,
+      'cat', `${C_BRAIN}/mount-probe`], { stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  } catch { /* seen stays empty: refused below */ }
+  rmSync(probe, { recursive: true, force: true });
+  if (seen !== token) {
+    console.error(
+      `the docker VM cannot see brains under ${BRAIN_ROOT} (a file written there was not visible at ${C_BRAIN}).\n` +
+        'Refusing: every run would fail and score as a miss. Set VFKB_L4_BRAIN_ROOT to a shared path (e.g. ~/.cache/vfkb-l4).',
+    );
+    process.exit(2);
+  }
+}
 const has = (s, ...ts) => ts.every((t) => new RegExp(`${t}`, 'i').test(s));
 const lacks = (s, ...ts) => ts.every((t) => !new RegExp(`${t}`, 'i').test(s));
 const sample = (s) => (s || '').replace(/\s+/g, ' ').slice(0, 100);

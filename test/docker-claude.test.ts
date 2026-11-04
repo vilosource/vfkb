@@ -66,19 +66,28 @@ describe('l4-purpose docker claude arm, fake docker on PATH (vfkb#423)', () => {
     dir = mkdtempSync(join(tmpdir(), 'vfkb-423-'));
     log = join(dir, 'docker.log');
     // Logs argv and whether the token reached its env; answers like `claude -p --output-format json`.
+    // `cat /brain/<f>` (the mount check) reads through the -v mapping, or sees an empty
+    // mount when FAKE_DOCKER_MOUNT=empty (what Colima does to a /var/folders brain).
     writeFileSync(join(dir, 'docker'), `#!/usr/bin/env node
 const fs = require('fs');
 const a = process.argv.slice(2);
 fs.appendFileSync(${JSON.stringify(log)}, JSON.stringify({ argv: a, envToken: process.env.CLAUDE_CODE_OAUTH_TOKEN || null }) + '\\n');
 if (a[0] === 'image') { console.log('sha256:fake'); process.exit(0); }
+const cat = a.indexOf('cat');
+if (cat > 0) {
+  if (process.env.FAKE_DOCKER_MOUNT === 'empty') process.exit(1);
+  const [host, cont] = a[a.indexOf('-v') + 1].split(':');
+  process.stdout.write(fs.readFileSync(a[cat + 1].replace(cont, host), 'utf8'));
+  process.exit(0);
+}
 console.log(JSON.stringify({ type: 'result', result: 'db-prod-9c814.internal.example', modelUsage: { 'claude-haiku-4-5-20251001': {} } }));
 `);
     chmodSync(join(dir, 'docker'), 0o755);
   });
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
-  it('sends the token through env, not argv, mounts no creds, and records the observed model', () => {
-    const r = spawnSync(process.execPath, [join(REPO, 'scenarios/l4-purpose.mjs'), 'stale-supersession', '--no-record'], {
+  const runL4 = (extra: Record<string, string> = {}) =>
+    spawnSync(process.execPath, [join(REPO, 'scenarios/l4-purpose.mjs'), 'stale-supersession', '--no-record'], {
       cwd: REPO,
       encoding: 'utf8',
       timeout: 60_000,
@@ -89,10 +98,23 @@ console.log(JSON.stringify({ type: 'result', result: 'db-prod-9c814.internal.exa
         VFKB_L4_HARNESS: 'claude',
         VFKB_L4_CLAUDE_MODE: 'docker',
         VFKB_L4_TRIALS: '1',
+        ...extra,
       },
     });
-    const calls = readFileSync(log, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
-    const runs = calls.filter((c) => c.argv[0] === 'run');
+  const calls = () => readFileSync(log, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+
+  it('refuses before any claude run when the docker VM shows the brain mount empty', () => {
+    writeFileSync(log, '');
+    const r = runL4({ FAKE_DOCKER_MOUNT: 'empty' });
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain('cannot see brains under');
+    expect(calls().filter((c) => c.argv.includes('claude'))).toEqual([]);
+  });
+
+  it('sends the token through env, not argv, mounts no creds, and records the observed model', () => {
+    writeFileSync(log, '');
+    const r = runL4();
+    const runs = calls().filter((c) => c.argv[0] === 'run' && c.argv.includes('claude'));
     expect(runs.length, r.stdout + r.stderr).toBeGreaterThan(0);
     for (const c of runs) {
       expect(c.envToken).toBe(FAKE);
