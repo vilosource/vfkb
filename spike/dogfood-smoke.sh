@@ -4,6 +4,11 @@
 # never the agent's self-report. Uses a THROWAWAY brain so it can't pollute the real
 # dogfood brain. Requires: `docker build -t vfkb-dogfood -f spike/dogfood.Dockerfile .`
 set -uo pipefail
+# vfkb#423: the container gets the access token by name only; no credentials file is mounted.
+if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+  echo "dogfood-smoke: CLAUDE_CODE_OAUTH_TOKEN is not exported; refusing (export it, e.g. from \`claude setup-token\`)." >&2
+  exit 2
+fi
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 STATE="${VFKB_DOGFOOD_HOME:-$HOME/.vfkb-dogfood}"; SYNTH="$STATE/claude.json"
 BRAIN="$(mktemp -d)"; chmod 777 "$BRAIN"
@@ -13,9 +18,8 @@ node -e 'const c=require(process.env.HOME+"/.claude.json");require("fs").writeFi
 pass=0; fail=0
 ok(){ echo "  PASS: $1"; pass=$((pass+1)); }
 no(){ echo "  FAIL: $1"; fail=$((fail+1)); }
-drun(){ docker run --rm --user "$(id -u):$(id -g)" -e HOME=/work \
+drun(){ docker run --rm --user "$(id -u):$(id -g)" -e HOME=/work -e CLAUDE_CODE_OAUTH_TOKEN \
   -v "$REPO":/work/vfkb -v "$BRAIN":/brain \
-  -v "$HOME/.claude/.credentials.json":/work/.claude/.credentials.json:ro \
   -v "$SYNTH":/work/.claude.json:ro -w /work/vfkb vfkb-dogfood "$@"; }
 claude_p(){ drun claude -p "$1" --strict-mcp-config --mcp-config /opt/vfkb/mcp-config.json \
   --settings /opt/vfkb/settings.json --model claude-haiku-4-5 --dangerously-skip-permissions 2>&1; }

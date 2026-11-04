@@ -27,9 +27,10 @@
 
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
-import { tmpdir, homedir } from 'node:os';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { assertClaudeAuthReady, claudeSync } from './lib/claude-auth.mjs';
+import { assertClaudeAuthReady, claudeEnv, claudeSync } from './lib/claude-auth.mjs';
+import { dockerClaudeArgv, parseClaudeJson } from './lib/docker-claude.mjs';
 
 const REPO = resolve(process.argv[1], '../..');
 const CLI = join(REPO, 'dist', 'cli.js');
@@ -67,8 +68,8 @@ const PI_MODE = process.env.VFKB_L4_PI_MODE || (HARNESS === 'pi' ? 'docker' : 'h
 // it replaced — it mints false evidence for the ADR-0050 gate while looking fixed.
 //
 // A missing credential is a precondition of the whole harness, not a per-run outcome, so
-// it belongs here, where nothing can catch it. Mirrors the claude arm, which throws on a
-// missing ~/.claude/.credentials.json before any scenario runs.
+// it belongs here, where nothing can catch it. Mirrors the claude arm, which refuses on a
+// missing or near-expiry token (assertClaudeAuthReady, below) before any scenario runs.
 if (HARNESS === 'pi' && PI_MODE === 'docker' && !process.env.DEEPSEEK_TOKEN) {
   console.error(
     'DEEPSEEK_TOKEN is not set — the pi arm cannot authenticate.\n' +
@@ -81,10 +82,19 @@ const PI_IMAGE = process.env.VFKB_L4_PI_IMAGE || 'vfkb-l4-pi:dev';
 // claude harness substrate (T5b): docker by default; VFKB_L4_CLAUDE_MODE=host runs the
 // legacy host claude (used to regenerate the known-good host baseline records).
 const CLAUDE_MODE = process.env.VFKB_L4_CLAUDE_MODE || 'docker';
-// vfkb#422: host-mode claude children go through the Keychain-safe seam; refuse before
-// anything metered if one could touch the macOS Keychain. (The docker arm runs claude
-// inside a Linux container and keeps its own credential path, tracked separately.)
-if (HARNESS === 'claude' && CLAUDE_MODE !== 'docker') assertClaudeAuthReady();
+// vfkb#422/#423: every claude child takes its token from the Keychain-safe seam; refuse
+// before anything metered if the token is missing or near expiry. Host mode spawns
+// through claudeSync; the docker arm passes the seam's access token into the container
+// by name (scenarios/lib/docker-claude.mjs).
+if (HARNESS === 'claude') assertClaudeAuthReady();
+const CLAUDE_DOCKER = HARNESS === 'claude' && CLAUDE_MODE === 'docker';
+// modelUsage keys the docker claude arm observed, per scenario (reset in the main loop).
+let observedModels = new Set();
+// Set when a docker claude run had NO model answer (vfkb#423, ADR-0051 clause 3): a 401 from
+// a run-down or revoked token, a timeout, a harness fault. run()'s and exec()'s catches would
+// score it as a capability miss, and a single-arm "nothing was stored" scenario as a PASS, so
+// the trial loop checks this OUTSIDE both catches and refuses the run.
+let harnessFault = null;
 const CLAUDE_IMAGE = process.env.VFKB_L4_CLAUDE_IMAGE || 'vfkb-l4-claude:dev';
 const UID = typeof process.getuid === 'function' ? process.getuid() : 0;
 const GID = typeof process.getgid === 'function' ? process.getgid() : 0;
@@ -97,24 +107,6 @@ const C_EXT = `${C_DIST}/pi-extension.js`;
 const C_BRIDGE = `${C_DIST}/pi-mcp-bridge.js`;
 const C_MCP = `${C_DIST}/mcp-server.js`;
 
-// Per-run throwaway copy of the Claude Code subscription credential, mounted at the
-// container's /work/.claude (T5b, operator decision 2026-06-27: use the Max subscription
-// OAuth, NOT an ANTHROPIC_API_KEY — none is set on this host). Only the `claudeAiOauth`
-// block is copied (the `mcpOAuth` block — e.g. the mediawiki MCP token — is dropped:
-// privacy). NEVER the live host file, so a container-side token refresh can't disturb the
-// host session's credential. Created once, reused across runs, cleaned at exit.
-let CLAUDE_CREDS_DIR = null;
-function claudeCredsDir() {
-  if (CLAUDE_CREDS_DIR) return CLAUDE_CREDS_DIR;
-  const host = join(process.env.HOME || homedir(), '.claude', '.credentials.json');
-  const c = JSON.parse(readFileSync(host, 'utf8'));
-  if (!c.claudeAiOauth) throw new Error('no claudeAiOauth in ~/.claude/.credentials.json — log in with host `claude` first');
-  const d = mkdtempSync(join(tmpdir(), 'vfkb-l4-claudecfg-'));
-  writeFileSync(join(d, '.credentials.json'), JSON.stringify({ claudeAiOauth: c.claudeAiOauth }), { mode: 0o600 });
-  CLAUDE_CREDS_DIR = d;
-  return d;
-}
-process.on('exit', () => { try { if (CLAUDE_CREDS_DIR) rmSync(CLAUDE_CREDS_DIR, { recursive: true, force: true }); } catch {} });
 // claude filesystem/exec deny list (prevents reading the brain file off /tmp).
 const FS_DENY = 'Read,Edit,Write,Bash,BashOutput,Glob,Grep,WebFetch,WebSearch,NotebookEdit,Task,KillShell';
 
@@ -125,7 +117,31 @@ const sh = (cmd, args, opts = {}) => execFileSync(cmd, args, { encoding: 'utf8',
 const agentBrain = (brain) => (HARNESS === 'pi' && PI_MODE === 'docker') ? C_BRAIN : brain;
 const kb = (brain, args) => sh('node', [CLI, ...args], { env: { ...process.env, VFKB_DIR: brain } }).trim();
 const idOf = (line) => line.split('\t')[0];
-const newBrain = (tag) => mkdtempSync(join(tmpdir(), `vfkb-l4-${tag}-`));
+// Brain root (vfkb#423). The docker arms bind-mount each brain, so its host path must be one
+// the docker VM shares. Colima shares only $HOME by default: a /var/folders or /tmp brain
+// mounts EMPTY, every run fails ("Settings file not found"), and run() scores the error as a
+// miss. VFKB_L4_BRAIN_ROOT moves the brains (e.g. ~/.cache/vfkb-l4); the docker modes check
+// the mount below, before anything metered.
+const BRAIN_ROOT = process.env.VFKB_L4_BRAIN_ROOT || tmpdir();
+const newBrain = (tag) => { mkdirSync(BRAIN_ROOT, { recursive: true }); return mkdtempSync(join(BRAIN_ROOT, `vfkb-l4-${tag}-`)); };
+if (CLAUDE_DOCKER || (HARNESS === 'pi' && PI_MODE === 'docker')) {
+  const probe = newBrain('mountcheck');
+  const token = `mount-${process.pid}-${Date.now()}`;
+  writeFileSync(join(probe, 'mount-probe'), token);
+  let seen = '';
+  try {
+    seen = sh('docker', ['run', '--rm', '-v', `${probe}:${C_BRAIN}`, HARNESS === 'pi' ? PI_IMAGE : CLAUDE_IMAGE,
+      'cat', `${C_BRAIN}/mount-probe`], { stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  } catch { /* seen stays empty: refused below */ }
+  rmSync(probe, { recursive: true, force: true });
+  if (seen !== token) {
+    console.error(
+      `the docker VM cannot see brains under ${BRAIN_ROOT} (a file written there was not visible at ${C_BRAIN}).\n` +
+        'Refusing: every run would fail and score as a miss. Set VFKB_L4_BRAIN_ROOT to a shared path (e.g. ~/.cache/vfkb-l4).',
+    );
+    process.exit(2);
+  }
+}
 const has = (s, ...ts) => ts.every((t) => new RegExp(`${t}`, 'i').test(s));
 const lacks = (s, ...ts) => ts.every((t) => !new RegExp(`${t}`, 'i').test(s));
 const sample = (s) => (s || '').replace(/\s+/g, ' ').slice(0, 100);
@@ -241,20 +257,21 @@ function run({ harness = HARNESS, brain, prompt, inject = 'vfkb', mcp = false, c
         }
       }
       if (!cdocker) return claudeSync(args, { cwd: tmpdir(), timeout: TIMEOUT, env: { ...process.env } }).trim();
-      // Dockerized (T5b): uid-matched brain bind-mount (writes persist to host /brain) +
-      // a throwaway subscription-creds copy mounted at /work/.claude. No host creds/FS/MCP
-      // reach the sandbox beyond these two scoped mounts (the no-leak property).
-      const creds = claudeCredsDir();
-      const dargs = ['run', '--rm', '--user', `${UID}:${GID}`,
-        '-e', `HOME=${C_HOME}`,
-        '-e', `VFKB_DIR=${C_BRAIN}`,
-        '-e', 'VFKB_PROJECT=l4'];
-      // Thread KB_SESSION_ID into the hooks' env so SessionState persists a record under
-      // the /brain mount (cross-session continuity scenarios). Without it SessionState is
-      // ephemeral and nothing carries to the next container.
-      if (sessionId) dargs.push('-e', `KB_SESSION_ID=${sessionId}`);
-      dargs.push('-v', `${brain}:${C_BRAIN}`, '-v', `${creds}:${C_HOME}/.claude`, CLAUDE_IMAGE, 'claude', ...args);
-      return sh('docker', dargs, { timeout: DOCKER_TIMEOUT, env: process.env }).trim();
+      // Dockerized (T5b): uid-matched brain bind-mount (writes persist to host /brain) is
+      // the only mount; the seam's access token rides in by name (vfkb#423). No host
+      // creds/FS/MCP reach the sandbox beyond that (the no-leak property).
+      const dargs = dockerClaudeArgv({ uid: UID, gid: GID, home: C_HOME, brainHost: brain, brainC: C_BRAIN,
+        sessionId, image: CLAUDE_IMAGE, claudeArgs: args });
+      let stdout;
+      try { stdout = sh('docker', dargs, { timeout: DOCKER_TIMEOUT, env: claudeEnv(process.env) }); }
+      catch (e) { stdout = String(e.stdout || ''); }
+      const { text, models } = parseClaudeJson(stdout);
+      if (!models.length) {
+        harnessFault ||= sample(text) || '(no output)';
+        throw new Error(`no model answered: ${sample(text) || '(no output)'}`);
+      }
+      for (const m of models) observedModels.add(m);
+      return text.trim();
     }
     // pi: the EXT extension provides inject + capture + gating in-process; the BRIDGE
     // provides MCP. Tools on whenever the scenario needs to act. PI_MODE=docker (default
@@ -908,9 +925,17 @@ for (const s of toRun) {
   console.log(`# ${s.id}  [${s.dim}]  (N=${TRIALS})`);
   const trialVerdicts = [];
   let lastRows = [];
+  observedModels = new Set();
   for (let t = 0; t < TRIALS; t++) {
     let r;
     try { r = s.exec(); } catch (e) { r = { rows: [{ label: 'ERROR', pass: false, detail: String(e.message || e), sample: '' }], demonstrated: false }; }
+    if (harnessFault) {
+      console.error(`\nREFUSING: a docker claude run in ${s.id} had no model answer (${harnessFault}).\n` +
+        'An auth failure (401, expired token), timeout or harness fault is not a capability result (ADR-0051 cl. 3).\n' +
+        `Scenarios completed before ${s.id} are recorded; re-run from ${s.id} by id once the cause is fixed.`);
+      writeRecord();
+      process.exit(3);
+    }
     trialVerdicts.push(r.demonstrated);
     lastRows = r.rows;
     if (TRIALS > 1) console.log(`  trial ${t + 1}/${TRIALS}: ${r.demonstrated ? 'DEMONSTRATED' : 'inconclusive'}`);
@@ -919,12 +944,16 @@ for (const s of toRun) {
   const passes = trialVerdicts.filter(Boolean).length;
   const passRate = passes / TRIALS;
   const demonstrated = passRate >= 2 / 3; // ADR-0022: contrast holds on >=2/3 trials
+  if (CLAUDE_DOCKER) console.log(`  observed models: ${[...observedModels].sort().join(', ') || 'none'}`);
   console.log(`  -> ${demonstrated ? 'DEMONSTRATED' : 'INCONCLUSIVE'}  (${passes}/${TRIALS} trials)\n`);
-  results.push({ id: s.id, dim: s.dim, demonstrated, passes, trials: TRIALS, passRate, rows: lastRows });
+  results.push({ id: s.id, dim: s.dim, demonstrated, passes, trials: TRIALS, passRate, rows: lastRows,
+    ...(CLAUDE_DOCKER ? { observedModels: [...observedModels].sort() } : {}) });
 }
 
 // ---- Record this model's behavior (merge per scenario, keyed by model) ----
-if (!argv.includes('--no-record')) {
+writeRecord();
+function writeRecord() {
+  if (argv.includes('--no-record') || !results.length) return;
   const gitSha = (() => { try { return sh('git', ['-C', REPO, 'rev-parse', '--short', 'HEAD']).trim(); } catch { return 'unknown'; } })();
   // Records pin the substrate (ADR-0022): the dockerized pi run is a DISTINCT substrate
   // from the host pi baseline, so it gets a `__docker` slug — it never clobbers the
@@ -954,6 +983,7 @@ if (!argv.includes('--no-record')) {
       trials: `${r.passes}/${r.trials}`,
       passRate: r.passRate,
       rows: r.rows.map((x) => ({ label: x.label, pass: x.pass, detail: x.detail, prompt: x.prompt, output: x.output })),
+      ...(r.observedModels ? { observedModels: r.observedModels } : {}),
     };
   }
   writeFileSync(jsonPath, JSON.stringify(rec, null, 2));
@@ -964,6 +994,9 @@ if (!argv.includes('--no-record')) {
     ``, `- harness: ${rec.harness}`, `- generated: ${rec.generated}`, `- vfkb: ${rec.vfkb_sha}`,
     `- trials per scenario: N=${rec.trials_n} (demonstrated = contrast holds on >=2/3)`,
     ...(rec.image ? [`- image: ${rec.image}`, `- image digest: ${rec.image_digest}`] : []),
+    ...(ids.some((i) => rec.scenarios[i].observedModels)
+      ? [`- observed models (modelUsage, union over scenarios): ${[...new Set(ids.flatMap((i) => rec.scenarios[i].observedModels || []))].sort().join(', ') || 'none'}`]
+      : []),
     `- scenarios recorded: ${ids.length} (${ids.filter((i) => rec.scenarios[i].demonstrated).length} demonstrated)`,
     ``, `| scenario | dimension | demonstrated | trials | rows (label=verdict) |`, `|---|---|---|---|---|`,
     ...ids.map((i) => { const s = rec.scenarios[i]; return `| ${i} | ${s.dim} | ${s.demonstrated ? 'YES' : 'no'} | ${s.trials || '-'} | ${s.rows.map((x) => `${x.label}=${x.pass ? 'PASS' : 'fail'}`).join(', ')} |`; }),

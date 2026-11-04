@@ -206,7 +206,9 @@ for `tool-gating`; `VFKB_L4_CLAUDE_MODE=host` escape hatch).
   `ANTHROPIC_API_KEY` (none set on this host). The harness mounts a **per-run throwaway copy** of
   `~/.claude/.credentials.json`'s `claudeAiOauth` block at `/work/.claude` (`mcpOAuth` dropped — privacy;
   never the live host file). **Verified** working headless in-container (`claude -p` → reply). See
-  [ADR-0022](adr/ADR-0022-l4-evaluation-methodology.md) #8.
+  [ADR-0022](adr/ADR-0022-l4-evaluation-methodology.md) #8. *Superseded 2026-11-04 (vfkb#423): the
+  container now gets the access token by name (`-e CLAUDE_CODE_OAUTH_TOKEN`, from the claude-auth seam)
+  and no credentials file is mounted.*
 - *Denylist re-scoped (ADR-0022 #9):* `--strict-mcp-config`/empty-MCP are pure host-MCP no-ops in the sandbox
   (kept for parity); `FS_DENY` is the **test-validity tool-gate** (stops the agent reading the mounted
   `/brain` instead of injected context — the claude analogue of pi's `--no-tools`) and is **retained**.

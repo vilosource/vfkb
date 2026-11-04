@@ -136,6 +136,12 @@ this is a **deliberate discipline**:
   [VFKB_L4_TRIALS=1] node scenarios/l4-purpose.mjs <id> [--no-record]` (needs `DEEPSEEK_TOKEN`).
 - Run claude: `VFKB_L4_HARNESS=claude VFKB_L4_PROVIDER=claude-code VFKB_L4_MODEL=claude-haiku-4-5
   VFKB_L4_DOCKER_TIMEOUT=480000 …` (uses the Claude-Code Max-subscription OAuth, no API key).
+  The container gets the access token by name only (`-e CLAUDE_CODE_OAUTH_TOKEN`, from the
+  claude-auth seam; no credentials file is mounted — vfkb#423), so export the token first.
+- **Docker brain mounts (vfkb#423):** each brain is bind-mounted at `/brain`, so its host path
+  must be shared with the docker VM. Under Colima (this Mac) only `$HOME` is, so set
+  `VFKB_L4_BRAIN_ROOT=~/.cache/vfkb-l4`. The docker modes refuse up front when a probe file
+  is not visible through the mount, instead of scoring every failed run as a miss.
 - Records → `scenarios/records/<slug>__docker.{json,md}`; **≥2/3 trials = DEMONSTRATED** (ADR-0022).
   Run **one** docker agent run at a time.
 

@@ -1,11 +1,12 @@
 # vfkb L4 behavior record — harness=claude — claude-code/claude-haiku-4-5
 
 - harness: claude
-- generated: 2026-07-08T07:32:05.495Z
-- vfkb: f3ac08c
+- generated: 2026-11-04T08:18:19.394Z
+- vfkb: 235ab69
 - trials per scenario: N=3 (demonstrated = contrast holds on >=2/3)
-- image: vfkb-l4-claude:v2
-- image digest: sha256:1cf8bde8722a4f71030c64ac1ca69d0c509fdd606156afa689cdf23049519ed0
+- image: vfkb-l4-claude:dev
+- image digest: sha256:09b1ba026f65fd7d64c337317964e1cff4c4a3b67b227938e33a5f4bd410359b
+- observed models (modelUsage, union over scenarios): claude-haiku-4-5
 - scenarios recorded: 32 (31 demonstrated)
 
 | scenario | dimension | demonstrated | trials | rows (label=verdict) |
@@ -31,7 +32,7 @@
 | multi-fact-synthesis | synthesis:combine-2-facts | YES | 3/3 | claude:vfkb=PASS, claude:none=fail |
 | no-secrets | guardrail:no-secrets | YES | 3/3 | claude:mcp kb_add(secret)=PASS |
 | precedence-distractor | rerank:precedence-amid-noise | YES | 3/3 | claude:vfkb=PASS, claude:naive=fail |
-| promotion-relabel | distill:promotion-agent-observable | YES | 2/3 | claude:promoted=fail, claude:not-promoted=PASS |
+| promotion-relabel | distill:promotion-agent-observable | YES | 3/3 | claude:promoted=PASS, claude:not-promoted=PASS |
 | provstale-excluded | exclude:prov-status | YES | 3/3 | claude:vfkb=PASS, claude:naive=fail |
 | resume-reflects-correction | continuity:anti-stale | YES | 3/3 | claude:resume:vfkb=PASS, claude:resume:naive=fail |
 | role-precedence | attribution:precedence | YES | 3/3 | claude:vfkb=PASS, claude:naive=fail |
@@ -40,5 +41,5 @@
 | supersession-chain | exclude:supersession-chain | YES | 3/3 | claude:vfkb=PASS, claude:naive=fail |
 | tool-gating | guardrail:tool-gating | no | 0/3 | claude:gated=PASS, claude:ungated=fail |
 | unverified-injected | trust:unverified-delivered | YES | 3/3 | claude:vfkb=PASS, claude:none=fail |
-| verified-only-filter | mcp:verified-filter | YES | 2/3 | claude:verified-filter=PASS, claude:no-filter=PASS |
+| verified-only-filter | mcp:verified-filter | YES | 3/3 | claude:verified-filter=PASS, claude:no-filter=PASS |
 | vision-format | deliver:vision-pattern | YES | 3/3 | claude:vfkb=PASS, claude:none=fail |
