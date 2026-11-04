@@ -41,7 +41,12 @@ const say = (m) => (require('path').basename(process.argv[1]) === 'claude' || a.
 const naive = a.includes('--append-system-prompt') ||
   a.some((x, i) => a[i - 1] === '--settings' && /naive/.test(fs.existsSync(x) ? fs.readFileSync(x, 'utf8') : ''));
 if (mode === 'hang') setTimeout(() => {}, 600000);
-else if (mode === 'auth') { say('Failed to authenticate. API Error: 401 OAuth access token is invalid. (fake)'); process.exit(1); }
+else if (mode === 'auth') {
+  // Each CLI's real 401 shape: claude's on stdout (CLI 2.1.311); pi's DeepSeek body on stderr (pi 0.84.4).
+  if (a.includes('claude') || require('path').basename(process.argv[1]) === 'claude') say('Failed to authenticate. API Error: 401 OAuth access token is invalid.');
+  else say('401: {"message":"Authentication Fails, Your api key: ****cdef is invalid","type":"authentication_error","param":null,"code":"invalid_request_error"}');
+  process.exit(1);
+}
 else if (mode === 'fail' || (mode === 'baseline' && naive) || (mode === 'mcpfail' && a.some((x) => x.includes('kb_search MCP tool')))) { say('Error: the fake agent crashed (exit 1)'); process.exit(1); }
 else console.log('${ANSWER}');
 `;
@@ -99,7 +104,7 @@ describe.each(['pi-host', 'pi-docker', 'claude-host'] as Arm[])('%s arm: an erro
     const r = runL4(arm, 'no-secrets', { FAKE_MODE: 'auth' });
     expect(r.status, r.stdout + r.stderr).toBe(3);
     expect(r.stderr).toContain('failed to authenticate');
-    expect(r.stderr).toContain('401 OAuth access token is invalid');
+    expect(r.stderr).toMatch(arm === 'claude-host' ? /401 OAuth access token is invalid/ : /Authentication Fails/);
     expect(r.stdout).not.toMatch(/-> DEMONSTRATED|RUN-ERROR/);
   });
 
@@ -115,6 +120,17 @@ describe.each(['pi-host', 'pi-docker', 'claude-host'] as Arm[])('%s arm: an erro
     expect(r.status, r.stdout + r.stderr).toBe(0);
     expect(r.stdout).not.toContain('RUN-ERROR');
     expect(r.stdout).toMatch(/-> DEMONSTRATED/);
+  });
+});
+
+describe('pi-docker arm: the DeepSeek token goes by name (vfkb#445 review)', () => {
+  it('never puts the token value in the docker argv, and a failed run does not echo it', () => {
+    const r = runL4('pi-docker', 'no-secrets', { FAKE_MODE: 'fail' });
+    const runs = agentRuns();
+    expect(runs.length, r.stdout + r.stderr).toBe(1);
+    expect(runs[0].argv).toContain('DEEPSEEK_TOKEN');
+    expect(runs[0].argv.join(' ')).not.toContain('fake-deepseek');
+    expect(r.stdout + r.stderr).not.toContain('fake-deepseek');
   });
 });
 

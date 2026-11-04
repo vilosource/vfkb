@@ -111,7 +111,9 @@ const CLAUDE_IMAGE = process.env.VFKB_L4_CLAUDE_IMAGE || 'vfkb-l4-claude:dev';
 // An error result whose text names an auth or service failure (vfkb#442).
 // Also the service-side failures (an HTTP error, a usage or rate limit, overload): none of them
 // is the model's answer, and a single-arm "nothing stored" predicate would pass on any of them.
-const AUTH_ERROR = /\bAPI Error: \d{3}\b|Failed to authenticate|OAuth token has expired|Not logged in|Invalid API key|usage limit|rate limit|overloaded/i;
+// pi's provider errors too (observed, pi 0.84.4 + DeepSeek, #450 review): "No API key found for
+// deepseek." and `401: {"message":"Authentication Fails, …","type":"authentication_error"}`.
+const AUTH_ERROR = /\bAPI Error: \d{3}\b|Failed to authenticate|OAuth token has expired|Not logged in|Invalid API key|usage limit|rate limit|overloaded|authentication_error|Authentication Fails|No API key found|\b40[13]: \{/i;
 const UID = typeof process.getuid === 'function' ? process.getuid() : 0;
 const GID = typeof process.getgid === 'function' ? process.getgid() : 0;
 // Fixed in-container paths (must match scenarios/docker/{pi,claude}.Dockerfile).
@@ -363,7 +365,9 @@ function run({ harness = HARNESS, brain, prompt, inject = 'vfkb', mcp = false, c
       '-e', `VFKB_DIR=${C_BRAIN}`,
       '-e', 'VFKB_PROJECT=l4',
       '-e', `KB_SESSION_ID=${env.KB_SESSION_ID}`,
-      '-e', `DEEPSEEK_TOKEN=${process.env.DEEPSEEK_TOKEN}`];
+      // By NAME (vfkb#445 review): docker copies the value from its own env, so the token is
+      // never in argv, where a failed run's error message (kept in the record) would carry it.
+      '-e', 'DEEPSEEK_TOKEN'];
     if (env.VFKB_MCP_CONFIG) dargs.push('-e', `VFKB_MCP_CONFIG=${env.VFKB_MCP_CONFIG}`);
     dargs.push('-v', `${brain}:${C_BRAIN}`, PI_IMAGE, 'pi', ...args);
     return sh('docker', dargs, { timeout: DOCKER_TIMEOUT, env: process.env }).trim();
