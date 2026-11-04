@@ -95,7 +95,14 @@ let observedModels = new Set();
 // score it as a capability miss, and a single-arm "nothing was stored" scenario as a PASS, so
 // the trial loop checks this OUTSIDE both catches and refuses the run.
 let harnessFault = null;
+// Set when a docker claude run TIMED OUT in the current trial (vfkb#442). A hang can be a real
+// vfkb fault (an MCP server that never answers), so it is scored, not refused: the trial loop
+// forces that trial to a miss, whatever the scenario's predicate says ("nothing was stored"
+// holds trivially for a run that never ran). The rest of the trial's runs are skipped.
+let trialTimeout = null;
 const CLAUDE_IMAGE = process.env.VFKB_L4_CLAUDE_IMAGE || 'vfkb-l4-claude:dev';
+// An error result whose text names an auth failure (vfkb#442).
+const AUTH_ERROR = /\bAPI Error: 40[13]\b|Failed to authenticate|OAuth token has expired|Not logged in|Invalid API key/i;
 const UID = typeof process.getuid === 'function' ? process.getuid() : 0;
 const GID = typeof process.getgid === 'function' ? process.getgid() : 0;
 // Fixed in-container paths (must match scenarios/docker/{pi,claude}.Dockerfile).
@@ -124,23 +131,40 @@ const idOf = (line) => line.split('\t')[0];
 // the mount below, before anything metered.
 const BRAIN_ROOT = process.env.VFKB_L4_BRAIN_ROOT || tmpdir();
 const newBrain = (tag) => { mkdirSync(BRAIN_ROOT, { recursive: true }); return mkdtempSync(join(BRAIN_ROOT, `vfkb-l4-${tag}-`)); };
-if (CLAUDE_DOCKER || (HARNESS === 'pi' && PI_MODE === 'docker')) {
+// The mount check (vfkb#423, #442): write a file under BRAIN_ROOT and cat it through the same
+// bind mount, image and --user the real runs use. Called from the main loop, and only when a
+// selected scenario will actually run on a docker arm.
+function checkDockerMount() {
   const probe = newBrain('mountcheck');
   const token = `mount-${process.pid}-${Date.now()}`;
   writeFileSync(join(probe, 'mount-probe'), token);
-  let seen = '';
+  let seen = '', err = '', status = 0;
   try {
-    seen = sh('docker', ['run', '--rm', '-v', `${probe}:${C_BRAIN}`, HARNESS === 'pi' ? PI_IMAGE : CLAUDE_IMAGE,
-      'cat', `${C_BRAIN}/mount-probe`], { stdio: ['ignore', 'pipe', 'pipe'] }).trim();
-  } catch { /* seen stays empty: refused below */ }
+    seen = sh('docker', ['run', '--rm', '--user', `${UID}:${GID}`, '-v', `${probe}:${C_BRAIN}`,
+      HARNESS === 'pi' ? PI_IMAGE : CLAUDE_IMAGE, 'cat', `${C_BRAIN}/mount-probe`], { stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  } catch (e) {
+    err = String(e.stderr || e.message || '').trim();
+    status = e.status ?? e.code ?? 'error';
+  }
   rmSync(probe, { recursive: true, force: true });
-  if (seen !== token) {
+  if (seen === token) return;
+  if (/No such file/i.test(err) || (!err && !status)) {
     console.error(
       `the docker VM cannot see brains under ${BRAIN_ROOT} (a file written there was not visible at ${C_BRAIN}).\n` +
         'Refusing: every run would fail and score as a miss. Set VFKB_L4_BRAIN_ROOT to a shared path (e.g. ~/.cache/vfkb-l4).',
     );
-    process.exit(2);
+  } else if (/Permission denied/i.test(err)) {
+    console.error(
+      `the brain mount under ${BRAIN_ROOT} is visible but not readable as uid ${UID}:${GID} in the container (${sample(err)}).\n` +
+        'Refusing: every run would fail and score as a miss. Use a VFKB_L4_BRAIN_ROOT this uid owns.',
+    );
+  } else {
+    console.error(
+      `docker could not run the mount probe (exit ${status}): ${sample(err) || '(no stderr)'}\n` +
+        'Refusing: check that the docker daemon is up and the image exists (bash scenarios/docker/build.sh).',
+    );
   }
+  process.exit(2);
 }
 const has = (s, ...ts) => ts.every((t) => new RegExp(`${t}`, 'i').test(s));
 const lacks = (s, ...ts) => ts.every((t) => !new RegExp(`${t}`, 'i').test(s));
@@ -262,13 +286,24 @@ function run({ harness = HARNESS, brain, prompt, inject = 'vfkb', mcp = false, c
       // creds/FS/MCP reach the sandbox beyond that (the no-leak property).
       const dargs = dockerClaudeArgv({ uid: UID, gid: GID, home: C_HOME, brainHost: brain, brainC: C_BRAIN,
         sessionId, image: CLAUDE_IMAGE, claudeArgs: args });
-      let stdout;
+      // After a fault or a timeout the trial is already decided: skip its remaining runs.
+      if (harnessFault || trialTimeout) throw new Error('skipped: an earlier run in this trial failed');
+      let stdout, how = '';
       try { stdout = sh('docker', dargs, { timeout: DOCKER_TIMEOUT, env: claudeEnv(process.env) }); }
-      catch (e) { stdout = String(e.stdout || ''); }
-      const { text, models } = parseClaudeJson(stdout);
-      if (!models.length) {
-        harnessFault ||= sample(text) || '(no output)';
-        throw new Error(`no model answered: ${sample(text) || '(no output)'}`);
+      catch (e) {
+        stdout = String(e.stdout || '');
+        if (e.code === 'ETIMEDOUT') {
+          trialTimeout = `docker run timed out after ${DOCKER_TIMEOUT} ms (ETIMEDOUT, ${e.signal || 'no signal'})`;
+          throw new Error(trialTimeout);
+        }
+        how = `exit ${e.status ?? '-'}${e.signal ? ` ${e.signal}` : ''}${e.code ? ` ${e.code}` : ''}: ${sample(String(e.stderr || '')) || '(no stderr)'}`;
+      }
+      const { text, models, isError } = parseClaudeJson(stdout);
+      // No model answered, or an auth error after one did (a 401 on a later turn still
+      // carries the earlier turn's modelUsage): a harness fault, not a capability result.
+      if (!models.length || (isError && AUTH_ERROR.test(text))) {
+        harnessFault ||= sample(text) || how || '(no output)';
+        throw new Error(`no model answered: ${harnessFault}`);
       }
       for (const m of models) observedModels.add(m);
       return text.trim();
@@ -914,6 +949,8 @@ const SUBSTRATE = HARNESS === 'pi'
   : (CLAUDE_MODE === 'docker' ? `docker:${CLAUDE_IMAGE}` : 'host claude');
 console.log(`=== vfkb COMPREHENSIVE L4 — harness: ${HARNESS} — agent: ${AGENT} — substrate: ${SUBSTRATE} — N=${TRIALS} ===\n`);
 const results = [];
+const willRun = toRun.filter((s) => !s.harness || s.harness === HARNESS);
+if (willRun.length && (CLAUDE_DOCKER || (HARNESS === 'pi' && PI_MODE === 'docker'))) checkDockerMount();
 for (const s of toRun) {
   // Harness-gated scenarios (e.g. a fix whose contrast is only deliverable on one harness
   // because the other is external-blocked) run ONLY on their declared harness; on others
@@ -928,12 +965,16 @@ for (const s of toRun) {
   observedModels = new Set();
   for (let t = 0; t < TRIALS; t++) {
     let r;
+    trialTimeout = null;
     try { r = s.exec(); } catch (e) { r = { rows: [{ label: 'ERROR', pass: false, detail: String(e.message || e), sample: '' }], demonstrated: false }; }
+    if (trialTimeout) {
+      r = { rows: [...r.rows, { label: 'TIMEOUT', pass: false, detail: 'trial scored as a miss', output: trialTimeout, sample: trialTimeout }], demonstrated: false };
+    }
     if (harnessFault) {
       console.error(`\nREFUSING: a docker claude run in ${s.id} had no model answer (${harnessFault}).\n` +
         'An auth failure (401, expired token), timeout or harness fault is not a capability result (ADR-0051 cl. 3).\n' +
         `Scenarios completed before ${s.id} are recorded; re-run from ${s.id} by id once the cause is fixed.`);
-      writeRecord();
+      writeRecord({ id: s.id, dim: s.dim, fault: harnessFault });
       process.exit(3);
     }
     trialVerdicts.push(r.demonstrated);
@@ -952,8 +993,8 @@ for (const s of toRun) {
 
 // ---- Record this model's behavior (merge per scenario, keyed by model) ----
 writeRecord();
-function writeRecord() {
-  if (argv.includes('--no-record') || !results.length) return;
+function writeRecord(refused) {
+  if (argv.includes('--no-record') || (!results.length && !refused)) return;
   const gitSha = (() => { try { return sh('git', ['-C', REPO, 'rev-parse', '--short', 'HEAD']).trim(); } catch { return 'unknown'; } })();
   // Records pin the substrate (ADR-0022): the dockerized pi run is a DISTINCT substrate
   // from the host pi baseline, so it gets a `__docker` slug — it never clobbers the
@@ -966,25 +1007,48 @@ function writeRecord() {
     try { imageDigest = sh('docker', ['image', 'inspect', '--format', '{{.Id}}', imageRef]).trim(); } catch {}
   }
   const slug = (`${PROVIDER}__${MODEL}` + (isDocker ? '__docker' : '')).replace(/[^A-Za-z0-9._-]/g, '_');
-  const dir = join(REPO, 'scenarios', 'records');
+  const dir = process.env.VFKB_L4_RECORD_DIR || join(REPO, 'scenarios', 'records'); // override: tests only
   mkdirSync(dir, { recursive: true });
   const jsonPath = join(dir, `${slug}.json`);
   let rec = { harness: HARNESS, model: MODEL, provider: PROVIDER, slug, generated: new Date().toISOString(), vfkb_sha: gitSha, scenarios: {} };
   if (existsSync(jsonPath)) { try { rec = JSON.parse(readFileSync(jsonPath, 'utf8')); rec.scenarios ||= {}; } catch {} }
+  // Provenance is per scenario (vfkb#442): a run of a subset merges into the record, so
+  // the header can only state a value every scenario shares. Entries written before
+  // per-scenario stamps inherit the old header's values, flagged as inferred.
+  const PROV = ['vfkb_sha', 'trials_n', 'generated', 'image_digest'];
+  for (const e of Object.values(rec.scenarios)) {
+    if (e.vfkb_sha) continue;
+    for (const k of PROV) if (rec[k] !== undefined) e[k] = rec[k];
+    e.provenance_inferred = true;
+  }
+  const now = new Date().toISOString();
+  const prov = { vfkb_sha: gitSha, trials_n: TRIALS, generated: now, ...(imageRef ? { image_digest: imageDigest } : {}) };
   rec.harness = HARNESS;
-  rec.generated = new Date().toISOString();
-  rec.vfkb_sha = gitSha;
-  rec.trials_n = TRIALS;
-  if (imageRef) { rec.image = imageRef; rec.image_digest = imageDigest; }
+  if (imageRef) rec.image = imageRef;
   for (const r of results) {
     rec.scenarios[r.id] = {
       dim: r.dim,
       demonstrated: r.demonstrated,
       trials: `${r.passes}/${r.trials}`,
       passRate: r.passRate,
+      ...prov,
       rows: r.rows.map((x) => ({ label: x.label, pass: x.pass, detail: x.detail, prompt: x.prompt, output: x.output })),
       ...(r.observedModels ? { observedModels: r.observedModels } : {}),
     };
+  }
+  // A refused scenario's latest attempt could not score: its old verdict no longer stands.
+  if (refused) {
+    const old = rec.scenarios[refused.id];
+    rec.scenarios[refused.id] = {
+      dim: refused.dim, demonstrated: false, trials: 'refused', refused: refused.fault, ...prov, rows: [],
+      ...(old && old.trials !== 'refused' ? { previous: { demonstrated: old.demonstrated, trials: old.trials, vfkb_sha: old.vfkb_sha } } : {}),
+    };
+  }
+  const entries = Object.values(rec.scenarios);
+  rec.generated = now; // when the file was last written
+  for (const k of PROV.filter((x) => x !== 'generated')) {
+    const vals = [...new Set(entries.map((e) => e[k]))];
+    rec[k] = vals.length === 1 ? vals[0] : 'mixed';
   }
   writeFileSync(jsonPath, JSON.stringify(rec, null, 2));
   // human-readable companion
@@ -993,16 +1057,21 @@ function writeRecord() {
     `# vfkb L4 behavior record — harness=${rec.harness} — ${PROVIDER}/${MODEL}`,
     ``, `- harness: ${rec.harness}`, `- generated: ${rec.generated}`, `- vfkb: ${rec.vfkb_sha}`,
     `- trials per scenario: N=${rec.trials_n} (demonstrated = contrast holds on >=2/3)`,
+    ...([rec.vfkb_sha, rec.trials_n, rec.image_digest].includes('mixed') ? ['- provenance differs between scenarios: see the run column'] : []),
     ...(rec.image ? [`- image: ${rec.image}`, `- image digest: ${rec.image_digest}`] : []),
     ...(ids.some((i) => rec.scenarios[i].observedModels)
       ? [`- observed models (modelUsage, union over scenarios): ${[...new Set(ids.flatMap((i) => rec.scenarios[i].observedModels || []))].sort().join(', ') || 'none'}`]
       : []),
     `- scenarios recorded: ${ids.length} (${ids.filter((i) => rec.scenarios[i].demonstrated).length} demonstrated)`,
-    ``, `| scenario | dimension | demonstrated | trials | rows (label=verdict) |`, `|---|---|---|---|---|`,
-    ...ids.map((i) => { const s = rec.scenarios[i]; return `| ${i} | ${s.dim} | ${s.demonstrated ? 'YES' : 'no'} | ${s.trials || '-'} | ${s.rows.map((x) => `${x.label}=${x.pass ? 'PASS' : 'fail'}`).join(', ')} |`; }),
+    ``, `| scenario | dimension | demonstrated | trials | run | rows (label=verdict) |`, `|---|---|---|---|---|---|`,
+    ...ids.map((i) => {
+      const s = rec.scenarios[i];
+      const cells = s.refused ? `REFUSED: ${s.refused.replace(/\|/g, '/')}` : s.rows.map((x) => `${x.label}=${x.pass ? 'PASS' : 'fail'}`).join(', ');
+      return `| ${i} | ${s.dim} | ${s.demonstrated ? 'YES' : 'no'} | ${s.trials || '-'} | ${s.vfkb_sha || '-'} N=${s.trials_n ?? '-'}${s.provenance_inferred ? ' (inferred)' : ''} | ${cells} |`;
+    }),
   ].join('\n');
   writeFileSync(join(dir, `${slug}.md`), md + '\n');
-  console.log(`\nrecorded ${results.length} scenario(s) -> scenarios/records/${slug}.{json,md} (${ids.length} total on file)`);
+  console.log(`\nrecorded ${results.length} scenario(s)${refused ? ` + ${refused.id} as refused` : ''} -> scenarios/records/${slug}.{json,md} (${ids.length} total on file)`);
 }
 
 console.log('=== SUMMARY ===');

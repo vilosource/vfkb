@@ -142,6 +142,11 @@ this is a **deliberate discipline**:
   must be shared with the docker VM. Under Colima (this Mac) only `$HOME` is, so set
   `VFKB_L4_BRAIN_ROOT=~/.cache/vfkb-l4`. The docker modes refuse up front when a probe file
   is not visible through the mount, instead of scoring every failed run as a miss.
+- **Docker claude faults (vfkb#442):** a run with no model answer (or an auth error) refuses the
+  whole run with exit 3; a run that hits `VFKB_L4_DOCKER_TIMEOUT` is a scored miss for its trial
+  (a hang may be a real vfkb fault), and the trial's remaining runs are skipped. Records carry
+  provenance per scenario (`vfkb_sha`, `trials_n`, `image_digest`); the header shows `mixed`
+  when a subset run merged into an older record, and a refused scenario's old verdict is voided.
 - Records → `scenarios/records/<slug>__docker.{json,md}`; **≥2/3 trials = DEMONSTRATED** (ADR-0022).
   Run **one** docker agent run at a time.
 
