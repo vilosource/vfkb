@@ -1,0 +1,90 @@
+{
+  "recordVersion": 1,
+  "sha": "457ff95937a78431b89628244eba278beb28220d",
+  "governing": [
+    "docs/adr/ADR-0051-delivery-honesty.md",
+    "docs/adr/ADR-0050-l4-dod-constitutional-brake.md",
+    "docs/adr/ADR-0070-guards-that-can-fail.md"
+  ],
+  "reviewer": {
+    "agent": "general-purpose",
+    "model": "opus",
+    "rounds": 1
+  },
+  "generated": "2026-11-04T07:28:56Z",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "minor",
+      "status": "open",
+      "summary": "Whole-file digest voids a run on any concurrent operator registry write and blames #437; the record keeps only a boolean (no before/after digests, no vfkb-xr-arm row delta). Fails closed (false RED, never false GREEN); same shape as #436 F1",
+      "acceptedBy": null
+    },
+    {
+      "id": "F2",
+      "severity": "minor",
+      "status": "open",
+      "summary": "Guard covers installed_plugins.json only; other operator config writes (.claude.json project map, projects/, known_marketplaces.json) are unasserted. In scope per #437 DoD; sandboxEnv covers them structurally",
+      "acceptedBy": null
+    },
+    {
+      "id": "F3",
+      "severity": "minor",
+      "status": "open",
+      "summary": "Re-pinned record carries no modelUsage/producedBy/digest, so a live run is indistinguishable from a fake run from the record alone (pre-existing gap; author observed the live run in-session: keychain shim calls=18, which a fake run does not produce)",
+      "acceptedBy": null
+    },
+    {
+      "id": "F4",
+      "severity": "minor",
+      "status": "open",
+      "summary": "claudeSync is inside the try at cross-repo-record.mjs:153-163, so a claudeEnv refusal scores as an arm miss, not an abort (pre-existing; false RED only)",
+      "acceptedBy": null
+    },
+    {
+      "id": "F5",
+      "severity": "minor",
+      "status": "open",
+      "summary": "Sandbox home is tmpdir()/vfkb-xr-home-* rather than #437's <arm>/home; justified (keeps the stub repo tree unchanged), cleaned on both paths, no leftovers observed",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 5,
+  "ruledOut": [
+    "token and no-Keychain shim still applied under sandboxEnv (child logged shim first on PATH)",
+    "arm measurement change (sentinel reaches the model only via the prompt; contrast 0/3 before and after)",
+    "CLAUDE_CONFIG_DIR unset (falls back to $HOME/.claude)",
+    "record internal consistency (counts match arms; no secrets)",
+    "temp-dir leakage (0 vfkb-xr-* left)",
+    "AI attribution in commit"
+  ],
+  "mutations": [
+    {
+      "guard": "cross-repo-record.mjs sandboxEnv on the arm claudeSync",
+      "mutation": "delete the env: sandboxEnv(process.env, home) line; fake claude on PATH writes the inherited registry (N=3)",
+      "observedRed": true
+    },
+    {
+      "guard": "conventionDemonstrated isolation clause",
+      "mutation": "leak mutation plus drop && operatorInstalledPluginsUnchanged from conventionDemonstrated",
+      "observedRed": true
+    },
+    {
+      "guard": "pinDemonstrated isolation clause",
+      "mutation": "leak mutation plus drop && operatorInstalledPluginsUnchanged from pinDemonstrated",
+      "observedRed": true
+    },
+    {
+      "guard": "operator-registry digest",
+      "mutation": "leak mutation plus digest disabled (unchanged forced true)",
+      "observedRed": true
+    },
+    {
+      "guard": "operator-registry digest, absent file",
+      "mutation": "leak mutation with the operator registry absent at start (absent -> hash reads CHANGED)",
+      "observedRed": true
+    }
+  ],
+  "mutationsNote": null,
+  "verdict": "MERGE"
+}

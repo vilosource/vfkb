@@ -2,12 +2,15 @@
   "scenario": "cross-repo-record",
   "model": "claude-haiku-4-5",
   "trials": 3,
-  "generated": "2026-07-17T16:40:33.529Z",
+  "generated": "2026-11-04T07:24:52.415Z",
   "v1": 3,
   "delivery": 3,
   "contrast": 0,
   "conventionDemonstrated": true,
   "pinDemonstrated": true,
+  "isolation": {
+    "operatorInstalledPluginsUnchanged": true
+  },
   "renderCarriesSentinel": {
     "v1": true,
     "delivery": true,
