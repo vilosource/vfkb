@@ -31,14 +31,24 @@
 // session-start-briefing.mjs is the direct model). The artifact under test is
 // the ENGINE RENDER STRING — harness-independent — so the single-harness host
 // form fits (same argument as the ADR-0049 DoD). LIVE + metered.
+//
+// ISOLATION (vfkb#437, the #416 shape): each arm's agent runs under its own
+// sandbox HOME and CLAUDE_CONFIG_DIR (sandboxEnv). It used to inherit the
+// operator's config dir, read the arm's `enabledPlugins: {vfkb@vfkb}` and
+// record a project-scope install per arm in the operator's real
+// installed_plugins.json (observed: 0 -> 3 rows on a scratch registry, N=1,
+// verdict still DEMONSTRATED). The arm needs no plugin: the injection rides in
+// the prompt. The run digests that file before and after; a change voids both
+// verdicts. Content assertion over the file, not an exit code (ADR-0051 cl. 3).
 //   node scenarios/cross-repo-record.mjs
 //   VFKB_XR_TRIALS=1 node scenarios/cross-repo-record.mjs
 // ============================================================================
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { assertClaudeAuthReady, claudeSync } from './lib/claude-auth.mjs';
+import { assertClaudeAuthReady, claudeSync, sandboxEnv } from './lib/claude-auth.mjs';
 
 // vfkb#422: refuse before anything metered if a claude child could touch the macOS Keychain.
 assertClaudeAuthReady();
@@ -48,6 +58,10 @@ const CLI = join(REPO, 'dist', 'cli.js');
 const TRIALS = Math.max(1, parseInt(process.env.VFKB_XR_TRIALS || '3', 10));
 const MODEL = process.env.VFKB_XR_MODEL || 'claude-haiku-4-5';
 const TIMEOUT = parseInt(process.env.VFKB_XR_TIMEOUT || '240000', 10);
+const OPERATOR_CFG = process.env.CLAUDE_CONFIG_DIR || join(process.env.HOME || '', '.claude');
+const operatorPluginsFile = join(OPERATOR_CFG, 'plugins', 'installed_plugins.json');
+const operatorDigest = () =>
+  existsSync(operatorPluginsFile) ? createHash('sha256').update(readFileSync(operatorPluginsFile)).digest('hex') : 'absent';
 
 // Unguessable sentinel: the operation codename. The ONLY path to it is the
 // injected render carrying the cross-repo record.
@@ -130,12 +144,16 @@ function runArm(injection) {
   mkdirSync(join(dir, '.claude'), { recursive: true });
   writeFileSync(join(dir, '.claude', 'settings.json'), '{\n  "enabledPlugins": { "vfkb@vfkb": true }\n}\n');
   writeFileSync(join(dir, 'main.toml'), 'service = "resident"\n');
+  // Outside the arm cwd, so the stub repo's tree is unchanged.
+  const home = mkdtempSync(join(tmpdir(), 'vfkb-xr-home-'));
+  mkdirSync(join(home, '.claude'), { recursive: true });
   const prompt = `${injection}\n\n${QUESTION}`;
   let out = '';
   let err = '';
   try {
     out = claudeSync(['-p', prompt, '--strict-mcp-config', '--dangerously-skip-permissions', '--model', MODEL], {
       cwd: dir,
+      env: sandboxEnv(process.env, home),
       timeout: TIMEOUT,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -144,6 +162,7 @@ function runArm(injection) {
     out = String(e.stdout || '');
   }
   rmSync(dir, { recursive: true, force: true });
+  rmSync(home, { recursive: true, force: true });
   return { hit: out.toLowerCase().includes(SENTINEL), out: out.replace(/\s+/g, ' ').slice(0, 120), err };
 }
 
@@ -163,6 +182,7 @@ for (const [k, inj] of Object.entries(injections)) {
 }
 console.log(`  (delivery arm without sentinel = the pre-pin budget drop — expected RED until the '## Cross-repo operations' pin ships)\n`);
 
+const isolationBefore = operatorDigest();
 const arms = { v1: [], delivery: [], contrast: [] };
 for (let t = 1; t <= TRIALS; t++) {
   for (const arm of Object.keys(arms)) {
@@ -179,17 +199,19 @@ const v1N = hits(arms.v1);
 const deliveryN = hits(arms.delivery);
 const contrastN = hits(arms.contrast);
 const need = Math.ceil((2 * TRIALS) / 3);
-// Per ADR-0063 §7 the arms gate DIFFERENT capabilities:
-const conventionDemonstrated = v1N >= need && v1N > contrastN;
-const pinDemonstrated = deliveryN >= need && deliveryN > contrastN;
+const operatorInstalledPluginsUnchanged = operatorDigest() === isolationBefore;
+// Per ADR-0063 §7 the arms gate DIFFERENT capabilities; a leak voids both.
+const conventionDemonstrated = v1N >= need && v1N > contrastN && operatorInstalledPluginsUnchanged;
+const pinDemonstrated = deliveryN >= need && deliveryN > contrastN && operatorInstalledPluginsUnchanged;
 
 console.log(`\nv1 convention: ${v1N}/${TRIALS}   delivery(pressured): ${deliveryN}/${TRIALS}   contrast(no record): ${contrastN}/${TRIALS}`);
+console.log(`isolation: operator installed_plugins.json ${operatorInstalledPluginsUnchanged ? 'unchanged' : 'CHANGED (vfkb#437 leak) — verdicts void'} (${operatorPluginsFile})`);
 console.log(conventionDemonstrated
   ? `CONVENTION DEMONSTRATED — the v1 record briefs a fresh resident session (≥${need}/${TRIALS} and > contrast)`
-  : `convention NOT demonstrated (need v1 ≥${need}/${TRIALS} AND > contrast)`);
+  : `convention NOT demonstrated (need v1 ≥${need}/${TRIALS} AND > contrast AND an unchanged operator registry)`);
 console.log(pinDemonstrated
   ? `PIN DEMONSTRATED — the record survives budget pressure (≥${need}/${TRIALS} and > contrast)`
-  : `pin NOT demonstrated — expected RED until the '## Cross-repo operations' pin ships (ADR-0063 §2)`);
+  : `pin NOT demonstrated (need delivery ≥${need}/${TRIALS} AND > contrast AND an unchanged operator registry)`);
 
 mkdirSync(join(REPO, 'scenarios/records'), { recursive: true });
 writeFileSync(
@@ -197,6 +219,7 @@ writeFileSync(
   JSON.stringify({ scenario: 'cross-repo-record', model: MODEL, trials: TRIALS,
     generated: new Date().toISOString(), v1: v1N, delivery: deliveryN, contrast: contrastN,
     conventionDemonstrated, pinDemonstrated,
+    isolation: { operatorInstalledPluginsUnchanged },
     renderCarriesSentinel: Object.fromEntries(Object.entries(injections).map(([k, i]) => [k, i.includes(SENTINEL)])),
     arms }, null, 2),
 );
