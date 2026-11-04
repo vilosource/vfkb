@@ -1,0 +1,153 @@
+{
+  "recordVersion": 1,
+  "sha": "b8b315ae5deaed3aa0623a8601e721515b53ad2d",
+  "governing": [
+    "docs/adr/ADR-0051-delivery-honesty.md",
+    "docs/adr/ADR-0050-l4-dod-constitutional-brake.md",
+    "docs/adr/ADR-0070-guards-that-can-fail.md"
+  ],
+  "reviewer": {
+    "agent": "general-purpose",
+    "model": "opus",
+    "rounds": 2
+  },
+  "generated": "2026-11-04T08:18:49Z",
+  "findings": [
+    {
+      "id": "R1-M1",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "Per-trial assertClaudeTokenFresh re-read the stored credential while the container used the startup-cached token; no-op for an exported token. Removed (173b9ad); replaced by the no-model refusal",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-M2",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "Nothing content-asserted an auth failure: a fake 401 scored no-secrets DEMONSTRATED 3/3. Now a docker claude run with no modelUsage key refuses the run outside both catches, exit 3 (173b9ad)",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-M3",
+      "severity": "major",
+      "status": "fixed",
+      "summary": "spike/dogfood-smoke.sh still mounted ~/.claude/.credentials.json; now an exported token by name (173b9ad)",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-m4",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "assertClaudeTokenFresh skipped the session-first guard (removed with it)",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-m6",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "parseClaudeJson: a warning line before the JSON hid it; an error result with no result field scored the raw JSON",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-m7",
+      "severity": "minor",
+      "status": "open",
+      "summary": "A mid-run refusal used to discard completed results; now writes them, but see R2-1 (#442)",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-m8",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "The integration test could not tell claudeEnv() from process.env; the fake docker now checks the shim is first on PATH",
+      "acceptedBy": null
+    },
+    {
+      "id": "R1-m9",
+      "severity": "minor",
+      "status": "fixed",
+      "summary": "Stale docs: H4 roadmap credential-mount note, dogfood usage lines",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-1",
+      "severity": "major",
+      "status": "open",
+      "summary": "A refusal leaves a record with mixed provenance (run-level header over old merged scenarios; the refused scenario keeps its old verdict). Merge behaviour predates the PR; tracked in #442. Not exercised by this re-pin: all 32 scenarios were re-run",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-2",
+      "severity": "minor",
+      "status": "open",
+      "summary": "A docker timeout reads as no model and aborts the whole re-pin; kb-resume-mcp has timed out historically. Fails closed. Tracked in #442; this re-pin hit no timeout",
+      "acceptedBy": null
+    },
+    {
+      "id": "R2-3",
+      "severity": "minor",
+      "status": "open",
+      "summary": "Mount probe runs as root without --user, swallows docker errors into the brain-root remedy, image choice untested (R6). Tracked in #442",
+      "acceptedBy": null
+    }
+  ],
+  "findingsCount": 11,
+  "ruledOut": [
+    "host-mode and pi run paths unchanged",
+    "token in argv or refusal text",
+    "no-token probe arm had no other credential (image bakes none)",
+    "legitimate no-model runs: no --max-turns passed; blocked tool calls still carry modelUsage; no UserPromptSubmit hook",
+    "pi image has cat (node:20-slim, no ENTRYPOINT)",
+    "AI attribution in commit messages",
+    "re-pin record: author verified observedModels per scenario (haiku on every agent scenario, none only on deterministic corroborated-promotion), 32/32 re-run fresh, no secrets, image digest matches the built image"
+  ],
+  "mutations": [
+    {
+      "guard": "test/docker-claude.test.ts argv",
+      "mutation": "add a /work/.claude credentials mount in dockerClaudeArgv",
+      "observedRed": true
+    },
+    {
+      "guard": "test/docker-claude.test.ts argv",
+      "mutation": "-e CLAUDE_CODE_OAUTH_TOKEN=<value> in argv",
+      "observedRed": true
+    },
+    {
+      "guard": "test/docker-claude.test.ts integration",
+      "mutation": "l4-purpose.mjs reverted to main",
+      "observedRed": true
+    },
+    {
+      "guard": "test/docker-claude.test.ts integration",
+      "mutation": "drop --output-format json",
+      "observedRed": true
+    },
+    {
+      "guard": "test/docker-claude.test.ts mount refusal",
+      "mutation": "mount check disabled",
+      "observedRed": true
+    },
+    {
+      "guard": "test/docker-claude.test.ts shim PATH",
+      "mutation": "docker child env process.env instead of claudeEnv(process.env)",
+      "observedRed": true
+    },
+    {
+      "guard": "test/docker-claude.test.ts 401 refusal",
+      "mutation": "harnessFault check in the trial loop disabled",
+      "observedRed": true
+    },
+    {
+      "guard": "test/docker-claude.test.ts 401 refusal",
+      "mutation": "no-model run not flagged",
+      "observedRed": true
+    },
+    {
+      "guard": "test/docker-claude.test.ts parser",
+      "mutation": "missing result falls back to raw JSON",
+      "observedRed": true
+    }
+  ],
+  "mutationsNote": "Reviewer round-2 gaps R6 (mount probe image), R7/R11 (writeRecord on refusal) stay green; tracked in #442.",
+  "verdict": "MERGE"
+}
