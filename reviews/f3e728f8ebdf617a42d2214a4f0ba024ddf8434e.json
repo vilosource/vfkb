@@ -1,0 +1,129 @@
+{
+ "recordVersion": 1,
+ "sha": "f3e728f8ebdf617a42d2214a4f0ba024ddf8434e",
+ "governing": [
+  "docs/adr/ADR-0040-native-concurrency-lock.md"
+ ],
+ "reviewer": {
+  "agent": "general-purpose",
+  "model": "claude-opus-5-5",
+  "rounds": 2
+ },
+ "generated": "2026-11-04T13:24:38Z",
+ "findings": [
+  {
+   "id": "R1-M1",
+   "severity": "major",
+   "status": "fixed",
+   "summary": "Probe README/PR body overstated 'before': warm-802 row did not reproduce (296 vs 801 ms), warm 3.2k/10.8k 'before' rows were still curating, and the 1557 ms max was a single unreproduced sample. Warm 'before' table dropped, 1557 labelled, reviewer N=3 re-run added (f3e728f)",
+   "acceptedBy": null
+  },
+  {
+   "id": "R1-m1",
+   "severity": "minor",
+   "status": "fixed",
+   "summary": "'Fixes #396' while the floor still scales linearly and the harness re-measure is unrun: now 'Refs #396'; follow-up #448 (f3e728f)",
+   "acceptedBy": null
+  },
+  {
+   "id": "R1-m2",
+   "severity": "minor",
+   "status": "fixed",
+   "summary": "In-lock deadline re-check untested (B1 survived): test asserts no whole-brain read (f3e728f)",
+   "acceptedBy": null
+  },
+  {
+   "id": "R1-m3",
+   "severity": "minor",
+   "status": "fixed",
+   "summary": "Meta write on the error path untested (B2 survived): mid-run write failure test (f3e728f)",
+   "acceptedBy": null
+  },
+  {
+   "id": "R1-m4",
+   "severity": "minor",
+   "status": "fixed",
+   "summary": "Busy-lock skip indistinguishable from a deadline stop: stderr line added and asserted (f3e728f)",
+   "acceptedBy": null
+  },
+  {
+   "id": "R1-m5",
+   "severity": "minor",
+   "status": "open",
+   "summary": "Repair loop has no per-entry deadline check (repairs are rare; archive loop and in-lock re-check bound the normal path)",
+   "acceptedBy": null
+  },
+  {
+   "id": "R1-m6",
+   "severity": "minor",
+   "status": "open",
+   "summary": "writeMeta throwing in the finally masks the original error (session-end catches both; CLI message less informative)",
+   "acceptedBy": null
+  },
+  {
+   "id": "R2-n1",
+   "severity": "minor",
+   "status": "fixed",
+   "summary": "PR body said 5 new tests; now 7",
+   "acceptedBy": null
+  }
+ ],
+ "findingsCount": 8,
+ "ruledOut": [
+  "semantic equivalence of snapshot edits: snapshot entry equals what updateEntry's readAll would read; every same-id read-before-write path in src/ takes the lock; addEntry uses fresh ids",
+  "repair and archive cannot edit the same id in one run (repaired ids excluded)",
+  "decision-family guard still enforced in applyFluidEdit; journal still mirrors every record",
+  "lock opts: dead/stale holders still broken at timeout 0; negative timeout skips; non-deadlined callers keep the 5 s fail-open; re-entrant path unaffected",
+  "stderr line only reachable from session-end's deadlined autoCurate; hook stdout JSON untouched",
+  "after-fix timings reproduced by the reviewer (10.8k cold 534 ms vs README 507 ms)",
+  "no false positives: a busy lock previously waited 5 s then skipped via the in-lock check anyway"
+ ],
+ "mutations": [
+  {
+   "guard": "test/sessionend-scaling.test.ts reads",
+   "mutation": "edit() reverted to updateEntry",
+   "observedRed": true
+  },
+  {
+   "guard": "test/sessionend-scaling.test.ts reads",
+   "mutation": "appendRecord ignores meta:false",
+   "observedRed": true
+  },
+  {
+   "guard": "test/sessionend-scaling.test.ts reads",
+   "mutation": "final writeMeta dropped",
+   "observedRed": true
+  },
+  {
+   "guard": "test/sessionend-scaling.test.ts busy lock",
+   "mutation": "no lock opts passed",
+   "observedRed": true
+  },
+  {
+   "guard": "test/sessionend-scaling.test.ts withBrainLock",
+   "mutation": "onTimeout ignored",
+   "observedRed": true
+  },
+  {
+   "guard": "test/sessionend-scaling.test.ts busy lock",
+   "mutation": "acquireTimeoutMs ignored",
+   "observedRed": true
+  },
+  {
+   "guard": "test/sessionend-scaling.test.ts in-lock re-check",
+   "mutation": "pastDeadline re-check dropped",
+   "observedRed": true
+  },
+  {
+   "guard": "test/sessionend-scaling.test.ts throw mid-run",
+   "mutation": "writeMeta only on success",
+   "observedRed": true
+  },
+  {
+   "guard": "test/sessionend-scaling.test.ts busy lock",
+   "mutation": "stderr line removed",
+   "observedRed": true
+  }
+ ],
+ "verdict": "MERGE"
+}

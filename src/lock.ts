@@ -62,7 +62,19 @@ export function testHoldForRace(): void {
   if (ms > 0) sleepSync(ms);
 }
 
-export function withBrainLock<T>(fn: () => T): T {
+/**
+ * Options for one acquisition (vfkb#396). `acquireTimeoutMs` shortens the wait for a caller
+ * on a deadline (SessionEnd); `onTimeout`, when given, runs INSTEAD of fn once the wait
+ * expires, so an optional step can be skipped rather than run without the lock. Without
+ * it the ADR-0040 fail-open stands: fn runs unlocked after the wait.
+ */
+export interface LockOpts<T> {
+  acquireTimeoutMs?: number;
+  onTimeout?: () => T;
+}
+
+export function withBrainLock<T>(fn: () => T, opts: LockOpts<T> = {}): T {
+  const acquireTimeoutMs = opts.acquireTimeoutMs ?? ACQUIRE_TIMEOUT_MS;
   // Escape hatch for the DoD's must-fail arm ONLY (proves the race is real).
   if (process.env.VFKB_LOCK_DISABLED === '1') return fn();
   if (depth > 0) {
@@ -134,9 +146,10 @@ export function withBrainLock<T>(fn: () => T): T {
         );
         continue;
       }
-      if (Date.now() - started > ACQUIRE_TIMEOUT_MS) {
+      if (Date.now() - started > acquireTimeoutMs) {
+        if (opts.onTimeout) return opts.onTimeout();
         process.stderr.write(
-          `vfkb: brain lock busy >${ACQUIRE_TIMEOUT_MS}ms (pid ${holder?.pid ?? '?'}${
+          `vfkb: brain lock busy >${acquireTimeoutMs}ms (pid ${holder?.pid ?? '?'}${
             holder?.session_id ? `, session ${holder.session_id}` : ''
           }) — proceeding without the lock (fail-open)\n`,
         );

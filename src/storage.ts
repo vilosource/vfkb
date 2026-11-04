@@ -12,6 +12,7 @@ import { storageBackend } from './backend.js';
 import { journalAppend } from './journal.js';
 import { normalizeEntry } from './validate.js';
 import type { KnowledgeEntry } from './types.js';
+import type { LockOpts } from './lock.js';
 
 export interface Tombstone {
   id: string;
@@ -80,7 +81,7 @@ export function defaultProject(): string {
 // --- append-only writes. Every write regenerates the freshness meta as a
 //     GUARANTEED side-effect (mykb L11; ADR-0014) — policy, so it lives here,
 //     above the backend's raw append. ---
-export function appendRecord(rec: StoredRecord): void {
+export function appendRecord(rec: StoredRecord, opts: { meta?: boolean } = {}): void {
   const be = storageBackend();
   // ADR-0064: journal-first untracked mirror — the durability floor for the
   // window between this append and the next brain commit. JSONL-fs only: the
@@ -89,13 +90,15 @@ export function appendRecord(rec: StoredRecord): void {
   // materialized a literal 'memory:/test/.journal' dir in the cwd).
   if (be.name === 'jsonl-fs') journalAppend(be.location(), rec);
   be.append(rec);
-  writeMeta();
+  // vfkb#396: a batch writer (autoCurate) passes meta:false and calls writeMeta() once at
+  // the end; writeMeta materializes the whole brain, so per-record it was O(n) each.
+  if (opts.meta !== false) writeMeta();
 }
 
 // ADR-0040: the exclusive section for read-decide-append engine ops, provided by
 // the backend (a lockfile for JSONL; a transaction for a future hosted backend).
-export function withExclusive<T>(fn: () => T): T {
-  return storageBackend().withExclusive(fn);
+export function withExclusive<T>(fn: () => T, opts?: LockOpts<T>): T {
+  return storageBackend().withExclusive(fn, opts);
 }
 
 // --- Project context doc spine (D-ii / ADR-0025) — authored content, stored by the

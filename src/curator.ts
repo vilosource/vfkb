@@ -11,6 +11,7 @@
 import {
   readAll,
   updateEntry,
+  applyFluidEdit,
   setProvenanceStatus,
   transitionDecision,
   isDecisionFamily,
@@ -24,7 +25,7 @@ import {
   AUTO_ARCHIVED,
   CURATION_KEPT,
 } from './engine.js';
-import { withExclusive, readRecords, materialize, isTombstone } from './storage.js';
+import { withExclusive, readRecords, materialize, isTombstone, writeMeta } from './storage.js';
 import { normalizeEntry } from './validate.js';
 import { tally } from './counters.js';
 import type { KnowledgeEntry } from './types.js';
@@ -249,6 +250,8 @@ export interface AutoCurateOpts {
    * vfkb#384 (SessionEnd budget): a monotonic clock and a deadline on it. When both are
    * given, the rule checks the clock after taking the lock and before each archive, and
    * stops once `now() >= deadlineMs`. Unset → no deadline (the CLI `curate` paths).
+   * vfkb#396: the lock wait is bounded by the same deadline; a lock still busy then skips
+   * the run (stopped: 'deadline') instead of running it unlocked.
    */
   now?: () => number;
   deadlineMs?: number;
@@ -261,9 +264,37 @@ export interface AutoCurateOpts {
 export function autoCurate(today = todayIso(), opts: AutoCurateOpts = {}): AutoCurateResult {
   const pastDeadline = (): boolean =>
     opts.deadlineMs !== undefined && (opts.now ?? (() => performance.now()))() >= opts.deadlineMs;
+  const skipped = (): AutoCurateResult => ({ archived: [], repaired: [], stopped: 'deadline' });
+  const lockOpts =
+    opts.deadlineMs === undefined
+      ? undefined
+      : {
+          acquireTimeoutMs: Math.max(0, opts.deadlineMs - (opts.now ?? (() => performance.now()))()),
+          onTimeout: (): AutoCurateResult => {
+            // Said on stderr so a busy-lock skip is told apart from a deadline stop.
+            process.stderr.write('vfkb: brain lock busy at the curation deadline; curation skipped\n');
+            return skipped();
+          },
+        };
+  // vfkb#396: every write below edits from this run's own snapshot (taken under the lock)
+  // with the meta write deferred, then writes meta ONCE, so an archive costs one append
+  // instead of two whole-brain materializations.
+  let wrote = false;
+  const edit = (e: KnowledgeEntry, patch: Partial<Pick<KnowledgeEntry, 'tags' | 'zone'>>): void => {
+    applyFluidEdit(e, patch, { meta: false });
+    wrote = true;
+  };
   return withExclusive(() => {
-    // The lock wait can be long under contention (ADR-0040); re-check once inside.
-    if (pastDeadline()) return { archived: [], repaired: [], stopped: 'deadline' };
+    try {
+      return curateLocked();
+    } finally {
+      if (wrote) writeMeta();
+    }
+  }, lockOpts);
+
+  function curateLocked(): AutoCurateResult {
+    // Past the deadline already (the wait used it up): do nothing.
+    if (pastDeadline()) return skipped();
     const records = readRecords();
     const all = materialize(records);
     const linesById = new Map<string, KnowledgeEntry[]>();
@@ -290,7 +321,7 @@ export function autoCurate(today = todayIso(), opts: AutoCurateOpts = {}): AutoC
       result.repaired.push(e.id);
       if (!opts.dryRun) {
         const tags = [...new Set([...newest.tags.filter((t) => !t.startsWith(AUTO_ARCHIVED)), CURATION_KEPT])];
-        updateEntry(e.id, { zone: newest.zone, tags });
+        edit(e, { zone: newest.zone, tags });
       }
     }
 
@@ -330,11 +361,11 @@ export function autoCurate(today = todayIso(), opts: AutoCurateOpts = {}): AutoC
       live.delete(e.id);
       result.archived.push(e.id);
       if (!opts.dryRun) {
-        updateEntry(e.id, { zone: 'archive', tags: [...new Set([...e.tags, `${AUTO_ARCHIVED}${AUTO_RULE}@${today}`])] });
+        edit(e, { zone: 'archive', tags: [...new Set([...e.tags, `${AUTO_ARCHIVED}${AUTO_RULE}@${today}`])] });
       }
     }
     return result;
-  });
+  }
 }
 
 export interface AutoArchiveRow extends ReportRow {
