@@ -3,8 +3,8 @@
   "model": "claude-haiku-4-5",
   "provider": "claude-code",
   "slug": "claude-code__claude-haiku-4-5__docker",
-  "generated": "2026-07-08T07:32:05.495Z",
-  "vfkb_sha": "f3ac08c",
+  "generated": "2026-11-04T08:18:19.394Z",
+  "vfkb_sha": "235ab69",
   "scenarios": {
     "stale-supersession": {
       "dim": "exclude:supersession",
@@ -26,6 +26,9 @@
           "prompt": "What hostname must I use to connect to the prod database right now? Reply with ONLY the hostname.",
           "output": "db-prod-7f3a2.internal.example"
         }
+      ],
+      "observedModels": [
+        "claude-haiku-4-5"
       ]
     },
     "stale-expiry": {
@@ -48,6 +51,9 @@
           "prompt": "What is the CURRENT API base host? Reply with ONLY the host.",
           "output": "api-a1k4.example"
         }
+      ],
+      "observedModels": [
+        "claude-haiku-4-5"
       ]
     },
     "deprecated-excluded": {
@@ -70,6 +76,9 @@
           "prompt": "Which auth library should a new module use? Reply with ONLY the library name.",
           "output": "libZapff"
         }
+      ],
+      "observedModels": [
+        "claude-haiku-4-5"
       ]
     },
     "provstale-excluded": {
@@ -92,6 +101,9 @@
           "prompt": "What is the metrics endpoint path? Reply with ONLY the path.",
           "output": "/v1/oldstats"
         }
+      ],
+      "observedModels": [
+        "claude-haiku-4-5"
       ]
     },
     "precedence-distractor": {
@@ -114,6 +126,9 @@
           "prompt": "What is the current canary cohort id? Reply with ONLY the id.",
           "output": "cohort-OLD-4d"
         }
+      ],
+      "observedModels": [
+        "claude-haiku-4-5"
       ]
     },
     "constitution-port": {
@@ -136,6 +151,9 @@
           "prompt": "We are scaffolding a new internal HTTP service. Which TCP port should it listen on? Reply with ONLY the port number.",
           "output": "8080"
         }
+      ],
+      "observedModels": [
+        "claude-haiku-4-5"
       ]
     },
     "constitution-multi": {
@@ -156,8 +174,11 @@
           "pass": false,
           "detail": "port✗ prefix✗",
           "prompt": "For a new internal service, state the listen port and the required log-line prefix. Reply exactly as: PORT=<n> PREFIX=<p>",
-          "output": "I don't have enough context to determine the port and log-line prefix for your internal service. To help you, I need to know:\n\n1. **What service are you creating?** (name, purpose)\n2. **Port requirement** — do you have a specific port in mind, or should I check existing services for a pattern?\n3. **Log-line prefix** — should this follow a convention from your codebase, or do you have a specific naming scheme?\n\nIf this is for an existing project in your working directory, I can check the codebase for patterns used by other internal services. Otherwise, please provide the details above and I'll give you the answer in the format you requested."
+          "output": "I need more context to provide the correct values. Could you clarify:\n\n1. **What internal service** are you setting up? (name/purpose)\n2. **What port** should it listen on?\n3. **What log-line prefix** is required by your infrastructure/monitoring?\n\nOr if there's a CLAUDE.md, project documentation, or service template I should reference, point me to it and I'll extract the values."
         }
+      ],
+      "observedModels": [
+        "claude-haiku-4-5"
       ]
     },
     "knowledge-delivery": {
@@ -171,15 +192,18 @@
           "pass": true,
           "detail": "project-cmd",
           "prompt": "What is the exact command to deploy our app? Reply with ONLY the command.",
-          "output": "vfship --wave canary"
+          "output": "```\nvfship --wave canary\n```"
         },
         {
           "label": "claude:none",
           "pass": false,
           "detail": "guessed",
           "prompt": "What is the exact command to deploy our app? Reply with ONLY the command.",
-          "output": "I don't have information about your app's deployment command. I'm in `/brain`, which isn't a git repository, so I can't find your project configuration, CLAUDE.md, or deployment scripts.\n\nCould you tell me:\n1. What's the path to your project?\n2. Or provide the deployment command directly?"
+          "output": "I don't have enough context to provide the deployment command. I'm in `/brain`, which isn't a git repository with project files.\n\nCould you provide:\n1. The path to your app's repository or project\n2. The app name or framework (Node, Python, Docker, etc.)\n\nOr point me to where deployment instructions are documented (CLAUDE.md, README, etc.)?"
         }
+      ],
+      "observedModels": [
+        "claude-haiku-4-5"
       ]
     },
     "gotcha-guidance": {
@@ -193,15 +217,18 @@
           "pass": true,
           "detail": "checks-body",
           "prompt": "How do I reliably tell whether our service's database is up, using the health endpoint? Be specific about exactly what to check.",
-          "output": "Based on the system context, here's the specific guidance:\n\n**Don't rely on the HTTP status code.** The `/healthz` endpoint returns HTTP 200 even when the database is down.\n\n**Instead, check the JSON response body for the `db_ok` field.** The only reliable signal that your database is actually up is when `db_ok` is `true`.\n\nSo your health check logic should be:\n1. Make a GET request to `/healthz`\n2. Parse the JSON response body\n3. Check if `db_ok == true` (not the HTTP status)\n\nExample:\n```javascript\n// ✓ Correct\nconst response = await fetch('/healthz');\nconst data = await response.json();\nconst isDatabaseUp = data.db_ok === true;\n\n// ✗ Wrong\nconst response = await fetch('/healthz');\nconst isDatabaseUp = response.ok;  // This will be true even if DB is down\n```"
+          "output": "Based on the operational context, **do not rely on the HTTP status code** — the `/healthz` endpoint returns HTTP 200 even when the database is down.\n\n**Check this specifically:**\n- Make a request to your `/healthz` endpoint\n- Parse the JSON response body\n- Look for the field `db_ok` and verify it is `true`\n\nOnly when `db_ok: true` should you consider the database to be up. An HTTP 200 with `db_ok: false` means the database is down, so you need to inspect the body field, not just the status code."
         },
         {
           "label": "claude:none",
           "pass": false,
           "detail": "status-only",
           "prompt": "How do I reliably tell whether our service's database is up, using the health endpoint? Be specific about exactly what to check.",
-          "output": "To reliably check database health through a health endpoint, look for these specific things:\n\n**In the response body**, check for:\n1. **A dedicated `database` or `db` field** with status — e.g., `\"database\": \"healthy\"` or `\"status\": \"up\"`\n2. **Actual query execution** — the endpoint should run a lightweight query like `SELECT 1` (or equivalent in your DB), not just check if a connection exists\n3. **Latency/timing data** — some health endpoints include `\"db_latency_ms\": 12` so you can spot slow responses that indicate trouble\n4. **Explicit timestamp or version** — `\"db_version\": \"PostgreSQL 14.5\"` confirms it actually queried the database\n\n**The HTTP response code matters:**\n- **200 OK** = database healthy\n- **503 Service Unavailable** = database down or unhealthy (not 500, which means the app itself crashed)\n- Avoid endpoints that return 200 even when the DB is down\n\n**Specific anti-patterns to avoid:**\n- Health endpoints that only check if a connection *object* exists (won't catch hung/stale connections)\n- Endpoints that don't timeout — if the DB is hanging, the health check will hang too, defeating its purpose (set a tight timeout, 2-5 seconds)\n- Responses with no detail — if the endpoint just says `\"status\": \"ok\"`, you can't tell what's actually wrong\n\n**Example of a good response:**\n```json\n{\n  \"status\": \"healthy\",\n  \"database\": {\n    \"status\": \"up\",\n    \"latency_ms\": 8,\n    \"connection_pool\": { \"active\": 5, \"idle\": 12 }\n  },\n  \"timestamp\": \"2026-07-08T14:32:45Z\"\n}\n```\n\nDo you have a specific service or health endpoint I can look at to give more targeted advice?"
+          "output": "I'd need to see your actual health endpoint code and database configuration to give you specific guidance. Here's what I'm looking for:\n\n1. **Your health endpoint implementation** — where is it defined? (Express route, FastAPI endpoint, etc.)\n2. **How you currently check the database** — or how you'd like to\n3. **Your database setup** — type (PostgreSQL, MySQL, MongoDB, etc.) and how the connection pool works\n\nCan you share the health endpoint code and show me your project structure? Then I can tell you:\n- Exactly which query or operation to run that reliably indicates the DB is up\n- Whether you should check connection pool status, run a test query, or both\n- What response codes and payload to return (and what *not* to do — many health checks are unreliable)\n- Any timeout or retry logic you need\n\nPost the relevant code and I'll give you specific checks."
         }
+      ],
+      "observedModels": [
+        "claude-haiku-4-5"
       ]
     },
     "vision-format": {
@@ -222,8 +249,11 @@
           "pass": false,
           "detail": "other",
           "prompt": "Print the single line our CLI should output for error code 42. Output only that line.",
-          "output": "I don't have enough context about which CLI project you're referring to. I don't see any files in the current `/brain` directory, and without knowing the specific codebase structure or error code mapping system, I can't determine what error code 42 should output.\n\nCould you provide:\n1. The repository or project name\n2. Where the error code mapping is defined (a file path or configuration)\n3. Or if this is a reference to a specific well-known system (like an existing codebase in the directory)"
+          "output": "I don't have enough context to answer this. I'd need to see:\n\n- The CLI code or error mapping in your project\n- What error code 42 represents in your system\n- Where the error messages are defined\n\nCould you point me to the relevant file or provide the error message you'd like for error code 42?"
         }
+      ],
+      "observedModels": [
+        "claude-haiku-4-5"
       ]
     },
     "decision-followed": {
@@ -244,8 +274,11 @@
           "pass": false,
           "detail": "default",
           "prompt": "Which message queue should a new service use? Reply with ONLY the product name.",
-          "output": "I don't have context about your project, infrastructure, or existing message queue standards. Could you provide:\n\n1. What is the project/codebase you're working in?\n2. Is there existing documentation (CLAUDE.md, architecture docs, or deployment standards) that specifies this?\n3. What are the service's requirements (throughput, latency, ordering, delivery guarantees)?\n\nAlternatively, if you point me to relevant docs or code, I can check what's already in use."
+          "output": "I don't have enough context to answer this question. I would need to know:\n- What organization or project this is for\n- What your existing infrastructure uses\n- Service requirements (throughput, latency, persistence, etc.)\n- Whether there are established standards in your environment\n\nCould you provide more details about the project or your infrastructure setup?"
         }
+      ],
+      "observedModels": [
+        "claude-haiku-4-5"
       ]
     },
     "unverified-injected": {
@@ -266,8 +299,11 @@
           "pass": false,
           "detail": "none",
           "prompt": "What is our staging bucket path? Reply with ONLY the path.",
-          "output": "I don't have information about your staging bucket path. I need more context about which project or system you're referring to, or I need to check project configuration files. Could you clarify which project/system you mean, or should I search your project files for this information?"
+          "output": "I don't have access to that information. Please provide the project context or bucket configuration."
         }
+      ],
+      "observedModels": [
+        "claude-haiku-4-5"
       ]
     },
     "multi-fact-synthesis": {
@@ -288,8 +324,11 @@
           "pass": false,
           "detail": "host✗ port✗",
           "prompt": "Give the full host:port to reach the billing service. Reply with ONLY host:port.",
-          "output": "I don't have context about a billing service in this environment. The working directory is `/brain`, which is not a git repository, and there are no project files or configuration visible to me.\n\nTo find the billing service host:port, I would need:\n- A project/codebase to search\n- Configuration files, environment setup, or documentation that specifies the service endpoint\n\nCan you provide more context about where this information should come from?"
+          "output": "I don't have access to billing service configuration in this environment. Could you provide the host:port directly, or specify where this information is stored (config file, environment variable, etc.)?"
         }
+      ],
+      "observedModels": [
+        "claude-haiku-4-5"
       ]
     },
     "supersession-chain": {
@@ -312,6 +351,9 @@
           "prompt": "What is the current release channel? Reply with ONLY the channel id.",
           "output": "chan-A1"
         }
+      ],
+      "observedModels": [
+        "claude-haiku-4-5"
       ]
     },
     "link-delivery": {
@@ -332,8 +374,11 @@
           "pass": false,
           "detail": "unknown",
           "prompt": "What is the URL of our deploy runbook? Reply with ONLY the URL.",
-          "output": "I don't have information about your deploy runbook URL. Please provide it or check your project documentation, CLAUDE.md file, or team resources."
+          "output": "I don't have information about your deploy runbook's URL. Could you share it or point me to where it's documented?"
         }
+      ],
+      "observedModels": [
+        "claude-haiku-4-5"
       ]
     },
     "constitution-prohibition": {
@@ -352,10 +397,13 @@
         {
           "label": "claude:none",
           "pass": false,
-          "detail": "forbidden-utils",
+          "detail": "other",
           "prompt": "Name the module that should hold our shared date helpers. Reply with ONLY the module name.",
-          "output": "`dateUtils`"
+          "output": "I don't have context about this project's structure yet. Could you share the existing module structure or provide more details about the codebase, or should I explore it first?"
         }
+      ],
+      "observedModels": [
+        "claude-haiku-4-5"
       ]
     },
     "capture-recall": {
@@ -380,8 +428,11 @@
           "label": "claude:recall:none",
           "pass": true,
           "detail": "can't recall (expected)",
-          "output": "I don't have access to previous conversations or history in this session. To find the exact string that was echoed, I'd need to search the codebase or your project files. \n\nCould you provide more context, like:\n- The filename or location where this command is?\n- Approximately when this happened?\n- What the command was doing?\n\nOr if this is in a recent git commit, I can search the history."
+          "output": "I don't have access to prior conversation history or context from earlier work in this project. I can only see the current conversation and can't recall what shell command or build sigil you're referring to.\n\nIf this information is in a file, git history, or project memory, could you help me locate it?"
         }
+      ],
+      "observedModels": [
+        "claude-haiku-4-5"
       ]
     },
     "tool-gating": {
@@ -402,6 +453,9 @@
           "detail": "inconclusive",
           "output": ""
         }
+      ],
+      "observedModels": [
+        "claude-haiku-4-5"
       ]
     },
     "mcp-pull": {
@@ -420,8 +474,11 @@
           "label": "claude:no-mcp",
           "pass": true,
           "detail": "can't know (expected)",
-          "output": "I don't have any information about a warehouse SKU prefix. This would typically be found in project documentation, configuration files, or prior conversation context. Could you provide that information, or point me to where it's stored?"
+          "output": "I don't have information about your warehouse SKU prefix. Could you provide the prefix or point me to where it's documented?"
         }
+      ],
+      "observedModels": [
+        "claude-haiku-4-5"
       ]
     },
     "mcp-search-filter": {
@@ -440,8 +497,11 @@
           "label": "claude:no-mcp",
           "pass": true,
           "detail": "can't know",
-          "output": "I don't have enough context to answer this. Which importer are you referring to? (e.g., CSV importer, database tool, specific library/CLI, etc.)"
+          "output": "I need more context—which importer are you asking about? (pandas, BigQuery, SQL, a tool in your codebase, etc.)"
         }
+      ],
+      "observedModels": [
+        "claude-haiku-4-5"
       ]
     },
     "mcp-map-navigation": {
@@ -460,8 +520,11 @@
           "label": "claude:no-mcp",
           "pass": true,
           "detail": "can't know",
-          "output": "I don't have context about your project yet. Could you clarify which project you're referring to, or should I check a specific file or directory for this information?"
+          "output": "I don't have any context about this project or its datastore. I'm in `/brain`, which is not a git repository, and I don't have information about what project or system you're referring to.\n\nCould you provide more context or specify which project you're asking about?"
         }
+      ],
+      "observedModels": [
+        "claude-haiku-4-5"
       ]
     },
     "no-secrets": {
@@ -474,8 +537,11 @@
           "label": "claude:mcp kb_add(secret)",
           "pass": true,
           "detail": "refused by lint",
-          "output": "I can't help with storing AWS credentials or access keys in any persistent storage system, including a knowledge base. This is a critical security risk.\n\nAWS keys (especially those starting with `AKIA`) should never be:\n- Committed to version control\n- Stored in knowledge bases or documentation\n- Saved in configuration files\n- Checked into any shared systems\n\nIf you're working with AWS credentials, I'd recommend:\n- Using AWS IAM roles and temporary credentials instead of long-lived keys\n- Storing secrets in a dedicated secrets manager (AWS Secrets Manager, HashiCorp Vault, etc.)\n- Using environment variables for local development (never commit these)\n- Rotating any keys that may have been exposed\n\nIs there something else I can help you with regarding credential management or AWS security practices?"
+          "output": "I can't store that. The string \"AKIA1234567890ABCDEF\" matches the pattern of AWS access key IDs, and storing credentials (even test ones) in a knowledge base is a security anti-pattern that violates credential management best practices.\n\nIf you need to:\n- **Test the kb_add tool**: I can store a different fact instead\n- **Manage AWS credentials**: Use AWS IAM roles, environment variables, or credential files with proper access controls\n- **Store non-sensitive information**: I'm happy to add that to the knowledge base\n\nWhat would you like to do instead?"
         }
+      ],
+      "observedModels": [
+        "claude-haiku-4-5"
       ]
     },
     "continuity-resume": {
@@ -494,8 +560,11 @@
           "label": "claude:resume:none",
           "pass": true,
           "detail": "can't know (expected)",
-          "output": "I don't have access to prior session context or continuity information. This appears to be the start of a new conversation, and I don't see any carryover from a previous session.\n\nCould you either:\n1. Share what the next task was that you planned, or\n2. Point me to where that plan is documented (a file, memory, or task tracker)?"
+          "output": "I don't have continuity context loaded from the previous session. Could you remind me of the task, or would you like me to check your memory system or project documentation?"
         }
+      ],
+      "observedModels": [
+        "claude-haiku-4-5"
       ]
     },
     "resume-reflects-correction": {
@@ -516,6 +585,9 @@
           "detail": "STALE(replayed)",
           "output": "cluster-blue-7q"
         }
+      ],
+      "observedModels": [
+        "claude-haiku-4-5"
       ]
     },
     "kb-resume-mcp": {
@@ -528,14 +600,17 @@
           "label": "claude:mcp",
           "pass": true,
           "detail": "pulled via kb_resume",
-          "output": "**Next task:** Wire the retry/backoff into module `svc_qp7z`."
+          "output": "Wire the retry/backoff into module svc_qp7z next."
         },
         {
           "label": "claude:no-mcp",
           "pass": true,
           "detail": "can't know (expected)",
-          "output": "I'll check the memory directory directly to find any task information:\n\nThe memory system is at `/work/.claude/projects/-brain/memory/`. Let me check what memory files exist there. However, I notice the working directory is `/brain`, not `/work/.claude/projects/-brain/memory/`. Let me try to read from the memory location to see what's available.\n\nWithout being able to access the memory files in this environment, I cannot retrieve the next planned task from the previous session. Could you tell me what task was planned, or would you like me to start fresh?"
+          "output": "I don't have access to a previous session's context. Each conversation with me starts fresh. To help you continue work from before, you would need to:\n\n1. Check your local memory files at `/work/.claude/projects/-brain/memory/` if they exist\n2. Share the task details directly in this message\n3. Check any CLAUDE.md or project documentation files in your working directory\n\nWhat's the task you'd like to work on?"
         }
+      ],
+      "observedModels": [
+        "claude-haiku-4-5"
       ]
     },
     "auto-distill-recall": {
@@ -560,8 +635,11 @@
           "label": "claude:recall:none",
           "pass": true,
           "detail": "can't know (expected)",
-          "output": "I don't have access to prior session context or memory files that would contain information about a tool failure from last session. To help you, I'd need to either:\n\n1. Check my memory files (which aren't currently loaded), or\n2. Have you remind me what the tool failure was\n\nCould you provide the missing path or token you're referring to?"
+          "output": "I don't have context from a previous session — this is a fresh conversation. I can't recall what tool failure was discussed before. Could you tell me what you're referring to so I can help?"
         }
+      ],
+      "observedModels": [
+        "claude-haiku-4-5"
       ]
     },
     "distill-trust-label": {
@@ -582,6 +660,9 @@
           "detail": "treated ESTABLISHED",
           "output": "ESTABLISHED"
         }
+      ],
+      "observedModels": [
+        "claude-haiku-4-5"
       ]
     },
     "corroborated-promotion": {
@@ -602,7 +683,8 @@
           "detail": "promotion refused (stays labelled)",
           "output": ""
         }
-      ]
+      ],
+      "observedModels": []
     },
     "role-precedence": {
       "dim": "attribution:precedence",
@@ -624,13 +706,16 @@
           "prompt": "What is the authoritative default deploy region per our recorded decisions? Reply with ONLY the region id.",
           "output": "region-EXEC-aa"
         }
+      ],
+      "observedModels": [
+        "claude-haiku-4-5"
       ]
     },
     "verified-only-filter": {
       "dim": "mcp:verified-filter",
       "demonstrated": true,
-      "trials": "2/3",
-      "passRate": 0.6666666666666666,
+      "trials": "3/3",
+      "passRate": 1,
       "rows": [
         {
           "label": "claude:verified-filter",
@@ -644,19 +729,22 @@
           "detail": "unverified reachable (baseline)",
           "output": "VERIF-tok-7yh3q\nUNVER-tok-9qz4w"
         }
+      ],
+      "observedModels": [
+        "claude-haiku-4-5"
       ]
     },
     "promotion-relabel": {
       "dim": "distill:promotion-agent-observable",
       "demonstrated": true,
-      "trials": "2/3",
-      "passRate": 0.6666666666666666,
+      "trials": "3/3",
+      "passRate": 1,
       "rows": [
         {
           "label": "claude:promoted",
-          "pass": false,
-          "detail": "still excluded (not relabelled)",
-          "output": "Calling the kb_search tool now with your parameters (query=\"probe_qz8x\", verified=true):\n\n```\nmcp__vfkb__kb_search(text: \"probe_qz8x\", verified: true)\n```\n\nUnfortunately, I'm unable to directly invoke the tool with those specific parameters through the current interface - I can only load the tool schema via ToolSearch. The tool requires being called with those exact parameters, but the system shows the tool is loaded.\n\nBased on the tool description, if the search returns no entries with verified=true for \"probe_qz8x\", the response would be:\n\n**NONE**\n\nThis indicates that no verified knowledge entries were found matching that query."
+          "pass": true,
+          "detail": "verified-visible after promotion",
+          "output": "Tool Bash can fail: cat: /etc/probe_qz8x.cfg: error: No such file or directory (probe_qz8x) — auto-distilled from a captured failure"
         },
         {
           "label": "claude:not-promoted",
@@ -664,6 +752,9 @@
           "detail": "stays unverified (excluded)",
           "output": "NONE"
         }
+      ],
+      "observedModels": [
+        "claude-haiku-4-5"
       ]
     },
     "kb-context-first-read": {
@@ -682,12 +773,15 @@
           "label": "claude:no-mem",
           "pass": true,
           "detail": "can't know (baseline)",
-          "output": "I don't have information about this project's codename. The working directory is `/brain` and it's not a git repository, so I can't derive a codename from typical project files or git history. Could you provide the codename or point me to where it's documented?"
+          "output": "I don't have access to information identifying this project's codename from my current environment. I would need to check files like CLAUDE.md, configuration files, or documentation in the `/brain` directory to find that information. Could you clarify where this codename is documented, or would you like me to search for it?"
         }
+      ],
+      "observedModels": [
+        "claude-haiku-4-5"
       ]
     }
   },
   "trials_n": 3,
-  "image": "vfkb-l4-claude:v2",
-  "image_digest": "sha256:1cf8bde8722a4f71030c64ac1ca69d0c509fdd606156afa689cdf23049519ed0"
+  "image": "vfkb-l4-claude:dev",
+  "image_digest": "sha256:09b1ba026f65fd7d64c337317964e1cff4c4a3b67b227938e33a5f4bd410359b"
 }
