@@ -1,0 +1,3 @@
+#!/bin/sh
+# A merge commit runs pre-merge-commit, not pre-commit: same identity check.
+exec "$(dirname "$0")/pre-commit"

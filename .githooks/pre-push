@@ -1,0 +1,34 @@
+#!/bin/sh
+# Commit identity guard at the last local gate (see identity-lib.sh): every commit about to
+# leave the clone, however it was made (commit, merge, cherry-pick, revert, rebase,
+# commit-tree, a -c user.email override). stdin: <local ref> <local sha> <remote ref> <remote sha>.
+. "$(dirname "$0")/identity-lib.sh"
+vfkb_guard_off && exit 0
+
+zero=0000000000000000000000000000000000000000
+bad=''
+while read -r lref lsha rref rsha; do
+  [ "$lsha" = "$zero" ] && continue # a delete pushes no commits
+  # The new commits: those past the remote's tip when we have it, else those on no
+  # remote-tracking ref (a new branch, or a remote tip we never fetched).
+  if [ "$rsha" != "$zero" ] && git cat-file -e "$rsha^{commit}" 2>/dev/null; then
+    range="$rsha..$lsha"
+    list=$(git log --format='%h %ae %ce' "$range")
+  else
+    list=$(git log --format='%h %ae %ce' "$lsha" --not --remotes)
+  fi
+  bad_here=$(printf '%s\n' "$list" | while read -r h ae ce; do
+    [ -z "$h" ] && continue
+    if ! author_ok "$ae" || ! committer_ok "$ce"; then echo "  $h author <$ae> committer <$ce>"; fi
+  done)
+  [ -n "$bad_here" ] && bad="$bad
+$lref:$bad_here"
+done
+
+if [ -n "$bad" ]; then
+  echo "vfkb pre-push: refusing to push commits not authored and committed as vilosource:$bad" >&2
+  vfkb_fix_hint
+  echo "Re-author them, e.g.: git rebase --exec 'git commit --amend --no-edit --reset-author' <base>" >&2
+  exit 1
+fi
+exit 0
