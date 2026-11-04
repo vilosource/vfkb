@@ -100,6 +100,13 @@ let harnessFault = null;
 // forces that trial to a miss, whatever the scenario's predicate says ("nothing was stored"
 // holds trivially for a run that never ran). The rest of the trial's runs are skipped.
 let trialTimeout = null;
+// Set when a run on any OTHER arm (pi docker, pi host, host claude) threw in the current
+// trial (vfkb#445): a non-zero exit, a timeout, a spawn failure. run() used to return
+// `__ERROR__ …` for it and the scenario scored that text, so a single-arm "nothing stored"
+// predicate passed, and a two-arm contrast whose baseline errored looked like it held.
+// Those arms report no model, so a no-model refusal is not available; the trial is forced
+// to a scored miss instead (it can only lower the pass rate), like a timeout.
+let trialError = null;
 const CLAUDE_IMAGE = process.env.VFKB_L4_CLAUDE_IMAGE || 'vfkb-l4-claude:dev';
 // An error result whose text names an auth or service failure (vfkb#442).
 // Also the service-side failures (an HTTP error, a usage or rate limit, overload): none of them
@@ -260,6 +267,8 @@ function emptyMcp(brain, container = false) {
 //   gating : block direct brain writes
 //   allowTools: claude tool allowlist for capture/gating (e.g. ['Bash'] / ['Write','Edit'])
 function run({ harness = HARNESS, brain, prompt, inject = 'vfkb', mcp = false, capture = false, gating = false, allowTools, sessionId, naiveLimit }) {
+  // After a fault, a timeout or a run error the trial is already decided: skip its remaining runs.
+  if (harnessFault || trialTimeout || trialError) return '__ERROR__ skipped: an earlier run in this trial failed';
   try {
     if (harness === 'claude') {
       const cdocker = CLAUDE_MODE === 'docker';
@@ -290,8 +299,6 @@ function run({ harness = HARNESS, brain, prompt, inject = 'vfkb', mcp = false, c
       // creds/FS/MCP reach the sandbox beyond that (the no-leak property).
       const dargs = dockerClaudeArgv({ uid: UID, gid: GID, home: C_HOME, brainHost: brain, brainC: C_BRAIN,
         sessionId, image: CLAUDE_IMAGE, claudeArgs: args });
-      // After a fault or a timeout the trial is already decided: skip its remaining runs.
-      if (harnessFault || trialTimeout) throw new Error('skipped: an earlier run in this trial failed');
       let stdout, how = '';
       try { stdout = sh('docker', dargs, { timeout: DOCKER_TIMEOUT, env: claudeEnv(process.env) }); }
       catch (e) {
@@ -361,6 +368,12 @@ function run({ harness = HARNESS, brain, prompt, inject = 'vfkb', mcp = false, c
     dargs.push('-v', `${brain}:${C_BRAIN}`, PI_IMAGE, 'pi', ...args);
     return sh('docker', dargs, { timeout: DOCKER_TIMEOUT, env: process.env }).trim();
   } catch (e) {
+    // The docker claude arm has already set harnessFault or trialTimeout before throwing.
+    if (!harnessFault && !trialTimeout) {
+      const what = `${harness}${harness === 'pi' ? ` (${PI_MODE})` : ` (${CLAUDE_MODE})`} run`;
+      if (e && e.code === 'ETIMEDOUT') trialTimeout = `${what} timed out (ETIMEDOUT, exit ${e.status ?? '-'}${e.signal ? `, ${e.signal}` : ''})`;
+      else trialError ||= `${what} failed (exit ${e?.status ?? '-'}${e?.signal ? ` ${e.signal}` : ''}${e?.code ? ` ${e.code}` : ''}): ${sample(String(e?.stderr || '')) || sample(String(e?.message || e)) || '(no detail)'}`;
+    }
     return `__ERROR__ ${(e && e.message) || e}`;
   }
 }
@@ -967,14 +980,19 @@ for (const s of toRun) {
   const trialVerdicts = [];
   let lastRows = [];
   let timeouts = 0; // only the last trial's rows are kept, so count timeouts across all trials
+  let runErrors = 0;
   observedModels = new Set();
   for (let t = 0; t < TRIALS; t++) {
     let r;
     trialTimeout = null;
+    trialError = null;
     try { r = s.exec(); } catch (e) { r = { rows: [{ label: 'ERROR', pass: false, detail: String(e.message || e), sample: '' }], demonstrated: false }; }
     if (trialTimeout) {
       timeouts++;
       r = { rows: [...r.rows, { label: 'TIMEOUT', pass: false, detail: 'trial scored as a miss', output: trialTimeout, sample: trialTimeout }], demonstrated: false };
+    } else if (trialError) {
+      runErrors++;
+      r = { rows: [...r.rows, { label: 'RUN-ERROR', pass: false, detail: 'trial scored as a miss', output: trialError, sample: trialError }], demonstrated: false };
     }
     if (harnessFault) {
       console.error(`\nREFUSING: a docker claude run in ${s.id} had no model answer (${harnessFault}).\n` +
@@ -994,7 +1012,7 @@ for (const s of toRun) {
   if (CLAUDE_DOCKER) console.log(`  observed models: ${[...observedModels].sort().join(', ') || 'none'}`);
   console.log(`  -> ${demonstrated ? 'DEMONSTRATED' : 'INCONCLUSIVE'}  (${passes}/${TRIALS} trials)\n`);
   results.push({ id: s.id, dim: s.dim, demonstrated, passes, trials: TRIALS, passRate, rows: lastRows,
-    ...(CLAUDE_DOCKER ? { observedModels: [...observedModels].sort(), timeouts } : {}) });
+    ...(CLAUDE_DOCKER ? { observedModels: [...observedModels].sort() } : {}), timeouts, runErrors });
 }
 
 // ---- Record this model's behavior (merge per scenario, keyed by model) ----
@@ -1041,6 +1059,7 @@ function writeRecord(refused) {
       rows: r.rows.map((x) => ({ label: x.label, pass: x.pass, detail: x.detail, prompt: x.prompt, output: x.output })),
       ...(r.observedModels ? { observedModels: r.observedModels } : {}),
       ...(r.timeouts ? { timeouts: r.timeouts } : {}),
+      ...(r.runErrors ? { runErrors: r.runErrors } : {}),
     };
   }
   // A refused scenario's latest attempt could not score: its old verdict no longer stands.
@@ -1076,7 +1095,7 @@ function writeRecord(refused) {
     ...ids.map((i) => {
       const s = rec.scenarios[i];
       const cells = s.refused ? `REFUSED: ${s.refused.replace(/\|/g, '/')}` : s.rows.map((x) => `${x.label}=${x.pass ? 'PASS' : 'fail'}`).join(', ');
-      return `| ${i} | ${s.dim} | ${s.demonstrated ? 'YES' : 'no'} | ${s.trials || '-'}${s.timeouts ? ` (${s.timeouts} timed out)` : ''} | ${s.vfkb_sha || '-'} N=${s.trials_n ?? '-'}${s.provenance_inferred ? ' (inferred)' : ''} | ${cells} |`;
+      return `| ${i} | ${s.dim} | ${s.demonstrated ? 'YES' : 'no'} | ${s.trials || '-'}${s.timeouts ? ` (${s.timeouts} timed out)` : ''}${s.runErrors ? ` (${s.runErrors} run errors)` : ''} | ${s.vfkb_sha || '-'} N=${s.trials_n ?? '-'}${s.provenance_inferred ? ' (inferred)' : ''} | ${cells} |`;
     }),
   ].join('\n');
   writeFileSync(join(dir, `${slug}.md`), md + '\n');

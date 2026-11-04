@@ -147,6 +147,11 @@ this is a **deliberate discipline**:
   (a hang may be a real vfkb fault), and the trial's remaining runs are skipped. Records carry
   provenance per scenario (`vfkb_sha`, `trials_n`, `image_digest`); the header shows `mixed`
   when a subset run merged into an older record, and a refused scenario's old verdict is voided.
+- **Other arms (vfkb#445):** on the pi (docker and host) and host claude arms, a run that throws
+  (non-zero exit, timeout, spawn failure) forces its trial to a scored miss (a `RUN-ERROR` or
+  `TIMEOUT` row) and skips the trial's remaining runs. Before, its `__ERROR__` text was scored,
+  so `no-secrets` passed 3/3 with a pi that never ran. These arms report no model, so there is
+  no refusal; a run that exits 0 with an error message is still scored as text.
 - Records → `scenarios/records/<slug>__docker.{json,md}`; **≥2/3 trials = DEMONSTRATED** (ADR-0022).
   Run **one** docker agent run at a time.
 
