@@ -1,0 +1,129 @@
+{
+ "recordVersion": 1,
+ "sha": "43183dc19d0940fe7cf6199bbe1f7aea04846f8e",
+ "governing": [
+  "docs/adr/ADR-0051-delivery-honesty.md",
+  "docs/adr/ADR-0022-l4-evaluation-methodology.md"
+ ],
+ "governingNote": "Issue #445 is the spec. Head re-authored as vilosource after review (commit identity fix); the tree is identical to the reviewed 3199f97.",
+ "reviewer": {
+  "agent": "general-purpose",
+  "model": "claude-opus-5-5",
+  "rounds": 3
+ },
+ "generated": "2026-11-04T14:48:13Z",
+ "findings": [
+  {
+   "id": "R1-M1",
+   "severity": "minor",
+   "status": "fixed",
+   "summary": "Host claude prints errors on stdout; RUN-ERROR row showed the prompt (from e.message). Now stderr then stdout; fake writes claude errors to stdout (c60daa7)",
+   "acceptedBy": null
+  },
+  {
+   "id": "R1-M2",
+   "severity": "minor",
+   "status": "fixed",
+   "summary": "Skip-after-run-error untested (C3' survived: qa baseline is the last run). mcp-pull test added (c60daa7)",
+   "acceptedBy": null
+  },
+  {
+   "id": "R1-M3",
+   "severity": "minor",
+   "status": "open",
+   "summary": "Scenario's own PASS row stays next to the RUN-ERROR row (cosmetic; verdict correct)",
+   "acceptedBy": null
+  },
+  {
+   "id": "R1-F",
+   "severity": "minor",
+   "status": "fixed",
+   "summary": "Follow-up folded in: a failed pi/host-claude run whose output matches AUTH_ERROR refuses (exit 3) instead of recording misses (c60daa7)",
+   "acceptedBy": null
+  },
+  {
+   "id": "R2-F1",
+   "severity": "major",
+   "status": "fixed",
+   "summary": "pi's real auth errors (pi 0.84.4 + DeepSeek: 'No API key found', 401 JSON body) did not match AUTH_ERROR; pi auth test was vacuous (fake printed claude's error). Pattern extended, fake prints real shapes (43183dc)",
+   "acceptedBy": null
+  },
+  {
+   "id": "R2-F2",
+   "severity": "minor",
+   "status": "fixed",
+   "summary": "pi docker arm passed DEEPSEEK_TOKEN by value in argv, which a failed run's e.message (kept in the record) echoes. Now by name; observed on real docker that the value reaches the container (43183dc)",
+   "acceptedBy": null
+  },
+  {
+   "id": "R3-n1",
+   "severity": "minor",
+   "status": "open",
+   "summary": "AUTH_ERROR alternatives '\\b40[13]: \\{' and 'No API key found' have no test fixture (E3 survives; other alternatives cover the fake's body)",
+   "acceptedBy": null
+  }
+ ],
+ "findingsCount": 7,
+ "ruledOut": [
+  "hole reproduced on main: fake pi exiting 1 with a 401 scored no-secrets DEMONSTRATED 3/3; PR version 0/3 INCONCLUSIVE",
+  "forced miss conforms to ADR-0051 cl. 3: non-zero exit used only as evidence of failure, can only lower the pass rate",
+  "pi 0.84.4 exits 1 only on an error/aborted stopReason or a thrown exception; a blocked tool call is a tool result and the loop continues",
+  "no committed record shows a non-zero exit on a passing run (only docker claude ETIMEDOUT, handled by #442)",
+  "AUTH_ERROR applied only to failed-run stdout/stderr (never e.message, which carries the prompt) and to is_error results; none of 2983 committed record strings match the new alternatives",
+  "docker claude arm behaviour unchanged; docker-claude tests 22/22",
+  "run() never throws, so scenario cleanup (rmSync) still runs"
+ ],
+ "mutations": [
+  {
+   "guard": "test/l4-error-arms.test.ts all arms",
+   "mutation": "main's l4-purpose.mjs (7/10 red)",
+   "observedRed": true
+  },
+  {
+   "guard": "test/l4-error-arms.test.ts all arms",
+   "mutation": "trialError never set",
+   "observedRed": true
+  },
+  {
+   "guard": "test/l4-error-arms.test.ts all arms",
+   "mutation": "no forced miss",
+   "observedRed": true
+  },
+  {
+   "guard": "test/l4-error-arms.test.ts pi-docker hang",
+   "mutation": "skip at run() top removed",
+   "observedRed": true
+  },
+  {
+   "guard": "test/l4-error-arms.test.ts pi-docker hang",
+   "mutation": "timeout classified as run error",
+   "observedRed": true
+  },
+  {
+   "guard": "test/l4-error-arms.test.ts mcp-pull",
+   "mutation": "trialError dropped from the skip (C3')",
+   "observedRed": true
+  },
+  {
+   "guard": "test/l4-error-arms.test.ts auth",
+   "mutation": "auth refusal disabled",
+   "observedRed": true
+  },
+  {
+   "guard": "test/l4-error-arms.test.ts claude-host",
+   "mutation": "stderr only, no stdout fallback",
+   "observedRed": true
+  },
+  {
+   "guard": "test/l4-error-arms.test.ts pi auth",
+   "mutation": "AUTH_ERROR without the pi shapes",
+   "observedRed": true
+  },
+  {
+   "guard": "test/l4-error-arms.test.ts token by name",
+   "mutation": "DEEPSEEK_TOKEN passed by value",
+   "observedRed": true
+  }
+ ],
+ "verdict": "MERGE"
+}

@@ -100,11 +100,20 @@ let harnessFault = null;
 // forces that trial to a miss, whatever the scenario's predicate says ("nothing was stored"
 // holds trivially for a run that never ran). The rest of the trial's runs are skipped.
 let trialTimeout = null;
+// Set when a run on any OTHER arm (pi docker, pi host, host claude) threw in the current
+// trial (vfkb#445): a non-zero exit, a timeout, a spawn failure. run() used to return
+// `__ERROR__ …` for it and the scenario scored that text, so a single-arm "nothing stored"
+// predicate passed, and a two-arm contrast whose baseline errored looked like it held.
+// Those arms report no model, so a no-model refusal is not available; the trial is forced
+// to a scored miss instead (it can only lower the pass rate), like a timeout.
+let trialError = null;
 const CLAUDE_IMAGE = process.env.VFKB_L4_CLAUDE_IMAGE || 'vfkb-l4-claude:dev';
 // An error result whose text names an auth or service failure (vfkb#442).
 // Also the service-side failures (an HTTP error, a usage or rate limit, overload): none of them
 // is the model's answer, and a single-arm "nothing stored" predicate would pass on any of them.
-const AUTH_ERROR = /\bAPI Error: \d{3}\b|Failed to authenticate|OAuth token has expired|Not logged in|Invalid API key|usage limit|rate limit|overloaded/i;
+// pi's provider errors too (observed, pi 0.84.4 + DeepSeek, #450 review): "No API key found for
+// deepseek." and `401: {"message":"Authentication Fails, …","type":"authentication_error"}`.
+const AUTH_ERROR = /\bAPI Error: \d{3}\b|Failed to authenticate|OAuth token has expired|Not logged in|Invalid API key|usage limit|rate limit|overloaded|authentication_error|Authentication Fails|No API key found|\b40[13]: \{/i;
 const UID = typeof process.getuid === 'function' ? process.getuid() : 0;
 const GID = typeof process.getgid === 'function' ? process.getgid() : 0;
 // Fixed in-container paths (must match scenarios/docker/{pi,claude}.Dockerfile).
@@ -260,6 +269,8 @@ function emptyMcp(brain, container = false) {
 //   gating : block direct brain writes
 //   allowTools: claude tool allowlist for capture/gating (e.g. ['Bash'] / ['Write','Edit'])
 function run({ harness = HARNESS, brain, prompt, inject = 'vfkb', mcp = false, capture = false, gating = false, allowTools, sessionId, naiveLimit }) {
+  // After a fault, a timeout or a run error the trial is already decided: skip its remaining runs.
+  if (harnessFault || trialTimeout || trialError) return '__ERROR__ skipped: an earlier run in this trial failed';
   try {
     if (harness === 'claude') {
       const cdocker = CLAUDE_MODE === 'docker';
@@ -290,8 +301,6 @@ function run({ harness = HARNESS, brain, prompt, inject = 'vfkb', mcp = false, c
       // creds/FS/MCP reach the sandbox beyond that (the no-leak property).
       const dargs = dockerClaudeArgv({ uid: UID, gid: GID, home: C_HOME, brainHost: brain, brainC: C_BRAIN,
         sessionId, image: CLAUDE_IMAGE, claudeArgs: args });
-      // After a fault or a timeout the trial is already decided: skip its remaining runs.
-      if (harnessFault || trialTimeout) throw new Error('skipped: an earlier run in this trial failed');
       let stdout, how = '';
       try { stdout = sh('docker', dargs, { timeout: DOCKER_TIMEOUT, env: claudeEnv(process.env) }); }
       catch (e) {
@@ -356,11 +365,24 @@ function run({ harness = HARNESS, brain, prompt, inject = 'vfkb', mcp = false, c
       '-e', `VFKB_DIR=${C_BRAIN}`,
       '-e', 'VFKB_PROJECT=l4',
       '-e', `KB_SESSION_ID=${env.KB_SESSION_ID}`,
-      '-e', `DEEPSEEK_TOKEN=${process.env.DEEPSEEK_TOKEN}`];
+      // By NAME (vfkb#445 review): docker copies the value from its own env, so the token is
+      // never in argv, where a failed run's error message (kept in the record) would carry it.
+      '-e', 'DEEPSEEK_TOKEN'];
     if (env.VFKB_MCP_CONFIG) dargs.push('-e', `VFKB_MCP_CONFIG=${env.VFKB_MCP_CONFIG}`);
     dargs.push('-v', `${brain}:${C_BRAIN}`, PI_IMAGE, 'pi', ...args);
     return sh('docker', dargs, { timeout: DOCKER_TIMEOUT, env: process.env }).trim();
   } catch (e) {
+    // The docker claude arm has already set harnessFault or trialTimeout before throwing.
+    if (!harnessFault && !trialTimeout) {
+      const what = `${harness}${harness === 'pi' ? ` (${PI_MODE})` : ` (${CLAUDE_MODE})`} run`;
+      // Host claude prints its errors on STDOUT (observed, CLI 2.1.311); pi on stderr.
+      const said = sample(String(e?.stderr || '')) || sample(String(e?.stdout || ''));
+      if (e && e.code === 'ETIMEDOUT') trialTimeout = `${what} timed out (ETIMEDOUT, exit ${e.status ?? '-'}${e.signal ? `, ${e.signal}` : ''})`;
+      // An auth or service failure is not a capability result: refuse, as the docker claude
+      // arm does, so an expired token aborts a re-pin instead of recording misses over it.
+      else if (AUTH_ERROR.test(`${e?.stdout || ''}\n${e?.stderr || ''}`)) harnessFault ||= `${what} failed: ${said}`;
+      else trialError ||= `${what} failed (exit ${e?.status ?? '-'}${e?.signal ? ` ${e.signal}` : ''}${e?.code ? ` ${e.code}` : ''}): ${said || sample(String(e?.message || e)) || '(no detail)'}`;
+    }
     return `__ERROR__ ${(e && e.message) || e}`;
   }
 }
@@ -967,17 +989,22 @@ for (const s of toRun) {
   const trialVerdicts = [];
   let lastRows = [];
   let timeouts = 0; // only the last trial's rows are kept, so count timeouts across all trials
+  let runErrors = 0;
   observedModels = new Set();
   for (let t = 0; t < TRIALS; t++) {
     let r;
     trialTimeout = null;
+    trialError = null;
     try { r = s.exec(); } catch (e) { r = { rows: [{ label: 'ERROR', pass: false, detail: String(e.message || e), sample: '' }], demonstrated: false }; }
     if (trialTimeout) {
       timeouts++;
       r = { rows: [...r.rows, { label: 'TIMEOUT', pass: false, detail: 'trial scored as a miss', output: trialTimeout, sample: trialTimeout }], demonstrated: false };
+    } else if (trialError) {
+      runErrors++;
+      r = { rows: [...r.rows, { label: 'RUN-ERROR', pass: false, detail: 'trial scored as a miss', output: trialError, sample: trialError }], demonstrated: false };
     }
     if (harnessFault) {
-      console.error(`\nREFUSING: a docker claude run in ${s.id} had no model answer (${harnessFault}).\n` +
+      console.error(`\nREFUSING: a run in ${s.id} had no model answer or failed to authenticate (${harnessFault}).\n` +
         'An auth failure (401, expired token), timeout or harness fault is not a capability result (ADR-0051 cl. 3).\n' +
         `Scenarios completed before ${s.id} are recorded; re-run from ${s.id} by id once the cause is fixed.`);
       writeRecord({ id: s.id, dim: s.dim, fault: harnessFault });
@@ -994,7 +1021,7 @@ for (const s of toRun) {
   if (CLAUDE_DOCKER) console.log(`  observed models: ${[...observedModels].sort().join(', ') || 'none'}`);
   console.log(`  -> ${demonstrated ? 'DEMONSTRATED' : 'INCONCLUSIVE'}  (${passes}/${TRIALS} trials)\n`);
   results.push({ id: s.id, dim: s.dim, demonstrated, passes, trials: TRIALS, passRate, rows: lastRows,
-    ...(CLAUDE_DOCKER ? { observedModels: [...observedModels].sort(), timeouts } : {}) });
+    ...(CLAUDE_DOCKER ? { observedModels: [...observedModels].sort() } : {}), timeouts, runErrors });
 }
 
 // ---- Record this model's behavior (merge per scenario, keyed by model) ----
@@ -1041,6 +1068,7 @@ function writeRecord(refused) {
       rows: r.rows.map((x) => ({ label: x.label, pass: x.pass, detail: x.detail, prompt: x.prompt, output: x.output })),
       ...(r.observedModels ? { observedModels: r.observedModels } : {}),
       ...(r.timeouts ? { timeouts: r.timeouts } : {}),
+      ...(r.runErrors ? { runErrors: r.runErrors } : {}),
     };
   }
   // A refused scenario's latest attempt could not score: its old verdict no longer stands.
@@ -1076,7 +1104,7 @@ function writeRecord(refused) {
     ...ids.map((i) => {
       const s = rec.scenarios[i];
       const cells = s.refused ? `REFUSED: ${s.refused.replace(/\|/g, '/')}` : s.rows.map((x) => `${x.label}=${x.pass ? 'PASS' : 'fail'}`).join(', ');
-      return `| ${i} | ${s.dim} | ${s.demonstrated ? 'YES' : 'no'} | ${s.trials || '-'}${s.timeouts ? ` (${s.timeouts} timed out)` : ''} | ${s.vfkb_sha || '-'} N=${s.trials_n ?? '-'}${s.provenance_inferred ? ' (inferred)' : ''} | ${cells} |`;
+      return `| ${i} | ${s.dim} | ${s.demonstrated ? 'YES' : 'no'} | ${s.trials || '-'}${s.timeouts ? ` (${s.timeouts} timed out)` : ''}${s.runErrors ? ` (${s.runErrors} run errors)` : ''} | ${s.vfkb_sha || '-'} N=${s.trials_n ?? '-'}${s.provenance_inferred ? ' (inferred)' : ''} | ${cells} |`;
     }),
   ].join('\n');
   writeFileSync(join(dir, `${slug}.md`), md + '\n');
