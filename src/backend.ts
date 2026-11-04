@@ -29,7 +29,7 @@ import {
   renameSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { withBrainLock } from './lock.js';
+import { withBrainLock, type LockOpts } from './lock.js';
 // One shared env resolver (review gate F3): the JSONL file, the lock, and the
 // git layer must never drift onto different directories. Call-time-only cycle
 // with storage.ts — safe (nothing dereferences at module init).
@@ -61,7 +61,7 @@ export interface StorageBackend {
   writeSessionRecord(id: string, json: string): void;
   /** Serialize a read-decide-append critical section against concurrent writers
    *  of the SAME store (ADR-0040). JSONL: the owner-checked lockfile. */
-  withExclusive<T>(fn: () => T): T;
+  withExclusive<T>(fn: () => T, opts?: LockOpts<T>): T;
 }
 
 // --- the one shipped implementation: JSONL on disk (ADR-0019) ---
@@ -140,8 +140,8 @@ class JsonlFsBackend implements StorageBackend {
     writeFileSync(tmp, json, 'utf8');
     renameSync(tmp, f);
   }
-  withExclusive<T>(fn: () => T): T {
-    return withBrainLock(fn);
+  withExclusive<T>(fn: () => T, opts?: LockOpts<T>): T {
+    return withBrainLock(fn, opts);
   }
 }
 

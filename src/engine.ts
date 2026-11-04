@@ -177,15 +177,29 @@ export function updateEntry(
   return withExclusive(() => {
     const cur = readAll().find((e) => e.id === id);
     if (!cur) throw new Error(`no such entry: ${id}`);
-    if (!FLUID_TYPES.has(cur.type)) {
-      throw new Error(
-        `entry ${id} is a ${cur.type} (decision family) — immutable; supersede it, don't edit (ADR-0004)`,
-      );
-    }
-    const next: KnowledgeEntry = { ...cur, ...patch, updated: nowIso() };
-    appendRecord(next);
-    return next;
+    return applyFluidEdit(cur, patch);
   });
+}
+
+/**
+ * updateEntry's write, for a caller that ALREADY holds the brain lock and read `cur` under
+ * it (vfkb#396: autoCurate edits from its own snapshot instead of re-reading the whole
+ * brain per archive). `meta: false` defers writeMeta to the caller, who must call it once
+ * after the batch.
+ */
+export function applyFluidEdit(
+  cur: KnowledgeEntry,
+  patch: Partial<Pick<KnowledgeEntry, 'text' | 'tags' | 'zone'>>,
+  opts: { meta?: boolean } = {},
+): KnowledgeEntry {
+  if (!FLUID_TYPES.has(cur.type)) {
+    throw new Error(
+      `entry ${cur.id} is a ${cur.type} (decision family) — immutable; supersede it, don't edit (ADR-0004)`,
+    );
+  }
+  const next: KnowledgeEntry = { ...cur, ...patch, updated: nowIso() };
+  appendRecord(next, opts);
+  return next;
 }
 
 // --- Handoff retirement (ADR-0082 §4). The edge is a tag, mirroring the curator's
