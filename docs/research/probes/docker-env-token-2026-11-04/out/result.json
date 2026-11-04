@@ -1,0 +1,53 @@
+{
+  "probe": "docker-env-token",
+  "issue": "vilosource/vfkb#423",
+  "date": "2026-11-04T07:51:11.903Z",
+  "image": "vfkb-l4-claude:dev",
+  "imageDigest": "sha256:09b1ba026f65fd7d64c337317964e1cff4c4a3b67b227938e33a5f4bd410359b",
+  "cli": "2.1.311 (Claude Code)",
+  "model": "claude-haiku-4-5",
+  "trials": 3,
+  "demonstrated": true,
+  "arms": {
+    "token": [
+      {
+        "pong": true,
+        "models": [
+          "claude-haiku-4-5"
+        ],
+        "text": "PONG"
+      },
+      {
+        "pong": true,
+        "models": [
+          "claude-haiku-4-5"
+        ],
+        "text": "PONG"
+      },
+      {
+        "pong": true,
+        "models": [
+          "claude-haiku-4-5"
+        ],
+        "text": "PONG"
+      }
+    ],
+    "no-token": [
+      {
+        "pong": false,
+        "models": [],
+        "text": "Not logged in · Please run /login"
+      },
+      {
+        "pong": false,
+        "models": [],
+        "text": "Not logged in · Please run /login"
+      },
+      {
+        "pong": false,
+        "models": [],
+        "text": "Not logged in · Please run /login"
+      }
+    ]
+  }
+}

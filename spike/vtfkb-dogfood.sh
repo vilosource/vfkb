@@ -10,7 +10,16 @@
 # Usage:  spike/vfkb-dogfood.sh [extra claude args...]
 #   VFKB_DOGFOOD_HOME=<dir>   persistent state dir   (default ~/.vfkb-dogfood)
 #   VFKB_DOGFOOD_MODEL=<id>   pin a model            (default: CLI default model)
+#   CLAUDE_CODE_OAUTH_TOKEN   REQUIRED, exported: the access token the container uses
+#                             (`claude setup-token`). Passed by name only (vfkb#423): no
+#                             credentials file is mounted, so no refresh token enters
+#                             the container and a container-side refresh cannot rotate
+#                             the operator's real one.
 set -euo pipefail
+if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+  echo "[dogfood] CLAUDE_CODE_OAUTH_TOKEN is not exported; refusing (export it, e.g. from \`claude setup-token\`)." >&2
+  exit 2
+fi
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"      # ~/GitHub/vfkb
 STATE="${VFKB_DOGFOOD_HOME:-$HOME/.vfkb-dogfood}"
 BRAIN="$STATE/brain"; SYNTH="$STATE/claude.json"
@@ -26,10 +35,9 @@ node -e 'const c=require(process.env.HOME+"/.claude.json");require("fs").writeFi
 MODEL_ARGS=(); [ -n "${VFKB_DOGFOOD_MODEL:-}" ] && MODEL_ARGS=(--model "$VFKB_DOGFOOD_MODEL")
 
 echo "[dogfood] brain: $BRAIN   repo (rw): $REPO   ->  clean-room claude"
-exec docker run --rm -it --user "$(id -u):$(id -g)" -e HOME=/work \
+exec docker run --rm -it --user "$(id -u):$(id -g)" -e HOME=/work -e CLAUDE_CODE_OAUTH_TOKEN \
   -v "$REPO":/work/vfkb \
   -v "$BRAIN":/brain \
-  -v "$HOME/.claude/.credentials.json":/work/.claude/.credentials.json:ro \
   -v "$SYNTH":/work/.claude.json:ro \
   -w /work/vfkb \
   vfkb-dogfood \

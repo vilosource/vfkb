@@ -27,9 +27,10 @@
 
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
-import { tmpdir, homedir } from 'node:os';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { assertClaudeAuthReady, claudeSync } from './lib/claude-auth.mjs';
+import { assertClaudeAuthReady, assertClaudeTokenFresh, claudeEnv, claudeSync } from './lib/claude-auth.mjs';
+import { dockerClaudeArgv, parseClaudeJson } from './lib/docker-claude.mjs';
 
 const REPO = resolve(process.argv[1], '../..');
 const CLI = join(REPO, 'dist', 'cli.js');
@@ -67,8 +68,8 @@ const PI_MODE = process.env.VFKB_L4_PI_MODE || (HARNESS === 'pi' ? 'docker' : 'h
 // it replaced — it mints false evidence for the ADR-0050 gate while looking fixed.
 //
 // A missing credential is a precondition of the whole harness, not a per-run outcome, so
-// it belongs here, where nothing can catch it. Mirrors the claude arm, which throws on a
-// missing ~/.claude/.credentials.json before any scenario runs.
+// it belongs here, where nothing can catch it. Mirrors the claude arm, which refuses on a
+// missing or near-expiry token (assertClaudeAuthReady, below) before any scenario runs.
 if (HARNESS === 'pi' && PI_MODE === 'docker' && !process.env.DEEPSEEK_TOKEN) {
   console.error(
     'DEEPSEEK_TOKEN is not set — the pi arm cannot authenticate.\n' +
@@ -81,10 +82,14 @@ const PI_IMAGE = process.env.VFKB_L4_PI_IMAGE || 'vfkb-l4-pi:dev';
 // claude harness substrate (T5b): docker by default; VFKB_L4_CLAUDE_MODE=host runs the
 // legacy host claude (used to regenerate the known-good host baseline records).
 const CLAUDE_MODE = process.env.VFKB_L4_CLAUDE_MODE || 'docker';
-// vfkb#422: host-mode claude children go through the Keychain-safe seam; refuse before
-// anything metered if one could touch the macOS Keychain. (The docker arm runs claude
-// inside a Linux container and keeps its own credential path, tracked separately.)
-if (HARNESS === 'claude' && CLAUDE_MODE !== 'docker') assertClaudeAuthReady();
+// vfkb#422/#423: every claude child takes its token from the Keychain-safe seam; refuse
+// before anything metered if the token is missing or near expiry. Host mode spawns
+// through claudeSync; the docker arm passes the seam's access token into the container
+// by name (scenarios/lib/docker-claude.mjs).
+if (HARNESS === 'claude') assertClaudeAuthReady();
+const CLAUDE_DOCKER = HARNESS === 'claude' && CLAUDE_MODE === 'docker';
+// modelUsage keys the docker claude arm observed, per scenario (reset in the main loop).
+let observedModels = new Set();
 const CLAUDE_IMAGE = process.env.VFKB_L4_CLAUDE_IMAGE || 'vfkb-l4-claude:dev';
 const UID = typeof process.getuid === 'function' ? process.getuid() : 0;
 const GID = typeof process.getgid === 'function' ? process.getgid() : 0;
@@ -97,24 +102,6 @@ const C_EXT = `${C_DIST}/pi-extension.js`;
 const C_BRIDGE = `${C_DIST}/pi-mcp-bridge.js`;
 const C_MCP = `${C_DIST}/mcp-server.js`;
 
-// Per-run throwaway copy of the Claude Code subscription credential, mounted at the
-// container's /work/.claude (T5b, operator decision 2026-06-27: use the Max subscription
-// OAuth, NOT an ANTHROPIC_API_KEY — none is set on this host). Only the `claudeAiOauth`
-// block is copied (the `mcpOAuth` block — e.g. the mediawiki MCP token — is dropped:
-// privacy). NEVER the live host file, so a container-side token refresh can't disturb the
-// host session's credential. Created once, reused across runs, cleaned at exit.
-let CLAUDE_CREDS_DIR = null;
-function claudeCredsDir() {
-  if (CLAUDE_CREDS_DIR) return CLAUDE_CREDS_DIR;
-  const host = join(process.env.HOME || homedir(), '.claude', '.credentials.json');
-  const c = JSON.parse(readFileSync(host, 'utf8'));
-  if (!c.claudeAiOauth) throw new Error('no claudeAiOauth in ~/.claude/.credentials.json — log in with host `claude` first');
-  const d = mkdtempSync(join(tmpdir(), 'vfkb-l4-claudecfg-'));
-  writeFileSync(join(d, '.credentials.json'), JSON.stringify({ claudeAiOauth: c.claudeAiOauth }), { mode: 0o600 });
-  CLAUDE_CREDS_DIR = d;
-  return d;
-}
-process.on('exit', () => { try { if (CLAUDE_CREDS_DIR) rmSync(CLAUDE_CREDS_DIR, { recursive: true, force: true }); } catch {} });
 // claude filesystem/exec deny list (prevents reading the brain file off /tmp).
 const FS_DENY = 'Read,Edit,Write,Bash,BashOutput,Glob,Grep,WebFetch,WebSearch,NotebookEdit,Task,KillShell';
 
@@ -241,20 +228,14 @@ function run({ harness = HARNESS, brain, prompt, inject = 'vfkb', mcp = false, c
         }
       }
       if (!cdocker) return claudeSync(args, { cwd: tmpdir(), timeout: TIMEOUT, env: { ...process.env } }).trim();
-      // Dockerized (T5b): uid-matched brain bind-mount (writes persist to host /brain) +
-      // a throwaway subscription-creds copy mounted at /work/.claude. No host creds/FS/MCP
-      // reach the sandbox beyond these two scoped mounts (the no-leak property).
-      const creds = claudeCredsDir();
-      const dargs = ['run', '--rm', '--user', `${UID}:${GID}`,
-        '-e', `HOME=${C_HOME}`,
-        '-e', `VFKB_DIR=${C_BRAIN}`,
-        '-e', 'VFKB_PROJECT=l4'];
-      // Thread KB_SESSION_ID into the hooks' env so SessionState persists a record under
-      // the /brain mount (cross-session continuity scenarios). Without it SessionState is
-      // ephemeral and nothing carries to the next container.
-      if (sessionId) dargs.push('-e', `KB_SESSION_ID=${sessionId}`);
-      dargs.push('-v', `${brain}:${C_BRAIN}`, '-v', `${creds}:${C_HOME}/.claude`, CLAUDE_IMAGE, 'claude', ...args);
-      return sh('docker', dargs, { timeout: DOCKER_TIMEOUT, env: process.env }).trim();
+      // Dockerized (T5b): uid-matched brain bind-mount (writes persist to host /brain) is
+      // the only mount; the seam's access token rides in by name (vfkb#423). No host
+      // creds/FS/MCP reach the sandbox beyond that (the no-leak property).
+      const dargs = dockerClaudeArgv({ uid: UID, gid: GID, home: C_HOME, brainHost: brain, brainC: C_BRAIN,
+        sessionId, image: CLAUDE_IMAGE, claudeArgs: args });
+      const { text, models } = parseClaudeJson(sh('docker', dargs, { timeout: DOCKER_TIMEOUT, env: claudeEnv(process.env) }));
+      for (const m of models) observedModels.add(m);
+      return text.trim();
     }
     // pi: the EXT extension provides inject + capture + gating in-process; the BRIDGE
     // provides MCP. Tools on whenever the scenario needs to act. PI_MODE=docker (default
@@ -908,7 +889,11 @@ for (const s of toRun) {
   console.log(`# ${s.id}  [${s.dim}]  (N=${TRIALS})`);
   const trialVerdicts = [];
   let lastRows = [];
+  observedModels = new Set();
   for (let t = 0; t < TRIALS; t++) {
+    // Outside exec()'s catch on purpose: a token that ran out refuses the run instead of
+    // scoring the 401 as a capability miss (vfkb#423).
+    if (CLAUDE_DOCKER) assertClaudeTokenFresh();
     let r;
     try { r = s.exec(); } catch (e) { r = { rows: [{ label: 'ERROR', pass: false, detail: String(e.message || e), sample: '' }], demonstrated: false }; }
     trialVerdicts.push(r.demonstrated);
@@ -919,8 +904,10 @@ for (const s of toRun) {
   const passes = trialVerdicts.filter(Boolean).length;
   const passRate = passes / TRIALS;
   const demonstrated = passRate >= 2 / 3; // ADR-0022: contrast holds on >=2/3 trials
+  if (CLAUDE_DOCKER) console.log(`  observed models: ${[...observedModels].sort().join(', ') || 'none'}`);
   console.log(`  -> ${demonstrated ? 'DEMONSTRATED' : 'INCONCLUSIVE'}  (${passes}/${TRIALS} trials)\n`);
-  results.push({ id: s.id, dim: s.dim, demonstrated, passes, trials: TRIALS, passRate, rows: lastRows });
+  results.push({ id: s.id, dim: s.dim, demonstrated, passes, trials: TRIALS, passRate, rows: lastRows,
+    ...(CLAUDE_DOCKER ? { observedModels: [...observedModels].sort() } : {}) });
 }
 
 // ---- Record this model's behavior (merge per scenario, keyed by model) ----
@@ -954,6 +941,7 @@ if (!argv.includes('--no-record')) {
       trials: `${r.passes}/${r.trials}`,
       passRate: r.passRate,
       rows: r.rows.map((x) => ({ label: x.label, pass: x.pass, detail: x.detail, prompt: x.prompt, output: x.output })),
+      ...(r.observedModels ? { observedModels: r.observedModels } : {}),
     };
   }
   writeFileSync(jsonPath, JSON.stringify(rec, null, 2));
@@ -964,6 +952,9 @@ if (!argv.includes('--no-record')) {
     ``, `- harness: ${rec.harness}`, `- generated: ${rec.generated}`, `- vfkb: ${rec.vfkb_sha}`,
     `- trials per scenario: N=${rec.trials_n} (demonstrated = contrast holds on >=2/3)`,
     ...(rec.image ? [`- image: ${rec.image}`, `- image digest: ${rec.image_digest}`] : []),
+    ...(ids.some((i) => rec.scenarios[i].observedModels)
+      ? [`- observed models (modelUsage, union over scenarios): ${[...new Set(ids.flatMap((i) => rec.scenarios[i].observedModels || []))].sort().join(', ') || 'none'}`]
+      : []),
     `- scenarios recorded: ${ids.length} (${ids.filter((i) => rec.scenarios[i].demonstrated).length} demonstrated)`,
     ``, `| scenario | dimension | demonstrated | trials | rows (label=verdict) |`, `|---|---|---|---|---|`,
     ...ids.map((i) => { const s = rec.scenarios[i]; return `| ${i} | ${s.dim} | ${s.demonstrated ? 'YES' : 'no'} | ${s.trials || '-'} | ${s.rows.map((x) => `${x.label}=${x.pass ? 'PASS' : 'fail'}`).join(', ')} |`; }),

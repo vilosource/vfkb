@@ -148,6 +148,16 @@ export function assertClaudeAuthReady(probe = {}) {
   ready = true;
 }
 
+/**
+ * Re-run upstream's token checks (present, not expired, the minutes margin) without
+ * the once-per-process cache. A long re-pin calls it before each trial, so a stored
+ * token that runs out mid-run refuses instead of scoring a 401 as a miss (vfkb#423).
+ */
+export function assertClaudeTokenFresh() {
+  assertOAuthMode();
+  upstream.assertAuthReady();
+}
+
 /** The env a host `claude` child runs under: token in env, shim first on PATH. */
 export function claudeEnv(baseEnv = process.env, probe = {}) {
   noteUse();
