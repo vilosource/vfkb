@@ -18,17 +18,23 @@ Cold: a fresh sandbox, so curation's whole backlog is available to the run.
 Before the fix, curation hit its 1,000 ms deadline at 3.2k and 10.8k lines, so it archived
 fewer entries as the brain grew. After the fix, the whole backlog fits.
 
-Warm (`WARM=1`, backlog mostly cleared):
+Warm (`WARM=1`) after the fix, with the backlog cleared by the first run:
 
-| lines | before p50 / max | after p50 / max |
-|---|---|---|
-| 802 | 801 / 994 ms | 277 / 293 ms |
-| 3,202 | 1159 / 1262 ms | 332 / 335 ms |
-| 10,802 | 1380 / **1557** ms | 476 / 485 ms |
+| lines | after p50 / max |
+|---|---|
+| 802 | 277 / 293 ms |
+| 3,202 | 332 / 335 ms |
+| 10,802 | 476 / 485 ms |
 
-Before the fix, the 10.8k-line warm run passed the 1.5 s default budget.
+No warm "before" row is given. On main the first run does not clear the backlog at 3.2k and
+10.8k lines (curation stops at its deadline), so a second run is still curating and is not a
+floor measurement. A single 10.8k-line run on main reached 1557 ms. The review re-run (N=3)
+saw at most 1285 to 1292 ms, so that run was not reproduced and is not used as evidence here.
 
-Both tables are for the run where the session left no handoff (B2 writes one). The runs where
+Review re-run (N=3, same machine): cold p50 before / after = 959 / 340 ms (802 lines),
+1150 / 393 ms (3.2k), 1284 / 534 ms (10.8k); curated at 10.8k 8–11 → 62.
+
+The tables are for the run where the session left no handoff (B2 writes one). The runs where
 the session left its own handoff are about 10 to 40 ms faster.
 
 ## Cause (from a `--cpu-prof` of a warm run on main)
@@ -53,3 +59,11 @@ skipped, rather than waiting ADR-0040's 5 s and running without the lock.
   pane that risks Keychain dialogs. UNVERIFIED: that the harness cut-off seen at 3k lines in
   #384 is gone. The standalone floor now sits about 1 s below the 1.5 s budget at 10.8k lines.
 - Slower machines. These numbers come from one M5 Pro.
+
+## Still linear
+
+The per-archive cost is gone, but the floor still grows with the brain, about 19 ms per 1k
+lines in the review re-run: the brain is read whole about 5 times per run (working tree,
+`git show HEAD`, the curation snapshot, curation's meta write, B2's meta write). At that rate
+the standalone run would reach 1.5 s near 60k lines (extrapolated, not measured). Tracked in
+the follow-up issue.

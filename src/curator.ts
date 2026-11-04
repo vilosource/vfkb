@@ -268,7 +268,14 @@ export function autoCurate(today = todayIso(), opts: AutoCurateOpts = {}): AutoC
   const lockOpts =
     opts.deadlineMs === undefined
       ? undefined
-      : { acquireTimeoutMs: Math.max(0, opts.deadlineMs - (opts.now ?? (() => performance.now()))()), onTimeout: skipped };
+      : {
+          acquireTimeoutMs: Math.max(0, opts.deadlineMs - (opts.now ?? (() => performance.now()))()),
+          onTimeout: (): AutoCurateResult => {
+            // Said on stderr so a busy-lock skip is told apart from a deadline stop.
+            process.stderr.write('vfkb: brain lock busy at the curation deadline; curation skipped\n');
+            return skipped();
+          },
+        };
   // vfkb#396: every write below edits from this run's own snapshot (taken under the lock)
   // with the meta write deferred, then writes meta ONCE, so an archive costs one append
   // instead of two whole-brain materializations.

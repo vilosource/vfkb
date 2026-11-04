@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { appendFileSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -102,6 +102,44 @@ describe('vfkb#396 — autoCurate cost does not scale with archives × brain', (
     }
   });
 
+  it('a write that throws mid-run still leaves meta written for what was appended', () => {
+    const be = new CountingBackend();
+    be.records = seed(4);
+    let appends = 0;
+    const append = be.append.bind(be);
+    be.append = (rec: unknown) => {
+      if (++appends === 2) throw new Error('disk full');
+      append(rec);
+    };
+    const prev = setStorageBackend(be);
+    try {
+      expect(() => autoCurate(TODAY)).toThrow('disk full');
+      expect(be.metaWrites).toBe(1); // the finally, after the one archive that landed
+      expect(JSON.parse(be.meta!).entry_count).toBe(7);
+    } finally {
+      setStorageBackend(prev);
+    }
+  });
+
+  it('a lock acquired after the deadline passed does nothing (the in-lock re-check)', () => {
+    const be = new CountingBackend();
+    be.records = seed(3);
+    const prev = setStorageBackend(be);
+    // The first clock read (the lock wait budget) is before the deadline; every later one is past it.
+    let reads = 0;
+    const now = () => (reads++ === 0 ? 0 : 1000);
+    try {
+      expect(autoCurate(TODAY, { now, deadlineMs: 500 })).toEqual({ archived: [], repaired: [], stopped: 'deadline' });
+      expect(be.records).toHaveLength(6);
+      expect(be.metaWrites).toBe(0);
+      // What the re-check saves: the whole-brain read (the archive loop's own check would
+      // also archive nothing, but only after reading and materializing the brain).
+      expect(be.reads).toBe(0);
+    } finally {
+      setStorageBackend(prev);
+    }
+  });
+
   it('a run that archives nothing writes no meta', () => {
     const be = new CountingBackend();
     be.records = seed(0);
@@ -135,9 +173,13 @@ describe('vfkb#396 — the lock wait is bounded by the curation deadline', () =>
   it('a busy lock past the deadline skips curation: nothing written, the holder untouched', () => {
     holdLock();
     const before = readFileSync(join(dir, 'entries.jsonl'), 'utf8');
+    const err = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     const t0 = performance.now();
     const r = autoCurate(TODAY, { now: () => performance.now(), deadlineMs: t0 + 300 });
     const waited = performance.now() - t0;
+    const said = err.mock.calls.map((c) => String(c[0])).join('');
+    err.mockRestore();
+    expect(said).toContain('brain lock busy at the curation deadline; curation skipped');
     expect(r).toEqual({ archived: [], repaired: [], stopped: 'deadline' });
     expect(waited).toBeLessThan(2000); // not ADR-0040's 5 s wait
     expect(readFileSync(join(dir, 'entries.jsonl'), 'utf8')).toBe(before); // never ran unlocked
