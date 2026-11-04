@@ -29,7 +29,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { assertClaudeAuthReady, assertClaudeTokenFresh, claudeEnv, claudeSync } from './lib/claude-auth.mjs';
+import { assertClaudeAuthReady, claudeEnv, claudeSync } from './lib/claude-auth.mjs';
 import { dockerClaudeArgv, parseClaudeJson } from './lib/docker-claude.mjs';
 
 const REPO = resolve(process.argv[1], '../..');
@@ -90,6 +90,11 @@ if (HARNESS === 'claude') assertClaudeAuthReady();
 const CLAUDE_DOCKER = HARNESS === 'claude' && CLAUDE_MODE === 'docker';
 // modelUsage keys the docker claude arm observed, per scenario (reset in the main loop).
 let observedModels = new Set();
+// Set when a docker claude run had NO model answer (vfkb#423, ADR-0051 clause 3): a 401 from
+// a run-down or revoked token, a timeout, a harness fault. run()'s and exec()'s catches would
+// score it as a capability miss, and a single-arm "nothing was stored" scenario as a PASS, so
+// the trial loop checks this OUTSIDE both catches and refuses the run.
+let harnessFault = null;
 const CLAUDE_IMAGE = process.env.VFKB_L4_CLAUDE_IMAGE || 'vfkb-l4-claude:dev';
 const UID = typeof process.getuid === 'function' ? process.getuid() : 0;
 const GID = typeof process.getgid === 'function' ? process.getgid() : 0;
@@ -257,7 +262,14 @@ function run({ harness = HARNESS, brain, prompt, inject = 'vfkb', mcp = false, c
       // creds/FS/MCP reach the sandbox beyond that (the no-leak property).
       const dargs = dockerClaudeArgv({ uid: UID, gid: GID, home: C_HOME, brainHost: brain, brainC: C_BRAIN,
         sessionId, image: CLAUDE_IMAGE, claudeArgs: args });
-      const { text, models } = parseClaudeJson(sh('docker', dargs, { timeout: DOCKER_TIMEOUT, env: claudeEnv(process.env) }));
+      let stdout;
+      try { stdout = sh('docker', dargs, { timeout: DOCKER_TIMEOUT, env: claudeEnv(process.env) }); }
+      catch (e) { stdout = String(e.stdout || ''); }
+      const { text, models } = parseClaudeJson(stdout);
+      if (!models.length) {
+        harnessFault ||= sample(text) || '(no output)';
+        throw new Error(`no model answered: ${sample(text) || '(no output)'}`);
+      }
       for (const m of models) observedModels.add(m);
       return text.trim();
     }
@@ -915,11 +927,15 @@ for (const s of toRun) {
   let lastRows = [];
   observedModels = new Set();
   for (let t = 0; t < TRIALS; t++) {
-    // Outside exec()'s catch on purpose: a token that ran out refuses the run instead of
-    // scoring the 401 as a capability miss (vfkb#423).
-    if (CLAUDE_DOCKER) assertClaudeTokenFresh();
     let r;
     try { r = s.exec(); } catch (e) { r = { rows: [{ label: 'ERROR', pass: false, detail: String(e.message || e), sample: '' }], demonstrated: false }; }
+    if (harnessFault) {
+      console.error(`\nREFUSING: a docker claude run in ${s.id} had no model answer (${harnessFault}).\n` +
+        'An auth failure (401, expired token), timeout or harness fault is not a capability result (ADR-0051 cl. 3).\n' +
+        `Scenarios completed before ${s.id} are recorded; re-run from ${s.id} by id once the cause is fixed.`);
+      writeRecord();
+      process.exit(3);
+    }
     trialVerdicts.push(r.demonstrated);
     lastRows = r.rows;
     if (TRIALS > 1) console.log(`  trial ${t + 1}/${TRIALS}: ${r.demonstrated ? 'DEMONSTRATED' : 'inconclusive'}`);
@@ -935,7 +951,9 @@ for (const s of toRun) {
 }
 
 // ---- Record this model's behavior (merge per scenario, keyed by model) ----
-if (!argv.includes('--no-record')) {
+writeRecord();
+function writeRecord() {
+  if (argv.includes('--no-record') || !results.length) return;
   const gitSha = (() => { try { return sh('git', ['-C', REPO, 'rev-parse', '--short', 'HEAD']).trim(); } catch { return 'unknown'; } })();
   // Records pin the substrate (ADR-0022): the dockerized pi run is a DISTINCT substrate
   // from the host pi baseline, so it gets a `__docker` slug — it never clobbers the

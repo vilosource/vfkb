@@ -166,17 +166,6 @@ describe('mode and precondition hardening (review F2/F3)', () => {
     const lib = await load({ CLAUDE_CONFIG_DIR: storeDir(59) });
     expect(() => lib.claudeEnv({ PATH: '/usr/bin' }, LINUX)).toThrow(/expires in 59 min/);
   });
-
-  it('assertClaudeTokenFresh re-checks a stored token that ran down after the first check (vfkb#423)', async () => {
-    const cfg = storeDir(90);
-    const lib = await load({ CLAUDE_CONFIG_DIR: cfg });
-    lib.assertClaudeAuthReady(LINUX);
-    expect(() => lib.claudeEnv({ PATH: '/usr/bin' }, LINUX)).not.toThrow();
-    writeFileSync(join(cfg, '.credentials.json'), JSON.stringify({
-      claudeAiOauth: { accessToken: 'store-token-ABCDEFGH12345678', expiresAt: Date.now() + 30 * 60000 },
-    }));
-    expect(() => lib.assertClaudeTokenFresh()).toThrow(/expires in 30 min/);
-  });
 });
 
 describe('shim placement is verified, not assumed (round-2 F2)', () => {

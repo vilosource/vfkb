@@ -56,6 +56,14 @@ describe('parseClaudeJson (vfkb#423)', () => {
   it('a JSON object with no modelUsage observes no model', () => {
     expect(parseClaudeJson(JSON.stringify({ result: 'x', is_error: true })).models).toEqual([]);
   });
+  it('finds the result object after a warning line', () => {
+    const out = 'Warning: something odd\n' + JSON.stringify({ result: 'PONG', modelUsage: { 'claude-haiku-4-5': {} } });
+    expect(parseClaudeJson(out)).toEqual({ text: 'PONG', models: ['claude-haiku-4-5'] });
+  });
+  it('an error result with no result field scores as empty text, not the raw JSON', () => {
+    const out = JSON.stringify({ subtype: 'error_during_execution', is_error: true, permission_denials: [{ tool_input: 'x' }], modelUsage: { m: {} } });
+    expect(parseClaudeJson(out)).toEqual({ text: '', models: ['m'] });
+  });
 });
 
 // Integration: the real l4-purpose.mjs docker claude arm, a fake docker on PATH.
@@ -71,7 +79,7 @@ describe('l4-purpose docker claude arm, fake docker on PATH (vfkb#423)', () => {
     writeFileSync(join(dir, 'docker'), `#!/usr/bin/env node
 const fs = require('fs');
 const a = process.argv.slice(2);
-fs.appendFileSync(${JSON.stringify(log)}, JSON.stringify({ argv: a, envToken: process.env.CLAUDE_CODE_OAUTH_TOKEN || null }) + '\\n');
+fs.appendFileSync(${JSON.stringify(log)}, JSON.stringify({ argv: a, envToken: process.env.CLAUDE_CODE_OAUTH_TOKEN || null, path0: (process.env.PATH || '').split(':')[0] }) + '\\n');
 if (a[0] === 'image') { console.log('sha256:fake'); process.exit(0); }
 const cat = a.indexOf('cat');
 if (cat > 0) {
@@ -80,14 +88,18 @@ if (cat > 0) {
   process.stdout.write(fs.readFileSync(a[cat + 1].replace(cont, host), 'utf8'));
   process.exit(0);
 }
+if (process.env.FAKE_DOCKER_MODE === '401') {
+  console.log(JSON.stringify({ type: 'result', is_error: true, result: 'Failed to authenticate. API Error: 401 OAuth token has expired' }));
+  process.exit(1);
+}
 console.log(JSON.stringify({ type: 'result', result: 'db-prod-9c814.internal.example', modelUsage: { 'claude-haiku-4-5-20251001': {} } }));
 `);
     chmodSync(join(dir, 'docker'), 0o755);
   });
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
-  const runL4 = (extra: Record<string, string> = {}) =>
-    spawnSync(process.execPath, [join(REPO, 'scenarios/l4-purpose.mjs'), 'stale-supersession', '--no-record'], {
+  const runL4 = (extra: Record<string, string> = {}, id = 'stale-supersession') =>
+    spawnSync(process.execPath, [join(REPO, 'scenarios/l4-purpose.mjs'), id, '--no-record'], {
       cwd: REPO,
       encoding: 'utf8',
       timeout: 60_000,
@@ -118,11 +130,22 @@ console.log(JSON.stringify({ type: 'result', result: 'db-prod-9c814.internal.exa
     expect(runs.length, r.stdout + r.stderr).toBeGreaterThan(0);
     for (const c of runs) {
       expect(c.envToken).toBe(FAKE);
+      // The docker child env is the seam's claudeEnv(), not a bare process.env copy.
+      expect(c.path0).toContain('vfkb-l4-nokeychain-');
       expect(c.argv.join(' ')).not.toContain(FAKE);
       expect(c.argv).toContain('CLAUDE_CODE_OAUTH_TOKEN');
       expect(c.argv.some((a: string) => a.includes('/work/.claude') || a.includes('.credentials'))).toBe(false);
     }
     expect(r.stdout + r.stderr).not.toContain(FAKE);
     expect(r.stdout).toContain('observed models: claude-haiku-4-5-20251001');
+  });
+
+  it('a run with no model answer (401) refuses instead of scoring, even a single-arm "nothing stored" scenario', () => {
+    writeFileSync(log, '');
+    const r = runL4({ FAKE_DOCKER_MODE: '401' }, 'no-secrets');
+    expect(r.status, r.stdout + r.stderr).toBe(3);
+    expect(r.stderr).toContain('had no model answer');
+    expect(r.stderr).toContain('401 OAuth token has expired');
+    expect(r.stdout).not.toMatch(/DEMONSTRATED/);
   });
 });

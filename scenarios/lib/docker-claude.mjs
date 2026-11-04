@@ -32,21 +32,25 @@ export function dockerClaudeArgv({ uid, gid, home, brainHost, brainC, sessionId,
 }
 
 /**
- * `claude -p --output-format json` stdout → { text, models }. text is the
- * `result` field (what the scenarios score); models are the `modelUsage` keys.
- * Output that is not that JSON object passes through as text with no models,
- * so a CLI error still reads as the miss it is, never as a model observation.
+ * `claude -p --output-format json` stdout → { text, models }. text is the `result`
+ * field (what the scenarios score; '' when an error result carries none); models are
+ * the `modelUsage` keys. The JSON object is the last stdout line that parses, so a
+ * warning printed before it does not hide it. Output with no such object passes
+ * through as text with no models: the caller treats "no model answered" as a harness
+ * fault, never as a model observation (vfkb#423).
  */
 export function parseClaudeJson(stdout) {
   const raw = String(stdout ?? '').trim();
-  try {
-    const j = JSON.parse(raw);
+  const lines = raw.split('\n').map((l) => l.trim()).filter(Boolean);
+  for (const candidate of [raw, ...lines.reverse()]) {
+    let j;
+    try { j = JSON.parse(candidate); } catch { continue; }
     if (j && typeof j === 'object' && !Array.isArray(j)) {
       return {
-        text: typeof j.result === 'string' ? j.result : raw,
+        text: typeof j.result === 'string' ? j.result : '',
         models: Object.keys(j.modelUsage || {}),
       };
     }
-  } catch { /* not JSON: fall through */ }
+  }
   return { text: raw, models: [] };
 }

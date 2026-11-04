@@ -7,7 +7,7 @@
 # ~/.claude.json MCP servers, no mykb auto-memory, no kb/bashrc/skills. --strict-mcp-config
 # is belt-and-suspenders on top. Both vfkb faces are wired (MCP + session hooks).
 #
-# Usage:  spike/vfkb-dogfood.sh [extra claude args...]
+# Usage:  spike/vtfkb-dogfood.sh [extra claude args...]
 #   VFKB_DOGFOOD_HOME=<dir>   persistent state dir   (default ~/.vfkb-dogfood)
 #   VFKB_DOGFOOD_MODEL=<id>   pin a model            (default: CLI default model)
 #   CLAUDE_CODE_OAUTH_TOKEN   REQUIRED, exported: the access token the container uses

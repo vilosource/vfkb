@@ -20,16 +20,18 @@ Both vfkb faces are wired at once:
 
 ## Auth
 
-Uses the host's **Claude subscription** (flat rate), not an API key. The launcher
-mounts `~/.claude/.credentials.json` (read-only) and a **synthetic
-`~/.claude.json` containing only `oauthAccount`** — account identity with zero mykb
-project/MCP/history leak.
+Uses the host's **Claude subscription** (flat rate), not an API key. Export
+`CLAUDE_CODE_OAUTH_TOKEN` first (`claude setup-token`): the launcher and the smoke pass
+it into the container **by name only** and mount no credentials file, so no refresh
+token enters the container (vfkb#423). They also mount a **synthetic `~/.claude.json`
+containing only `oauthAccount`**: account identity with zero mykb project/MCP/history
+leak.
 
 ## Use
 
 ```bash
-spike/vfkb-dogfood.sh                 # interactive clean-room session
-VFKB_DOGFOOD_MODEL=claude-haiku-4-5 spike/vfkb-dogfood.sh   # pin a model
+spike/vtfkb-dogfood.sh                # interactive clean-room session
+VFKB_DOGFOOD_MODEL=claude-haiku-4-5 spike/vtfkb-dogfood.sh   # pin a model
 bash spike/dogfood-smoke.sh            # headless acceptance smoke (throwaway brain)
 ```
 
