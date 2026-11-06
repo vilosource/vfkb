@@ -12,7 +12,7 @@ import type { GitRunner } from '../src/session-end.js';
 // JSONL backend wrapped so whole-brain reads and index-meta writes can be counted.
 //  - Index meta (a whole-brain materialize) is written ONCE per run, AFTER the commit, and
 //    only if the run wrote to the brain, including when curation or the commit throws.
-//  - `git add` (a second hash of the whole brain) runs only for a brain git does not track.
+//  - `git add` (a second hash of the whole brain) runs only for an untracked or deleted brain.
 //  - newEntriesSinceHead parses only lines whose id is not already in HEAD.
 
 const day = (d: number) => new Date(Date.UTC(2026, 0, 1) + d * 86_400_000).toISOString();
@@ -150,7 +150,7 @@ describe('vfkb#448 — index meta is written once, after the commit', () => {
   });
 });
 
-describe('vfkb#448 — git add only for a brain git does not track', () => {
+describe('vfkb#448 — git add only for an untracked or deleted brain', () => {
   it('a tracked brain commits without git add, and pre-staged files stay out', () => {
     repo(seedLines(0));
     writeFileSync(join(dir, 'other.txt'), 'staged by the operator');

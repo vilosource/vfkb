@@ -26,11 +26,11 @@ second time, and two whole-brain materializations for index meta.
 
 ## Decision
 
-1. **`git add` runs only where it changes the outcome:** an untracked brain, or a deletion or
-   rename, staged or not. For any other tracked brain, `git commit -o -- <path>` takes the
-   work-tree file itself.
-   - Keeping the add for a staged deletion or rename is required. `git add` fails on a path gone
-     from both index and work tree, and that failure is what keeps `git rm` or `git mv` out of the
+1. **`git add` runs only when the brain's status starts with `??` or `D`** (after trimming), which
+   includes a rename away: under the single-file pathspec a rename reports as a deletion. For any
+   other status, `git commit -o -- <path>` takes the work-tree file itself.
+   - Keeping the add for those statuses is required. `git add` fails on a path gone from both
+     index and work tree, and that failure is what keeps a staged `git rm` or `git mv` out of the
      auto-commit. Review of the first version observed `commit -o` alone committing the deletion.
 2. **Index meta is written once per SessionEnd, after the commit,** and only if the run wrote to
    the brain, including when curation or the commit throws. The commit is the floor; meta is
@@ -42,11 +42,16 @@ second time, and two whole-brain materializations for index meta.
 
 - ADR-0033's guarantees stand, and tests pin them: no pre-staged file is swept in, and a staged
   deletion or rename is never committed.
-- Three outcomes differ from `git add` + `commit -o`, all observed in review, none losing data:
-  - a failed commit no longer leaves the brain staged;
-  - a brain with unresolved conflicts stays `UU` (the add silently marked it resolved, and the commit
-    then failed anyway);
-  - a tracked brain that is also gitignored, or outside a sparse cone, now commits (the add refused).
+- Outcomes that differ from `git add` + `commit -o`, all observed in review (41 shapes, real git),
+  none losing data:
+  - For a tracked brain, the index is no longer touched before a commit that fails: a rejecting
+    hook, a merge or cherry-pick in progress, `UU`, `UD`, `AD`. (The add marked a conflict resolved,
+    and the commit then failed anyway.) Untracked and `D` paths still go through the add, and stay
+    staged on failure.
+  - A tracked brain that is also gitignored (the add staged it, then failed) or outside a sparse
+    cone (the add refused) now commits.
+  - A pre-commit hook that reads the main index instead of `GIT_INDEX_FILE` sees it without the
+    brain's staged change.
 - Accepted: a committed line that starts like an engine line and ends in `}` but is not valid JSON
   (two torn appends merged) counts its first id as known. The new-entry count can be one low; the
   commit still lands.

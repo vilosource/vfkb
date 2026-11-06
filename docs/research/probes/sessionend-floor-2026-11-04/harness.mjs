@@ -110,7 +110,7 @@ for (const eng of (process.env.PROBE_ORDER || 'before,after').split(',')) {
   for (const [b, p] of Object.entries(brains)) cell(`${eng}/${b}`, BUNDLES[eng], p);
 }
 const cal = out.cells['calibration/slow'];
-out.admissible = cal.valid === TRIALS && cal.finishedInBudget === 0 && cal.commitAtExit === 0;
+out.admissible = cal.valid === TRIALS && cal.finishedInBudget === 0 && cal.commitAtExit === 0 && cal.commitSettled === 0;
 out.loadavgEnd = loadavg();
 out.keychainShim = keychainShimReport();
 for (const p of Object.values(brains)) if (p !== BRAIN) rmSync(dirname(p), { recursive: true, force: true });

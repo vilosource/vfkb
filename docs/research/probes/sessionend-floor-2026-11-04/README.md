@@ -61,8 +61,8 @@ After #447 a run still read the whole brain 5 times. #448 changes:
 - Index meta is written once per run, **after the commit**, and only if the run wrote to the
   brain. The commit is the floor; meta is derived.
 - Curation validates a line a second time only for ids with a `curation-kept` tag.
-- `git add` runs only for a brain git does not track yet. `commit --only` hashes a tracked file
-  itself, so the add was a second hash of the whole brain.
+- `git add` runs only for an untracked or deleted brain ([ADR-0086](../../../adr/ADR-0086-sessionend-floor-mechanics.md)).
+  `commit --only` hashes any other tracked file itself, so the add was a second hash of the whole brain.
 
 **Standalone** ([`timing.mjs`](timing.mjs), `SIZES=0,10000,30000`, N=5, two interleaved rounds, load
 average about 6 to 14; "before" is main at e1b3181, including #447):
@@ -83,7 +83,11 @@ It goes through the claude-auth seam (env token, no Keychain, shim `refusedWrite
 config dir; the operator registry digest was unchanged. Verdicts are content assertions, read when
 `claude -p` exits: the model answered on stdout (a trial without that is voided, none were), the
 hook's end marker exists, and HEAD is the auto-commit. The JSON records every trial, the bundle
-hashes and the load average (about 12 falling to about 6 over the runs).
+hashes and the load average (5-minute average about 12 falling to about 6).
+
+The hashes show both runs used the same bundles. They do not tie those bundles to the merged commit:
+a bundle embeds the HEAD sha at build time, and the runs predate that commit. `src/` did not change
+between that build and the code in this PR.
 
 | cell | commit landed, before first | commit landed, after first |
 |---|---|---|
@@ -95,7 +99,8 @@ hashes and the load average (about 12 falling to about 6 over the runs).
 | after, +10k | 3/3 | 3/3 |
 | after, +30k | 3/3 | 3/3 |
 
-The calibration arm is what makes this admissible: the budget was seen cutting a hook off.
+The calibration arm is what makes this admissible: the budget was seen cutting a hook off, and the
+commit had not landed 6 s later either.
 
 **What this does and does not show:**
 
