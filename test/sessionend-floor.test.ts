@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setStorageBackend, storageBackend } from '../src/backend.js';
@@ -96,6 +96,28 @@ describe('vfkb#448 — index meta is written once, after the commit', () => {
     expect(JSON.parse(lastMeta!).entry_count).toBe(12 + 3 + 1 + 1);
   });
 
+  it('a session that left its own handoff, with entries curated: meta still written once', () => {
+    repo(seedLines(3));
+    appendFileSync(entries(), line('newpin', day(80)));
+    const r = end();
+    expect(r).toMatchObject({ committed: true, autoHandoff: false });
+    expect(r.curated).toBeGreaterThan(0);
+    expect(metaWrites).toBe(1);
+  });
+
+  it('restores VFKB_DATA_DIR after the run, set or unset', () => {
+    repo(seedLines(1));
+    appendFileSync(entries(), fact('newfact'));
+    delete process.env.VFKB_DATA_DIR;
+    end();
+    expect(process.env.VFKB_DATA_DIR).toBeUndefined();
+    process.env.VFKB_DATA_DIR = '/somewhere/else';
+    appendFileSync(entries(), fact('newfact2'));
+    end();
+    expect(process.env.VFKB_DATA_DIR).toBe('/somewhere/else');
+    delete process.env.VFKB_DATA_DIR;
+  });
+
   it('a run that writes nothing to the brain writes no meta', () => {
     repo(line('pin', day(70))); // nothing curable
     appendFileSync(entries(), line('newpin', day(80)));
@@ -142,6 +164,33 @@ describe('vfkb#448 — git add only for a brain git does not track', () => {
     expect(g('status', '--porcelain', '--', '.vfkb/entries.jsonl')).toBe('');
   });
 
+  it('a staged deletion of the brain is never committed (ADR-0033 §3)', () => {
+    repo(seedLines(0));
+    g('rm', '-q', '.vfkb/entries.jsonl');
+    const r = end();
+    expect(r.committed).toBe(false);
+    expect(g('log', '-1', '--format=%s')).toBe('seed');
+    expect(g('show', 'HEAD:.vfkb/entries.jsonl')).toContain('"pin"'); // still in HEAD
+    expect(g('status', '--porcelain', '--', '.vfkb/entries.jsonl')).toMatch(/^D/); // still staged
+  });
+
+  it('a staged rename of the brain is not split into an auto-committed deletion', () => {
+    repo(seedLines(0));
+    g('mv', '.vfkb/entries.jsonl', 'renamed.jsonl');
+    const r = end();
+    expect(r.committed).toBe(false);
+    expect(g('log', '-1', '--format=%s')).toBe('seed');
+    expect(g('show', 'HEAD:.vfkb/entries.jsonl')).toContain('"pin"');
+  });
+
+  it('an unstaged deletion is still committed, as before (git add stages it)', () => {
+    repo(seedLines(0));
+    rmSync(entries());
+    expect(end().committed).toBe(true);
+    expect(events).toContain('add');
+    expect(g('ls-tree', 'HEAD', '.vfkb/entries.jsonl')).toBe('');
+  });
+
   it('an untracked brain is added and committed', () => {
     repo(seedLines(0));
     g('rm', '-q', '--cached', '.vfkb/entries.jsonl');
@@ -167,17 +216,18 @@ describe('vfkb#448 — newEntriesSinceHead parses only what it must', () => {
 
   it('agrees with a full parse on every line shape the fast path does not cover', () => {
     const notFirst = (id: string) => JSON.stringify({ type: 'fact', id, text: 't', tags: [] }) + '\n';
-    repo(notFirst('oldodd') + fact('edited') + fact('gone'));
+    repo(notFirst('oldodd') + fact('edited') + fact('gone') + fact('x"y'));
     appendFileSync(
       entries(),
       notFirst('oldodd') + // an id-not-first line already in HEAD: not new
       line('edited', day(81), { text: 'edited' }) + // an edit of a known id: not new
       notFirst('newodd') + // an id-not-first line not in HEAD: new
+      line('x"z', day(83)) + // an escaped id is parsed, not cut at its quote: `x"y` in HEAD is another id
       '{"id":"torn","type":"fact"\n' + // a torn line: ignored
       line('added', day(82)) +
       JSON.stringify({ id: 'added2', deleted: true }) + '\n', // added then deleted: not new
     );
-    expect(newEntriesSinceHead(realGit, dir, entries()).map((e) => e.id).sort()).toEqual(['added', 'newodd']);
+    expect(newEntriesSinceHead(realGit, dir, entries()).map((e) => e.id).sort()).toEqual(['added', 'newodd', 'x"z']);
   });
 
   it('a torn line in HEAD does not hide the same id written properly', () => {

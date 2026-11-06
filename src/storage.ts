@@ -80,7 +80,8 @@ export function defaultProject(): string {
 
 // --- append-only writes. Every write regenerates the freshness meta as a
 //     GUARANTEED side-effect (mykb L11; ADR-0014) — policy, so it lives here,
-//     above the backend's raw append. ---
+//     above the backend's raw append. A batch writer may defer it to one write after
+//     the batch (meta: false; ADR-0086), and then owns writing it. ---
 export function appendRecord(rec: StoredRecord, opts: { meta?: boolean } = {}): void {
   const be = storageBackend();
   // ADR-0064: journal-first untracked mirror — the durability floor for the

@@ -1,58 +1,239 @@
 {
-  "date": "2026-11-06T11:13:12.816Z",
+  "date": "2026-11-06T12:03:48.660Z",
   "claude": "2.1.311 (Claude Code)",
   "trials": 3,
+  "order": "after,before",
+  "bundles": {
+    "before": "491267583db77831",
+    "after": "8f9b198194695d17"
+  },
+  "loadavgStart": [
+    6.8759765625,
+    9.4375,
+    11.93994140625
+  ],
   "cells": {
     "calibration/slow": {
-      "pong": 3,
+      "valid": 3,
+      "voided": 0,
       "finishedInBudget": 0,
       "commitAtExit": 0,
       "commitSettled": 0,
-      "subject": "seed"
+      "runs": [
+        {
+          "pong": true,
+          "finishedInBudget": false,
+          "commitAtExit": false,
+          "commitSettled": false,
+          "subject": "seed"
+        },
+        {
+          "pong": true,
+          "finishedInBudget": false,
+          "commitAtExit": false,
+          "commitSettled": false,
+          "subject": "seed"
+        },
+        {
+          "pong": true,
+          "finishedInBudget": false,
+          "commitAtExit": false,
+          "commitSettled": false,
+          "subject": "seed"
+        }
+      ]
     },
     "after/real": {
-      "pong": 3,
+      "valid": 3,
+      "voided": 0,
       "finishedInBudget": 3,
       "commitAtExit": 3,
       "commitSettled": 3,
-      "subject": "chore(brain): session-end auto-commit (2 new entries, 62 curated, session 8440b26f)"
+      "runs": [
+        {
+          "pong": true,
+          "finishedInBudget": true,
+          "commitAtExit": true,
+          "commitSettled": true,
+          "subject": "chore(brain): session-end auto-commit (2 new entries, 62 curated, session 03309779)"
+        },
+        {
+          "pong": true,
+          "finishedInBudget": true,
+          "commitAtExit": true,
+          "commitSettled": true,
+          "subject": "chore(brain): session-end auto-commit (2 new entries, 62 curated, session 262cf112)"
+        },
+        {
+          "pong": true,
+          "finishedInBudget": true,
+          "commitAtExit": true,
+          "commitSettled": true,
+          "subject": "chore(brain): session-end auto-commit (2 new entries, 62 curated, session bb0f0fcc)"
+        }
+      ]
     },
     "after/plus10k": {
-      "pong": 3,
+      "valid": 3,
+      "voided": 0,
       "finishedInBudget": 3,
       "commitAtExit": 3,
       "commitSettled": 3,
-      "subject": "chore(brain): session-end auto-commit (2 new entries, 62 curated, session 9ec69f88)"
+      "runs": [
+        {
+          "pong": true,
+          "finishedInBudget": true,
+          "commitAtExit": true,
+          "commitSettled": true,
+          "subject": "chore(brain): session-end auto-commit (2 new entries, 62 curated, session b7ac8fdd)"
+        },
+        {
+          "pong": true,
+          "finishedInBudget": true,
+          "commitAtExit": true,
+          "commitSettled": true,
+          "subject": "chore(brain): session-end auto-commit (2 new entries, 62 curated, session 326786d4)"
+        },
+        {
+          "pong": true,
+          "finishedInBudget": true,
+          "commitAtExit": true,
+          "commitSettled": true,
+          "subject": "chore(brain): session-end auto-commit (2 new entries, 62 curated, session 228c2d30)"
+        }
+      ]
     },
     "after/plus30k": {
-      "pong": 3,
+      "valid": 3,
+      "voided": 0,
       "finishedInBudget": 3,
       "commitAtExit": 3,
       "commitSettled": 3,
-      "subject": "chore(brain): session-end auto-commit (2 new entries, 62 curated, session 4f5dcafc)"
+      "runs": [
+        {
+          "pong": true,
+          "finishedInBudget": true,
+          "commitAtExit": true,
+          "commitSettled": true,
+          "subject": "chore(brain): session-end auto-commit (2 new entries, 62 curated, session c28d2b08)"
+        },
+        {
+          "pong": true,
+          "finishedInBudget": true,
+          "commitAtExit": true,
+          "commitSettled": true,
+          "subject": "chore(brain): session-end auto-commit (2 new entries, 62 curated, session 06a64651)"
+        },
+        {
+          "pong": true,
+          "finishedInBudget": true,
+          "commitAtExit": true,
+          "commitSettled": true,
+          "subject": "chore(brain): session-end auto-commit (2 new entries, 62 curated, session 0f7f6ece)"
+        }
+      ]
     },
     "before/real": {
-      "pong": 3,
+      "valid": 3,
+      "voided": 0,
       "finishedInBudget": 3,
       "commitAtExit": 3,
       "commitSettled": 3,
-      "subject": "chore(brain): session-end auto-commit (2 new entries, 62 curated, session 3a9a82ec)"
+      "runs": [
+        {
+          "pong": true,
+          "finishedInBudget": true,
+          "commitAtExit": true,
+          "commitSettled": true,
+          "subject": "chore(brain): session-end auto-commit (2 new entries, 62 curated, session 57ee9069)"
+        },
+        {
+          "pong": true,
+          "finishedInBudget": true,
+          "commitAtExit": true,
+          "commitSettled": true,
+          "subject": "chore(brain): session-end auto-commit (2 new entries, 62 curated, session 55269c2d)"
+        },
+        {
+          "pong": true,
+          "finishedInBudget": true,
+          "commitAtExit": true,
+          "commitSettled": true,
+          "subject": "chore(brain): session-end auto-commit (2 new entries, 62 curated, session ee0895b0)"
+        }
+      ]
     },
     "before/plus10k": {
-      "pong": 3,
+      "valid": 3,
+      "voided": 0,
       "finishedInBudget": 3,
       "commitAtExit": 3,
       "commitSettled": 3,
-      "subject": "chore(brain): session-end auto-commit (2 new entries, 62 curated, session 3b57268d)"
+      "runs": [
+        {
+          "pong": true,
+          "finishedInBudget": true,
+          "commitAtExit": true,
+          "commitSettled": true,
+          "subject": "chore(brain): session-end auto-commit (2 new entries, 62 curated, session 437f602c)"
+        },
+        {
+          "pong": true,
+          "finishedInBudget": true,
+          "commitAtExit": true,
+          "commitSettled": true,
+          "subject": "chore(brain): session-end auto-commit (2 new entries, 62 curated, session b54b4fef)"
+        },
+        {
+          "pong": true,
+          "finishedInBudget": true,
+          "commitAtExit": true,
+          "commitSettled": true,
+          "subject": "chore(brain): session-end auto-commit (2 new entries, 62 curated, session 93bf528f)"
+        }
+      ]
     },
     "before/plus30k": {
-      "pong": 3,
+      "valid": 3,
+      "voided": 0,
       "finishedInBudget": 3,
       "commitAtExit": 3,
       "commitSettled": 3,
-      "subject": "chore(brain): session-end auto-commit (2 new entries, 62 curated, session 30767b11)"
+      "runs": [
+        {
+          "pong": true,
+          "finishedInBudget": true,
+          "commitAtExit": true,
+          "commitSettled": true,
+          "subject": "chore(brain): session-end auto-commit (2 new entries, 62 curated, session e3e55e43)"
+        },
+        {
+          "pong": true,
+          "finishedInBudget": true,
+          "commitAtExit": true,
+          "commitSettled": true,
+          "subject": "chore(brain): session-end auto-commit (2 new entries, 62 curated, session 5f679fbb)"
+        },
+        {
+          "pong": true,
+          "finishedInBudget": true,
+          "commitAtExit": true,
+          "commitSettled": true,
+          "subject": "chore(brain): session-end auto-commit (2 new entries, 62 curated, session 03df29ea)"
+        }
+      ]
     }
   },
   "admissible": true,
+  "loadavgEnd": [
+    2.671875,
+    6.1171875,
+    10.001953125
+  ],
+  "keychainShim": {
+    "built": true,
+    "calls": 42,
+    "refusedWrites": 0
+  },
   "operatorRegistryUnchanged": true
 }

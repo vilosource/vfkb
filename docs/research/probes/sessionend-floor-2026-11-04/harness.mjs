@@ -19,10 +19,10 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { loadavg, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { assertClaudeAuthReady, claudeSync, claudeVersion, sandboxEnv } from '../../../../scenarios/lib/claude-auth.mjs';
+import { assertClaudeAuthReady, claudeSync, claudeVersion, keychainShimReport, sandboxEnv } from '../../../../scenarios/lib/claude-auth.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const TRIALS = Math.max(1, parseInt(process.env.PROBE_TRIALS || '3', 10));
@@ -69,7 +69,8 @@ function trial(bundle, brain, pre = '') {
       cwd: dir, timeout: 120_000, stdio: ['ignore', 'pipe', 'pipe'], env: sandboxEnv(process.env, home),
     });
   } catch (e) {
-    answer = String(e.stdout || e.message || e);
+    // stdout ONLY: e.message carries argv, prompt included, so it would satisfy the PONG check.
+    answer = String(e.stdout || '');
   }
   const atExit = { marker: existsSync(join(dir, 'mark')), subject: g('log', '-1', '--format=%s').trim() };
   sleep(SETTLE_MS);
@@ -77,7 +78,7 @@ function trial(bundle, brain, pre = '') {
   rmSync(dir, { recursive: true, force: true });
   rmSync(home, { recursive: true, force: true });
   return {
-    pong: /PONG/.test(answer),
+    pong: /\bPONG\b/.test(answer),
     finishedInBudget: atExit.marker,
     commitAtExit: atExit.subject.includes('session-end auto-commit'),
     commitSettled: settled.subject.includes('session-end auto-commit'),
@@ -85,13 +86,22 @@ function trial(bundle, brain, pre = '') {
   };
 }
 
-const out = { date: new Date().toISOString(), claude: claudeVersion(), trials: TRIALS, cells: {} };
+const sha256 = (p) => createHash('sha256').update(readFileSync(p)).digest('hex').slice(0, 16);
+const out = {
+  date: new Date().toISOString(), claude: claudeVersion(), trials: TRIALS,
+  order: process.env.PROBE_ORDER || 'before,after',
+  bundles: { before: sha256(BUNDLES.before), after: sha256(BUNDLES.after) },
+  loadavgStart: loadavg(), cells: {},
+};
 const brains = { 'real': BRAIN, 'plus10k': bigBrain(10000), 'plus30k': bigBrain(30000) };
 const cell = (name, bundle, brain, pre) => {
   const runs = Array.from({ length: TRIALS }, () => trial(bundle, brain, pre));
-  const n = (k) => runs.filter((r) => r[k]).length;
-  out.cells[name] = { pong: n('pong'), finishedInBudget: n('finishedInBudget'), commitAtExit: n('commitAtExit'), commitSettled: n('commitSettled'), subject: runs[0].subject };
-  console.log(name.padEnd(24), JSON.stringify(out.cells[name]));
+  // A trial with no model answer says nothing about the budget: voided, never scored.
+  const valid = runs.filter((r) => r.pong);
+  const n = (k) => valid.filter((r) => r[k]).length;
+  out.cells[name] = { valid: valid.length, voided: runs.length - valid.length, finishedInBudget: n('finishedInBudget'), commitAtExit: n('commitAtExit'), commitSettled: n('commitSettled'), runs };
+  const { runs: _r, ...shown } = out.cells[name];
+  console.log(name.padEnd(24), JSON.stringify(shown));
 };
 
 cell('calibration/slow', BUNDLES.after, BRAIN, 'sleep 4; ');
@@ -100,7 +110,10 @@ for (const eng of (process.env.PROBE_ORDER || 'before,after').split(',')) {
   for (const [b, p] of Object.entries(brains)) cell(`${eng}/${b}`, BUNDLES[eng], p);
 }
 const cal = out.cells['calibration/slow'];
-out.admissible = cal.pong === TRIALS && cal.finishedInBudget === 0;
+out.admissible = cal.valid === TRIALS && cal.finishedInBudget === 0 && cal.commitAtExit === 0;
+out.loadavgEnd = loadavg();
+out.keychainShim = keychainShimReport();
+for (const p of Object.values(brains)) if (p !== BRAIN) rmSync(dirname(p), { recursive: true, force: true });
 out.operatorRegistryUnchanged = digest() === before;
 mkdirSync(join(HERE, 'out'), { recursive: true });
 writeFileSync(join(HERE, 'out', `harness${process.env.PROBE_TAG ? `-${process.env.PROBE_TAG}` : ''}.json`), JSON.stringify(out, null, 2) + '\n');

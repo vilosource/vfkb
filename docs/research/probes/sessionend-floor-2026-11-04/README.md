@@ -77,17 +77,20 @@ All cells curated the full 62. The slope fell from about 22 to about 15 ms per 1
 still linear: git must still read and hash the brain, and two whole-brain materializations remain
 (curation's snapshot and the one meta write).
 
-**Under the real Claude Code budget** ([`harness.mjs`](harness.mjs), CLI 2.1.311, haiku, N=3 per cell).
+**Under the real Claude Code budget** ([`harness.mjs`](harness.mjs), CLI 2.1.311, haiku, N=3 per cell,
+two runs with the order swapped: [before first](out/harness-before-first.json), [after first](out/harness-after-first.json)).
 It goes through the claude-auth seam (env token, no Keychain, shim `refusedWrites=0`) in a sandbox
-config dir; the operator registry digest was unchanged. Verdicts are content assertions: the model
-answered, the hook's end marker exists, and HEAD is the auto-commit, read when `claude -p` exits.
+config dir; the operator registry digest was unchanged. Verdicts are content assertions, read when
+`claude -p` exits: the model answered on stdout (a trial without that is voided, none were), the
+hook's end marker exists, and HEAD is the auto-commit. The JSON records every trial, the bundle
+hashes and the load average (about 12 falling to about 6 over the runs).
 
-| cell | commit landed, before-first run ([json](out/harness-before-first.json)) | commit landed, after-first run ([json](out/harness-after-first.json)) |
+| cell | commit landed, before first | commit landed, after first |
 |---|---|---|
 | calibration (`sleep 4` before the hook) | **0/3** | **0/3** |
-| before, real brain (~810) | 3/3 | 3/3 |
-| before, +10k | **1/3** | 3/3 |
-| before, +30k | **1/3** | 3/3 |
+| before, real brain (~810 lines) | 3/3 | 3/3 |
+| before, +10k | 3/3 | 3/3 |
+| before, +30k | 3/3 | 3/3 |
 | after, real brain | 3/3 | 3/3 |
 | after, +10k | 3/3 | 3/3 |
 | after, +30k | 3/3 | 3/3 |
@@ -96,14 +99,14 @@ The calibration arm is what makes this admissible: the budget was seen cutting a
 
 **What this does and does not show:**
 
-- Observed: the new engine fit the budget and landed its commit 18/18, up to 30.8k lines.
-- Observed: the budget can cost the old engine its commit (4 misses in 18). A real miss loses the
-  commit, not just time.
-- **Not shown: that this change cured those misses.** All 4 fell in one run, and swapping the order
-  gave the old engine 3/3 at every size. Other work on the machine (load average 10 to 15) moved
-  over the session and was not controlled, so the old engine's misses can be load, not engine.
-  N=3 per cell cannot separate the two.
-- Under the harness the margin is smaller than the standalone numbers suggest: the old engine's
-  ~540 ms standalone still missed in that window. Do not extrapolate a safe brain size from
-  standalone timings. The earlier "1.5 s near 60k lines" figure is withdrawn for that reason.
+- Observed: both engines fit the budget and landed the commit, 18/18 each, up to 30.8k lines.
+- **Not shown: any benefit under the harness.** It shows a fit, not a margin. The change's measured
+  gain is the standalone cost above, and the commit now lands before the meta write.
+- An earlier pair of runs on the same day had the old engine miss 4 of 18 (two each at +10k and +30k,
+  all in one run; 3/3 at every size with the order swapped). Those runs are not evidence for either
+  side: their PONG check could pass on a crash (the review of #453 found this), they kept no per-trial
+  records, and the misses did not reproduce here. Why they missed is unknown.
+- Do not extrapolate a safe brain size from standalone timings; the #447 write-up's "1.5 s near 60k
+  lines" is withdrawn. The harness overhead on top of the hook was not measured.
+- The 3k-line cut-off #384 saw was not re-measured at exactly 3k; +10k and +30k both fit.
 - Slower machines: not measured. These numbers come from one M5 Pro.

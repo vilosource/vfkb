@@ -194,7 +194,10 @@ function parseLines(text: string): BrainEntry[] {
 }
 
 // The id of a JSONL line without parsing it, for the engine's own shape (`id` is the first
-// key: JSON.stringify keeps buildEntry's order). Anything else returns null and is parsed.
+// key: JSON.stringify keeps buildEntry's order). Other shapes return null and are parsed.
+// Accepted cost: a line that looks like this but is not valid JSON (two torn appends merged
+// into one committed line) counts its first id as known, so re-adding that id is not "new".
+// Only the count changes; the commit still lands (ADR-0086).
 const LINE_ID = /^\{"id":"([^"\\]+)"/;
 function lineId(line: string): string | null {
   const m = line.endsWith('}') ? LINE_ID.exec(line) : null;
@@ -332,7 +335,12 @@ export interface BrainCommitOutcome {
   branch?: string | null;
   /** the session's new ids since HEAD; undefined for `not-a-repo` / `brain-clean` */
   fresh?: BrainEntry[];
-  /** false when git does not track the brain file yet (status `??`) */
+  /**
+   * true when `commit --only` alone commits the work-tree file. False for an untracked brain,
+   * and for a deletion, staged or not (a rename reports as one under this pathspec): only
+   * `git add` keeps ADR-0033's behaviour there (it fails on a path gone from both index and
+   * work tree, so a staged `git rm` or `git mv` is never swept into the auto-commit, ADR-0086).
+   */
   tracked?: boolean;
 }
 
@@ -356,7 +364,7 @@ export function brainCommitOutcome(git: GitRunner, cwd: string, dataDir: string)
   // 3) Branch guard — never commit on a detached HEAD or the default branch.
   const cls = classifyBranch(git, cwd);
   const outcome = cls.kind === 'detached' ? 'detached-head' : cls.kind === 'default' ? 'on-default-branch' : 'topic';
-  return { outcome, branch: cls.branch, fresh, tracked: !status.startsWith('??') };
+  return { outcome, branch: cls.branch, fresh, tracked: !/^(\?\?|D)/.test(status) };
 }
 
 export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
@@ -438,8 +446,8 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
 
     // 7) Pathspec-scoped commit with `--only`, so pre-staged files are NOT swept into this
     //    auto-commit. `--only` takes a tracked file from the work tree by itself; `git add`
-    //    (a second hash of the whole brain, vfkb#448) is only for a brain git does not
-    //    track yet, and touches nothing else. `added` = the session's new ids plus the fallback
+    //    (a second hash of the whole brain, vfkb#448) runs only where it changes the outcome
+    //    (`tracked` above, ADR-0086), and touches nothing else. `added` = the session's new ids plus the fallback
     //    (a new id of its own); curation only re-writes ids that already exist.
     const added = fresh.length + (autoHandoff ? 1 : 0);
     const extra = curated ? `, ${curated} curated` : '';
