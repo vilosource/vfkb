@@ -62,7 +62,8 @@ After #447 a run still read the whole brain 5 times. #448 changes:
   brain. The commit is the floor; meta is derived.
 - Curation validates a line a second time only for ids with a `curation-kept` tag.
 - `git add` runs only for an untracked or deleted brain ([ADR-0086](../../../adr/ADR-0086-sessionend-floor-mechanics.md)).
-  `commit --only` hashes any other tracked file itself, so the add was a second hash of the whole brain.
+  `commit --only` handles any other tracked file itself. Measured in review on about 13 MB of brain:
+  add + commit 127 ms, commit alone 93 ms.
 
 **Standalone** ([`timing.mjs`](timing.mjs), `SIZES=0,10000,30000`, N=5, two interleaved rounds, load
 average about 6 to 14; "before" is main at e1b3181, including #447):
@@ -85,9 +86,10 @@ config dir; the operator registry digest was unchanged. Verdicts are content ass
 hook's end marker exists, and HEAD is the auto-commit. The JSON records every trial, the bundle
 hashes and the load average (5-minute average about 12 falling to about 6).
 
-The hashes show both runs used the same bundles. They do not tie those bundles to the merged commit:
-a bundle embeds the HEAD sha at build time, and the runs predate that commit. `src/` did not change
-between that build and the code in this PR.
+The hashes show both runs used the same bundles. A bundle embeds the HEAD sha at build time, and the
+runs predate the commit. Review reproduced the "after" hash exactly from this PR's `src/` with that
+stamp, so the "after" code is tied to it. UNVERIFIED: the "before" bundle's source; its hash matched
+no recent main commit in review (possibly a build-environment difference).
 
 | cell | commit landed, before first | commit landed, after first |
 |---|---|---|

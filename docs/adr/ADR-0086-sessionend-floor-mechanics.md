@@ -20,20 +20,21 @@ timestamp: 2026-11-06
 ## Context
 
 Claude Code gives SessionEnd hooks 1.5 s by default, and a run that passes it loses its commit
-([vfkb#384](https://github.com/vilosource/vfkb/issues/384)). Probes under
-`docs/research/probes/sessionend-floor-2026-11-04/` showed `git add` hashing the whole brain a
-second time, and two whole-brain materializations for index meta.
+([vfkb#384](https://github.com/vilosource/vfkb/issues/384)). Profiles under
+`docs/research/probes/sessionend-floor-2026-11-04/` showed two whole-brain materializations for
+index meta per run. Measured in review on a brain of about 13 MB (N=7 medians): `git add` then
+`commit -o` took 127 ms, `commit -o` alone 93 ms.
 
 ## Decision
 
 1. **`git add` runs only when the brain's status starts with `??` or `D`** (after trimming), which
    includes a rename away: under the single-file pathspec a rename reports as a deletion. For any
    other status, `git commit -o -- <path>` takes the work-tree file itself.
-   - Keeping the add for those statuses is required. `git add` fails on a path gone from both
+   - Keeping the add for a staged deletion is required. `git add` fails on a path gone from both
      index and work tree, and that failure is what keeps a staged `git rm` or `git mv` out of the
      auto-commit. Review of the first version observed `commit -o` alone committing the deletion.
 2. **Index meta is written once per SessionEnd, after the commit,** and only if the run wrote to
-   the brain, including when curation or the commit throws. The commit is the floor; meta is
+   the brain or a brain write threw (it may have written first), or the commit threw after a write. The commit is the floor; meta is
    derived. A meta write cut off by the budget leaves stale meta, the same state a `git pull`
    leaves, and the next engine write refreshes it.
 3. `newEntriesSinceHead` reads ids from each line's prefix and parses only lines not in HEAD.
