@@ -52,18 +52,58 @@ the session left its own handoff are about 10 to 40 ms faster.
 is now bounded by the curation deadline: if the lock is still busy then, curation is
 skipped, rather than waiting ADR-0040's 5 s and running without the lock.
 
-## Not observed
+## Follow-up: the remaining floor (vfkb#448, 2026-11-06)
 
-- Wall time **under the Claude Code harness**. The #384 harness probe (`../sessionend-budget-2026-10-27/probe.mjs`)
-  was not re-run: it spawns `claude` on the operator profile's login, and from a non-Aqua
-  pane that risks Keychain dialogs. UNVERIFIED: that the harness cut-off seen at 3k lines in
-  #384 is gone. The standalone floor now sits about 1 s below the 1.5 s budget at 10.8k lines.
-- Slower machines. These numbers come from one M5 Pro.
+After #447 a run still read the whole brain 5 times. #448 changes:
 
-## Still linear
+- `newEntriesSinceHead` reads each line's id from its prefix and fully parses only lines whose
+  id is not in HEAD. A line of any other shape falls back to a parse.
+- Index meta is written once per run, **after the commit**, and only if the run wrote to the
+  brain. The commit is the floor; meta is derived.
+- Curation validates a line a second time only for ids with a `curation-kept` tag.
+- `git add` runs only for a brain git does not track yet. `commit --only` hashes a tracked file
+  itself, so the add was a second hash of the whole brain.
 
-The per-archive cost is gone, but the floor still grows with the brain, about 19 ms per 1k
-lines in the review re-run: the brain is read whole about 5 times per run (working tree,
-`git show HEAD`, the curation snapshot, curation's meta write, B2's meta write). At that rate
-the standalone run would reach 1.5 s near 60k lines (extrapolated, not measured). Tracked in
-the follow-up issue.
+**Standalone** ([`timing.mjs`](timing.mjs), `SIZES=0,10000,30000`, N=5, two interleaved rounds, load
+average about 6 to 14; "before" is main at e1b3181, including #447):
+
+| lines | before p50 (rounds) | after p50 (rounds) |
+|---|---|---|
+| 810 | 321 / 323 ms | 275 / 288 ms |
+| 10,810 | 530 / 548 ms | 434 / 430 ms |
+| 30,810 | 983 / 987 ms | 717 / 735 ms |
+
+All cells curated the full 62. The slope fell from about 22 to about 15 ms per 1k lines. It is
+still linear: git must still read and hash the brain, and two whole-brain materializations remain
+(curation's snapshot and the one meta write).
+
+**Under the real Claude Code budget** ([`harness.mjs`](harness.mjs), CLI 2.1.311, haiku, N=3 per cell).
+It goes through the claude-auth seam (env token, no Keychain, shim `refusedWrites=0`) in a sandbox
+config dir; the operator registry digest was unchanged. Verdicts are content assertions: the model
+answered, the hook's end marker exists, and HEAD is the auto-commit, read when `claude -p` exits.
+
+| cell | commit landed, before-first run ([json](out/harness-before-first.json)) | commit landed, after-first run ([json](out/harness-after-first.json)) |
+|---|---|---|
+| calibration (`sleep 4` before the hook) | **0/3** | **0/3** |
+| before, real brain (~810) | 3/3 | 3/3 |
+| before, +10k | **1/3** | 3/3 |
+| before, +30k | **1/3** | 3/3 |
+| after, real brain | 3/3 | 3/3 |
+| after, +10k | 3/3 | 3/3 |
+| after, +30k | 3/3 | 3/3 |
+
+The calibration arm is what makes this admissible: the budget was seen cutting a hook off.
+
+**What this does and does not show:**
+
+- Observed: the new engine fit the budget and landed its commit 18/18, up to 30.8k lines.
+- Observed: the budget can cost the old engine its commit (4 misses in 18). A real miss loses the
+  commit, not just time.
+- **Not shown: that this change cured those misses.** All 4 fell in one run, and swapping the order
+  gave the old engine 3/3 at every size. Other work on the machine (load average 10 to 15) moved
+  over the session and was not controlled, so the old engine's misses can be load, not engine.
+  N=3 per cell cannot separate the two.
+- Under the harness the margin is smaller than the standalone numbers suggest: the old engine's
+  ~540 ms standalone still missed in that window. Do not extrapolate a safe brain size from
+  standalone timings. The earlier "1.5 s near 60k lines" figure is withdrawn for that reason.
+- Slower machines: not measured. These numbers come from one M5 Pro.

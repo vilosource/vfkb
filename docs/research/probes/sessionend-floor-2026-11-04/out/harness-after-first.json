@@ -1,0 +1,58 @@
+{
+  "date": "2026-11-06T11:13:12.816Z",
+  "claude": "2.1.311 (Claude Code)",
+  "trials": 3,
+  "cells": {
+    "calibration/slow": {
+      "pong": 3,
+      "finishedInBudget": 0,
+      "commitAtExit": 0,
+      "commitSettled": 0,
+      "subject": "seed"
+    },
+    "after/real": {
+      "pong": 3,
+      "finishedInBudget": 3,
+      "commitAtExit": 3,
+      "commitSettled": 3,
+      "subject": "chore(brain): session-end auto-commit (2 new entries, 62 curated, session 8440b26f)"
+    },
+    "after/plus10k": {
+      "pong": 3,
+      "finishedInBudget": 3,
+      "commitAtExit": 3,
+      "commitSettled": 3,
+      "subject": "chore(brain): session-end auto-commit (2 new entries, 62 curated, session 9ec69f88)"
+    },
+    "after/plus30k": {
+      "pong": 3,
+      "finishedInBudget": 3,
+      "commitAtExit": 3,
+      "commitSettled": 3,
+      "subject": "chore(brain): session-end auto-commit (2 new entries, 62 curated, session 4f5dcafc)"
+    },
+    "before/real": {
+      "pong": 3,
+      "finishedInBudget": 3,
+      "commitAtExit": 3,
+      "commitSettled": 3,
+      "subject": "chore(brain): session-end auto-commit (2 new entries, 62 curated, session 3a9a82ec)"
+    },
+    "before/plus10k": {
+      "pong": 3,
+      "finishedInBudget": 3,
+      "commitAtExit": 3,
+      "commitSettled": 3,
+      "subject": "chore(brain): session-end auto-commit (2 new entries, 62 curated, session 3b57268d)"
+    },
+    "before/plus30k": {
+      "pong": 3,
+      "finishedInBudget": 3,
+      "commitAtExit": 3,
+      "commitSettled": 3,
+      "subject": "chore(brain): session-end auto-commit (2 new entries, 62 curated, session 30767b11)"
+    }
+  },
+  "admissible": true,
+  "operatorRegistryUnchanged": true
+}

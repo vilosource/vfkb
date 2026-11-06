@@ -82,6 +82,9 @@ export interface AddOpts {
   validUntil?: string;
   constitutional?: boolean; // ADR-0008 (decision family only)
   supersedes?: string; // refs.supersedes — set by supersede()
+  // vfkb#448: the caller writes index meta once after a batch (SessionEnd). Plain adds only;
+  // an add with `retires` always writes it.
+  deferMeta?: boolean;
   // ADR-0039 (v2): the writing session's id. Explicit value wins; falls back to
   // $KB_SESSION_ID; omitted (not stamped) when neither is known.
   sessionId?: string;
@@ -105,7 +108,7 @@ export function addEntry(type: EntryType, text: string, opts: AddOpts = {}): Kno
   const retires = [...new Set(opts.retires ?? [])];
   if (retires.length === 0) {
     const entry = buildEntry(type, text, opts);
-    appendRecord(entry);
+    appendRecord(entry, { meta: !opts.deferMeta });
     return entry;
   }
   // Read-decide-append under the brain lock (ADR-0040): every retirement is checked

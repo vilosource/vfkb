@@ -15,6 +15,7 @@ import { performance } from 'node:perf_hooks';
 import { addEntry } from './engine.js';
 import { autoCurate } from './curator.js';
 import { GIT_READ_MAX_BUFFER } from './git-buffer.js';
+import { writeMeta } from './storage.js';
 import { relativeReal } from './realpath.js';
 
 export type GitRunner = (args: string[], cwd: string) => string;
@@ -192,6 +193,14 @@ function parseLines(text: string): BrainEntry[] {
     .filter((e): e is BrainEntry => e !== null);
 }
 
+// The id of a JSONL line without parsing it, for the engine's own shape (`id` is the first
+// key: JSON.stringify keeps buildEntry's order). Anything else returns null and is parsed.
+const LINE_ID = /^\{"id":"([^"\\]+)"/;
+function lineId(line: string): string | null {
+  const m = line.endsWith('}') ? LINE_ID.exec(line) : null;
+  return m ? m[1] : null;
+}
+
 /**
  * The ONE "new entries since HEAD" count (ADR-0085 §2, decide D9): shared by SessionEnd,
  * the UserPromptSubmit line and Stop (stop-reminder.ts `newBrainEntriesSinceHead`), so the
@@ -201,14 +210,24 @@ function parseLines(text: string): BrainEntry[] {
  * must stay quiet outside the committed-brain model gate on `brainCommitOutcome`.
  */
 export function newEntriesSinceHead(git: GitRunner, cwd: string, absEntries: string): BrainEntry[] {
-  let current: BrainEntry[];
+  let currentText: string;
   try {
-    current = parseLines(readFileSync(absEntries, 'utf8'));
+    currentText = readFileSync(absEntries, 'utf8');
   } catch {
     return [];
   }
   const head = tryGit(git, ['show', brainHeadSpec(cwd, absEntries)], cwd);
-  const known = new Set(parseLines(head ?? '').map((e) => e.id));
+  const known = new Set<string | undefined>();
+  for (const l of (head ?? '').split('\n')) {
+    if (l) known.add(lineId(l) ?? parseLines(l)[0]?.id);
+  }
+  // Only lines whose id is not already in HEAD are parsed (vfkb#448): nearly all of them are.
+  const current = parseLines(
+    currentText.split('\n').filter((l) => {
+      const id = l ? lineId(l) : null;
+      return !id || !known.has(id);
+    }).join('\n'),
+  );
   // Each new id judged by its NEWEST line (by `updated`, a tie to the later line), as the
   // engine materializes it: an entry written then retagged `handoff` is a handoff.
   const fresh = new Map<string, BrainEntry>();
@@ -245,15 +264,23 @@ function writeAutoHandoff(absBrain: string, fresh: BrainEntry[], sessionId?: str
     `Auto-handoff (session-end): no explicit handoff was recorded, but this session added ` +
     `${n} brain entr${n === 1 ? 'y' : 'ies'} since the last commit — ${list}${more}. ` +
     'Next session: review these and record an explicit `next:` if continuing.';
-  const prev = process.env.VFKB_DATA_DIR;
-  process.env.VFKB_DATA_DIR = absBrain;
-  try {
+  inBrain(absBrain, () =>
     addEntry('fact', text, {
       role: 'executor',
       zone: 'established',
       tags: ['handoff', 'next', 'auto'],
       sessionId, // ADR-0039: attribute the fallback handoff to the ending session
-    });
+      deferMeta: true, // runSessionEnd writes it once, after the commit (vfkb#448)
+    }),
+  );
+}
+
+// The engine resolves the brain via VFKB_DATA_DIR: point it at the resolved dir for one call.
+function inBrain<T>(absBrain: string, fn: () => T): T {
+  const prev = process.env.VFKB_DATA_DIR;
+  process.env.VFKB_DATA_DIR = absBrain;
+  try {
+    return fn();
   } finally {
     if (prev === undefined) delete process.env.VFKB_DATA_DIR;
     else process.env.VFKB_DATA_DIR = prev;
@@ -305,6 +332,8 @@ export interface BrainCommitOutcome {
   branch?: string | null;
   /** the session's new ids since HEAD; undefined for `not-a-repo` / `brain-clean` */
   fresh?: BrainEntry[];
+  /** false when git does not track the brain file yet (status `??`) */
+  tracked?: boolean;
 }
 
 /**
@@ -318,7 +347,8 @@ export function brainCommitOutcome(git: GitRunner, cwd: string, dataDir: string)
   // 1) Must be inside a git work tree (committed-brain model). Otherwise no-op.
   if (tryGit(git, ['rev-parse', '--is-inside-work-tree'], cwd) !== 'true') return { outcome: 'not-a-repo' };
   // 2) Nothing staged or unstaged for the brain file (or it is ignored / outside the tree).
-  if (!tryGit(git, ['status', '--porcelain', '--', brainEntriesRelPath(dataDir)], cwd)) return { outcome: 'brain-clean' };
+  const status = tryGit(git, ['status', '--porcelain', '--', brainEntriesRelPath(dataDir)], cwd);
+  if (!status) return { outcome: 'brain-clean' };
   const absBrain = isAbsolute(dataDir) ? dataDir : join(cwd, dataDir);
   // ONE read of HEAD's brain per run (vfkb#384): each `git show` of a >1 MiB blob costs
   // tens of ms against the 1.5 s SessionEnd budget, and nothing below changes HEAD.
@@ -326,7 +356,7 @@ export function brainCommitOutcome(git: GitRunner, cwd: string, dataDir: string)
   // 3) Branch guard — never commit on a detached HEAD or the default branch.
   const cls = classifyBranch(git, cwd);
   const outcome = cls.kind === 'detached' ? 'detached-head' : cls.kind === 'default' ? 'on-default-branch' : 'topic';
-  return { outcome, branch: cls.branch, fresh };
+  return { outcome, branch: cls.branch, fresh, tracked: !status.startsWith('??') };
 }
 
 export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
@@ -336,6 +366,10 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
   const dataDir = opts.dataDir || process.env.VFKB_DATA_DIR || process.env.VFKB_DIR || '.vfkb';
   const sessionId = opts.sessionId ?? process.env.KB_SESSION_ID;
   const entries = brainEntriesRelPath(dataDir);
+  // Set by any brain write below. Index meta is derived and materializes the whole brain, so
+  // it is written once, and only after the commit: the commit is the floor, meta is not
+  // (vfkb#448). Set before each write, so a write that throws partway still refreshes it.
+  let metaBrain: string | undefined;
 
   try {
     // 1)–3) ADR-0033's preconditions, through the predicate the prompt line shares (ADR-0085).
@@ -379,17 +413,14 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
       if (now() >= SESSION_END_CURATION_DEADLINE_MS) {
         curationSkipped = 'deadline';
       } else {
-        const prev = process.env.VFKB_DATA_DIR;
-        process.env.VFKB_DATA_DIR = absBrain;
         try {
-          const c = autoCurate(undefined, { now, deadlineMs: SESSION_END_CURATION_DEADLINE_MS });
+          const c = inBrain(absBrain, () => autoCurate(undefined, { now, deadlineMs: SESSION_END_CURATION_DEADLINE_MS, deferMeta: true }));
           curated = c.archived.length + c.repaired.length;
+          if (curated) metaBrain = absBrain;
           if (c.stopped) curationSkipped = c.stopped;
         } catch {
+          metaBrain = absBrain; // it may have written before it threw
           /* best-effort */
-        } finally {
-          if (prev === undefined) delete process.env.VFKB_DATA_DIR;
-          else process.env.VFKB_DATA_DIR = prev;
         }
       }
     }
@@ -397,6 +428,7 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
     let autoHandoff = false;
     if (needFallback) {
       try {
+        metaBrain = absBrain;
         writeAutoHandoff(absBrain, fresh, sessionId);
         autoHandoff = true;
       } catch {
@@ -404,19 +436,28 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
       }
     }
 
-    // 7) Pathspec-scoped commit. Stage ONLY the brain file (leaves any other staged
-    //    files alone), then commit with `--only` so even pre-staged files are NOT
-    //    swept into this auto-commit. `added` = the session's new ids plus the fallback
+    // 7) Pathspec-scoped commit with `--only`, so pre-staged files are NOT swept into this
+    //    auto-commit. `--only` takes a tracked file from the work tree by itself; `git add`
+    //    (a second hash of the whole brain, vfkb#448) is only for a brain git does not
+    //    track yet, and touches nothing else. `added` = the session's new ids plus the fallback
     //    (a new id of its own); curation only re-writes ids that already exist.
     const added = fresh.length + (autoHandoff ? 1 : 0);
     const extra = curated ? `, ${curated} curated` : '';
     const message = `${SESSION_END_COMMIT_PREFIX} (${added} new entr${added === 1 ? 'y' : 'ies'}${extra}${tag})`;
-    git(['add', '--', entries], cwd);
+    if (!oc.tracked) git(['add', '--', entries], cwd);
     // `-m` MUST precede `--`; everything after `--` is treated as a pathspec.
     git(['commit', '-o', '-m', message, '--', entries], cwd);
     return { committed: true, reason: 'committed', branch, added, message, autoHandoff, curated, curationSkipped };
   } catch {
     // Any git failure (no identity, hook rejection, …) → fail-open, never block exit.
     return { committed: false, reason: 'error' };
+  } finally {
+    if (metaBrain) {
+      try {
+        inBrain(metaBrain, writeMeta);
+      } catch {
+        /* derived: the next engine write refreshes it */
+      }
+    }
   }
 }
