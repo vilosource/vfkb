@@ -26,7 +26,8 @@ function once(brain, newHandoff) {
   spawnSync('node', [bundle, 'hook', 'session-end'], { cwd: dir, input: JSON.stringify({ session_id: 't' + Math.random(), cwd: dir, reason: 'other' }), env: env({ VFKB_DATA_DIR: join(dir, '.vfkb') }), encoding: 'utf8' });
   const ms = Number(process.hrtime.bigint() - t0) / 1e6; const subj = g('log', '-1', '--format=%s').trim(); rmSync(dir, { recursive: true, force: true }); return { ms, subj };
 }
-for (const extra of [0, 2400, 10000]) {
+// SIZES=0,10000,30000 picks the filler line counts (default 0, 2400, 10000).
+for (const extra of (process.env.SIZES || '0,2400,10000').split(',').map(Number)) {
   const b = mk(extra); const lines = readFileSync(b, 'utf8').split('\n').filter(Boolean).length;
   for (const h of [false, true]) {
     const r = Array.from({ length: N }, () => once(b, h)); const ms = r.map((x) => x.ms).sort((a, c) => a - c);

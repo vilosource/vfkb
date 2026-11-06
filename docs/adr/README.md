@@ -51,7 +51,7 @@ Immutable records of significant vfkb architecture decisions, in
 | [ADR-0011](ADR-0011-envelope-richness.md) | Envelope v1 adopts validity window + structured provenance origin; trust is derived (D-A) | Accepted |
 | [ADR-0012](ADR-0012-two-stage-retrieval.md) | Two-stage retrieval; v1 ships Heuristic reranker (default); Stage-1 narrowing right-sized for per-project (D-B) | Accepted (Amended by ADR-0016) |
 | [ADR-0013](ADR-0013-no-hard-native-dep.md) | No hard native dep; pluggable `Index`, pure-JS in-memory default, SQLite/FTS5 optional (D-C) | Accepted |
-| [ADR-0014](ADR-0014-index-freshness.md) | Index freshness = content-derived token + explicit rebuild, never mtime (D-D) | Accepted |
+| [ADR-0014](ADR-0014-index-freshness.md) | Index freshness = content-derived token + explicit rebuild, never mtime (D-D) | Accepted (amended by ADR-0086) |
 | [ADR-0015](ADR-0015-cross-harness-auto-layer.md) | Cross-harness auto-layer = tiered parity; per-turn push Pi-only on Claude Code; narrowed Phase 0 spike (D-E) | Accepted |
 | [ADR-0016](ADR-0016-search-ranking-and-embedding-revisit.md) | Explicit search is relevance-primary; EmbeddingReranker un-deferred to Planned-pending-verification (amends ADR-0012) | Accepted (Amended by ADR-0017, ADR-0018) |
 | [ADR-0017](ADR-0017-search-relevance-floor.md) | Explicit search applies a relative relevance floor (distinct query-term ratio; default 1/3); amends ADR-0016 | Accepted |
@@ -70,7 +70,7 @@ Immutable records of significant vfkb architecture decisions, in
 | [ADR-0030](ADR-0030-consumer-integration-and-distribution.md) | Consumer integration & distribution contract — portable engine (`$VFKB_HOME` + single-file bundles), `vfkb init`, `import`, `doctor` | Accepted |
 | [ADR-0031](ADR-0031-bootstrap-engine-resolution-guard.md) | A committed bootstrap guards engine resolution and informs the user when `$VFKB_BUNDLE_DIR` is unset | Accepted |
 | [ADR-0032](ADR-0032-env-var-rename-data-dir-bundle-dir.md) | Rename env vars for clarity — `VFKB_DATA_DIR` (brain) + `VFKB_BUNDLE_DIR` (engine); old names kept as deprecated aliases | Accepted |
-| [ADR-0033](ADR-0033-session-end-continuity.md) | Session-end continuity — a `SessionEnd` brain auto-commit (GAP 2; branch-guarded, pathspec-scoped) + a deterministic B2 handoff floor (GAP 1); B1 nudge open | Accepted (Amended by ADR-0085) |
+| [ADR-0033](ADR-0033-session-end-continuity.md) | Session-end continuity — a `SessionEnd` brain auto-commit (GAP 2; branch-guarded, pathspec-scoped) + a deterministic B2 handoff floor (GAP 1); B1 nudge open | Accepted (Amended by ADR-0085, ADR-0086) |
 | [ADR-0034](ADR-0034-b1-handoff-nudge.md) | GAP-1 B1 — the agent-authored handoff nudge (settles RFC-011 §B) | Accepted (Amended by ADR-0084) |
 | [ADR-0035](ADR-0035-hooks-anchor-to-project-dir.md) | `vfkb init` anchors the Claude Code hooks to `$CLAUDE_PROJECT_DIR` | Accepted |
 | [ADR-0036](ADR-0036-v2-two-branch-strategy.md) | v2 development uses a dedicated long-lived `v2` branch; `main` stays release-only | Accepted |
@@ -123,3 +123,4 @@ Immutable records of significant vfkb architecture decisions, in
 | [ADR-0083](ADR-0083-background-curation.md) | Background curation: a deterministic SessionEnd rule (topic branches, only with the session's own brain writes) archives clear-cut old handoffs; a curator agent only proposes; one session-start line reports both; thresholds are constants (accepts RFC-046; amends ADR-0082 §6) | Accepted |
 | [ADR-0084](ADR-0084-handoff-nudge-next-prompt.md) | The handoff nudge moves to the next prompt: deterministic Stop WHEN-rules (1a/1b/1d now, 1c/1e after the floor), B1 off Stop, a non-blocking `UserPromptSubmit` line once per (pin, created, HEAD), RFC-043 Part 0 (created keys, B′) and Part A read-only floor, Part B gated (accepts RFC-047 and RFC-043 Parts 0/1/A; amends ADR-0034, ADR-0027, ADR-0049 render, brain e68ad28f11b6) | Accepted (Amended by ADR-0085) |
 | [ADR-0085](ADR-0085-ups-systemmessage-warning.md) | ADR-0033's default-branch / detached-HEAD warning reaches the user as a `UserPromptSubmit` `systemMessage` (TUI, not `-p` text): SessionEnd's own predicate, one id count, one ASCII text, its own cadence key kept across compaction, computed first (amends ADR-0033 §2, ADR-0084 §2.3/§2.5/§7) | Accepted |
+| [ADR-0086](ADR-0086-sessionend-floor-mechanics.md) | SessionEnd's floor mechanics: `git add` only for an untracked or deleted brain, one index-meta write after the commit (amends ADR-0033 §3 and ADR-0014) | Accepted |

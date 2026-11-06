@@ -52,18 +52,68 @@ the session left its own handoff are about 10 to 40 ms faster.
 is now bounded by the curation deadline: if the lock is still busy then, curation is
 skipped, rather than waiting ADR-0040's 5 s and running without the lock.
 
-## Not observed
+## Follow-up: the remaining floor (vfkb#448, 2026-11-06)
 
-- Wall time **under the Claude Code harness**. The #384 harness probe (`../sessionend-budget-2026-10-27/probe.mjs`)
-  was not re-run: it spawns `claude` on the operator profile's login, and from a non-Aqua
-  pane that risks Keychain dialogs. UNVERIFIED: that the harness cut-off seen at 3k lines in
-  #384 is gone. The standalone floor now sits about 1 s below the 1.5 s budget at 10.8k lines.
-- Slower machines. These numbers come from one M5 Pro.
+After #447 a run still read the whole brain 5 times. #448 changes:
 
-## Still linear
+- `newEntriesSinceHead` reads each line's id from its prefix and fully parses only lines whose
+  id is not in HEAD. A line of any other shape falls back to a parse.
+- Index meta is written once per run, **after the commit**, and only if the run wrote to the
+  brain. The commit is the floor; meta is derived.
+- Curation validates a line a second time only for ids with a `curation-kept` tag.
+- `git add` runs only for an untracked or deleted brain ([ADR-0086](../../../adr/ADR-0086-sessionend-floor-mechanics.md)).
+  `commit --only` handles any other tracked file itself. Measured in review on about 13 MB of brain:
+  add + commit 127 ms, commit alone 93 ms.
 
-The per-archive cost is gone, but the floor still grows with the brain, about 19 ms per 1k
-lines in the review re-run: the brain is read whole about 5 times per run (working tree,
-`git show HEAD`, the curation snapshot, curation's meta write, B2's meta write). At that rate
-the standalone run would reach 1.5 s near 60k lines (extrapolated, not measured). Tracked in
-the follow-up issue.
+**Standalone** ([`timing.mjs`](timing.mjs), `SIZES=0,10000,30000`, N=5, two interleaved rounds, load
+average about 6 to 14; "before" is main at e1b3181, including #447):
+
+| lines | before p50 (rounds) | after p50 (rounds) |
+|---|---|---|
+| 810 | 321 / 323 ms | 275 / 288 ms |
+| 10,810 | 530 / 548 ms | 434 / 430 ms |
+| 30,810 | 983 / 987 ms | 717 / 735 ms |
+
+All cells curated the full 62. The slope fell from about 22 to about 15 ms per 1k lines. It is
+still linear: git must still read and hash the brain, and two whole-brain materializations remain
+(curation's snapshot and the one meta write).
+
+**Under the real Claude Code budget** ([`harness.mjs`](harness.mjs), CLI 2.1.311, haiku, N=3 per cell,
+two runs with the order swapped: [before first](out/harness-before-first.json), [after first](out/harness-after-first.json)).
+It goes through the claude-auth seam (env token, no Keychain, shim `refusedWrites=0`) in a sandbox
+config dir; the operator registry digest was unchanged. Verdicts are content assertions, read when
+`claude -p` exits: the model answered on stdout (a trial without that is voided, none were), the
+hook's end marker exists, and HEAD is the auto-commit. The JSON records every trial, the bundle
+hashes and the load average (5-minute average about 12 falling to about 6).
+
+The hashes show both runs used the same bundles. A bundle embeds the HEAD sha at build time, and the
+runs predate the commit. Review reproduced the "after" hash exactly from this PR's `src/` with that
+stamp, so the "after" code is tied to it. UNVERIFIED: the "before" bundle's source; its hash matched
+no recent main commit in review (possibly a build-environment difference).
+
+| cell | commit landed, before first | commit landed, after first |
+|---|---|---|
+| calibration (`sleep 4` before the hook) | **0/3** | **0/3** |
+| before, real brain (~810 lines) | 3/3 | 3/3 |
+| before, +10k | 3/3 | 3/3 |
+| before, +30k | 3/3 | 3/3 |
+| after, real brain | 3/3 | 3/3 |
+| after, +10k | 3/3 | 3/3 |
+| after, +30k | 3/3 | 3/3 |
+
+The calibration arm is what makes this admissible: the budget was seen cutting a hook off, and the
+commit had not landed 6 s later either.
+
+**What this does and does not show:**
+
+- Observed: both engines fit the budget and landed the commit, 18/18 each, up to 30.8k lines.
+- **Not shown: any benefit under the harness.** It shows a fit, not a margin. The change's measured
+  gain is the standalone cost above, and the commit now lands before the meta write.
+- An earlier pair of runs on the same day had the old engine miss 4 of 18 (two each at +10k and +30k,
+  all in one run; 3/3 at every size with the order swapped). Those runs are not evidence for either
+  side: their PONG check could pass on a crash (the review of #453 found this), they kept no per-trial
+  records, and the misses did not reproduce here. Why they missed is unknown.
+- Do not extrapolate a safe brain size from standalone timings; the #447 write-up's "1.5 s near 60k
+  lines" is withdrawn. The harness overhead on top of the hook was not measured.
+- The 3k-line cut-off #384 saw was not re-measured at exactly 3k; +10k and +30k both fit.
+- Slower machines: not measured. These numbers come from one M5 Pro.

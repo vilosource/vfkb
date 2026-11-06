@@ -252,9 +252,12 @@ export interface AutoCurateOpts {
    * stops once `now() >= deadlineMs`. Unset → no deadline (the CLI `curate` paths).
    * vfkb#396: the lock wait is bounded by the same deadline; a lock still busy then skips
    * the run (stopped: 'deadline') instead of running it unlocked.
+   * vfkb#448: `deferMeta` leaves the index-meta write to the caller, which must then call
+   * writeMeta once after its own writes, even if this throws (SessionEnd).
    */
   now?: () => number;
   deadlineMs?: number;
+  deferMeta?: boolean;
 }
 
 /**
@@ -288,7 +291,7 @@ export function autoCurate(today = todayIso(), opts: AutoCurateOpts = {}): AutoC
     try {
       return curateLocked();
     } finally {
-      if (wrote) writeMeta();
+      if (wrote && !opts.deferMeta) writeMeta();
     }
   }, lockOpts);
 
@@ -297,10 +300,18 @@ export function autoCurate(today = todayIso(), opts: AutoCurateOpts = {}): AutoC
     if (pastDeadline()) return skipped();
     const records = readRecords();
     const all = materialize(records);
-    const linesById = new Map<string, KnowledgeEntry[]>();
-    // Every raw line of each id, normalized the way materialize normalizes the newest.
+    // Only ids with a curation-kept tag on some line (vfkb#448: validating every line a second
+    // time cost more than the rule). Both uses below need that tag: the sticky repair and the
+    // kept set. Normalizing never rewrites a tag string, so the raw test cannot miss one.
+    const askedAbout = new Set<string>();
     for (const r of records) {
-      if (!r || typeof r.id !== 'string' || isTombstone(r)) continue;
+      const tags = (r as { tags?: unknown } | null)?.tags;
+      if (typeof r?.id === 'string' && Array.isArray(tags) && tags.includes(CURATION_KEPT)) askedAbout.add(r.id);
+    }
+    const linesById = new Map<string, KnowledgeEntry[]>();
+    // Every raw line of each such id, normalized the way materialize normalizes the newest.
+    for (const r of records) {
+      if (!r || typeof r.id !== 'string' || !askedAbout.has(r.id) || isTombstone(r)) continue;
       const n = normalizeEntry(r);
       if (!n.ok) continue;
       const list = linesById.get(r.id) ?? [];

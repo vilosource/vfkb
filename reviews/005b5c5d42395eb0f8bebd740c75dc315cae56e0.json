@@ -1,0 +1,174 @@
+{
+ "recordVersion": 1,
+ "sha": "005b5c5d42395eb0f8bebd740c75dc315cae56e0",
+ "governing": [
+  "docs/adr/ADR-0086-sessionend-floor-mechanics.md",
+  "docs/adr/ADR-0033-session-end-continuity.md",
+  "docs/adr/ADR-0051-delivery-honesty.md"
+ ],
+ "governingNote": "Issue #448 is the spec. Round 3's verdict was MERGE at 0b1c865; this head adds only the wording nits that round named, no src or test change.",
+ "reviewer": {
+  "agent": "general-purpose",
+  "model": "claude-opus-5-5",
+  "rounds": 3
+ },
+ "generated": "2026-11-06T12:19:18Z",
+ "findings": [
+  {
+   "id": "R1-B1",
+   "severity": "blocking",
+   "status": "fixed",
+   "summary": "Skipping git add let a staged git rm / git mv of the brain be committed by the auto-commit, breaking ADR-0033 \u00a73. A status starting with D goes through git add again; tests added (85b3670)",
+   "acceptedBy": null
+  },
+  {
+   "id": "R1-M1",
+   "severity": "major",
+   "status": "fixed",
+   "summary": "harness.mjs PONG could pass on a crash (e.message carries the prompt), including the calibration gate. stdout only, no-answer trials voided, per-trial records kept, re-run in both orders (85b3670)",
+   "acceptedBy": null
+  },
+  {
+   "id": "R1-M2",
+   "severity": "major",
+   "status": "fixed",
+   "summary": "Curated-only meta path untested (R1 survived). Test added (85b3670)",
+   "acceptedBy": null
+  },
+  {
+   "id": "R1-minors",
+   "severity": "minor",
+   "status": "fixed",
+   "summary": "Escaped-id and env-restore guards, unused import, stale storage comment, ADR-0086 recording the mechanism change (85b3670)",
+   "acceptedBy": null
+  },
+  {
+   "id": "R2-docs",
+   "severity": "major",
+   "status": "fixed",
+   "summary": "ADR-0086 statements untrue as written ('three outcomes differ', rule wording); stale README/test wording; ADR index rows missing (0b1c865)",
+   "acceptedBy": null
+  },
+  {
+   "id": "R3-nits",
+   "severity": "minor",
+   "status": "fixed",
+   "summary": "'second hash' not a probe finding (review measured add+commit 127 ms vs commit 93 ms), 'required' overstated, meta-on-throw wording, 'before' bundle source labelled UNVERIFIED (this commit)",
+   "acceptedBy": null
+  },
+  {
+   "id": "OPEN-torn",
+   "severity": "minor",
+   "status": "open",
+   "summary": "A committed torn line that starts like an engine line and ends in } counts its first id as known; the new-entry count can be one low. Recorded in ADR-0086",
+   "acceptedBy": null
+  },
+  {
+   "id": "OPEN-doctor",
+   "severity": "minor",
+   "status": "open",
+   "summary": "doctor's SessionEnd marker closes after the meta write, so a run cut off there reads as unfinished although its commit landed",
+   "acceptedBy": null
+  },
+  {
+   "id": "OPEN-started",
+   "severity": "minor",
+   "status": "open",
+   "summary": "harness calibration has no started marker before sleep; sibling cells on the same wiring landed 36/36",
+   "acceptedBy": null
+  }
+ ],
+ "findingsCount": 9,
+ "ruledOut": [
+  "differential fuzz: 20,000 line cases 0 diffs; 8,000 curation runs (3,906 with archives, 72 with repairs) 0 diffs",
+  "41 git status shapes run on real git, old vs new: 32 same, 9 differ, all listed in ADR-0086, none losing data",
+  "no path writes the brain without then writing meta; early returns leave it unset; nothing reads meta between append and commit",
+  "the askedAbout filter: both line checks need the kept tag; raw test is a superset of normalized tags",
+  "the 'after' bundle hash reproduced exactly from src at 85b3670 with the recorded stamp",
+  "README and PR table checked cell by cell against out/*.json",
+  "flaky timing tests fail on main and on the branch under load; the sample cannot separate them, and the change only makes the shared count cheaper"
+ ],
+ "mutations": [
+  {
+   "guard": "test/sessionend-floor.test.ts meta",
+   "mutation": "B2 not deferring meta",
+   "observedRed": true
+  },
+  {
+   "guard": "test/sessionend-floor.test.ts meta",
+   "mutation": "curation not deferring meta",
+   "observedRed": true
+  },
+  {
+   "guard": "test/sessionend-floor.test.ts meta",
+   "mutation": "meta dropped",
+   "observedRed": true
+  },
+  {
+   "guard": "test/sessionend-floor.test.ts meta",
+   "mutation": "no meta after a curation throw",
+   "observedRed": true
+  },
+  {
+   "guard": "test/sessionend-floor.test.ts meta",
+   "mutation": "curated-only meta line removed",
+   "observedRed": true
+  },
+  {
+   "guard": "test/sessionend-floor.test.ts env",
+   "mutation": "no env restore",
+   "observedRed": true
+  },
+  {
+   "guard": "test/sessionend-floor.test.ts add",
+   "mutation": "add always",
+   "observedRed": true
+  },
+  {
+   "guard": "test/sessionend-floor.test.ts add",
+   "mutation": "add never",
+   "observedRed": true
+  },
+  {
+   "guard": "test/sessionend-floor.test.ts deletion",
+   "mutation": "D branch dropped",
+   "observedRed": true
+  },
+  {
+   "guard": "test/sessionend-floor.test.ts parse",
+   "mutation": "fast id off for the work tree",
+   "observedRed": true
+  },
+  {
+   "guard": "test/sessionend-floor.test.ts parse",
+   "mutation": "fast id off for HEAD",
+   "observedRed": true
+  },
+  {
+   "guard": "test/sessionend-floor.test.ts torn",
+   "mutation": "no endsWith check",
+   "observedRed": true
+  },
+  {
+   "guard": "test/sessionend-floor.test.ts shapes",
+   "mutation": "no parse fallback for HEAD",
+   "observedRed": true
+  },
+  {
+   "guard": "test/sessionend-floor.test.ts escapes",
+   "mutation": "regex allows escapes",
+   "observedRed": true
+  },
+  {
+   "guard": "test/curation-normalize-count.test.ts count",
+   "mutation": "normalize filter off",
+   "observedRed": true
+  },
+  {
+   "guard": "test/background-curation.test.ts kept",
+   "mutation": "filter misses the kept tag",
+   "observedRed": true
+  }
+ ],
+ "verdict": "MERGE"
+}
