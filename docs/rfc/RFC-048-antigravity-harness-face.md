@@ -63,7 +63,7 @@ timestamp: 2026-11-09
 | Session end (commit, B2 floor, curation) | `SessionEnd` | **Documented:** no event. **Observed:** naming `SessionEnd` in `hooks.json` was silently ignored. |
 | Tool-result capture | `PostToolUse` (not on failed calls) | **Observed:** fires with `toolCall` and `error`. **Documented** (changelog): fires on failed calls too. |
 | Skills (`/vfkb:brief`, `/vfkb:handoff`) | plugin skills, `brief` on a Haiku-pinned subagent (ADR-0049) | **Observed:** a `.agents/skills/<name>/SKILL.md` ran as `/<name>` in `agy -p`. Plugin skills and per-skill model pinning: unobserved. |
-| Packaging | plugin, marketplace, version cache | **Documented:** plugins with `hooks.json`, `mcp_config.json`, skills and rules; `agy plugin install <github-url>`; plugin hooks load in the CLI; `${PLUGIN_ROOT}` in plugin hook commands (also in the CLI changelog). None of it observed. |
+| Packaging | plugin, marketplace, version cache | **Documented** (brain `053e25c55997`): plugins with `hooks.json`, `mcp_config.json`, skills and rules; `agy plugin install <github-url>`; plugin hooks load in the CLI. **CLI changelog** (read from `agy changelog`, 1.4.12): `PLUGIN_ROOT` and `PLUGIN_DATA` are set as **environment variables** for hook commands that come from a plugin. None of it observed in a run. |
 
 ### 1.2 The contract traps (why a naive port breaks)
 
@@ -91,9 +91,14 @@ recommended (§6).
 
 ### 1.3 The target repos
 
-Read from disk on 2026-11-09. `~/.gemini/antigravity-cli/cache/last_conversations.json` shows
-agy has run in two OneIO workdirs, `~/OneIO-Workdir/sre-workdir/tf-estate-workdir` and
-`…/aws-agent-core-workdir`, as well as `~/OneIO-Workdir-Dev` and `~/GitHub/vfkb`.
+Read from disk on 2026-11-09. `~/.gemini/antigravity-cli/cache/last_conversations.json` lists
+the workspaces agy has run in:
+- two OneIO workdirs, `~/OneIO-Workdir/sre-workdir/tf-estate-workdir` and
+  `…/aws-agent-core-workdir`;
+- `~/OneIO-Workdir-Dev` and `~/GitHub/vfkb`;
+- `~` and four `~/WorkDirs/*` folders (`ai-management`, `ai-tools-dev/…/bin`, `devlaptop`,
+  `service-flow`);
+- this RFC's probe repos.
 
 Three facts about those workdirs constrain the design:
 - **They are on `main`** and commit their brains there with their own machinery (e.g.
@@ -123,7 +128,7 @@ The operator's user-level `~/.gemini/config/hooks.json` already holds a `herdr` 
   time or predates `--harness agy` cannot enforce it from inside. Each path is pinned by a
   deterministic test.
 - **No machine paths in git and no per-machine env var.** The engine is reached through the
-  plugin's `${PLUGIN_ROOT}` (ADR-0066's lesson: a hand-set `$VFKB_BUNDLE_DIR` is a prose rule
+  plugin's `PLUGIN_ROOT` environment variable (ADR-0066's lesson: a hand-set `$VFKB_BUNDLE_DIR` is a prose rule
   that does not get followed; on this machine it was never set).
 - **Observed, not documented.** Matchers and payload readers are written against the probe
   record, and also accept the documented names.
@@ -148,12 +153,23 @@ release together, so the engine a hook runs is always one that knows `--harness 
 | `.agents/rules/vfkb.md` | the "how we track work here" instructions, written for agy. They go in a rules file rather than `AGENTS.md`, because the target workdirs' `AGENTS.md` is released from a template repo and would overwrite the snippet. **Documented:** rule files need `trigger` frontmatter or they are dropped. |
 | `.gitignore` stanza, empty `.vfkb/entries.jsonl` | as today |
 
-The brain's presence is the opt-in. A user-scope plugin's hooks run in every agy session on
-the machine, so each one first resolves the brain as `workspacePaths[0] + "/.vfkb"`. If no
-`entries.jsonl` is there, the hook prints nothing. This also closes the review's B3: the
-brain is taken from the payload, never from `$PWD` or the `~/.vfkb` default.
+**The committed `.agents/rules/vfkb.md` is the opt-in, not the brain.** The plugin is
+installed for the whole machine, so its hooks and MCP server start in every agy session.
+Every repo that already has a Claude-era brain (all three target workdirs, and vfkb itself)
+would turn on the moment the plugin is installed if a brain's presence were enough. So:
 
-`vfkb doctor --harness agy` reports a repo that has opted in on a machine with no plugin.
+- **Hooks** resolve the workspace as `workspacePaths[0]`. A hook acts only when both
+  `.agents/rules/vfkb.md` and `.vfkb/entries.jsonl` exist there. Otherwise it prints nothing.
+  The brain is taken from the payload, never from `$PWD` or the `~/.vfkb` default (review
+  finding B3).
+- **The MCP server**, started with `--harness agy`, never falls back to `~/.vfkb` (today's
+  `brainDir()` default, `src/storage.ts`). It resolves the workspace from its cwd or the
+  documented `cwd` field (P-0). Without the opt-in there, every `kb_*` tool returns an error
+  naming `vfkb init --harness agy`, and nothing is written. This includes creating a `.vfkb`,
+  which would otherwise half-opt the repo in.
+
+`vfkb doctor --harness agy` reports both mismatches: a repo with the opt-in on a machine with
+no plugin, and a brain with no opt-in.
 
 ### 3.2 `vfkb hook <event> --harness agy`
 
@@ -187,10 +203,21 @@ Every hook command in the plugin's `hooks.json` runs the engine **without `exec`
 filter:
 
 ```sh
-out=$(node "${PLUGIN_ROOT}/dist/bundles/vfkb.mjs" hook pre-tool-use --harness agy 2>/dev/null)
+out=$(node "$PLUGIN_ROOT/dist/bundles/vfkb.mjs" hook pre-tool-use --harness agy 2>/dev/null)
 case "$out" in *'"decision":"deny"'*) printf '%s' "$out" ;; esac
 exit 0
 ```
+
+In `hooks.json` this is one JSON string, so the inner quotes are escaped
+(`*'\"decision\":\"deny\"'*`); a unit test parses the shipped `hooks.json` and runs the
+resulting command. `PLUGIN_ROOT` is an environment variable for plugin hook commands, per the
+CLI changelog.
+
+**The filter needs a shell.** The probe's hook commands were plain `node …` invocations, which
+do not show whether agy runs a command string through `sh -c` or splits it into argv. If it
+does not use a shell, the filter itself fails, and under trap 2 that could deny every
+`write_file` in every agy session on the machine. P-0 settles it. If there is no shell, the
+plugin ships the filter as a tiny committed `sh` script that the hook invokes directly.
 
 - `pre-tool-use` passes output through only when it contains a deny.
 - `stop` passes output through only when it contains `"decision":"continue"`.
@@ -201,7 +228,7 @@ exit 0
 This closes the review's B1 and B2. A unit test drives the filter with each case: deny, `{}`,
 empty, garbage, exit 1, exit 127.
 
-Whether `${PLUGIN_ROOT}` expands inside plugin hook commands and MCP `args` is probe P-0.
+Whether `PLUGIN_ROOT` reaches plugin hook commands, and whether the MCP server can be located from the plugin root, is probe P-0.
 
 ### 3.4 Session end without a `SessionEnd` event
 
@@ -227,11 +254,37 @@ The agy face then uses the pieces separately:
   - On `main` or a detached HEAD it does nothing and prints nothing: agy's Stop has no silent
     message channel, and any output re-prompts. `doctor --harness agy` reports it. **In the
     target workdirs, which are on `main`, this never commits**; their own machinery does.
-- **At `SessionStart`**, before the render:
-  - For every *finished* prior agy conversation in this repo, run `floorDecision` +
-    `writeAutoHandoff` over the ids its record lists. "Finished" means the record is not the
-    current conversation's and its last Stop is older than 30 minutes.
-  - Then run `curate` once. Curation never runs per turn.
+- **At `SessionStart`**, before the render, and **only on a topic branch**: the same
+  `on-default-branch` / `detached-head` guards that `runSessionEnd` applies before its B2
+  decision (`src/session-end.ts`), and that ADR-0083 §3 applies to curation. On `main` or a
+  detached HEAD this step does nothing, exactly as the Claude face does nothing there. So the
+  target workdirs get neither a floor handoff nor curation from agy, matching what they get
+  from Claude.
+  - For every *finished* prior agy conversation in this repo that is not yet marked
+    `floored`, run `floorDecision` + `writeAutoHandoff` over the ids its record lists.
+    "Finished" means the record is not the current conversation's and its last Stop is older
+    than 30 minutes.
+  - **Then mark that record `floored`, under the same engine lock as the handoff write**
+    (ADR-0040). A record is floored at most once, whatever later sessions do. Without the
+    mark, the next session would see the same record, find no handoff among its ids (the
+    auto handoff is written by the *later* session, so it is never in the old record), and
+    write another one.
+  - Then run `curate` once, only if some record was floored in this step (ADR-0083's "the
+    session added a new id" condition). Curation never runs per turn.
+
+**Edge cases, stated rather than solved:**
+- **A conversation killed mid-turn** never reaches an idle Stop, so it gets no record. Its
+  entries are never floored, and agy never commits them. They stay uncommitted until a later
+  idle Stop's commit, or the operator's own commit, sweeps them up. ADR-0064's journal still
+  protects them from loss.
+- **A resumed conversation.** `last_conversations.json` maps each workspace to one
+  conversation id. If agy resumes it, a conversation that keeps being resumed is always
+  "current", so it is never floored. P-3 checks whether resume reuses the id.
+- **A concurrent Claude session in the same repo** (a repo with both wirings). agy's idle-Stop
+  commit also sweeps entries that Claude added. Claude's SessionEnd then sees a clean brain,
+  and its own B2 does not fire for them. Their handoff then rests on agy's record, which does
+  not list Claude's entries. This is accepted for now: both faces in one repo at once is the
+  vfkb dogfood case only.
 
 **The consequence**, stated in §7 too: ADR-0033's "a fresh clone always gets a committed
 pointer" becomes a pointer lag. Between the last idle Stop of one session and the start of
@@ -241,7 +294,7 @@ operator pushed.
 
 ### 3.5 MCP and skills
 
-The plugin's `mcp_config.json` starts the vendored `vfkb-mcp.mjs` through `${PLUGIN_ROOT}`.
+The plugin's `mcp_config.json` starts the vendored `vfkb-mcp.mjs` from the plugin root (how it is located is P-0: `mcp_config.json` may not expand variables, run 5).
 The MCP server needs the repo's brain, and agy does not pass `workspacePaths` to it. P-0
 therefore also observes the server's cwd and env. The documented `cwd` field is the fallback
 if the cwd is not the workspace.
@@ -262,7 +315,7 @@ The docs and the CLI already disagree (trap 3), and the disagreement will recur.
 
 | Phase | Builds | Gate to start |
 |---|---|---|
-| 0 — probes | **P-0** a plugin installed with `agy plugin install <git-url>` loads its hooks, MCP and skills in the CLI; `${PLUGIN_ROOT}` expands in hook commands and MCP `args`; the MCP server's cwd/env · **P-1** an exit 1 with empty stdout from a `PreToolUse` hook (deny or allow?) · **P-2** an interactive session with no `--dangerously-skip-permissions`: do plugin hooks need approval, and do they coexist with the user's `herdr` group? · **P-3** an interactive multi-turn session: `invocationNum`, `executionNum` and `fullyIdle` across turns and across a `continue` · **P-4** compaction · **P-5** `GEMINI_API_KEY` + `modelProvider:gemini` in Docker · **P-6** can a project-scope plugin under `<repo>/.agents/plugins/` be a committed reference rather than a vendored tree? · **P-7** can a headless run restrict tools (so the L4 can withhold `run_command`)? · **P-8** do `.agents/rules/` files with `trigger` frontmatter load? | this RFC accepted |
+| 0 — probes | **P-0** a plugin installed with `agy plugin install <git-url>` loads its hooks, MCP and skills in the CLI; hook commands run through a shell (`$(…)`, `case`); `PLUGIN_ROOT` reaches hook commands and can locate the MCP server; the MCP server's cwd/env · **P-1** an exit 1 with empty stdout from a `PreToolUse` hook (deny or allow?) · **P-2** an interactive session with no `--dangerously-skip-permissions`: do plugin hooks need approval, and do they coexist with the user's `herdr` group? · **P-3** an interactive multi-turn session: `invocationNum`, `executionNum` and `fullyIdle` across turns and across a `continue`; whether resuming a workspace (`-c`/`--conversation`) reuses its `conversationId` · **P-4** compaction · **P-5** `GEMINI_API_KEY` + `modelProvider:gemini` in Docker · **P-6** can a project-scope plugin under `<repo>/.agents/plugins/` be a committed reference rather than a vendored tree? · **P-7** can a headless run restrict tools (so the L4 can withhold `run_command`)? · **P-8** do `.agents/rules/` files with `trigger` frontmatter load? | this RFC accepted |
 | 1 — delivery, then floor and gate | the plugin repo and its release gate; the engine changes of §3.2/§3.3; `init --harness agy`; the L4 of §5, install-path arm first | P-0, P-1, P-2, P-5, P-8 |
 | 2 — continuity | the `runSessionEnd` split, the idle-Stop commit and session record, the floor and curation at `SessionStart`, the Stop nudge with its loop guard | Phase 1 DEMONSTRATED, P-3 |
 | 3 — prompt line | ADR-0084's handoff line through `PreInvocation`, if injection works there | a probe of `PreInvocation` injection |
@@ -290,7 +343,8 @@ Each trial:
 | Arm | Wired (plugin + opt-in) | Contrast |
 |---|---|---|
 | Install path | `agy plugin list` names the plugin at the ref's version, and the wired arms below pass | — |
-| Injection | the agent names the sentinel, and the stream shows **no tool call before the answer** (otherwise it could read the seeded brain) | plugin installed, no opt-in: it cannot name it without a tool call |
+| Injection | the agent names the sentinel, and the stream shows **no tool call before the answer** (otherwise it could read the seeded brain) | plugin installed and brain seeded, but **no `.agents/rules/vfkb.md`**: the hooks must no-op, so it cannot name it without a tool call |
+| No opt-in, MCP | — | same contrast repo: `kb_add` returns the not-enabled error, and no `.vfkb` change and no `~/.vfkb` appear |
 | Gate | a `write_file` to `.vfkb/entries.jsonl` is denied, with the deny in the stream, and the brain is still valid JSONL containing the sentinel line (#150's structural predicate) | no plugin: the write lands |
 | Allow path | a `write_file` to an ordinary file succeeds (catches trap 1) | succeeds |
 | Old engine | the same allow-path write with the plugin's bundle swapped for 0.24.0's (which predates `--harness agy`) still succeeds (catches B1) | — |
@@ -307,15 +361,18 @@ Each trial:
 - **RED first.** The scenario is committed and run before the adapter exists, and must fail on
   the wired arms.
 
-**Phase 2: `scenarios/agy-continuity.mjs`** (new, ADR-0023). A two-conversation run in a
+**Phase 2: `scenarios/agy-continuity.mjs`** (new, ADR-0023). A three-conversation run in a
 topic-branch repo:
 - conversation A adds entries and leaves no handoff, ends idle, and is aged past the
   finished-rule;
 - conversation B's `SessionStart` must write exactly one `auto` handoff naming A's entries;
+- conversation C's `SessionStart` must write **no** further handoff for A (catches a floor
+  that is not idempotent);
 - the brain commit from A's idle Stop must be in `git log`.
 
-The contrast is the same run on `main`: no commit, and the handoff still written. A
-default-branch arm asserts that Stop printed nothing.
+The contrast is the same run on `main`: no commit, **no** `auto` handoff, and no curation
+archive line, matching the Claude face there. A default-branch arm also asserts that Stop
+printed nothing.
 
 **Delivery honesty.** The plugin repo carries a `DELIVERY-STATUS.json` and a release-gate
 Brake, as `vfkb-claude-plugin` does. The install-path arm is that delivery proof. Until it is
@@ -350,8 +407,13 @@ delivery is unproven.
   engine release now has three vendoring targets.
 - **Three I/O shapes per hook decision.** Mitigated by keeping decisions in shared functions;
   the `runSessionEnd` split serves both the Claude and agy faces.
-- **The fallback handoff lags by one session** on agy (§3.4). In `main`-branch workdirs, the
-  per-turn commit never happens; their own machinery commits.
+- **The fallback handoff lags by one session** on agy, and a conversation killed mid-turn
+  gets none (§3.4). In `main`-branch workdirs agy does none of the session-end work (no
+  commit, no floor, no curation), exactly as the Claude face does none there; their own
+  machinery commits.
+- **The plugin runs machine-wide**, so its hooks and MCP server start in every agy session.
+  The committed rules file is what keeps them inert elsewhere (§3.1), and a bug in that check
+  would reach every agy workspace. The L4's no-opt-in contrast arms are the guard.
 - **The gate fails safe**: a broken plugin disables it rather than blocking all writes. This
   matches the Claude Code face's posture, and `doctor` reports it.
 - **Tight coupling to agy's CLI version.** Its docs already lag it, and the L4 is the only
@@ -384,7 +446,9 @@ assumed a per-machine bundle dir; that was checked, found absent, and Q1 was re-
      session (the 2026-07-26 stash that swallowed two entries).
 4. **Which repos first.** Settled: `tf-estate-workdir`, then `aws-agent-core-workdir`, then
    the template in `OneIO-Workdir-Dev`. Why:
-   - agy has already run in both workdirs; both have live brains (60 and 285 entries, read
-     2026-11-09), and both are the operator's own.
+   - Both are OneIO workdirs agy has already run in (it has also run in `~`, four
+     `~/WorkDirs/*` folders, `OneIO-Workdir-Dev` and vfkb); both have live brains (60 and 285
+     lines, read 2026-11-09), and both are the operator's own. The OneIO workdirs are
+     preferred over the `~/WorkDirs/*` ones because they already run vfkb.
    - The fact that would change the pick is which workdirs the operator's herdr panes launch
      `agy` in; that was not read.

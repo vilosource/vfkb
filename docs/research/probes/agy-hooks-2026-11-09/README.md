@@ -62,6 +62,8 @@ Commands are abbreviated as `H <event> <mode>` for `node <scratch>/probe-*.mjs <
 - `PreInvocation`/`PostInvocation`: `invocationNum` (0 on the first model call of the run;
   whether it resets per turn is unobserved, since every run was one prompt), `initialNumSteps`.
 - `PreToolUse`/`PostToolUse`: `toolCall: {name, args}`, `stepIdx`; `PostToolUse` adds `error`.
+  In every logged `write_file`/`edit_file` call (runs 2, 3 and 5), `args.Path` was an absolute
+  path, although the prompts named the files relatively.
 - `Stop`: `executionNum`, `terminationReason` (seen: `NO_TOOL_CALL`), `fullyIdle`, `error`.
 
 Session transcripts are written under `~/.gemini/antigravity-cli/brain/<conversationId>/`.
