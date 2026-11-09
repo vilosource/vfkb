@@ -28,6 +28,7 @@ import { defaultProject, isTombstone, readContextSpine, readRecords } from './st
 import type { StoredRecord } from './storage.js';
 import { normalizeEntry } from './validate.js';
 import type { EntryType, KnowledgeEntry } from './types.js';
+import { compareTimestamps } from './timestamp.js';
 
 // Stamped into every emitted file; the scoped sweep deletes ONLY files carrying it,
 // and refuses a non-empty target that has none (a one-flag `--out` mistake must
@@ -59,7 +60,7 @@ const TYPE_DIR: Record<EntryType, string> = {
 // asOf = max(entry.updated) across the live brain — the projection's clock.
 function asOfDate(entries: KnowledgeEntry[]): string {
   let max = '';
-  for (const e of entries) if (e.updated > max) max = e.updated;
+  for (const e of entries) if (compareTimestamps(e.updated, max) > 0) max = e.updated;
   return (max || '0000-01-01').slice(0, 10);
 }
 
@@ -355,7 +356,7 @@ function deriveLog(eligibleIds: Set<string>, records: StoredRecord[], live: Know
     for (const r of recs) {
       if (isTombstone(r)) continue;
       const n = normalizeEntry(r);
-      if (n.ok && recordWasPublishGrade(n.entry) && (!grade || n.entry.updated < grade.updated)) {
+      if (n.ok && recordWasPublishGrade(n.entry) && (!grade || compareTimestamps(n.entry.updated, grade.updated) < 0)) {
         grade = n.entry;
       }
     }
@@ -365,7 +366,7 @@ function deriveLog(eligibleIds: Set<string>, records: StoredRecord[], live: Know
     let at: string;
     let reason: string;
     if (!cur) {
-      const tomb = recs.filter(isTombstone).sort((a, b) => b.updated.localeCompare(a.updated))[0];
+      const tomb = recs.filter(isTombstone).sort((a, b) => compareTimestamps(b.updated, a.updated))[0];
       at = tomb?.updated ?? grade.updated;
       reason = 'deleted (tombstoned)';
     } else if (successorOf.has(id)) {

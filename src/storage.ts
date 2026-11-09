@@ -13,6 +13,7 @@ import { journalAppend } from './journal.js';
 import { normalizeEntry } from './validate.js';
 import type { KnowledgeEntry } from './types.js';
 import type { LockOpts } from './lock.js';
+import { compareTimestamps } from './timestamp.js';
 
 export interface Tombstone {
   id: string;
@@ -148,7 +149,7 @@ export function materialize(records: StoredRecord[] = readRecords()): KnowledgeE
       continue;
     }
     const cur = newest.get(r.id);
-    if (!cur || r.updated >= cur.updated) newest.set(r.id, r);
+    if (!cur || compareTimestamps(r.updated, cur.updated) >= 0) newest.set(r.id, r);
   }
   const out: KnowledgeEntry[] = [];
   for (const r of newest.values()) {
