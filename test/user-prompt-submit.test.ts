@@ -125,6 +125,19 @@ describe('hook user-prompt-submit — emission and cadence', () => {
     );
   });
 
+  it('B1 (#373): a decision tagged handoff is not a session handoff, so the B1 clause still fires', () => {
+    const dir = staleRepo();
+    git(dir, ['reset', '-q', '--hard', 'HEAD~1']);
+    seedSession(dir, 's1', 1);
+    writeFileSync(join(dir, 'src', 'wip.ts'), 'wip\n');
+    const line = (t: string, type: string, tags: string[]) => JSON.stringify({ id: t, type, text: t, tags }) + '\n';
+    const f = join(dir, '.vfkb', 'entries.jsonl');
+    writeFileSync(f, readFileSync(f, 'utf8') + line('e1', 'fact', []) + line('e2', 'fact', []) + line('d1', 'decision', ['handoff', 'next']));
+    expect(ctxOf(ups(dir, typed('s1'))).additionalContext).toContain(
+      'this session has recorded 3 entries and no handoff/next entry.',
+    );
+  });
+
   it('a harness-generated prompt → empty', () => {
     const dir = staleRepo();
     seedSession(dir, 's1', 1);

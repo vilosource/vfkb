@@ -1084,20 +1084,30 @@ describe('cli hook user-prompt-submit — B1 self-silence', () => {
   });
 });
 
-// vfkb#373 (ADR-0082 §1): B1's "did the session leave a handoff?" uses the pin's rule. Only a
-// fact tagged handoff/next can be the pin, so only such a fact counts.
-describe('vfkb#373 — isHandoff counts only facts', () => {
+// vfkb#373 (ADR-0082 §1): B1's "did the session leave a handoff?" uses the pin's own rule
+// (engine `countsAsSessionHandoff`): normalised like the engine's read, then a pin candidate
+// and live. Raw rows, as the call sites pass them.
+describe('vfkb#373 — isHandoff counts only what could be the pin', () => {
+  const row = (o: Record<string, unknown>) => ({ id: 'r', text: 'HANDOFF', created: '2026-11-01T00:00:00.000Z', ...o });
   it('a fact tagged handoff or next counts', () => {
-    expect(isHandoff({ type: 'fact', tags: ['handoff'] })).toBe(true);
-    expect(isHandoff({ type: 'fact', tags: ['next', 'status'] })).toBe(true);
+    expect(isHandoff(row({ type: 'fact', tags: ['handoff'] }))).toBe(true);
+    expect(isHandoff(row({ type: 'fact', tags: ['next', 'status'] }))).toBe(true);
   });
-  it('a decision, link, gotcha or untyped row with those tags does not', () => {
-    for (const type of ['decision', 'link', 'gotcha', 'pattern', undefined]) {
-      expect(isHandoff({ type, tags: ['handoff', 'next'] })).toBe(false);
+  it('a row with no type, or an unknown one, reads as a fact (as the pin selector reads it) and counts', () => {
+    expect(isHandoff(row({ tags: ['handoff'] }))).toBe(true);
+    expect(isHandoff(row({ type: 'note', tags: ['handoff'] }))).toBe(true);
+  });
+  it('a decision, link, gotcha or pattern with those tags does not', () => {
+    for (const type of ['decision', 'link', 'gotcha', 'pattern']) {
+      expect(isHandoff(row({ type, tags: ['handoff', 'next'] }))).toBe(false);
     }
   });
+  it('a handoff that is not live does not: archived, or past its valid_until', () => {
+    expect(isHandoff(row({ type: 'fact', tags: ['handoff'], zone: 'archive' }))).toBe(false);
+    expect(isHandoff(row({ type: 'fact', tags: ['handoff'], validity: { valid_until: '2000-01-01' } }))).toBe(false);
+  });
   it('a fact without the tags does not', () => {
-    expect(isHandoff({ type: 'fact', tags: ['status'] })).toBe(false);
-    expect(isHandoff({ type: 'fact' })).toBe(false);
+    expect(isHandoff(row({ type: 'fact', tags: ['status'] }))).toBe(false);
+    expect(isHandoff(row({ type: 'fact' }))).toBe(false);
   });
 });
