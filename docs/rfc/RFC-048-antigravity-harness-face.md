@@ -1,7 +1,7 @@
 ---
 type: RFC
 title: "RFC-048: An Antigravity (agy) harness face — a user-scope agy plugin that vendors the engine, a committed per-repo opt-in, and a translating hook adapter"
-description: "The operator is moving repos to Google's Antigravity CLI (agy), and vfkb only has Claude Code and Pi faces. A probe of agy 1.4.12 shows it can host every vfkb surface except a session-end event, but its hook contract differs from Claude Code's in ways that would break vfkb if ported naively: `{}` from a PreToolUse hook is a deny, a failing gate hook appears to deny, and the file-write tools are not named as documented. This RFC proposes a third face. A user-scope Antigravity plugin (vilosource/vfkb-agy-plugin, on the pi package's model) vendors the engine and carries the hooks, MCP server and skills. `vfkb init --harness agy` commits only a per-repo opt-in. `vfkb hook <event> --harness agy` translates agy's stdin/stdout around the unchanged engine. Session-end work splits into a per-turn brain commit at the idle Stop and a fallback handoff at the next SessionStart. The open questions were settled by a Fable brainstorm under the operator's delegation (2026-11-09)."
+description: "The operator is moving repos to Google's Antigravity CLI (agy), and vfkb only has Claude Code and Pi faces. A probe of agy (1.4.12, then 1.5.3 after it updated itself mid-probe) shows it can host every vfkb surface except a session-end event, but its hook contract differs from Claude Code's in ways that would break vfkb if ported naively: `{}` from a PreToolUse hook is a deny, a failing gate hook appears to deny, and the file-write tools are not named as documented. This RFC proposes a third face. A user-scope Antigravity plugin (vilosource/vfkb-agy-plugin, on the pi package's model) vendors the engine and carries the hooks, MCP server and skills. `vfkb init --harness agy` commits only a per-repo opt-in. `vfkb hook <event> --harness agy` translates agy's stdin/stdout around the unchanged engine. Session-end work splits into a per-turn brain commit at the idle Stop and a fallback handoff at the next SessionStart. The open questions were settled by a Fable brainstorm under the operator's delegation (2026-11-09)."
 status: Proposed
 timestamp: 2026-11-09
 ---
@@ -22,8 +22,9 @@ timestamp: 2026-11-09
   §8 Q1 records how the two delivery answers are reconciled.
 - **Evidence:**
   - [`docs/research/probes/agy-hooks-2026-11-09/`](../research/probes/agy-hooks-2026-11-09/README.md):
-    six single-prompt headless invocations of `agy` 1.4.12. **Every "observed" below refers to
-    it, and is N=1 and single-turn.**
+    six single-prompt headless invocations of `agy`. **Run 1 ran on 1.4.12 and runs 2–5 on
+    1.5.3**: agy updated itself silently during run 1. Every "observed" below refers to it, and
+    is N=1 and single-turn.
   - Brain `053e25c55997`: a research pass over agy's published docs. The pages are undated,
     and the probe contradicted several of their claims (§1.2). Claims marked "documented" come
     from there and were not observed.
@@ -53,17 +54,17 @@ timestamp: 2026-11-09
 
 ### 1.1 What vfkb needs from a harness, and what agy has
 
-| vfkb need | Claude Code | agy 1.4.12 |
+| vfkb need | Claude Code | agy (1.5.3 unless marked run 1, which was 1.4.12) |
 |---|---|---|
 | MCP tools (`kb_*`) | plugin `.mcp.json` | **Observed:** `.agents/mcp_config.json` with vfkb's real server and absolute paths; `kb_add` landed and `kb_search` returned it. A `${VAR}` in `args` did not bring the server up (run 5, cause not isolated). |
-| Context at session start | `SessionStart` → `additionalContext` | **Observed:** `{"injectSteps":[{"systemMessage":{"systemMessage":"…"}}]}` injects. The flat string form, which the docs also show, did not. |
+| Context at session start | `SessionStart` → `additionalContext` | **Observed:** `{"injectSteps":[{"systemMessage":{"systemMessage":"…"}}]}` injects. The flat string form, which the docs also show, did not (run 1, on 1.4.12, so confounded by version; see trap 4). |
 | Gate direct `.vfkb/` writes | `PreToolUse` deny on `Write`/`Edit`/`MultiEdit` | **Observed:** tools `write_file {Path, Content}` and `edit_file {Path, Target, Replacement}`, registered as `{"matcher": …, "hooks": [...]}`; deny = `{"decision":"deny","reason":…}`. `Path` was absolute in every run. |
 | End-of-turn nudge | `Stop` → `decision:block` + `stop_hook_active` loop guard | **Observed:** `Stop` → `{"decision":"continue","reason":…}` re-prompted once. The payload has `executionNum`, `fullyIdle`, `terminationReason`, and no re-entry flag. |
 | Prompt-time line (ADR-0084) | `UserPromptSubmit` | **Documented:** no such event. **Observed:** `PreInvocation` fires once per model call with `invocationNum`. Whether it resets per turn, and whether it can inject, are unobserved. |
-| Session end (commit, B2 floor, curation) | `SessionEnd` | **Documented:** no event. **Observed:** naming `SessionEnd` in `hooks.json` was silently ignored. |
+| Session end (commit, B2 floor, curation) | `SessionEnd` | **Documented:** no event. **Observed** (run 1, 1.4.12): naming `SessionEnd` in `hooks.json` was silently ignored. |
 | Tool-result capture | `PostToolUse` (not on failed calls) | **Observed:** fires with `toolCall` and `error`. **Documented** (changelog): fires on failed calls too. |
 | Skills (`/vfkb:brief`, `/vfkb:handoff`) | plugin skills, `brief` on a Haiku-pinned subagent (ADR-0049) | **Observed:** a `.agents/skills/<name>/SKILL.md` ran as `/<name>` in `agy -p`. Plugin skills and per-skill model pinning: unobserved. |
-| Packaging | plugin, marketplace, version cache | **Documented** (brain `053e25c55997`): plugins with `hooks.json`, `mcp_config.json`, skills and rules; `agy plugin install <github-url>`; plugin hooks load in the CLI. **CLI changelog** (read from `agy changelog`, 1.4.12): `PLUGIN_ROOT` and `PLUGIN_DATA` are set as **environment variables** for hook commands that come from a plugin. None of it observed in a run. |
+| Packaging | plugin, marketplace, version cache | **Documented** (brain `053e25c55997`): plugins with `hooks.json`, `mcp_config.json`, skills and rules; `agy plugin install <github-url>`; plugin hooks load in the CLI. **CLI changelog**, `## 1.5.3` section (`~/.gemini/antigravity-cli/cache/CHANGELOG.md`): `PLUGIN_ROOT` and `PLUGIN_DATA` are set as **environment variables** for hook commands that come from a plugin. They are new in 1.5.3, so the plugin needs agy ≥ 1.5.3. None of it observed in a run. |
 
 ### 1.2 The contract traps (why a naive port breaks)
 
@@ -79,11 +80,19 @@ timestamp: 2026-11-09
    `write_to_file`, `replace_file_content` and `multi_replace_file_content`; the CLI's tools
    are `write_file` and `edit_file`. A docs-based matcher never fires, and the gate is silently
    absent.
-4. **Tool-event handlers need the `{matcher, hooks}` wrapper** (observed in run 1, where the
-   flat handlers lacked both the wrapper and a matcher, so which omission mattered is not
-   separated). Either way, the handlers were silently ignored.
+4. **Tool-event handlers need the `{matcher, hooks}` wrapper** (observed, doubly confounded).
+   In run 1 (1.4.12) flat handlers, lacking both the wrapper and a matcher, were silently
+   ignored. In runs 2–5 (1.5.3) wrapped handlers fired. Which omission mattered, and whether
+   the version change did, is not separated. The design uses the wrapper with a matcher,
+   which works on 1.5.3. The same confound applies to the injection form in §1.1: the flat
+   form failed on 1.4.12, and the nested form worked on 1.5.3.
 5. **Exit 0 and `"status":"SUCCESS"` on every run**, including runs where every write was
    denied (observed). This is ADR-0051's quiet-success trap: an L4 here must assert on content.
+6. **agy updates itself silently** (observed). During run 1, its log records `Spawned
+   background update process`, and the binary at `~/.local/bin/agy` was replaced
+   (1.4.12 → 1.5.3; the old binary was kept as `agy.<timestamp>.old`). The next run was on the
+   new version, with no prompt. Any version-bound claim about agy can go stale between two
+   sessions.
 
 `agy plugin import claude` exists, but importing the vfkb Claude Code plugin would carry
 Claude-shaped hooks into a contract where trap 1 applies. That is untested, and should not be
@@ -163,10 +172,17 @@ would turn on the moment the plugin is installed if a brain's presence were enou
   The brain is taken from the payload, never from `$PWD` or the `~/.vfkb` default (review
   finding B3).
 - **The MCP server**, started with `--harness agy`, never falls back to `~/.vfkb` (today's
-  `brainDir()` default, `src/storage.ts`). It resolves the workspace from its cwd or the
-  documented `cwd` field (P-0). Without the opt-in there, every `kb_*` tool returns an error
-  naming `vfkb init --harness agy`, and nothing is written. This includes creating a `.vfkb`,
-  which would otherwise half-opt the repo in.
+  `brainDir()` default, `src/storage.ts`). It resolves the workspace from its own cwd, which
+  must be the agy workspace; P-0 checks that. Without the opt-in there, every `kb_*` tool
+  returns an error naming `vfkb init --harness agy`, and nothing is written. This includes
+  creating a `.vfkb`, which would otherwise half-opt the repo in. **There is no fallback if
+  the cwd is not the workspace:** the documented `cwd` field is one value in a user-scope
+  config, so it cannot point at each workspace. MCP would then stay off everywhere, which
+  fails safe, and the agy face would ship hooks and skills only until agy exposes the
+  workspace to MCP servers.
+
+A repo with a Claude-era brain and no rules file is deliberately inert under agy. That
+includes the gate: agy's write tools can edit its `.vfkb/` until `init` runs there.
 
 `vfkb doctor --harness agy` reports both mismatches: a repo with the opt-in on a machine with
 no plugin, and a brain with no opt-in.
@@ -217,7 +233,11 @@ CLI changelog.
 do not show whether agy runs a command string through `sh -c` or splits it into argv. If it
 does not use a shell, the filter itself fails, and under trap 2 that could deny every
 `write_file` in every agy session on the machine. P-0 settles it. If there is no shell, the
-plugin ships the filter as a tiny committed `sh` script that the hook invokes directly.
+command must still name the filter without expanding a variable, so the fallback is a filter
+script invoked by a path that agy resolves itself. Per the build-plugins docs, plugin hooks run
+with the plugin root as cwd, so `sh ./bin/vfkb-hook.sh pre-tool-use` would work (documented,
+not observed; P-0 checks it too). If neither holds, the gate is not shippable on agy, and
+Phase 1 stops at MCP and skills.
 
 - `pre-tool-use` passes output through only when it contains a deny.
 - `stop` passes output through only when it contains `"decision":"continue"`.
@@ -296,20 +316,27 @@ operator pushed.
 
 The plugin's `mcp_config.json` starts the vendored `vfkb-mcp.mjs` from the plugin root (how it is located is P-0: `mcp_config.json` may not expand variables, run 5).
 The MCP server needs the repo's brain, and agy does not pass `workspacePaths` to it. P-0
-therefore also observes the server's cwd and env. The documented `cwd` field is the fallback
-if the cwd is not the workspace.
+therefore also observes the server's cwd and env. If the cwd is not the workspace, there is no
+fallback (§3.1), and MCP stays off.
 
 `/vfkb-brief` and `/vfkb-handoff` are plugin skills. agy's skill frontmatter has no known model
 pin, so `brief` runs inline on the session's model rather than on ADR-0049's Haiku. That is a
 cost difference, not a capability gap.
 
-### 3.6 Tool-name drift
+### 3.6 Tool-name drift and agy's self-update
 
-The docs and the CLI already disagree (trap 3), and the disagreement will recur. Two guards:
+The docs and the CLI already disagree (trap 3), and agy updates itself silently (trap 6), so
+the contract can change under a running install between two sessions. Three guards:
 - **Deterministic:** a unit test feeds `isBrainWrite` the exact payloads recorded in the
   probe, for both the observed and the documented names.
-- **Detection:** the L4 record stores `agy --version`, and `vfkb doctor --harness agy` warns
-  when the installed CLI is newer than the version the plugin was last proven on.
+- **A floor, not a ceiling.** The plugin declares a minimum agy version (1.5.3, for
+  `PLUGIN_ROOT`). `vfkb doctor --harness agy` errors below it. Above the last L4-proven
+  version it reports an informational line, not a warning: with silent self-updates, "newer
+  than proven" is the normal state, and a warning would fire constantly.
+- **Re-proof on agy releases.** The plugin's release gate requires the L4 record's
+  `agy --version` to be no older than the newest agy release at publish time. The record is
+  re-pinned whenever a new agy release appears, the way the Claude Code plugin's CLI pin is
+  re-probed when bumped.
 
 ## 4. Phases
 
@@ -331,7 +358,10 @@ The face is agent-facing, so its proof is a sandboxed, agent-driven L4, DEMONSTR
 with a contrast arm that can fail.
 
 **Phase 1: `scenarios/agy-face.mjs`** (new). Dockerized, `agy -p --output-format stream-json`,
-`GEMINI_API_KEY`, N=3.
+`GEMINI_API_KEY`, N=3. **agy is pinned in the image and must not update itself during a
+run.** The scenario reads `agy --version` before and after each trial and refuses the run on
+a mismatch. Whether auto-update can be disabled is part of P-5; if it cannot, the container
+has no write access to the agy binary.
 
 Each trial:
 1. Uses a sandbox `HOME`, so the operator's `~/.gemini` is never touched.

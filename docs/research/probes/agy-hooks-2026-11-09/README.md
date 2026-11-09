@@ -1,7 +1,16 @@
 # Probe: what Antigravity's `agy` CLI actually does with a vfkb-shaped wiring
 
 **Feeds:** [RFC-048](../../../rfc/RFC-048-antigravity-harness-face.md).
-**Date:** 2026-11-09. **CLI:** `agy` 1.4.12 (macOS, at `~/.local/bin/agy`).
+**Date:** 2026-11-09. **CLI:** `agy` at `~/.local/bin/agy` (macOS). **Run 1 ran on 1.4.12;
+runs 2–5 ran on 1.5.3.** agy updated itself in the background during run 1. Its log
+(`~/.gemini/antigravity-cli/log/cli-20261109_113404.log`) records `Spawned background update
+process`, and the replaced binary was kept as `~/.local/bin/agy.1794216844509870000.old`. The
+version for each run is read from that run's agy log. A review found this; the first version
+of this record said 1.4.12 throughout.
+
+**Version confound.** Two comparisons below set a run-1 result (1.4.12) against a later run
+(1.5.3): flat vs. wrapped tool handlers, and flat vs. nested `SessionStart` injection. Each
+difference may come from the config, from the version, or from both.
 **Model:** `gemini-3.8-flash-high` (the CLI's default; reported in every hook payload's `modelName`).
 **Account:** the operator's signed-in `agy` login (keyring), not an API key.
 
