@@ -15,6 +15,7 @@ import {
   NUDGE_COOLDOWN_TURNS,
   STALE_HANDOFF_MIN_TURN,
   isPausedStop,
+  isHandoff,
 } from '../src/stop-reminder.js';
 
 import { COMMITS_SINCE_SLICE_CHARS, renderCommitsSince, type StaleCommit } from '../src/engine.js';
@@ -1080,5 +1081,23 @@ describe('cli hook user-prompt-submit — B1 self-silence', () => {
     // The fixture sits on `main` with an uncommitted brain, so ADR-0085's systemMessage (for
     // the user) fires; the agent-facing line must still carry no B1 clause.
     expect(out === '' ? undefined : JSON.parse(out).hookSpecificOutput).toBeUndefined();
+  });
+});
+
+// vfkb#373 (ADR-0082 §1): B1's "did the session leave a handoff?" uses the pin's rule. Only a
+// fact tagged handoff/next can be the pin, so only such a fact counts.
+describe('vfkb#373 — isHandoff counts only facts', () => {
+  it('a fact tagged handoff or next counts', () => {
+    expect(isHandoff({ type: 'fact', tags: ['handoff'] })).toBe(true);
+    expect(isHandoff({ type: 'fact', tags: ['next', 'status'] })).toBe(true);
+  });
+  it('a decision, link, gotcha or untyped row with those tags does not', () => {
+    for (const type of ['decision', 'link', 'gotcha', 'pattern', undefined]) {
+      expect(isHandoff({ type, tags: ['handoff', 'next'] })).toBe(false);
+    }
+  });
+  it('a fact without the tags does not', () => {
+    expect(isHandoff({ type: 'fact', tags: ['status'] })).toBe(false);
+    expect(isHandoff({ type: 'fact' })).toBe(false);
   });
 });

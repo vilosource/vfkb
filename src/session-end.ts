@@ -243,8 +243,10 @@ export function newEntriesSinceHead(git: GitRunner, cwd: string, absEntries: str
   return [...fresh.values()].filter((e) => (e as { deleted?: boolean }).deleted !== true);
 }
 
+// ADR-0082 §1: only a `fact` can be the pin, so a decision or link tagged handoff/next must
+// not suppress the B2 fallback (#373). Mirrors `isHandoff` in stop-reminder.ts.
 const isHandoff = (e: BrainEntry): boolean =>
-  (e.tags ?? []).some((t) => t === 'handoff' || t === 'next');
+  e.type === 'fact' && (e.tags ?? []).some((t) => t === 'handoff' || t === 'next');
 
 const oneLine = (s: string): string => (s || '').replace(/\s+/g, ' ').trim();
 

@@ -312,7 +312,12 @@ export function uncommittedDecisionCount(brain: string = brainDir(), cwd: string
   return newBrainEntriesSinceHead(brain, cwd).filter((e) => e.type === 'decision').length;
 }
 
-export const isHandoff = (e: { tags?: string[] }): boolean => (e.tags ?? []).some((t) => t === 'handoff' || t === 'next');
+// ADR-0082 §1: only a `fact` can be the pin, so only a fact counts as "a handoff was left"
+// (#373). A decision or link tagged handoff/next would otherwise silence B1 and the B2
+// fallback while nothing the session wrote could become the pin. Same rule as the engine's
+// `isPinCandidate`, applied to raw brain rows.
+export const isHandoff = (e: { type?: string; tags?: string[] }): boolean =>
+  e.type === 'fact' && (e.tags ?? []).some((t) => t === 'handoff' || t === 'next');
 
 /**
  * The currently PINNED handoff (ADR-0082 §2): the brain MATERIALIZED, then the engine's
