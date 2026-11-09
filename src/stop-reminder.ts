@@ -31,7 +31,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { brainDir, materialize, type StoredRecord } from './storage.js';
-import { latestHandoff, renderCommitsSince, supersededIds, type StaleCommit } from './engine.js';
+import { countsAsSessionHandoff, latestHandoff, renderCommitsSince, supersededIds, type StaleCommit } from './engine.js';
 import { cachedPinStaleness, type PinStalenessOpts } from './pin-staleness.js';
 import { boundedGit, isOnDefaultBranch, newEntriesSinceHead, realGit } from './session-end.js';
 import type { KnowledgeEntry } from './types.js';
@@ -312,7 +312,9 @@ export function uncommittedDecisionCount(brain: string = brainDir(), cwd: string
   return newBrainEntriesSinceHead(brain, cwd).filter((e) => e.type === 'decision').length;
 }
 
-export const isHandoff = (e: { tags?: string[] }): boolean => (e.tags ?? []).some((t) => t === 'handoff' || t === 'next');
+// ADR-0082 §1 / #373: only an entry that could be the pin counts as "a handoff was left".
+// The rule lives in the engine (`countsAsSessionHandoff`), shared with the B2 fallback.
+export const isHandoff = (e: unknown): boolean => countsAsSessionHandoff(e);
 
 /**
  * The currently PINNED handoff (ADR-0082 §2): the brain MATERIALIZED, then the engine's

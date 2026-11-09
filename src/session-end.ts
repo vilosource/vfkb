@@ -12,7 +12,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join, isAbsolute } from 'node:path';
 import { performance } from 'node:perf_hooks';
-import { addEntry } from './engine.js';
+import { addEntry, countsAsSessionHandoff } from './engine.js';
 import { autoCurate } from './curator.js';
 import { GIT_READ_MAX_BUFFER } from './git-buffer.js';
 import { writeMeta } from './storage.js';
@@ -243,8 +243,9 @@ export function newEntriesSinceHead(git: GitRunner, cwd: string, absEntries: str
   return [...fresh.values()].filter((e) => (e as { deleted?: boolean }).deleted !== true);
 }
 
-const isHandoff = (e: BrainEntry): boolean =>
-  (e.tags ?? []).some((t) => t === 'handoff' || t === 'next');
+// ADR-0082 §1 / #373: only an entry that could be the pin suppresses the B2 fallback. The
+// rule lives in the engine, shared with B1 in stop-reminder.ts.
+const isHandoff = (e: BrainEntry): boolean => countsAsSessionHandoff(e);
 
 const oneLine = (s: string): string => (s || '').replace(/\s+/g, ' ').trim();
 

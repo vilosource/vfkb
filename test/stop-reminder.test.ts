@@ -15,6 +15,7 @@ import {
   NUDGE_COOLDOWN_TURNS,
   STALE_HANDOFF_MIN_TURN,
   isPausedStop,
+  isHandoff,
 } from '../src/stop-reminder.js';
 
 import { COMMITS_SINCE_SLICE_CHARS, renderCommitsSince, type StaleCommit } from '../src/engine.js';
@@ -1080,5 +1081,33 @@ describe('cli hook user-prompt-submit — B1 self-silence', () => {
     // The fixture sits on `main` with an uncommitted brain, so ADR-0085's systemMessage (for
     // the user) fires; the agent-facing line must still carry no B1 clause.
     expect(out === '' ? undefined : JSON.parse(out).hookSpecificOutput).toBeUndefined();
+  });
+});
+
+// vfkb#373 (ADR-0082 §1): B1's "did the session leave a handoff?" uses the pin's own rule
+// (engine `countsAsSessionHandoff`): normalised like the engine's read, then a pin candidate
+// and live. Raw rows, as the call sites pass them.
+describe('vfkb#373 — isHandoff counts only what could be the pin', () => {
+  const row = (o: Record<string, unknown>) => ({ id: 'r', text: 'HANDOFF', created: '2026-11-01T00:00:00.000Z', ...o });
+  it('a fact tagged handoff or next counts', () => {
+    expect(isHandoff(row({ type: 'fact', tags: ['handoff'] }))).toBe(true);
+    expect(isHandoff(row({ type: 'fact', tags: ['next', 'status'] }))).toBe(true);
+  });
+  it('a row with no type, or an unknown one, reads as a fact (as the pin selector reads it) and counts', () => {
+    expect(isHandoff(row({ tags: ['handoff'] }))).toBe(true);
+    expect(isHandoff(row({ type: 'note', tags: ['handoff'] }))).toBe(true);
+  });
+  it('a decision, link, gotcha or pattern with those tags does not', () => {
+    for (const type of ['decision', 'link', 'gotcha', 'pattern']) {
+      expect(isHandoff(row({ type, tags: ['handoff', 'next'] }))).toBe(false);
+    }
+  });
+  it('a handoff that is not live does not: archived, or past its valid_until', () => {
+    expect(isHandoff(row({ type: 'fact', tags: ['handoff'], zone: 'archive' }))).toBe(false);
+    expect(isHandoff(row({ type: 'fact', tags: ['handoff'], validity: { valid_until: '2000-01-01' } }))).toBe(false);
+  });
+  it('a fact without the tags does not', () => {
+    expect(isHandoff(row({ type: 'fact', tags: ['status'] }))).toBe(false);
+    expect(isHandoff(row({ type: 'fact' }))).toBe(false);
   });
 });

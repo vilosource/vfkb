@@ -1,0 +1,35 @@
+{
+  "recordVersion": 1,
+  "sha": "d3f88cc038af1c2c7f18619658c8ff6a6a464a0f",
+  "governing": ["docs/adr/ADR-0082-propose-only-curation.md"],
+  "reviewer": { "agent": "general-purpose", "model": "opus", "rounds": 1 },
+  "generated": "2026-11-09T14:30:00Z",
+  "findings": [
+    { "id": "F1", "severity": "minor", "status": "open", "summary": "Stop-hook path (gatherStopContext, src/stop-reminder.ts:399) has no guard: rewiring it to the old tags-only rule turns nothing red (mutation M6 survived). Wiring is correct today; missing test, not a bug.", "acceptedBy": null },
+    { "id": "F2", "severity": "minor", "status": "open", "summary": "countsAsSessionHandoff ignores supersession while latestHandoff excludes superseded ids (src/engine.ts:652), so its 'cannot drift from latestHandoff' comment overclaims. Unreachable via vfkb writes (supersede() refuses non-decisions, src/engine.ts:386); reachable only with hand-edited or foreign rows. Same for a fresh handoff with no created.", "acceptedBy": null },
+    { "id": "F3", "severity": "minor", "status": "open", "summary": "test/sessionend-floor.test.ts:252 is named '...is the pin...' but asserts only autoHandoff:false; nothing checks the pin.", "acceptedBy": null },
+    { "id": "F4", "severity": "minor", "status": "open", "summary": "B1 prompt line says 'no handoff/next entry' to a session holding a decision tagged handoff (src/prompt-nudge.ts:148); the following type=fact line mostly covers it.", "acceptedBy": null }
+  ],
+  "findingsCount": 4,
+  "ruledOut": [
+    "countsAsSessionHandoff never throws on malformed rows (null, string, number, array, bad tags/validity/zone/provenance): hooks fail open",
+    "mixed-type tags: normalizeEntry resets them, agreeing with latestHandoff",
+    "no import cycle: validate.ts imports only zod + types; storage.ts already imported it",
+    "same 'today' default on both sides; no caller overrides it",
+    "newEntriesSinceHead keeps one row per id (newest updated) and drops deleted, so no duplicate-row ambiguity",
+    "hooks pass raw JSON.parse rows, the same input materialize feeds normalizeEntry",
+    "the archived-in-session test matches how engine update paths re-append",
+    "vfkb import drops created, so an imported handoff cannot dodge the pin with an old timestamp",
+    "no AI attribution, correct vilosource identity on both commits"
+  ],
+  "mutations": [
+    { "guard": "test/stop-reminder.test.ts > a decision, link, gotcha or pattern with those tags does not; test/sessionend-floor.test.ts > decision/link tagged handoff still gets the fallback; test/user-prompt-submit.test.ts > B1 (#373) decision tagged handoff", "mutation": "M1: dropped the type==='fact' check (tags-only rule, reverts c976bf2)", "observedRed": true },
+    { "guard": "test/sessionend-floor.test.ts > a handoff row with no type reads as a fact...; test/stop-reminder.test.ts > a row with no type, or an unknown one, reads as a fact...", "mutation": "M2: checked the raw row type instead of the normalizeEntry result", "observedRed": true },
+    { "guard": "test/sessionend-floor.test.ts > a handoff archived in the same session does not suppress the fallback; test/stop-reminder.test.ts > a handoff that is not live does not", "mutation": "M3: dropped isInjectable (M3b: zone-only, no valid_until, also red)", "observedRed": true },
+    { "guard": "test/sessionend-floor.test.ts (archived, decision, link cases)", "mutation": "M4: reverted only the session-end call site to tags-only", "observedRed": true },
+    { "guard": "test/stop-reminder.test.ts (non-fact and not-live cases); test/user-prompt-submit.test.ts B1 case", "mutation": "M5: reverted only the stop-reminder isHandoff", "observedRed": true },
+    { "guard": "test/user-prompt-submit.test.ts > B1 (#373): a decision tagged handoff is not a session handoff", "mutation": "M7: src/prompt-nudge.ts:353 uses a tags-only filter", "observedRed": true }
+  ],
+  "mutationsNote": null,
+  "verdict": "MERGE"
+}

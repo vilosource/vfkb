@@ -236,3 +236,36 @@ describe('vfkb#448 — newEntriesSinceHead parses only what it must', () => {
     expect(newEntriesSinceHead(realGit, dir, entries()).map((e) => e.id)).toEqual(['torn']);
   });
 });
+
+// vfkb#373 (ADR-0082 §1): only a `fact` can be the pin, so only a fact tagged handoff/next
+// counts as "the session left a handoff". A decision or link with those tags must not
+// suppress the B2 fallback.
+describe('vfkb#373 — a non-fact tagged handoff does not suppress the B2 fallback', () => {
+  for (const type of ['decision', 'link'] as const) {
+    it(`a session whose only new entry is a ${type} tagged handoff still gets the fallback`, () => {
+      repo(seedLines(0));
+      appendFileSync(entries(), line(`new-${type}`, day(80), { type }));
+      expect(end()).toMatchObject({ committed: true, autoHandoff: true });
+    });
+  }
+
+  it('a handoff row with no type reads as a fact, is the pin, and suppresses the fallback', () => {
+    repo(seedLines(0));
+    const untyped = JSON.parse(line('untyped', day(80)));
+    delete untyped.type;
+    appendFileSync(entries(), JSON.stringify(untyped) + '\n');
+    expect(end()).toMatchObject({ committed: true, autoHandoff: false });
+  });
+
+  it('a handoff archived in the same session does not suppress the fallback', () => {
+    repo(seedLines(0));
+    appendFileSync(entries(), line('gone', day(80)) + line('gone', day(80), { zone: 'archive', updated: day(81) }));
+    expect(end()).toMatchObject({ committed: true, autoHandoff: true });
+  });
+
+  it('a fact tagged next still counts as the session handoff (no fallback)', () => {
+    repo(seedLines(0));
+    appendFileSync(entries(), line('new-next', day(80), { tags: ['next'] }));
+    expect(end()).toMatchObject({ committed: true, autoHandoff: false });
+  });
+});
