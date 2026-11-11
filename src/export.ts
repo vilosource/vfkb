@@ -394,7 +394,7 @@ function deriveLog(eligibleIds: Set<string>, records: StoredRecord[], live: Know
       line: `- ${at.slice(0, 10)} — ${id} [${grade.type}] ${yamlStr(firstSentence(grade.text, 80))} — ${reason}`,
     });
   }
-  departures.sort((a, b) => a.at.localeCompare(b.at) || (a.id < b.id ? -1 : 1));
+  departures.sort((a, b) => compareTimestamps(a.at, b.at) || (a.id < b.id ? -1 : 1));
   return departures.map((d) => d.line);
 }
 

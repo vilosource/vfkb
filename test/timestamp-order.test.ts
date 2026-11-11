@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { spawnSync } from 'node:child_process';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { compareTimestamps } from '../src/timestamp.js';
 import { heuristicCompare, latestHandoff, retirementRefusal } from '../src/engine.js';
 import { materialize } from '../src/storage.js';
@@ -82,5 +85,34 @@ describe('vfkb#374 — the sites that decide the pin, retire and last-write-wins
     const a = handoff('a', NO_MS, NO_MS);
     const b = handoff('b', NO_MS, WITH_MS);
     expect([a, b].sort(heuristicCompare).map((e) => e.id)).toEqual(['b', 'a']);
+  });
+});
+
+// #460 review M-1/m-2: Date.parse reads a zone-less date-time as LOCAL time and accepts
+// non-dates. Only ISO values are instants, and a zone-less one is read as UTC, so every
+// clone of a brain orders it the same way whatever the host timezone.
+describe('compareTimestamps — host-independent, ISO only (#460 review)', () => {
+  const ZONELESS = '2026-10-22T10:00:00'; // a naive Python isoformat()
+  const HALF_PAST_NINE_Z = '2026-10-22T09:30:00.000Z';
+
+  it('reads a zone-less date-time as UTC, and the same in every timezone', () => {
+    const CLI = resolve(__dirname, '../dist/timestamp.js');
+    const code = `import(${JSON.stringify(pathToFileURL(CLI).href)}).then((m) => console.log(m.compareTimestamps(${JSON.stringify(ZONELESS)}, ${JSON.stringify(HALF_PAST_NINE_Z)})))`;
+    const out = ['UTC', 'America/Los_Angeles', 'Asia/Tokyo'].map(
+      (tz) => spawnSync('node', ['-e', code], { env: { ...process.env, TZ: tz }, encoding: 'utf8' }).stdout.trim(),
+    );
+    expect(out).toEqual(['1800000', '1800000', '1800000']);
+  });
+
+  it('a space separator and a compact offset are ISO too', () => {
+    expect(compareTimestamps('2026-10-22 10:00:00', HALF_PAST_NINE_Z)).toBe(1_800_000);
+    expect(compareTimestamps('2026-10-22T12:00:00+0300', UTC_10)).toBeLessThan(0);
+  });
+
+  it('a non-date keeps the old string order instead of parsing as a date', () => {
+    // Date.parse('1') is 2001-01-01 and Date.parse('hello 2026') is 2026-01-01.
+    expect(compareTimestamps('1', UTC_10)).toBe(-1); // '1' < '2' as strings
+    expect(compareTimestamps('hello 2026', UTC_10)).toBe(1); // 'h' > '2'
+    expect(compareTimestamps('unknown', UTC_10)).toBe(1); // still above every ISO value
   });
 });
