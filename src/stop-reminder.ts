@@ -68,8 +68,6 @@ export interface StopContext {
   newDecisions: number;
   /** total entries appended to the brain since HEAD this session (git-delta) */
   newEntries?: number;
-  /** count of `handoff`/`next`-tagged entries appended to the brain since HEAD */
-  newHandoffs?: number;
   /** RFC-043 Part 0's set S for the pinned handoff (newest first); non-empty = stale (B3) */
   staleCommits?: StaleCommit[];
   /** the pinned handoff B3 names (its id and created) */
@@ -218,7 +216,7 @@ export function decideStop(input: StopHookInput, ctx: StopContext): StopDecision
   // Decision-capture nudge (ADR-0027): work happened AND no decision recorded this session.
   if (ctx.uncommittedWork && ctx.newDecisions === 0) nudge('decision', STOP_REMINDER);
   // B1 (handoff, RFC-011) is NOT composed here any more (ADR-0084 §1.6): it rides the next
-  // prompt as a non-blocking line. `newEntries`/`newHandoffs` stay in the context for it.
+  // prompt as a non-blocking line. B1's own counts are gathered there (prompt-nudge.ts), not here.
   // Stale-handoff nudge (B3): NOT gated on uncommittedWork — the defining case is a clean
   // working tree with everything already merged, and the pinned handoff behind it anyway.
   // 1a (ADR-0084 §1.1): quiet while a VALID turn is below STALE_HANDOFF_MIN_TURN.
@@ -396,7 +394,6 @@ export function gatherStopContext(cwd: string = process.cwd(), brain: string = b
     uncommittedWork: hasUncommittedWork(cwd, brain),
     newDecisions: fresh.filter((e) => e.type === 'decision').length,
     newEntries: fresh.length,
-    newHandoffs: fresh.filter(isHandoff).length,
     staleCommits: stale?.commits ?? [],
     pin: stale ? { id: stale.pin.id, created: stale.pin.created } : undefined,
     onDefaultBranch: () => isOnDefaultBranch(realGit, cwd),
