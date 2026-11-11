@@ -38,8 +38,8 @@ const STALE_TEXT =
   'vfkb handoff status: the pinned handoff (c708f71279b6, 2026-10-27) predates a later commit on feat/x.';
 const B1_TEXT = 'vfkb handoff status: this session has recorded 4 entries and no handoff/next entry.';
 const COND =
-  ' If this prompt ends the session, a fresh handoff/next entry (kb_add type=fact, tags=handoff,next, ' +
-  'role=human) naming what changed and what is next is the one thing worth recording before finishing; ' +
+  ' If this prompt ends the session, a fresh handoff/next entry (kb_add type=fact, tags=handoff,next) ' +
+  'naming what changed and what is next is the one thing worth recording before finishing; ' +
   'otherwise nothing is needed now.';
 
 describe('renderPromptNudge — the pinned wording (ADR-0084 §2.4)', () => {

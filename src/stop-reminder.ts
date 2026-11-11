@@ -108,8 +108,8 @@ export const STALE_HANDOFF_MIN_TURN = 3;
 export const STOP_REMINDER =
   'vfkb decision-capture check: this turn changed code/docs but no `decision` was recorded ' +
   'to the brain. If a load-bearing decision was made, capture it now via ' +
-  '`mcp__vfkb__kb_add` (type=decision, why=<rationale>, role=human) — or ' +
-  '`vfkb add decision "…" --why "…" --role human` — and add an ADR under docs/adr/ for ' +
+  '`mcp__vfkb__kb_add` (type=decision, why=<rationale>) — or ' +
+  '`vfkb add decision "…" --why "…"` — and add an ADR under docs/adr/ for ' +
   'anything architectural. If NO decision was made this turn, just finish normally.';
 
 // The strong-signal threshold: only nudge for a handoff once the session has
@@ -166,7 +166,7 @@ export function renderStaleHandoffReminder(pin: { id: string; created: string } 
     `${STALE_HANDOFF_LEADIN}the pinned handoff/next entry${which} predates commits that landed after it was written.\n` +
     renderCommitsSince(commits) +
     `${STALE_HANDOFF_NEXT_SESSION} If you are WRAPPING UP, record a fresh handoff now — kb_add ` +
-    '(type=fact, tags=handoff,next, role=human), or /vfkb:handoff if available — naming what ' +
+    '(type=fact, tags=handoff,next), or /vfkb:handoff if available — naming what ' +
     'actually changed and what is next now. If you are still mid-session, ignore this and finish normally.'
   );
 }
