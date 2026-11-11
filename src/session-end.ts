@@ -17,6 +17,7 @@ import { autoCurate } from './curator.js';
 import { GIT_READ_MAX_BUFFER } from './git-buffer.js';
 import { writeMeta } from './storage.js';
 import { relativeReal } from './realpath.js';
+import { compareTimestamps } from './timestamp.js';
 
 export type GitRunner = (args: string[], cwd: string) => string;
 
@@ -86,6 +87,7 @@ export interface SessionEndResult {
   autoHandoff?: boolean; // GAP 1 (B2): a fallback handoff entry was written this run
   curated?: number; // ADR-0083 §3: entries the Tier-1 rule archived or repaired this run
   curationSkipped?: 'deadline'; // vfkb#384: curation not run, or stopped early, at the deadline
+  curationNote?: string; // vfkb#380: why the rule ran but archived nothing (autoCurate's `skipped`)
 }
 
 export interface BrainEntry {
@@ -237,7 +239,7 @@ export function newEntriesSinceHead(git: GitRunner, cwd: string, absEntries: str
   for (const e of current) {
     if (!e.id || known.has(e.id)) continue;
     const prev = fresh.get(e.id);
-    if (!prev || String(e.updated ?? '') >= String(prev.updated ?? '')) fresh.set(e.id, e);
+    if (!prev || compareTimestamps(String(e.updated ?? ''), String(prev.updated ?? '')) >= 0) fresh.set(e.id, e);
   }
   // An id the session added and then deleted ends on a tombstone: not a new entry.
   return [...fresh.values()].filter((e) => (e as { deleted?: boolean }).deleted !== true);
@@ -418,6 +420,7 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
     //    curation is the optional step, so it is the one the deadline sheds.
     let curated = 0;
     let curationSkipped: 'deadline' | undefined;
+    let curationNote: string | undefined;
     if (fresh.length > 0) {
       if (now() >= SESSION_END_CURATION_DEADLINE_MS) {
         curationSkipped = 'deadline';
@@ -427,6 +430,13 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
           curated = c.archived.length + c.repaired.length;
           if (curated) metaBrain = absBrain;
           if (c.stopped) curationSkipped = c.stopped;
+          // vfkb#380: the rule ran but could not act. Returned to the caller, and written to
+          // stderr as a best-effort log line, like the lock-busy line in autoCurate. Neither
+          // reaches the user at SessionEnd (#384 probe; #395); a user surface is #473.
+          if (c.skipped) {
+            curationNote = c.skipped;
+            process.stderr.write(`vfkb: curation skipped: ${c.skipped}\n`);
+          }
         } catch {
           metaBrain = absBrain; // it may have written before it threw
           /* best-effort */
@@ -456,7 +466,7 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
     if (!oc.tracked) git(['add', '--', entries], cwd);
     // `-m` MUST precede `--`; everything after `--` is treated as a pathspec.
     git(['commit', '-o', '-m', message, '--', entries], cwd);
-    return { committed: true, reason: 'committed', branch, added, message, autoHandoff, curated, curationSkipped };
+    return { committed: true, reason: 'committed', branch, added, message, autoHandoff, curated, curationSkipped, curationNote };
   } catch {
     // Any git failure (no identity, hook rejection, …) → fail-open, never block exit.
     return { committed: false, reason: 'error' };

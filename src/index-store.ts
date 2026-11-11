@@ -7,6 +7,7 @@
 
 import type { KnowledgeEntry } from './types.js';
 import { contentHash, materialize, readMeta, readRecords } from './storage.js';
+import { compareTimestamps } from './timestamp.js';
 
 export interface ScoredEntry {
   entry: KnowledgeEntry;
@@ -156,7 +157,7 @@ export class InMemoryIndex implements KbIndex {
         return { entry, score, matched: tf.size };
       })
       .filter((x) => x.score > 0)
-      .sort((a, b) => b.score - a.score || b.entry.updated.localeCompare(a.entry.updated))
+      .sort((a, b) => b.score - a.score || compareTimestamps(b.entry.updated, a.entry.updated))
       .slice(0, k);
   }
 

@@ -46,6 +46,17 @@ const live = (b: string) => {
   return newest;
 };
 
+describe('CLI — curate auto (ADR-0083 Tier 1)', () => {
+  it('prints the reason when the rule cannot run (#380)', () => {
+    // 'unknown' sorts above every ISO string, so this row is the pin and the rule skips.
+    const b = brain(line('old', '2026-01-01T00:00:00.000Z'), line('odd', 'unknown'));
+    const r = vfkb(b, 'curate', 'auto', '--dry-run');
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain('would archive 0 old handoff(s)');
+    expect(r.stdout).toMatch(/^skipped: pin odd has an unparseable created/m);
+  });
+});
+
 describe('CLI — retirement', () => {
   it('vfkb add --retires writes the new handoff and retires the named one', () => {
     const b = brain(line('old', '2026-01-01T00:00:00.000Z'));

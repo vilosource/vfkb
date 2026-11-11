@@ -1,0 +1,39 @@
+{
+  "recordVersion": 1,
+  "sha": "36a7a66e16f02686c20a8e21b32379cf5761755c",
+  "governing": ["docs/adr/ADR-0082-propose-only-curation.md", "docs/adr/ADR-0083-background-curation.md"],
+  "reviewer": { "agent": "general-purpose", "model": "opus", "rounds": 3 },
+  "generated": "2026-11-11T15:40:00Z",
+  "findings": [
+    { "id": "R1-M1", "severity": "major", "status": "fixed", "summary": "Date.parse read a zone-less date-time as local time, so clones in different timezones ordered the same brain differently (materialize winner, pin, retire). Fixed in 9b57f38: ISO-only timestampMs, zone-less read as UTC; TZ child-process test.", "acceptedBy": null },
+    { "id": "R1-m1", "severity": "minor", "status": "open", "summary": "Comparator is not a total order when parseable and unparseable values mix (cycle a<b<x<a). After the ISO gate it needs a non-ISO value; lexical fallback kept so 'unknown' still sorts above ISO.", "acceptedBy": null },
+    { "id": "R1-m2", "severity": "minor", "status": "fixed", "summary": "Date.parse accepted non-dates ('1', 'hello 2026'). Fixed by the ISO gate in 9b57f38.", "acceptedBy": null },
+    { "id": "R1-m3", "severity": "minor", "status": "fixed", "summary": "export.ts departures sort left lexical. Fixed in 9b57f38.", "acceptedBy": null },
+    { "id": "R1-m4", "severity": "minor", "status": "open", "summary": "Day-level checks slice the raw string (engine.ts valid_until gate, export asOfDate). Out of #374 scope; filed as #474.", "acceptedBy": null },
+    { "id": "R1-m5", "severity": "minor", "status": "open", "summary": "10 of 16 converted sites have no #374 test.", "acceptedBy": null },
+    { "id": "R2-M2", "severity": "major", "status": "fixed", "summary": "main's Tier-1 curation createdMs used Date.parse, so archiving was host-timezone dependent and disagreed with the comparator (Tokyo archived N3, UTC/LA archived E). Fixed in 36a7a66 after merging main; three-TZ autoCurate test.", "acceptedBy": null },
+    { "id": "R2-m6", "severity": "minor", "status": "open", "summary": "pin-staleness.ts Date.parse(pin.created) gives a zone-less pin a host-timezone cutoff (matches git --before). Carried to #474.", "acceptedBy": null },
+    { "id": "R2-m7", "severity": "minor", "status": "open", "summary": "No test for lowercase t/z (removing the /i flag survives).", "acceptedBy": null },
+    { "id": "R2-m8", "severity": "minor", "status": "open", "summary": "Rolling dates such as 2026-02-30 are accepted (V8 leniency), deterministically across hosts.", "acceptedBy": null },
+    { "id": "R3-m9", "severity": "minor", "status": "open", "summary": "The new curation TZ test leaves a vfkb-tz-* temp dir per run.", "acceptedBy": null },
+    { "id": "R3-m10", "severity": "minor", "status": "open", "summary": "Values Date.parse accepted but the ISO gate rejects (+05, 'Oct 22 2026', :60) now read as NaN in curation: such a candidate is skipped, such a pin skips the run. Safe direction, consistent with the comparator.", "acceptedBy": null }
+  ],
+  "findingsCount": 12,
+  "ruledOut": [
+    "stored values never rewritten; pin-staleness matches raw created text (pin-staleness.ts:168,235)",
+    "the merge of 81ce1e4 is mechanical (merge-tree result equals the merge commit's tree) and brings no new timestamp comparison",
+    "engine-written ...sssZ values match the ISO gate unchanged, so their order is unchanged; main's tests green on the merge",
+    "regex probed under UTC, Los Angeles, Tokyo and Kiritimati with byte-identical output",
+    "no remaining bare Date.parse or lexical comparison on created/updated in an ordering or archiving decision (ageDays is UTC-deterministic and propose-only; pin-staleness carried to #474)",
+    "sorting 5k entries: 16 ms vs 1.4 ms lexical — acceptable",
+    "the local user-prompt-submit failure passes alone (#470)",
+    "vilosource identity and no AI attribution on all branch commits"
+  ],
+  "mutations": [
+    { "guard": "test/timestamp-order.test.ts (#374 sites)", "mutation": "M1 pin >= on strings; M2 retire < on strings; M3 materialize >= on strings; M4 heuristicCompare localeCompare; M5 comparator purely lexical", "observedRed": true },
+    { "guard": "test/timestamp-order.test.ts > compareTimestamps — host-independent, ISO only", "mutation": "R1 zone-less read as local; R2a [T ] → T; R2c compact offset rejected; R3 ISO gate removed (author: whole previous comparator)", "observedRed": true },
+    { "guard": "test/timestamp-order.test.ts > background curation archives the same entries in every timezone", "mutation": "R5: createdMs back to Date.parse (author: curator.ts stashed)", "observedRed": true }
+  ],
+  "mutationsNote": "R2b (+HHMM rewrite removed) survives because V8 parses +0300 natively, so the rewrite is redundant there; R4 (/i removed) survives, recorded as R2-m7.",
+  "verdict": "MERGE"
+}

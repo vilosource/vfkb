@@ -187,6 +187,34 @@ describe('ADR-0083 §2 — the Tier-1 rule', () => {
     expect(autoCurate(TODAY).archived.sort()).toEqual(['Y', 'Z']);
   });
 
+  it('no entry with an unparseable created reaches a sort (#380: independent of V8 sort internals)', () => {
+    // The test above relies on how V8 happens to sort with a NaN comparator; a future V8
+    // could pass it vacuously. This one watches every Array#sort the run makes and fails if
+    // any sorted array holds an entry whose `created` does not parse.
+    rec({ id: 'X', tags: ['handoff', 'next', 'p12'], created: day(0) });
+    rec({ id: 'bad', tags: ['handoff', 'next', 'zz'], created: '' });
+    rec({ id: 'Y', tags: ['handoff', 'next', 'p12', 'q'], created: day(1) });
+    rec({ id: 'Z', tags: ['handoff', 'next', 'q'], created: day(2) });
+    rec({ id: 'n1', created: day(30) });
+    rec({ id: 'W', tags: ['handoff', 'next', 'q'], created: day(3) });
+    rec({ id: 'n2', created: day(35) });
+    rec({ id: 'pin', created: day(40) });
+    const original = Array.prototype.sort;
+    const sortedIds: string[][] = [];
+    Array.prototype.sort = function (this: unknown[], cmp?: (a: unknown, b: unknown) => number) {
+      const ids = this.filter((x): x is { id: string; created: unknown } => !!x && typeof x === 'object' && 'created' in x && 'id' in x);
+      if (ids.length) sortedIds.push(ids.filter((e) => !Number.isFinite(Date.parse(String(e.created)))).map((e) => e.id));
+      return original.call(this, cmp) as unknown[];
+    } as typeof Array.prototype.sort;
+    try {
+      autoCurate(TODAY);
+    } finally {
+      Array.prototype.sort = original;
+    }
+    expect(sortedIds.length).toBeGreaterThan(0); // the watcher saw the candidate sort
+    expect(sortedIds.flat()).toEqual([]);
+  });
+
   it('reports, rather than silently skips, a pin whose created does not parse', () => {
     rec({ id: 'old', created: day(0) });
     chain();
