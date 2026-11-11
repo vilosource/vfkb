@@ -270,9 +270,15 @@ describe('#380 — a curation run that cannot act is reported, not silent', () =
     }
   });
 
-  it('a run that can act carries no note', () => {
+  it('a run that can act carries no note and writes no skip line', () => {
     curationFixture();
-    expect(runSessionEnd({ cwd: repo, dataDir: '.vfkb', now: () => 0 }).curationNote).toBeUndefined();
+    const err = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    try {
+      expect(runSessionEnd({ cwd: repo, dataDir: '.vfkb', now: () => 0 }).curationNote).toBeUndefined();
+      expect(err.mock.calls.map((c) => String(c[0])).join('')).not.toMatch(/curation skipped/);
+    } finally {
+      err.mockRestore();
+    }
   });
 });
 

@@ -429,8 +429,9 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
           curated = c.archived.length + c.repaired.length;
           if (curated) metaBrain = absBrain;
           if (c.stopped) curationSkipped = c.stopped;
-          // vfkb#380: the rule ran but could not act. Said on stderr, because a SessionEnd
-          // systemMessage is not shown to the user (#395).
+          // vfkb#380: the rule ran but could not act. Returned to the caller, and written to
+          // stderr as a best-effort log line, like the lock-busy line in autoCurate. Neither
+          // reaches the user at SessionEnd (#384 probe; #395); a user surface is #473.
           if (c.skipped) {
             curationNote = c.skipped;
             process.stderr.write(`vfkb: curation skipped: ${c.skipped}\n`);
