@@ -29,6 +29,7 @@ import { withExclusive, readRecords, materialize, isTombstone, writeMeta } from 
 import { normalizeEntry } from './validate.js';
 import { tally } from './counters.js';
 import type { KnowledgeEntry } from './types.js';
+import { compareTimestamps, timestampMs } from './timestamp.js';
 
 function get(id: string): KnowledgeEntry {
   const e = readAll().find((x) => x.id === id);
@@ -174,7 +175,7 @@ function row(e: KnowledgeEntry, today: string): ReportRow {
   const ageDays = Math.floor((Date.parse(today) - Date.parse(e.created.slice(0, 10))) / DAY_MS);
   return { id: e.id, type: e.type, created: e.created, ageDays, firstLine: e.text.split('\n')[0].slice(0, 100) };
 }
-const oldestFirst = (a: KnowledgeEntry, b: KnowledgeEntry) => a.created.localeCompare(b.created);
+const oldestFirst = (a: KnowledgeEntry, b: KnowledgeEntry) => compareTimestamps(a.created, b.created);
 const tagged = (e: KnowledgeEntry) => e.tags.includes('handoff') || e.tags.includes('next');
 
 export function handoffReport(
@@ -229,7 +230,8 @@ const GENERIC_TAGS = new Set([
 ]);
 const topicTags = (e: KnowledgeEntry) => e.tags.filter((t) => !GENERIC_TAGS.has(t));
 const isRuleLine = (e: KnowledgeEntry) => e.tags.some((t) => t.startsWith(AUTO_ARCHIVED));
-const createdMs = (e: KnowledgeEntry) => Date.parse(e.created);
+// ISO only, zone-less as UTC (timestamp.ts), so every clone archives the same entries.
+const createdMs = (e: KnowledgeEntry) => timestampMs(e.created);
 
 export interface AutoCurateResult {
   archived: string[];
@@ -327,7 +329,7 @@ export function autoCurate(today = todayIso(), opts: AutoCurateOpts = {}): AutoC
       if (e.zone !== 'archive' || !isRuleLine(e)) continue;
       const others = (linesById.get(e.id) ?? []).filter((l) => !isRuleLine(l));
       let newest: KnowledgeEntry | undefined;
-      for (const l of others) if (!newest || l.updated >= newest.updated) newest = l;
+      for (const l of others) if (!newest || compareTimestamps(l.updated, newest.updated) >= 0) newest = l;
       if (!newest || newest.zone === 'archive' || !newest.tags.includes(CURATION_KEPT)) continue;
       result.repaired.push(e.id);
       if (!opts.dryRun) {

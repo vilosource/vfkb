@@ -35,6 +35,7 @@ import type {
   ProvenanceOrigin,
   Trust,
 } from './types.js';
+import { compareTimestamps } from './timestamp.js';
 
 export { brainDir } from './storage.js';
 export type { KbIndex } from './index-store.js';
@@ -248,7 +249,7 @@ export function retirementRefusal(
   if (by.id === old.id) return `cannot retire ${old.id} by itself`;
   if (!isPinCandidate(by)) return `cannot retire ${old.id} by ${by.id}: ${by.id} is not a fact tagged handoff or next`;
   if (!isInjectable(by, today, superseded)) return `cannot retire ${old.id} by ${by.id}: ${by.id} is not live`;
-  if (by.created < old.created) {
+  if (compareTimestamps(by.created, old.created) < 0) {
     return `cannot retire ${old.id} by ${by.id}: ${by.id} is older (created ${by.created} < ${old.created}) — that would move the pin back`;
   }
   return null;
@@ -530,7 +531,7 @@ export function heuristicCompare(a: KnowledgeEntry, b: KnowledgeEntry): number {
   if (tier !== 0) return tier;
   const within = withinTierScore(b) - withinTierScore(a);
   if (within !== 0) return within;
-  return b.updated.localeCompare(a.updated); // recency tiebreak
+  return compareTimestamps(b.updated, a.updated); // recency tiebreak (#374: by instant)
 }
 
 export function rerank(entries: KnowledgeEntry[]): KnowledgeEntry[] {
@@ -653,7 +654,7 @@ export function latestHandoff(
     // `>=` keeps the LATER entry on a `created` tie, which in an append-only log is the
     // newer write (adversarial-review finding: a strict `>` favored the oldest entry on
     // same-millisecond stamps — bulk adds, imports).
-    if (!latest || e.created >= latest.created) latest = e;
+    if (!latest || compareTimestamps(e.created, latest.created) >= 0) latest = e;
   }
   return latest;
 }
@@ -680,7 +681,7 @@ export function latestCrossRepo(
       continue;
     }
     const cmp =
-      e.updated.localeCompare(latest.updated) || e.created.localeCompare(latest.created);
+      compareTimestamps(e.updated, latest.updated) || compareTimestamps(e.created, latest.created);
     if (cmp >= 0) latest = e;
   }
   return latest;
@@ -971,7 +972,7 @@ export function renderNaiveDump(
 ): string {
   let entries = readAll()
     .filter((e) => e.zone !== 'archive')
-    .sort((a, b) => a.created.localeCompare(b.created)); // oldest first (load order)
+    .sort((a, b) => compareTimestamps(a.created, b.created)); // oldest first (load order)
   // A `limit` reproduces the Stark-FQDN incident faithfully: a load-order memory
   // truncated to a token budget keeps the OLDER entries and drops the newest
   // correction — exactly mykb v1's failure mode.
@@ -1092,7 +1093,7 @@ export function renderContextDelta(session: SessionState, project = defaultProje
 // Entries created within a session's [startedAt, lastAt] window — recomputed from
 // the live brain, so a since-deleted/tombstoned entry never reappears (anti-stale).
 function sessionWindow(all: KnowledgeEntry[], from: string, to: string) {
-  const added = all.filter((e) => e.created >= from && e.created <= to);
+  const added = all.filter((e) => compareTimestamps(e.created, from) >= 0 && compareTimestamps(e.created, to) <= 0);
   const superseded = added.filter((e) => e.refs?.supersedes); // each new edge = one supersession in-window
   return { added, superseded };
 }
@@ -1106,7 +1107,7 @@ const DIGEST_LESSON_CAP = 5; // bound the learned-lessons section in the digest
 function distilledLessons(added: KnowledgeEntry[]): KnowledgeEntry[] {
   return added
     .filter((e) => e.zone === 'incoming' && e.tags.includes('distilled'))
-    .sort((a, b) => b.created.localeCompare(a.created)); // newest first
+    .sort((a, b) => compareTimestamps(b.created, a.created)); // newest first
 }
 
 // Render a single session record as a derived digest. Observed facts (added/

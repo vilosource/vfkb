@@ -17,6 +17,7 @@ import { autoCurate } from './curator.js';
 import { GIT_READ_MAX_BUFFER } from './git-buffer.js';
 import { writeMeta } from './storage.js';
 import { relativeReal } from './realpath.js';
+import { compareTimestamps } from './timestamp.js';
 
 export type GitRunner = (args: string[], cwd: string) => string;
 
@@ -238,7 +239,7 @@ export function newEntriesSinceHead(git: GitRunner, cwd: string, absEntries: str
   for (const e of current) {
     if (!e.id || known.has(e.id)) continue;
     const prev = fresh.get(e.id);
-    if (!prev || String(e.updated ?? '') >= String(prev.updated ?? '')) fresh.set(e.id, e);
+    if (!prev || compareTimestamps(String(e.updated ?? ''), String(prev.updated ?? '')) >= 0) fresh.set(e.id, e);
   }
   // An id the session added and then deleted ends on a tombstone: not a new entry.
   return [...fresh.values()].filter((e) => (e as { deleted?: boolean }).deleted !== true);
