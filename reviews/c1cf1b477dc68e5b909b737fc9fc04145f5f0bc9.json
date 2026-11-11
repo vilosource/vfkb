@@ -1,0 +1,41 @@
+{
+  "recordVersion": 1,
+  "sha": "c1cf1b477dc68e5b909b737fc9fc04145f5f0bc9",
+  "governing": [
+    "docs/adr/ADR-0084-handoff-nudge-next-prompt.md",
+    "docs/adr/ADR-0027-stop-hook-decision-capture-reminder.md",
+    "docs/adr/ADR-0011-envelope-richness.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "opus", "rounds": 2 },
+  "generated": "2026-11-11T13:30:00Z",
+  "findings": [
+    { "id": "R1-M1", "severity": "major", "status": "fixed", "summary": "Guard comment, commit and PR body claimed `vfkb curate promote` verifies an entry; promote() only moves the zone (src/curator.ts:42-48), only promote-auto stamps verified. Fixed in c1cf1b4; the missing human verify path is filed as #471.", "acceptedBy": null },
+    { "id": "R1-M2", "severity": "major", "status": "fixed", "summary": "Agent-facing role=human left in docs/CONSUMER-ONBOARDING-PROMPT.md:63 (mislabelled human-facing) and .claude/commands/vfkb-new-project.md:82 while claiming Closes #465. Both fixed in c1cf1b4; CLAUDE.md (operator-owned) carried to #471.", "acceptedBy": null },
+    { "id": "R1-m3", "severity": "minor", "status": "fixed", "summary": "Departure from RFC-047 §4.3's quoted template not recorded as a decision. ADR-0084 §2.4 pins label/conditional/banned phrases, not the role, so no ADR amendment needed; brain decision 97012c3a61c9 recorded.", "acceptedBy": null },
+    { "id": "R1-m4", "severity": "minor", "status": "fixed", "summary": "Guard regex missed role: human / role=\"human\" / role=Human / \"role\":\"human\" and false-matched prole=humane. Tightened and pinned with match and non-match cases in c1cf1b4.", "acceptedBy": null },
+    { "id": "R1-m5", "severity": "minor", "status": "open", "summary": "CLI supersede defaults role to human (src/cli.ts:610) while MCP kb_supersede defaults to architect; out of #465's wording scope, carried to #471.", "acceptedBy": null },
+    { "id": "R2-mA", "severity": "minor", "status": "open", "summary": "Introduced by the round-1 fix: the tightened regex no longer catches a space-only 'role human' (mutation P5 stayed green). No shipped text has that shape; traded for removing false positives.", "acceptedBy": null },
+    { "id": "R2-mB", "severity": "minor", "status": "open", "summary": "Brain decision 97012c3a61c9 is not on the PR branch; it reaches main only through the session's brain PR.", "acceptedBy": null },
+    { "id": "R2-mC", "severity": "minor", "status": "fixed", "summary": "PR body still described the guard as 'role=human / --role human' and 'red 4/4' after the regex changed.", "acceptedBy": null }
+  ],
+  "findingsCount": 8,
+  "ruledOut": [
+    "MCP kb_add and CLI add default role to executor (src/mcp-server.ts:250, src/cli.ts:197), so dropping the hint takes effect",
+    "deriveTrust human→operator→established+verified and +3/+1 within-tier score (src/engine.ts:63-64,145,156,517-518) as the PR states",
+    "pin selection and isInjectable ignore role and zone: an executor/unverified handoff still pins and still silences B1/B3",
+    "decision status defaults to proposed regardless of role",
+    "no role coaching in plugin skills brief/handoff/update/vfkb (cached 0.21–0.24 and plugin clone origin/main as of Nov 1)",
+    "historical scenario records and the #411 ups-wording fixture deliberately keep the old text",
+    "the local user-prompt-submit failure reproduces on origin/main 11c4f2f (1 failed/1413), so it is pre-existing (#470)",
+    "GENESIS fact landing executor/unverified/incoming breaks nothing later in /vfkb-new-project; unverified entries are still injected",
+    "vilosource identity and no AI attribution on both commits"
+  ],
+  "mutations": [
+    { "guard": "test/nudge-no-self-verify.test.ts > decision-capture (Stop)", "mutation": "M1: role=human re-added to STOP_REMINDER kb_add part; M2: --role human re-added to its CLI part only; P1: role: human; P2: --role \"human\"", "observedRed": true },
+    { "guard": "test/nudge-no-self-verify.test.ts > stale handoff (Stop B3)", "mutation": "M3: role=human re-added to renderStaleHandoffReminder; P3: role=\"human\"; author: role: \"human\"", "observedRed": true },
+    { "guard": "test/nudge-no-self-verify.test.ts > prompt line, stale / prompt line, B1", "mutation": "M4: role=human re-added to renderPromptNudge; P4: role=Human; P6: --role=human", "observedRed": true },
+    { "guard": "test/nudge-no-self-verify.test.ts (all four text cases)", "mutation": "author: whole src/ stashed to the merge-base version", "observedRed": true }
+  ],
+  "mutationsNote": null,
+  "verdict": "MERGE"
+}
