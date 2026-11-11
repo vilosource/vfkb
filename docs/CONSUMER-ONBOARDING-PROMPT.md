@@ -60,7 +60,7 @@ is a fallback only — use it solely if the repo deliberately isn't plugin-wired
 > not a mykb *workspace* journal (`~/.mykb/workspaces/<name>/journal.jsonl`). A `kb work journal` is a
 > workspace, so `--from-mykb` on it imports **nothing**. Check `kb list` / `ls ~/.mykb/areas` first; if
 > your knowledge is only in a workspace journal, hand-fold the durable lines with
-> `vfkb add fact "…" --role human`. Run each import **once** — append-only, no dedup.
+> `vfkb add fact "…"`. Run each import **once** — append-only, no dedup.
 >
 > **4. Commit the wiring + brain:**
 > ```bash

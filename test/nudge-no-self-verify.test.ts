@@ -3,12 +3,20 @@ import { STOP_REMINDER, renderStaleHandoffReminder } from '../src/stop-reminder.
 import { renderPromptNudge } from '../src/prompt-nudge.js';
 
 // vfkb#465: a nudge must not coach the agent to write role=human. That role derives trust
-// 'operator' and so provenance 'verified' (deriveTrust, src/engine.ts), which ranks higher at
-// injection. Verification is a human action (`vfkb curate promote`), not a label the agent picks.
-const SELF_VERIFY = /role[=\s]+human|--role\s+human/;
+// 'operator' (deriveTrust, src/engine.ts) and so provenance 'verified', and both rank higher at
+// injection. Whether an entry is human-checked is the human's call, not a label the agent picks.
+const SELF_VERIFY = /\brole\b["']?\s*[:=]\s*["']?human\b|--role\s+["']?human\b/i;
 
 const pin = { id: 'c708f71279b6', created: '2026-10-27T10:00:00.000Z' };
 const commits = [{ hash: 'a'.repeat(40), short: 'aaaaaaa', subject: 'docs: note' }];
+
+describe('the self-verify pattern', () => {
+  it.each(['role=human', 'role: human', 'role="human"', "role='human'", 'role=Human', '"role":"human"', '--role human'])(
+    'matches %s',
+    (s) => expect(`kb_add (type=fact, ${s})`).toMatch(SELF_VERIFY),
+  );
+  it.each(['prole=humane', 'role=humanities', 'role=executor'])('does not match %s', (s) => expect(s).not.toMatch(SELF_VERIFY));
+});
 
 describe('agent-facing nudge texts never ask for role=human (vfkb#465)', () => {
   const texts: Record<string, string> = {
