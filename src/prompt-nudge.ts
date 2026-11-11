@@ -149,8 +149,8 @@ export function renderPromptNudge(
   }
   return (
     `${PROMPT_NUDGE_LEADIN} ${clauses.join('; ')}.` +
-    ' If this prompt ends the session, a fresh handoff/next entry (kb_add type=fact, tags=handoff,next, ' +
-    'role=human) naming what changed and what is next is the one thing worth recording before finishing; ' +
+    ' If this prompt ends the session, a fresh handoff/next entry (kb_add type=fact, tags=handoff,next) ' +
+    'naming what changed and what is next is the one thing worth recording before finishing; ' +
     `otherwise nothing is needed now${listed ? ' — the next session sees this same list at start' : ''}.`
   );
 }

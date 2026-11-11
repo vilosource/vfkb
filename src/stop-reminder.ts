@@ -31,7 +31,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { brainDir, materialize, type StoredRecord } from './storage.js';
-import { latestHandoff, renderCommitsSince, supersededIds, type StaleCommit } from './engine.js';
+import { countsAsSessionHandoff, latestHandoff, renderCommitsSince, supersededIds, type StaleCommit } from './engine.js';
 import { cachedPinStaleness, type PinStalenessOpts } from './pin-staleness.js';
 import { boundedGit, isOnDefaultBranch, newEntriesSinceHead, realGit } from './session-end.js';
 import type { KnowledgeEntry } from './types.js';
@@ -68,8 +68,6 @@ export interface StopContext {
   newDecisions: number;
   /** total entries appended to the brain since HEAD this session (git-delta) */
   newEntries?: number;
-  /** count of `handoff`/`next`-tagged entries appended to the brain since HEAD */
-  newHandoffs?: number;
   /** RFC-043 Part 0's set S for the pinned handoff (newest first); non-empty = stale (B3) */
   staleCommits?: StaleCommit[];
   /** the pinned handoff B3 names (its id and created) */
@@ -108,8 +106,8 @@ export const STALE_HANDOFF_MIN_TURN = 3;
 export const STOP_REMINDER =
   'vfkb decision-capture check: this turn changed code/docs but no `decision` was recorded ' +
   'to the brain. If a load-bearing decision was made, capture it now via ' +
-  '`mcp__vfkb__kb_add` (type=decision, why=<rationale>, role=human) — or ' +
-  '`vfkb add decision "…" --why "…" --role human` — and add an ADR under docs/adr/ for ' +
+  '`mcp__vfkb__kb_add` (type=decision, why=<rationale>) — or ' +
+  '`vfkb add decision "…" --why "…"` — and add an ADR under docs/adr/ for ' +
   'anything architectural. If NO decision was made this turn, just finish normally.';
 
 // The strong-signal threshold: only nudge for a handoff once the session has
@@ -166,7 +164,7 @@ export function renderStaleHandoffReminder(pin: { id: string; created: string } 
     `${STALE_HANDOFF_LEADIN}the pinned handoff/next entry${which} predates commits that landed after it was written.\n` +
     renderCommitsSince(commits) +
     `${STALE_HANDOFF_NEXT_SESSION} If you are WRAPPING UP, record a fresh handoff now — kb_add ` +
-    '(type=fact, tags=handoff,next, role=human), or /vfkb:handoff if available — naming what ' +
+    '(type=fact, tags=handoff,next), or /vfkb:handoff if available — naming what ' +
     'actually changed and what is next now. If you are still mid-session, ignore this and finish normally.'
   );
 }
@@ -218,7 +216,7 @@ export function decideStop(input: StopHookInput, ctx: StopContext): StopDecision
   // Decision-capture nudge (ADR-0027): work happened AND no decision recorded this session.
   if (ctx.uncommittedWork && ctx.newDecisions === 0) nudge('decision', STOP_REMINDER);
   // B1 (handoff, RFC-011) is NOT composed here any more (ADR-0084 §1.6): it rides the next
-  // prompt as a non-blocking line. `newEntries`/`newHandoffs` stay in the context for it.
+  // prompt as a non-blocking line. B1's own counts are gathered there (prompt-nudge.ts), not here.
   // Stale-handoff nudge (B3): NOT gated on uncommittedWork — the defining case is a clean
   // working tree with everything already merged, and the pinned handoff behind it anyway.
   // 1a (ADR-0084 §1.1): quiet while a VALID turn is below STALE_HANDOFF_MIN_TURN.
@@ -312,7 +310,9 @@ export function uncommittedDecisionCount(brain: string = brainDir(), cwd: string
   return newBrainEntriesSinceHead(brain, cwd).filter((e) => e.type === 'decision').length;
 }
 
-export const isHandoff = (e: { tags?: string[] }): boolean => (e.tags ?? []).some((t) => t === 'handoff' || t === 'next');
+// ADR-0082 §1 / #373: only an entry that could be the pin counts as "a handoff was left".
+// The rule lives in the engine (`countsAsSessionHandoff`), shared with the B2 fallback.
+export const isHandoff = (e: unknown): boolean => countsAsSessionHandoff(e);
 
 /**
  * The currently PINNED handoff (ADR-0082 §2): the brain MATERIALIZED, then the engine's
@@ -394,7 +394,6 @@ export function gatherStopContext(cwd: string = process.cwd(), brain: string = b
     uncommittedWork: hasUncommittedWork(cwd, brain),
     newDecisions: fresh.filter((e) => e.type === 'decision').length,
     newEntries: fresh.length,
-    newHandoffs: fresh.filter(isHandoff).length,
     staleCommits: stale?.commits ?? [],
     pin: stale ? { id: stale.pin.id, created: stale.pin.created } : undefined,
     onDefaultBranch: () => isOnDefaultBranch(realGit, cwd),

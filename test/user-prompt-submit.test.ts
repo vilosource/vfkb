@@ -96,7 +96,7 @@ describe('hook user-prompt-submit — emission and cadence', () => {
     const sha7 = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim().slice(0, 7);
     expect(ctxOf(first).additionalContext).toBe(
       `${LEADIN} the pinned handoff (pin000000001, 2030-02-01) predates 1 commit on feat/x: ${sha7} later b. If this prompt ends ` +
-        'the session, a fresh handoff/next entry (kb_add type=fact, tags=handoff,next, role=human) naming what ' +
+        'the session, a fresh handoff/next entry (kb_add type=fact, tags=handoff,next) naming what ' +
         'changed and what is next is the one thing worth recording before finishing; otherwise nothing is needed now' +
         ' — the next session sees this same list at start.',
     );
@@ -120,6 +120,19 @@ describe('hook user-prompt-submit — emission and cadence', () => {
     const line = (t: string) => JSON.stringify({ id: t, type: 'fact', text: t, tags: [] }) + '\n';
     const f = join(dir, '.vfkb', 'entries.jsonl');
     writeFileSync(f, readFileSync(f, 'utf8') + line('e1') + line('e2') + line('e3'));
+    expect(ctxOf(ups(dir, typed('s1'))).additionalContext).toContain(
+      'this session has recorded 3 entries and no handoff/next entry.',
+    );
+  });
+
+  it('B1 (#373): a decision tagged handoff is not a session handoff, so the B1 clause still fires', () => {
+    const dir = staleRepo();
+    git(dir, ['reset', '-q', '--hard', 'HEAD~1']);
+    seedSession(dir, 's1', 1);
+    writeFileSync(join(dir, 'src', 'wip.ts'), 'wip\n');
+    const line = (t: string, type: string, tags: string[]) => JSON.stringify({ id: t, type, text: t, tags }) + '\n';
+    const f = join(dir, '.vfkb', 'entries.jsonl');
+    writeFileSync(f, readFileSync(f, 'utf8') + line('e1', 'fact', []) + line('e2', 'fact', []) + line('d1', 'decision', ['handoff', 'next']));
     expect(ctxOf(ups(dir, typed('s1'))).additionalContext).toContain(
       'this session has recorded 3 entries and no handoff/next entry.',
     );

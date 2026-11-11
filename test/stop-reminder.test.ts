@@ -15,6 +15,7 @@ import {
   NUDGE_COOLDOWN_TURNS,
   STALE_HANDOFF_MIN_TURN,
   isPausedStop,
+  isHandoff,
 } from '../src/stop-reminder.js';
 
 import { COMMITS_SINCE_SLICE_CHARS, renderCommitsSince, type StaleCommit } from '../src/engine.js';
@@ -59,6 +60,8 @@ describe('decideStop — conditional end-of-turn reminder', () => {
 
 // ── B1 leaves Stop (ADR-0084 §1.6): its standing reminder rides the next prompt ─
 describe('decideStop — B1 never fires on Stop (ADR-0084 §1.6)', () => {
+  // `newHandoffs` is no longer a StopContext field (#461 F1). It stays in this fixture so that
+  // re-adding B1 to decideStop (e.g. `handoffNudgeDue(ctx)`) turns these tests red at unit level.
   const b1 = { uncommittedWork: true, newDecisions: 1, newEntries: HANDOFF_MIN_ENTRIES + 5, newHandoffs: 0 };
 
   it("B1's condition holds and Stop does NOT block (no handoff text)", () => {
@@ -105,7 +108,7 @@ describe('decideStop — stale-handoff nudge', () => {
   it('blocks with the stale-handoff reminder when S is non-empty', () => {
     const d = decideStop(
       { stop_hook_active: false },
-      { uncommittedWork: false, newDecisions: 1, newEntries: 0, newHandoffs: 0, staleCommits: S1, pin: PIN },
+      { uncommittedWork: false, newDecisions: 1, newEntries: 0, staleCommits: S1, pin: PIN },
     );
     expect(d).toEqual({ block: true, reminder: STALE_HANDOFF_REMINDER, fired: ['staleHandoff'] });
   });
@@ -131,7 +134,7 @@ describe('decideStop — stale-handoff nudge', () => {
   it('composes with the decision nudge when B1, B3 and the decision trigger all hold (B1 stays off Stop)', () => {
     const d = decideStop(
       { stop_hook_active: false },
-      { uncommittedWork: true, newDecisions: 0, newEntries: HANDOFF_MIN_ENTRIES, newHandoffs: 0, staleCommits: S1, pin: PIN },
+      { uncommittedWork: true, newDecisions: 0, newEntries: HANDOFF_MIN_ENTRIES, staleCommits: S1, pin: PIN },
     );
     expect(d).toEqual({ block: true, reminder: `${STOP_REMINDER}\n\n${STALE_HANDOFF_REMINDER}`, fired: ['decision', 'staleHandoff'] });
   });
@@ -175,8 +178,7 @@ describe('decideStop — per-nudge cooldown', () => {
       {
         uncommittedWork: true,
         newDecisions: 0, // decision trigger holds, but cooling
-        newEntries: HANDOFF_MIN_ENTRIES,
-        newHandoffs: 0, // B1 trigger holds, never fired
+        newEntries: HANDOFF_MIN_ENTRIES, // B1's condition holds; Stop never fires B1 (ADR-0084 §1.6)
         staleCommits: S1, pin: PIN, // B3 trigger holds, never fired
         turn: 3,
         lastNudged: { decision: 2 },
@@ -395,7 +397,6 @@ describe('decideStop — B3 not before turn 3 (ADR-0084 §1.1)', () => {
     uncommittedWork: true,
     newDecisions: 0,
     newEntries: HANDOFF_MIN_ENTRIES,
-    newHandoffs: 0,
     staleCommits: S1, pin: PIN,
   };
 
@@ -446,7 +447,6 @@ describe('decideStop — paused stop defers all nudges (ADR-0084 §1.2)', () => 
     uncommittedWork: true,
     newDecisions: 0,
     newEntries: HANDOFF_MIN_ENTRIES,
-    newHandoffs: 0,
     staleCommits: S1, pin: PIN,
     turn: 5,
     lastNudged: {},
@@ -506,7 +506,7 @@ describe('the B3 Stop text', () => {
         'Commits since this handoff was recorded (1):\n' +
         '  aaaaaaa fix: a thing (#9)\n' +
         "The next session's resume lists these same commits under `## Last handoff`, so a handoff written now is optional unless you are wrapping up. " +
-        'If you are WRAPPING UP, record a fresh handoff now — kb_add (type=fact, tags=handoff,next, role=human), ' +
+        'If you are WRAPPING UP, record a fresh handoff now — kb_add (type=fact, tags=handoff,next), ' +
         'or /vfkb:handoff if available — naming what actually changed and what is next now. ' +
         'If you are still mid-session, ignore this and finish normally.',
     );
@@ -1080,5 +1080,33 @@ describe('cli hook user-prompt-submit — B1 self-silence', () => {
     // The fixture sits on `main` with an uncommitted brain, so ADR-0085's systemMessage (for
     // the user) fires; the agent-facing line must still carry no B1 clause.
     expect(out === '' ? undefined : JSON.parse(out).hookSpecificOutput).toBeUndefined();
+  });
+});
+
+// vfkb#373 (ADR-0082 §1): B1's "did the session leave a handoff?" uses the pin's own rule
+// (engine `countsAsSessionHandoff`): normalised like the engine's read, then a pin candidate
+// and live. Raw rows, as the call sites pass them.
+describe('vfkb#373 — isHandoff counts only what could be the pin', () => {
+  const row = (o: Record<string, unknown>) => ({ id: 'r', text: 'HANDOFF', created: '2026-11-01T00:00:00.000Z', ...o });
+  it('a fact tagged handoff or next counts', () => {
+    expect(isHandoff(row({ type: 'fact', tags: ['handoff'] }))).toBe(true);
+    expect(isHandoff(row({ type: 'fact', tags: ['next', 'status'] }))).toBe(true);
+  });
+  it('a row with no type, or an unknown one, reads as a fact (as the pin selector reads it) and counts', () => {
+    expect(isHandoff(row({ tags: ['handoff'] }))).toBe(true);
+    expect(isHandoff(row({ type: 'note', tags: ['handoff'] }))).toBe(true);
+  });
+  it('a decision, link, gotcha or pattern with those tags does not', () => {
+    for (const type of ['decision', 'link', 'gotcha', 'pattern']) {
+      expect(isHandoff(row({ type, tags: ['handoff', 'next'] }))).toBe(false);
+    }
+  });
+  it('a handoff that is not live does not: archived, or past its valid_until', () => {
+    expect(isHandoff(row({ type: 'fact', tags: ['handoff'], zone: 'archive' }))).toBe(false);
+    expect(isHandoff(row({ type: 'fact', tags: ['handoff'], validity: { valid_until: '2000-01-01' } }))).toBe(false);
+  });
+  it('a fact without the tags does not', () => {
+    expect(isHandoff(row({ type: 'fact', tags: ['status'] }))).toBe(false);
+    expect(isHandoff(row({ type: 'fact' }))).toBe(false);
   });
 });

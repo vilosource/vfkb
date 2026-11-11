@@ -24,6 +24,7 @@ import { selectIndex } from './index-store.js';
 import { testHoldForRace } from './lock.js';
 import { assertNoSecrets } from './secrets.js';
 import { tally } from './counters.js';
+import { normalizeEntry } from './validate.js';
 import { SessionState } from './session.js';
 import type { SessionData } from './session.js';
 import type { KbIndex } from './index-store.js';
@@ -626,6 +627,20 @@ export function renderCommitsSince(commits: StaleCommit[]): string {
 }
 export function isPinCandidate(e: KnowledgeEntry): boolean {
   return e.type === 'fact' && (e.tags.includes('handoff') || e.tags.includes('next'));
+}
+
+/**
+ * Does a raw brain row count as "this session left a handoff"? (#373, ADR-0082 §1.) Only an
+ * entry that could be the pin counts, so the row goes through the same normalisation the
+ * engine applies on read (a missing or unknown `type` reads as `fact`, `src/validate.ts`) and
+ * then the pin's own predicates: `isPinCandidate` and live (`isInjectable`). A decision or
+ * link tagged handoff, or a handoff archived or expired in the same session, does not count.
+ * B1 (stop-reminder, prompt-nudge) and the B2 fallback (session-end) all decide through here,
+ * so they cannot drift from `latestHandoff`.
+ */
+export function countsAsSessionHandoff(raw: unknown, today = nowIso().slice(0, 10)): boolean {
+  const n = normalizeEntry(raw);
+  return n.ok && isPinCandidate(n.entry) && isInjectable(n.entry, today);
 }
 export function latestHandoff(
   all: KnowledgeEntry[] = readAll(),
