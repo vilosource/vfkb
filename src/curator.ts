@@ -29,7 +29,7 @@ import { withExclusive, readRecords, materialize, isTombstone, writeMeta } from 
 import { normalizeEntry } from './validate.js';
 import { tally } from './counters.js';
 import type { KnowledgeEntry } from './types.js';
-import { compareTimestamps } from './timestamp.js';
+import { compareTimestamps, timestampMs } from './timestamp.js';
 
 function get(id: string): KnowledgeEntry {
   const e = readAll().find((x) => x.id === id);
@@ -230,7 +230,8 @@ const GENERIC_TAGS = new Set([
 ]);
 const topicTags = (e: KnowledgeEntry) => e.tags.filter((t) => !GENERIC_TAGS.has(t));
 const isRuleLine = (e: KnowledgeEntry) => e.tags.some((t) => t.startsWith(AUTO_ARCHIVED));
-const createdMs = (e: KnowledgeEntry) => Date.parse(e.created);
+// ISO only, zone-less as UTC (timestamp.ts), so every clone archives the same entries.
+const createdMs = (e: KnowledgeEntry) => timestampMs(e.created);
 
 export interface AutoCurateResult {
   archived: string[];

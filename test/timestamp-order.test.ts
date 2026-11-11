@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { compareTimestamps } from '../src/timestamp.js';
 import { heuristicCompare, latestHandoff, retirementRefusal } from '../src/engine.js';
@@ -114,5 +116,31 @@ describe('compareTimestamps — host-independent, ISO only (#460 review)', () =>
     expect(compareTimestamps('1', UTC_10)).toBe(-1); // '1' < '2' as strings
     expect(compareTimestamps('hello 2026', UTC_10)).toBe(1); // 'h' > '2'
     expect(compareTimestamps('unknown', UTC_10)).toBe(1); // still above every ISO value
+  });
+});
+
+// #460 review round 2 (M-2): background curation measured ages with Date.parse, so a zone-less
+// `created` was local time and two clones in different timezones archived different entries.
+describe('background curation archives the same entries in every timezone (#460 review)', () => {
+  it('a zone-less handoff is ordered as UTC by the Tier-1 rule too', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'vfkb-tz-'));
+    const h = (id: string, created: string) =>
+      JSON.stringify({ ...handoff(id, created), text: `HANDOFF ${id}: what happened, what is next` }) + '\n';
+    // N3 is 30 minutes after E in UTC; Asia/Tokyo's local reading made it 8.5 h before E.
+    writeFileSync(
+      join(dir, 'entries.jsonl'),
+      h('E', '2026-10-01T12:00:00.000Z') +
+        h('N1', '2026-10-05T00:00:00.000Z') +
+        h('N3', '2026-10-01T12:30:00') +
+        h('P', '2026-11-01T00:00:00.000Z'),
+    );
+    const mod = pathToFileURL(resolve(__dirname, '../dist/curator.js')).href;
+    const code = `import(${JSON.stringify(mod)}).then((m) => console.log(JSON.stringify(m.autoCurate('2026-11-02', { dryRun: true }).archived)))`;
+    const out = ['UTC', 'America/Los_Angeles', 'Asia/Tokyo'].map((tz) => {
+      const env: NodeJS.ProcessEnv = { ...process.env, TZ: tz, VFKB_DATA_DIR: dir };
+      delete env.VFKB_DIR;
+      return spawnSync('node', ['-e', code], { env, encoding: 'utf8' }).stdout.trim();
+    });
+    expect(out).toEqual(['["E"]', '["E"]', '["E"]']);
   });
 });
