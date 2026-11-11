@@ -1,0 +1,29 @@
+{
+  "recordVersion": 1,
+  "sha": "f22d327547afd92cba16bc527bf29f44962400fb",
+  "governing": ["docs/adr/ADR-0083-background-curation.md"],
+  "reviewer": { "agent": "general-purpose", "model": "opus", "rounds": 2 },
+  "generated": "2026-11-11T15:00:00Z",
+  "findings": [
+    { "id": "R1-M1", "severity": "major", "status": "fixed", "summary": "Comment and PR body implied SessionEnd stderr reaches the user; the hook reads only systemMessage/reason (cli.ts:967-969) and the #384 probe saw no SessionEnd output. Reworded to a best-effort log line; user surface filed as #473.", "acceptedBy": null },
+    { "id": "R1-m2", "severity": "minor", "status": "fixed", "summary": "Mutation E (stderr skip line written on every run) survived; the can-act test now spies stderr and E goes red.", "acceptedBy": null },
+    { "id": "R1-m3", "severity": "minor", "status": "open", "summary": "The sort-watch test is stricter than the rule: a future harmless sort over entries including an unparseable created would go red falsely. Accepted as is.", "acceptedBy": null },
+    { "id": "R2-m1", "severity": "minor", "status": "open", "summary": "describe title says 'reported, not silent' though the report reaches only the caller and a log line.", "acceptedBy": null }
+  ],
+  "findingsCount": 4,
+  "ruledOut": [
+    "stderr on exit 0 does not disturb the SessionEnd stdout JSON (cli.ts:982); runSessionEnd has one production caller (cli.ts:967); the write is inside the existing try/catch so the hook still fails open",
+    "the sort-watch test is a behavioural spy on the exported autoCurate, not a source-text guard (ADR-0070 §1); toSorted, a for-loop or an id sort make it fail loudly, not vacuously",
+    "scope is exactly #380's three items; the old V8-dependent test is kept",
+    "no textual overlap with #460",
+    "vilosource identity and no AI attribution"
+  ],
+  "mutations": [
+    { "guard": "test/background-curation.test.ts > no entry with an unparseable created reaches a sort; > an unparseable created cannot scramble…", "mutation": "A: dropped Number.isFinite(createdMs(e)) from the shaped filter (curator.ts)", "observedRed": true },
+    { "guard": "test/session-end-budget.test.ts > #380 > an unparseable pin created: SessionEnd returns the rule's reason and says it on stderr", "mutation": "B: if (c.skipped) → if (false); D: note kept, stderr write dropped", "observedRed": true },
+    { "guard": "test/r7-curation-cli.test.ts > CLI — curate auto > prints the reason when the rule cannot run (#380)", "mutation": "C: deleted the CLI if (r.skipped) print", "observedRed": true },
+    { "guard": "test/session-end-budget.test.ts > #380 > a run that can act carries no note and writes no skip line", "mutation": "E: stderr skip line on every run; F: note on every run; I: inverted condition", "observedRed": true }
+  ],
+  "mutationsNote": null,
+  "verdict": "MERGE"
+}
