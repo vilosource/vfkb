@@ -60,6 +60,8 @@ describe('decideStop — conditional end-of-turn reminder', () => {
 
 // ── B1 leaves Stop (ADR-0084 §1.6): its standing reminder rides the next prompt ─
 describe('decideStop — B1 never fires on Stop (ADR-0084 §1.6)', () => {
+  // `newHandoffs` is no longer a StopContext field (#461 F1). It stays in this fixture so that
+  // re-adding B1 to decideStop (e.g. `handoffNudgeDue(ctx)`) turns these tests red at unit level.
   const b1 = { uncommittedWork: true, newDecisions: 1, newEntries: HANDOFF_MIN_ENTRIES + 5, newHandoffs: 0 };
 
   it("B1's condition holds and Stop does NOT block (no handoff text)", () => {
@@ -106,7 +108,7 @@ describe('decideStop — stale-handoff nudge', () => {
   it('blocks with the stale-handoff reminder when S is non-empty', () => {
     const d = decideStop(
       { stop_hook_active: false },
-      { uncommittedWork: false, newDecisions: 1, newEntries: 0, newHandoffs: 0, staleCommits: S1, pin: PIN },
+      { uncommittedWork: false, newDecisions: 1, newEntries: 0, staleCommits: S1, pin: PIN },
     );
     expect(d).toEqual({ block: true, reminder: STALE_HANDOFF_REMINDER, fired: ['staleHandoff'] });
   });
@@ -132,7 +134,7 @@ describe('decideStop — stale-handoff nudge', () => {
   it('composes with the decision nudge when B1, B3 and the decision trigger all hold (B1 stays off Stop)', () => {
     const d = decideStop(
       { stop_hook_active: false },
-      { uncommittedWork: true, newDecisions: 0, newEntries: HANDOFF_MIN_ENTRIES, newHandoffs: 0, staleCommits: S1, pin: PIN },
+      { uncommittedWork: true, newDecisions: 0, newEntries: HANDOFF_MIN_ENTRIES, staleCommits: S1, pin: PIN },
     );
     expect(d).toEqual({ block: true, reminder: `${STOP_REMINDER}\n\n${STALE_HANDOFF_REMINDER}`, fired: ['decision', 'staleHandoff'] });
   });
@@ -176,8 +178,7 @@ describe('decideStop — per-nudge cooldown', () => {
       {
         uncommittedWork: true,
         newDecisions: 0, // decision trigger holds, but cooling
-        newEntries: HANDOFF_MIN_ENTRIES,
-        newHandoffs: 0, // B1 trigger holds, never fired
+        newEntries: HANDOFF_MIN_ENTRIES, // B1's condition holds; Stop never fires B1 (ADR-0084 §1.6)
         staleCommits: S1, pin: PIN, // B3 trigger holds, never fired
         turn: 3,
         lastNudged: { decision: 2 },
@@ -396,7 +397,6 @@ describe('decideStop — B3 not before turn 3 (ADR-0084 §1.1)', () => {
     uncommittedWork: true,
     newDecisions: 0,
     newEntries: HANDOFF_MIN_ENTRIES,
-    newHandoffs: 0,
     staleCommits: S1, pin: PIN,
   };
 
@@ -447,7 +447,6 @@ describe('decideStop — paused stop defers all nudges (ADR-0084 §1.2)', () => 
     uncommittedWork: true,
     newDecisions: 0,
     newEntries: HANDOFF_MIN_ENTRIES,
-    newHandoffs: 0,
     staleCommits: S1, pin: PIN,
     turn: 5,
     lastNudged: {},

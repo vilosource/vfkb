@@ -1,0 +1,29 @@
+{
+  "recordVersion": 1,
+  "sha": "672afe1386aa8b81419673c48d848c9b96e9c7be",
+  "governing": [
+    "docs/adr/ADR-0084-handoff-nudge-next-prompt.md",
+    "docs/adr/ADR-0082-propose-only-curation.md"
+  ],
+  "reviewer": { "agent": "general-purpose", "model": "opus", "rounds": 2 },
+  "generated": "2026-11-11T14:10:00Z",
+  "findings": [
+    { "id": "R1-m1", "severity": "minor", "status": "fixed", "summary": "Dropping newHandoffs:0 from the b1 fixture made a strict re-add of B1 to decideStop (M3/M4) pass the unit tests; only the CLI e2e test (stop-reminder.test.ts:817) caught a full re-add. Fixed in 672afe1: the fixture keeps newHandoffs:0 with a comment; M3 and M4 observed red.", "acceptedBy": null },
+    { "id": "R1-m2", "severity": "minor", "status": "fixed", "summary": "PR body under-reported local load failures (2 in one file vs 3 across user-prompt-submit and ups-warning) and promised an unfiled follow-up. Body corrected; #470 filed.", "acceptedBy": null }
+  ],
+  "findingsCount": 2,
+  "ruledOut": [
+    "newHandoffs was dead on the Stop path: set at stop-reminder.ts:399 (main), never read by decideStop (190-235); gatherStopContext's result goes only to decideStop (cli.ts:839); no scenario, script or pi-extension reader",
+    "no ADR keeps the field for Part B or telemetry (ADR-0084 §1.6, §6 is about B3)",
+    "no behaviour change; isHandoff still used by prompt-nudge.ts:353 and the #373 tests",
+    "the round-2 fixture extra property is harmless (test/ excluded from tsconfig) and no other fixture reads b1",
+    "vilosource identity and no AI attribution on both commits"
+  ],
+  "mutations": [
+    { "guard": "test/user-prompt-submit.test.ts > B1 (#373): a decision tagged handoff is not a session handoff, so the B1 clause still fires", "mutation": "M1: prompt-nudge.ts:353 counts handoffs by tags only", "observedRed": true },
+    { "guard": "test/stop-reminder.test.ts > decideStop — B1 never fires on Stop (both tests)", "mutation": "M3: B1 re-added to decideStop with ctx.newHandoffs === 0; M4: re-added as handoffNudgeDue(ctx)", "observedRed": true },
+    { "guard": "test/stop-reminder.test.ts:817 > B1 is off Stop (CLI e2e)", "mutation": "M5: M4 plus newHandoffs restored in gatherStopContext", "observedRed": true }
+  ],
+  "mutationsNote": null,
+  "verdict": "MERGE"
+}
