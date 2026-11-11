@@ -507,7 +507,7 @@ describe('the B3 Stop text', () => {
         'Commits since this handoff was recorded (1):\n' +
         '  aaaaaaa fix: a thing (#9)\n' +
         "The next session's resume lists these same commits under `## Last handoff`, so a handoff written now is optional unless you are wrapping up. " +
-        'If you are WRAPPING UP, record a fresh handoff now — kb_add (type=fact, tags=handoff,next, role=human), ' +
+        'If you are WRAPPING UP, record a fresh handoff now — kb_add (type=fact, tags=handoff,next), ' +
         'or /vfkb:handoff if available — naming what actually changed and what is next now. ' +
         'If you are still mid-session, ignore this and finish normally.',
     );

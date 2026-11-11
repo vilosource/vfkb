@@ -79,7 +79,7 @@ gh api repos/vilosource/vfkb/contents/docs/templates/consumer-settings.json?ref=
 gh api repos/vilosource/vfkb/contents/.claude/vfkb-guard.mjs?ref=main               --jq .content | base64 -d > .claude/vfkb-guard.mjs
 python3 -c 'import json;json.load(open(".claude/settings.json"))'   # settings.json is valid JSON
 # seed the brain (the engine CLI writes to any brain dir; an empty .vfkb/entries.jsonl is also valid):
-VFKB_DATA_DIR=.vfkb VFKB_PROJECT=<name> node ~/VFKB/vfkb/dist/cli.js add fact "GENESIS <date>: <name> created …" --role human --tag genesis,status
+VFKB_DATA_DIR=.vfkb VFKB_PROJECT=<name> node ~/VFKB/vfkb/dist/cli.js add fact "GENESIS <date>: <name> created …" --tag genesis,status
 ```
 
 **Activate the plugin now — do NOT defer this to the operator.** `enabledPlugins` in `settings.json`
