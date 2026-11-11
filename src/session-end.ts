@@ -86,6 +86,7 @@ export interface SessionEndResult {
   autoHandoff?: boolean; // GAP 1 (B2): a fallback handoff entry was written this run
   curated?: number; // ADR-0083 §3: entries the Tier-1 rule archived or repaired this run
   curationSkipped?: 'deadline'; // vfkb#384: curation not run, or stopped early, at the deadline
+  curationNote?: string; // vfkb#380: why the rule ran but archived nothing (autoCurate's `skipped`)
 }
 
 export interface BrainEntry {
@@ -418,6 +419,7 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
     //    curation is the optional step, so it is the one the deadline sheds.
     let curated = 0;
     let curationSkipped: 'deadline' | undefined;
+    let curationNote: string | undefined;
     if (fresh.length > 0) {
       if (now() >= SESSION_END_CURATION_DEADLINE_MS) {
         curationSkipped = 'deadline';
@@ -427,6 +429,13 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
           curated = c.archived.length + c.repaired.length;
           if (curated) metaBrain = absBrain;
           if (c.stopped) curationSkipped = c.stopped;
+          // vfkb#380: the rule ran but could not act. Returned to the caller, and written to
+          // stderr as a best-effort log line, like the lock-busy line in autoCurate. Neither
+          // reaches the user at SessionEnd (#384 probe; #395); a user surface is #473.
+          if (c.skipped) {
+            curationNote = c.skipped;
+            process.stderr.write(`vfkb: curation skipped: ${c.skipped}\n`);
+          }
         } catch {
           metaBrain = absBrain; // it may have written before it threw
           /* best-effort */
@@ -456,7 +465,7 @@ export function runSessionEnd(opts: SessionEndOpts = {}): SessionEndResult {
     if (!oc.tracked) git(['add', '--', entries], cwd);
     // `-m` MUST precede `--`; everything after `--` is treated as a pathspec.
     git(['commit', '-o', '-m', message, '--', entries], cwd);
-    return { committed: true, reason: 'committed', branch, added, message, autoHandoff, curated, curationSkipped };
+    return { committed: true, reason: 'committed', branch, added, message, autoHandoff, curated, curationSkipped, curationNote };
   } catch {
     // Any git failure (no identity, hook rejection, …) → fail-open, never block exit.
     return { committed: false, reason: 'error' };
