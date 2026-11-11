@@ -241,6 +241,41 @@ describe('#384 — the curation deadline (ADR-0083 §3 fail-open, made bounded)'
   });
 });
 
+describe('#380 — a curation run that cannot act is reported, not silent', () => {
+  it("an unparseable pin `created`: SessionEnd returns the rule's reason and says it on stderr", () => {
+    // 'unknown' sorts above every ISO string, so the odd row becomes the pin and the rule
+    // skips (curator.ts). Before #380 SessionEnd dropped `skipped`, so nobody saw it.
+    commitBrain(
+      line({
+        id: 'odd',
+        type: 'fact',
+        text: 'HANDOFF odd: what happened, what is next',
+        tags: ['handoff', 'next'],
+        zone: 'established',
+        author: { role: 'human' },
+        provenance: { status: 'verified' },
+        created: 'unknown',
+        updated: 'unknown',
+      }),
+    );
+    appendFileSync(join(repo, ENTRIES), NEW_FACT);
+    const err = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    try {
+      const r = runSessionEnd({ cwd: repo, dataDir: '.vfkb', now: () => 0 });
+      expect(r.committed).toBe(true);
+      expect(r.curationNote).toMatch(/pin odd has an unparseable created/);
+      expect(err.mock.calls.map((c) => String(c[0])).join('')).toMatch(/vfkb: curation skipped: pin odd/);
+    } finally {
+      err.mockRestore();
+    }
+  });
+
+  it('a run that can act carries no note', () => {
+    curationFixture();
+    expect(runSessionEnd({ cwd: repo, dataDir: '.vfkb', now: () => 0 }).curationNote).toBeUndefined();
+  });
+});
+
 describe('#384 — the commit-subject prefix is one shared definition', () => {
   it('runSessionEnd writes a subject starting with SESSION_END_COMMIT_PREFIX', () => {
     commitBrain(OLD_HANDOFF);
