@@ -60,7 +60,9 @@ describe('decideStop — conditional end-of-turn reminder', () => {
 
 // ── B1 leaves Stop (ADR-0084 §1.6): its standing reminder rides the next prompt ─
 describe('decideStop — B1 never fires on Stop (ADR-0084 §1.6)', () => {
-  const b1 = { uncommittedWork: true, newDecisions: 1, newEntries: HANDOFF_MIN_ENTRIES + 5 };
+  // `newHandoffs` is no longer a StopContext field (#461 F1). It stays in this fixture so that
+  // re-adding B1 to decideStop (e.g. `handoffNudgeDue(ctx)`) turns these tests red at unit level.
+  const b1 = { uncommittedWork: true, newDecisions: 1, newEntries: HANDOFF_MIN_ENTRIES + 5, newHandoffs: 0 };
 
   it("B1's condition holds and Stop does NOT block (no handoff text)", () => {
     for (const turn of [undefined, 1, 3, 50]) {
